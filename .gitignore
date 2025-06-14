@@ -1,0 +1,41 @@
+# MediaWiki core: 除外推奨ファイル・ディレクトリ
+/.git
+/.htaccess
+/.DS_Store
+/.vscode
+/.idea
+/cache/
+/tmp/
+/thumbs/
+/vendor/        # composer利用時のvendor
+/composer.lock
+/node_modules/
+
+# データやアップロードファイルは管理しない
+/images/
+*.sqlite
+*.bak
+*.log
+
+# 設定ファイルは基本サーバー管理（Git管理外推奨）
+/LocalSettings.php
+/LocalSettings.php.*
+/private_settings.php
+/secret.php
+
+# アクセスキー・DB設定ファイル類
+*.key
+*.pem
+*.crt
+
+# OSごとの一時ファイル
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# 拡張機能やskinのgitサブモジュール用
+/extensions/*/.git
+/skins/*/.git
+
+# Pleskやhoster用自動生成ファイル
+error_log
