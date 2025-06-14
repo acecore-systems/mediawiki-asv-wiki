@@ -33,3 +33,14 @@ MediaWiki is the result of global collaboration and cooperation. The CREDITS
 file lists technical contributors to the project. The COPYING file explains
 MediaWiki's copyright and license (GNU General Public License, version 2 or
 later). Many thanks to the Wikimedia community for testing and suggestions.
+## WikiMarkdown extension
+This repository includes the [WikiMarkdown extension](https://www.mediawiki.org/wiki/Extension:WikiMarkdown).
+The extension bundles its PHP dependencies under `extensions/WikiMarkdown/vendor`, so no Composer setup is required.
+
+Add the following to your `LocalSettings.php` to enable the extension:
+
+```php
+wfLoadExtension( 'WikiMarkdown' );
+$wgAllowMarkdownExtra = true;    // optional, enables Parsedown Extra
+$wgAllowMarkdownExtended = true; // optional, enables Parsedown Extended
+```
