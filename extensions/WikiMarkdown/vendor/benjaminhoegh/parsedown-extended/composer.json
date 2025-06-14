@@ -1,0 +1,32 @@
+{
+  "name": "benjaminhoegh/parsedown-extended",
+  "description": "An extension for Parsedown.",
+  "keywords": [
+    "markdown",
+    "markdown extended",
+    "parsedown",
+    "parsedown extended"
+  ],
+  "homepage": "https://github.com/benjaminhoegh/parsedown-extended",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Benjamin Hoegh",
+      "homepage": "https://github.com/benjaminhoegh"
+    }
+  ],
+  "require": {
+    "php": ">=7.2",
+    "erusev/parsedown": "^1.8-beta-6",
+    "erusev/parsedown-extra": "^0.8.0"
+  },
+  "config": {
+      "sort-packages": true
+  },
+  "autoload": {
+    "psr-0": {
+      "ParsedownExtended": ""
+    }
+  }
+}
