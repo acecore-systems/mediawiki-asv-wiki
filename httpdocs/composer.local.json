@@ -1,0 +1,11 @@
+{
+    "extra": {
+        "merge-plugin": {
+            "include": [
+                "extensions/*/composer.json",
+                "extensions/WikiMarkdown/composer.json",
+                "skins/*/composer.json"
+            ]
+        }
+    }
+}
