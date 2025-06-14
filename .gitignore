@@ -27,7 +27,7 @@ secret.php
 
 # IDE・OSのごみファイル
 .DS_Store
-ehthumbs.db
+thumbs.db
 Thumbs.db
 Desktop.ini
 /.idea/
