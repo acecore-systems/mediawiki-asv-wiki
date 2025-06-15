@@ -1,5 +1,12 @@
+/*
+ * Methods for transforming message syntax.
+ */
 ( function () {
-	Object.assign( mw.language, /** @lends mw.language */{
+
+	/**
+	 * @class mw.language
+	 */
+	$.extend( mw.language, {
 
 		/**
 		 * Plural form transformations, needed for some languages.
@@ -10,7 +17,8 @@
 		 * @return {string} Correct form for quantifier in this language
 		 */
 		convertPlural: function ( count, forms, explicitPluralForms ) {
-			let pluralFormIndex = 0;
+			var pluralRules,
+				pluralFormIndex = 0;
 
 			if ( explicitPluralForms && ( explicitPluralForms[ count ] !== undefined ) ) {
 				return explicitPluralForms[ count ];
@@ -20,7 +28,7 @@
 				return '';
 			}
 
-			const pluralRules = mw.language.getData( mw.config.get( 'wgUserLanguage' ), 'pluralRules' );
+			pluralRules = mw.language.getData( mw.config.get( 'wgUserLanguage' ), 'pluralRules' );
 			if ( !pluralRules ) {
 				// default fallback.
 				return ( count === 1 ) ? forms[ 0 ] : forms[ 1 ];
@@ -83,20 +91,23 @@
 		 * @return {string}
 		 */
 		convertGrammar: function ( word, form ) {
-			const userLanguage = mw.config.get( 'wgUserLanguage' );
+			var userLanguage, forms, transformations,
+				patterns, i, rule, sourcePattern, regexp, replacement;
 
-			const forms = mw.language.getData( userLanguage, 'grammarForms' );
+			userLanguage = mw.config.get( 'wgUserLanguage' );
+
+			forms = mw.language.getData( userLanguage, 'grammarForms' );
 			if ( forms && forms[ form ] ) {
 				return forms[ form ][ word ];
 			}
 
-			const transformations = mw.language.getData( userLanguage, 'grammarTransformations' );
+			transformations = mw.language.getData( userLanguage, 'grammarTransformations' );
 
 			if ( !( transformations && transformations[ form ] ) ) {
 				return word;
 			}
 
-			let patterns = transformations[ form ];
+			patterns = transformations[ form ];
 
 			// Some names of grammar rules are aliases for other rules.
 			// In such cases the value is a string rather than object,
@@ -105,16 +116,16 @@
 				patterns = transformations[ patterns ];
 			}
 
-			for ( let i = 0; i < patterns.length; i++ ) {
-				const rule = patterns[ i ];
-				const sourcePattern = rule[ 0 ];
+			for ( i = 0; i < patterns.length; i++ ) {
+				rule = patterns[ i ];
+				sourcePattern = rule[ 0 ];
 
 				if ( sourcePattern === '@metadata' ) {
 					continue;
 				}
 
-				const regexp = new RegExp( sourcePattern );
-				const replacement = rule[ 1 ];
+				regexp = new RegExp( sourcePattern );
+				replacement = rule[ 1 ];
 
 				if ( word.match( regexp ) ) {
 					return word.replace( regexp, replacement );
@@ -133,9 +144,9 @@
 		 * @return {string}
 		 */
 		listToText: function ( list ) {
-			let text = '';
+			var text = '';
 
-			for ( let i = 0; i < list.length; i++ ) {
+			for ( var i = 0; i < list.length; i++ ) {
 				text += list[ i ];
 				if ( list.length - 2 === i ) {
 					text += mw.msg( 'and' ) + mw.msg( 'word-separator' );
@@ -154,19 +165,22 @@
 		 * @return {string}
 		 */
 		bcp47: function ( languageTag ) {
-			let isFirstSegment = true,
+			var bcp47Map,
+				formatted,
+				segments,
+				isFirstSegment = true,
 				isPrivate = false;
 
 			languageTag = languageTag.toLowerCase();
 
-			const bcp47Map = mw.language.getData( mw.config.get( 'wgUserLanguage' ), 'bcp47Map' );
+			bcp47Map = mw.language.getData( mw.config.get( 'wgUserLanguage' ), 'bcp47Map' );
 			if ( bcp47Map && Object.prototype.hasOwnProperty.call( bcp47Map, languageTag ) ) {
 				languageTag = bcp47Map[ languageTag ];
 			}
 
-			const segments = languageTag.split( '-' );
-			const formatted = segments.map( ( segment ) => {
-				let newSegment;
+			segments = languageTag.split( '-' );
+			formatted = segments.map( function ( segment ) {
+				var newSegment;
 
 				// when previous segment is x, it is a private segment and should be lc
 				if ( isPrivate ) {

@@ -20,8 +20,7 @@ class ParsoidExt implements ExtensionModule {
 						// Strip nowiki markers from #tag parser-function arguments.
 						// This will be used to resolve T299103.
 						// This is primarily a b/c flag in Parsoid.
-						'stripNowiki' => true,
-						'hasWikitextInput' => false,
+						'stripNowiki' => true
 					]
 				],
 				[
@@ -31,8 +30,7 @@ class ParsoidExt implements ExtensionModule {
 						// Strip nowiki markers from #tag parser-function arguments.
 						// This will be used to resolve T299103.
 						// This is primarily a b/c flag in Parsoid.
-						'stripNowiki' => true,
-						'hasWikitextInput' => false,
+						'stripNowiki' => true
 					]
 				]
 			]

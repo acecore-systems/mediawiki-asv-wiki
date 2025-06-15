@@ -21,7 +21,6 @@
  */
 
 use MediaWiki\MediaWikiServices;
-use MediaWiki\User\User;
 
 // phpcs:disable MediaWiki.Files.ClassMatchesFilename.NotMatch
 /**
@@ -31,8 +30,7 @@ use MediaWiki\User\User;
  * namespace MediaWiki\User, which is a service.  \UserNamePrefixSearch is a deprecated static wrapper
  * that forwards to the global service.
  *
- * @deprecated since 1.36, use the MediaWiki\User\UserNamePrefixSearch service; hard deprecated
- *   since 1.41
+ * @deprecated since 1.36, use the MediaWiki\User\UserNamePrefixSearch service
  *
  * @since 1.27
  */
@@ -41,8 +39,7 @@ class UserNamePrefixSearch {
 	/**
 	 * Do a prefix search of user names and return a list of matching user names.
 	 *
-	 * @deprecated since 1.36, use the MediaWiki\User\UserNamePrefixSearch service instead; hard
-	 *   deprecated since 1.41
+	 * @deprecated since 1.36, use the MediaWiki\User\UserNamePrefixSearch service instead
 	 *
 	 * @param string|User $audience The string 'public' or a user object to show the search for
 	 * @param string $search
@@ -51,7 +48,6 @@ class UserNamePrefixSearch {
 	 * @return string[]
 	 */
 	public static function search( $audience, $search, $limit, $offset = 0 ) {
-		wfDeprecated( __METHOD__, '1.36' );
 		return MediaWikiServices::getInstance()
 			->getUserNamePrefixSearch()
 			->search( $audience, (string)$search, (int)$limit, (int)$offset );

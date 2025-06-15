@@ -1,7 +1,7 @@
 /*!
  * VisualEditor user interface MWEditingTabDialog class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -61,7 +61,7 @@ mw.libs.ve.EditingTabDialog.static.actions = [
  */
 mw.libs.ve.EditingTabDialog.prototype.getSetupProcess = function ( action ) {
 	return mw.libs.ve.EditingTabDialog.super.prototype.getSetupProcess.call( this, action )
-		.next( () => {
+		.next( function () {
 			// Same as ve.init.target.getLocalApi()
 			new mw.Api().saveOption( 'visualeditor-hidetabdialog', 1 );
 			mw.user.options.set( 'visualeditor-hidetabdialog', 1 );
@@ -72,19 +72,20 @@ mw.libs.ve.EditingTabDialog.prototype.getSetupProcess = function ( action ) {
  * @inheritdoc
  */
 mw.libs.ve.EditingTabDialog.prototype.getActionProcess = function ( action ) {
+	var dialog = this;
 	if ( action ) {
-		return new OO.ui.Process( () => {
-			const actionWidget = this.getActions().get( { actions: action } )[ 0 ];
+		return new OO.ui.Process( function () {
+			var actionWidget = this.getActions().get( { actions: action } )[ 0 ];
 			actionWidget.pushPending();
-			this.pushPending();
+			dialog.pushPending();
 
 			// Same as ve.init.target.getLocalApi()
-			new mw.Api().saveOption( 'visualeditor-tabs', action ).done( () => {
+			new mw.Api().saveOption( 'visualeditor-tabs', action ).done( function () {
 				actionWidget.popPending();
 				mw.user.options.set( 'visualeditor-tabs', action );
-				this.close( { action: action } );
+				dialog.close( { action: action } );
 			} );
-		} );
+		}, this );
 	} else {
 		// Parent method
 		return mw.libs.ve.EditingTabDialog.super.prototype.getActionProcess.call( this, action );

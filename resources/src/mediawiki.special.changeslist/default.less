@@ -1,9 +1,8 @@
+@import 'mediawiki.mixins';
+
 /*
  * Styling for Special:Watchlist and Special:RecentChanges
  */
-
-@import 'mediawiki.skin.variables.less';
-@import 'mediawiki.mixins.less';
 
 /* Make sure namespace label is aligned correctly on mobile when checkboxes are displayed */
 .mw-label.mw-namespace-label {
@@ -16,15 +15,15 @@
 
 /* Colored watchlist and recent changes numbers */
 .mw-plusminus-pos {
-	color: @color-content-added;
+	color: #006400; /* dark green */
 }
 
 .mw-plusminus-neg {
-	color: @color-content-removed;
+	color: #8b0000; /* dark red */
 }
 
 .mw-plusminus-null {
-	color: @color-disabled;
+	color: #a2a9b1; /* gray */
 }
 
 /* Prevent FOUC if legend is initially collapsed */

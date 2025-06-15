@@ -1,20 +1,22 @@
 /*!
  * VisualEditor ContentEditable ContentBranchNode tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ce.ContentBranchNode' );
 
 /* Tests */
 
-QUnit.test( 'getRenderedContents', ( assert ) => {
-	const cases = [
+QUnit.test( 'getRenderedContents', function ( assert ) {
+	var cases = [
 		{
 			msg: 'Plain text without annotations',
 			data: [
 				{ type: 'paragraph' },
-				...'abc',
+				'a',
+				'b',
+				'c',
 				{ type: '/paragraph' }
 			],
 			html: 'abc'
@@ -252,7 +254,9 @@ QUnit.test( 'getRenderedContents', ( assert ) => {
 			msg: 'Text annotated in varying order, surrounded by plain text',
 			data: [
 				{ type: 'paragraph' },
-				...'abc',
+				'a',
+				'b',
+				'c',
 				[ 'd', [
 					{ type: 'textStyle/bold' },
 					{ type: 'textStyle/italic' },
@@ -268,7 +272,9 @@ QUnit.test( 'getRenderedContents', ( assert ) => {
 					{ type: 'textStyle/bold' },
 					{ type: 'textStyle/italic' }
 				] ],
-				...'ghi',
+				'g',
+				'h',
+				'i',
 				{ type: '/paragraph' }
 			],
 			html: 'abc<b><i><u>def</u></i></b>ghi'
@@ -277,7 +283,9 @@ QUnit.test( 'getRenderedContents', ( assert ) => {
 			msg: 'Out-of-order closings do not produce misnested tags',
 			data: [
 				{ type: 'paragraph' },
-				...'abc',
+				'a',
+				'b',
+				'c',
 				[ 'd', [
 					{ type: 'textStyle/bold' },
 					{ type: 'textStyle/italic' },
@@ -292,7 +300,9 @@ QUnit.test( 'getRenderedContents', ( assert ) => {
 					{ type: 'textStyle/bold' },
 					{ type: 'textStyle/italic' }
 				] ],
-				...'ghi',
+				'g',
+				'h',
+				'i',
 				{ type: '/paragraph' }
 			],
 			html: 'abc<b><i><u>d</u></i></b><i><u>e<b>f</b></u></i>ghi'
@@ -301,7 +311,9 @@ QUnit.test( 'getRenderedContents', ( assert ) => {
 			msg: 'Additional openings are added inline, even when out of order',
 			data: [
 				{ type: 'paragraph' },
-				...'abc',
+				'a',
+				'b',
+				'c',
 				[ 'd', [
 					{ type: 'textStyle/italic' },
 					{ type: 'textStyle/underline' },
@@ -316,7 +328,9 @@ QUnit.test( 'getRenderedContents', ( assert ) => {
 					{ type: 'textStyle/bold' },
 					{ type: 'textStyle/italic' }
 				] ],
-				...'ghi',
+				'g',
+				'h',
+				'i',
 				{ type: '/paragraph' }
 			],
 			html: 'abc<i><u><b>d</b>e<b>f</b></u></i>ghi'
@@ -325,7 +339,9 @@ QUnit.test( 'getRenderedContents', ( assert ) => {
 			msg: 'Out-of-order closings surrounded by plain text',
 			data: [
 				{ type: 'paragraph' },
-				...'abc',
+				'a',
+				'b',
+				'c',
 				[ 'd', [
 					{ type: 'textStyle/italic' },
 					{ type: 'textStyle/underline' },
@@ -339,16 +355,18 @@ QUnit.test( 'getRenderedContents', ( assert ) => {
 					{ type: 'textStyle/underline' },
 					{ type: 'textStyle/bold' }
 				] ],
-				...'ghi',
+				'g',
+				'h',
+				'i',
 				{ type: '/paragraph' }
 			],
 			html: 'abc<i><u><b>d</b></u></i><b><u>ef</u></b>ghi'
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
-		const doc = new ve.dm.Document( ve.dm.example.preprocessAnnotations( caseItem.data ) );
-		const $wrapper = $( new ve.ce.ParagraphNode( doc.getDocumentNode().getChildren()[ 0 ] ).getRenderedContents() );
+	cases.forEach( function ( caseItem ) {
+		var doc = new ve.dm.Document( ve.dm.example.preprocessAnnotations( caseItem.data ) );
+		var $wrapper = $( new ve.ce.ParagraphNode( doc.getDocumentNode().getChildren()[ 0 ] ).getRenderedContents() );
 		// HACK strip out all the class="ve-ce-textStyleAnnotation ve-ce-textStyleBoldAnnotation" crap
 		$wrapper.find( '.ve-ce-textStyleAnnotation' ).removeAttr( 'class' );
 		assert.equalDomElement( $wrapper[ 0 ], $( '<div>' ).html( caseItem.html )[ 0 ], caseItem.msg );

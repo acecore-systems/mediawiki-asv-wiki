@@ -20,17 +20,8 @@
  * @file
  */
 
-namespace MediaWiki\RevisionList;
-
-use Iterator;
-use MediaWiki\Context\ContextSource;
-use MediaWiki\Context\IContextSource;
-use MediaWiki\Debug\DeprecationHelper;
-use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\PageIdentity;
-use MediaWiki\Title\Title;
-use stdClass;
-use Wikimedia\Rdbms\IReadableDatabase;
+use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IResultWrapper;
 
 /**
@@ -64,7 +55,8 @@ abstract class RevisionListBase extends ContextSource implements Iterator {
 			'title',
 			'1.37',
 			function (): Title {
-				return Title::newFromPageIdentity( $this->page );
+				// @phan-suppress-next-line PhanTypeMismatchReturnNullable castFrom does not return null here
+				return Title::castFromPageIdentity( $this->page );
 			},
 			function ( PageIdentity $page ) {
 				$this->page = $page;
@@ -84,7 +76,7 @@ abstract class RevisionListBase extends ContextSource implements Iterator {
 	 * @return string
 	 */
 	public function getPageName(): string {
-		return Title::newFromPageIdentity( $this->page )->getPrefixedText();
+		return Title::castFromPageIdentity( $this->page )->getPrefixedText();
 	}
 
 	/**
@@ -122,9 +114,7 @@ abstract class RevisionListBase extends ContextSource implements Iterator {
 	 */
 	public function reset() {
 		if ( !$this->res ) {
-			$this->res = $this->doQuery(
-				MediaWikiServices::getInstance()->getConnectionProvider()->getReplicaDatabase()
-			);
+			$this->res = $this->doQuery( wfGetDB( DB_REPLICA ) );
 		} else {
 			$this->res->rewind();
 		}
@@ -162,7 +152,7 @@ abstract class RevisionListBase extends ContextSource implements Iterator {
 	}
 
 	public function valid(): bool {
-		return $this->res && $this->res->valid();
+		return $this->res ? $this->res->valid() : false;
 	}
 
 	/**
@@ -179,7 +169,7 @@ abstract class RevisionListBase extends ContextSource implements Iterator {
 
 	/**
 	 * Do the DB query to iterate through the objects.
-	 * @param IReadableDatabase $db DB object to use for the query
+	 * @param IDatabase $db DB object to use for the query
 	 * @return IResultWrapper
 	 */
 	abstract public function doQuery( $db );
@@ -191,5 +181,3 @@ abstract class RevisionListBase extends ContextSource implements Iterator {
 	 */
 	abstract public function newItem( $row );
 }
-/** @deprecated class alias since 1.43 */
-class_alias( RevisionListBase::class, 'RevisionListBase' );

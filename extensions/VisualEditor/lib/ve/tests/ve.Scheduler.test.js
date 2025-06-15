@@ -1,7 +1,7 @@
 /*!
  * VisualEditor Scheduler tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.Scheduler' );
@@ -25,81 +25,87 @@ ve.TestScheduler.prototype.now = function () {
 
 /* Tests */
 
-QUnit.test( 'Call with no real async', ( assert ) => {
-	const scheduler = new ve.TestScheduler(),
+QUnit.test( 'Call with no real async', function ( assert ) {
+	var scheduler = new ve.TestScheduler(),
 		begun = assert.async(),
 		done = assert.async();
 
 	scheduler.schedule(
-		() => {
+		function () {
 			assert.true( true, 'initial action was called' );
 			begun();
 		},
-		() => true
-	).done( () => {
+		function () {
+			return true;
+		}
+	).done( function () {
 		assert.true( true, 'promise was resolved' );
 		done();
 	} );
 } );
 
-QUnit.test( 'Call with delay', ( assert ) => {
-	const scheduler = new ve.TestScheduler(),
+QUnit.test( 'Call with delay', function ( assert ) {
+	var scheduler = new ve.TestScheduler(),
 		begun = assert.async(),
-		done = assert.async();
+		done = assert.async(),
+		delayed = false;
 
-	let delayed = false;
 	scheduler.schedule(
-		() => {
+		function () {
 			assert.true( true, 'initial action was called' );
-			setTimeout( () => {
+			setTimeout( function () {
 				delayed = true;
 				assert.true( true, 'setTimeout delay occurred' );
 			} );
 			begun();
 		},
-		() => delayed
-	).done( () => {
+		function () {
+			return delayed;
+		}
+	).done( function () {
 		assert.true( true, 'promise was resolved' );
 		done();
 	} );
 } );
 
-QUnit.test( 'Test that throws an exception', ( assert ) => {
-	const scheduler = new ve.TestScheduler(),
+QUnit.test( 'Test that throws an exception', function ( assert ) {
+	var scheduler = new ve.TestScheduler(),
 		begun = assert.async(),
 		done = assert.async();
 
 	scheduler.schedule(
-		() => {
+		function () {
 			assert.true( true, 'initial action was called' );
 			begun();
 		},
-		() => {
+		function () {
 			throw new Error();
 		}
-	).done( () => {
+	).done( function () {
 		assert.true( false, 'promise was wrongly resolved as successful' );
-	} ).fail( () => {
+	} ).fail( function () {
 		assert.true( true, 'promise was rejected' );
 		done();
 	} );
 } );
 
-QUnit.test( 'Test that never succeeds', ( assert ) => {
-	const scheduler = new ve.TestScheduler(),
+QUnit.test( 'Test that never succeeds', function ( assert ) {
+	var scheduler = new ve.TestScheduler(),
 		begun = assert.async(),
 		done = assert.async();
 
 	scheduler.schedule(
-		() => {
+		function () {
 			assert.true( true, 'initial action was called' );
 			begun();
 		},
-		() => false
-	).done( () => {
+		function () {
+			return false;
+		}
+	).done( function () {
 		assert.true( false, 'promise was wrongly resolved as successful' );
 		done();
-	} ).fail( () => {
+	} ).fail( function () {
 		assert.true( true, 'promise was rejected' );
 		done();
 	} );

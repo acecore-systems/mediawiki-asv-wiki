@@ -2,8 +2,8 @@
 
 namespace MediaWiki\Api\Hook;
 
-use MediaWiki\Api\ApiBase;
-use MediaWiki\Output\OutputPage;
+use ApiBase;
+use OutputPage;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

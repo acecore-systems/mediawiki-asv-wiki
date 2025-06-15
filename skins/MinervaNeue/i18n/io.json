@@ -7,6 +7,7 @@
 			"Robin van der Vliet"
 		]
 	},
+	"minerva-talk-add-topic": "Adjuntar topiko",
 	"mobile-frontend-editor-edit": "Redaktar",
 	"minerva-download": "Deskargar PDF",
 	"mobile-frontend-editor-redlink-create": "Krear pagino",
@@ -27,6 +28,9 @@
 	"mobile-frontend-user-page-contributions": "Kontributadi",
 	"mobile-frontend-user-page-talk": "Diskuto",
 	"minerva-page-actions-overflow": "Pluse",
-	"skin-minerva-time-ago-years": "{{PLURAL:$1|$1 yaro|$1 yari}} ante nun",
+	"minerva-page-actions-info": "Informo pri pagino",
+	"minerva-page-actions-delete": "Efacez",
+	"minerva-page-actions-unprotect": "Desprotektar",
+	"minerva-page-actions-user-groups": "Uzero-grupi",
 	"skin-minerva-mobile-option-MinervaShowCategories": "Kategorii"
 }

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface SurfaceWindowManager class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -13,7 +13,7 @@
  * @constructor
  * @param {ve.ui.Surface} surface Surface this belongs to
  * @param {Object} [config] Configuration options
- * @param {ve.ui.Overlay} [config.overlay] Overlay to use for menus
+ * @cfg {ve.ui.Overlay} [overlay] Overlay to use for menus
  */
 ve.ui.SurfaceWindowManager = function VeUiSurfaceWindowManager( surface, config ) {
 	// Properties

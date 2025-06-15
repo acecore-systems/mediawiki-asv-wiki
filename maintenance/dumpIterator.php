@@ -26,17 +26,12 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\Content\ContentHandler;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Permissions\UltimateAuthority;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Revision\SlotRecord;
 use MediaWiki\Settings\SettingsBuilder;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Base class for iterating over a dump.
@@ -68,7 +63,7 @@ abstract class DumpIterator extends Maintenance {
 
 		if ( $this->hasOption( 'file' ) ) {
 			$file = $this->getOption( 'file' );
-			$revision = new WikiRevision();
+			$revision = new WikiRevision( $this->getConfig() );
 			$text = file_get_contents( $file );
 			$title = Title::newFromText( rawurldecode( basename( $file, '.txt' ) ) );
 			$revision->setTitle( $title );
@@ -90,11 +85,9 @@ abstract class DumpIterator extends Maintenance {
 				. "Use - and provide it on stdin on the meantime." );
 		}
 
-		$user = User::newSystemUser( User::MAINTENANCE_SCRIPT_USER, [ 'steal' => true ] );
-
-		$importer = $this->getServiceContainer()
+		$importer = MediaWikiServices::getInstance()
 			->getWikiImporterFactory()
-			->getWikiImporter( $source, new UltimateAuthority( $user ) );
+			->getWikiImporter( $source );
 
 		$importer->setRevisionCallback(
 			[ $this, 'handleRevision' ] );
@@ -120,13 +113,12 @@ abstract class DumpIterator extends Maintenance {
 		$this->error( "Memory peak usage of " . memory_get_peak_usage() . " bytes\n" );
 	}
 
-	public function finalSetup( SettingsBuilder $settingsBuilder ) {
+	public function finalSetup( SettingsBuilder $settingsBuilder = null ) {
 		parent::finalSetup( $settingsBuilder );
 
 		if ( $this->getDbType() == Maintenance::DB_NONE ) {
 			// TODO: Allow hooks to be registered via SettingsBuilder as well!
 			//       This matches the idea of unifying SettingsBuilder with ExtensionRegistry.
-			// phpcs:disable MediaWiki.Usage.DeprecatedGlobalVariables.Deprecated$wgHooks
 			global $wgHooks;
 			$wgHooks['InterwikiLoadPrefix'][] = 'DumpIterator::disableInterwikis';
 
@@ -218,7 +210,5 @@ class SearchDump extends DumpIterator {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = SearchDump::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

@@ -10,31 +10,28 @@
 
 namespace MediaWiki\Extension\VisualEditor;
 
+use ApiBase;
+use ApiMain;
+use BagOStuff;
+use ContentHandler;
 use Deflate;
+use DerivativeContext;
+use DerivativeRequest;
 use DifferenceEngine;
+use ExtensionRegistry;
 use FlaggablePageView;
-use MediaWiki\Api\ApiBase;
-use MediaWiki\Api\ApiMain;
-use MediaWiki\Content\ContentHandler;
-use MediaWiki\Context\DerivativeContext;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\HookContainer\HookContainer;
+use IBufferingStatsdDataFactory;
 use MediaWiki\Logger\LoggerFactory;
-use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\WikiPageFactory;
-use MediaWiki\Parser\Sanitizer;
-use MediaWiki\Registration\ExtensionRegistry;
-use MediaWiki\Request\DerivativeRequest;
-use MediaWiki\Revision\SlotRecord;
-use MediaWiki\SpecialPage\SpecialPageFactory;
+use MediaWiki\Revision\RevisionLookup;
 use MediaWiki\Storage\PageEditStash;
-use MediaWiki\Title\Title;
 use MediaWiki\User\UserIdentity;
+use ObjectCache;
+use RequestContext;
+use Sanitizer;
 use SkinFactory;
-use Wikimedia\ObjectCache\BagOStuff;
+use Title;
 use Wikimedia\ParamValidator\ParamValidator;
-use Wikimedia\Rdbms\IDBAccessObject;
-use Wikimedia\Stats\IBufferingStatsdDataFactory;
 
 class ApiVisualEditorEdit extends ApiBase {
 	use ApiParsoidTrait;
@@ -42,42 +39,52 @@ class ApiVisualEditorEdit extends ApiBase {
 	private const MAX_CACHE_RECENT = 2;
 	private const MAX_CACHE_TTL = 900;
 
-	private VisualEditorHookRunner $hookRunner;
-	private PageEditStash $pageEditStash;
-	private SkinFactory $skinFactory;
-	private WikiPageFactory $wikiPageFactory;
-	private SpecialPageFactory $specialPageFactory;
-	private VisualEditorParsoidClientFactory $parsoidClientFactory;
+	/** @var VisualEditorHookRunner */
+	private $hookRunner;
 
+	/** @var RevisionLookup */
+	private $revisionLookup;
+
+	/** @var IBufferingStatsdDataFactory */
+	private $statsdDataFactory;
+
+	/** @var PageEditStash */
+	private $pageEditStash;
+
+	/** @var SkinFactory */
+	private $skinFactory;
+
+	/** @var WikiPageFactory */
+	private $wikiPageFactory;
+
+	/**
+	 * @param ApiMain $main
+	 * @param string $name Name of this module
+	 * @param VisualEditorHookRunner $hookRunner
+	 * @param RevisionLookup $revisionLookup
+	 * @param IBufferingStatsdDataFactory $statsdDataFactory
+	 * @param PageEditStash $pageEditStash
+	 * @param SkinFactory $skinFactory
+	 * @param WikiPageFactory $wikiPageFactory
+	 */
 	public function __construct(
 		ApiMain $main,
 		string $name,
-		HookContainer $hookContainer,
+		VisualEditorHookRunner $hookRunner,
+		RevisionLookup $revisionLookup,
 		IBufferingStatsdDataFactory $statsdDataFactory,
 		PageEditStash $pageEditStash,
 		SkinFactory $skinFactory,
-		WikiPageFactory $wikiPageFactory,
-		SpecialPageFactory $specialPageFactory,
-		VisualEditorParsoidClientFactory $parsoidClientFactory
+		WikiPageFactory $wikiPageFactory
 	) {
 		parent::__construct( $main, $name );
 		$this->setLogger( LoggerFactory::getInstance( 'VisualEditor' ) );
-		$this->setStats( $statsdDataFactory );
-		$this->hookRunner = new VisualEditorHookRunner( $hookContainer );
+		$this->hookRunner = $hookRunner;
+		$this->revisionLookup = $revisionLookup;
+		$this->statsdDataFactory = $statsdDataFactory;
 		$this->pageEditStash = $pageEditStash;
 		$this->skinFactory = $skinFactory;
 		$this->wikiPageFactory = $wikiPageFactory;
-		$this->specialPageFactory = $specialPageFactory;
-		$this->parsoidClientFactory = $parsoidClientFactory;
-	}
-
-	/**
-	 * @inheritDoc
-	 */
-	protected function getParsoidClient(): ParsoidClient {
-		return $this->parsoidClientFactory->createParsoidClient(
-			$this->getRequest()->getHeader( 'Cookie' )
-		);
 	}
 
 	/**
@@ -98,16 +105,11 @@ class ApiVisualEditorEdit extends ApiBase {
 			'starttimestamp' => $params['starttimestamp'],
 			'token' => $params['token'],
 			'watchlist' => $params['watchlist'],
-			// NOTE: Must use getText() to work; PHP array from $params['tags'] is not understood
-			// by the edit API.
-			'tags' => $this->getRequest()->getText( 'tags' ),
+			'tags' => $params['tags'],
 			'section' => $params['section'],
 			'sectiontitle' => $params['sectiontitle'],
 			'captchaid' => $params['captchaid'],
 			'captchaword' => $params['captchaword'],
-			'returnto' => $params['returnto'],
-			'returntoquery' => $params['returntoquery'],
-			'returntoanchor' => $params['returntoanchor'],
 			'errorformat' => 'html',
 			( $params['minor'] !== null ? 'minor' : 'notminor' ) => true,
 		];
@@ -146,14 +148,13 @@ class ApiVisualEditorEdit extends ApiBase {
 	 *
 	 * @param int $newRevId The revision to load
 	 * @param array $params Original request params
-	 * @return array Some properties haphazardly extracted from an action=parse API response
+	 * @return array|false The parsed of the save attempt
 	 */
 	protected function parseWikitext( $newRevId, array $params ) {
 		$apiParams = [
 			'action' => 'parse',
 			'oldid' => $newRevId,
 			'prop' => 'text|revid|categorieshtml|sections|displaytitle|subtitle|modules|jsconfigvars',
-			'usearticle' => true,
 			'useskin' => $params['useskin'],
 		];
 		// Boolean parameters must be omitted completely to be treated as false.
@@ -191,6 +192,16 @@ class ApiVisualEditorEdit extends ApiBase {
 			$result['parse']['modulestyles'] ?? []
 		);
 		$jsconfigvars = $result['parse']['jsconfigvars'] ?? [];
+
+		if (
+			$content === false ||
+			// TODO: Is this check still needed?
+			( strlen( $content ) && $this->revisionLookup
+				->getRevisionById( $result['parse']['revid'] ) === null
+			)
+		) {
+			return false;
+		}
 
 		if ( $displaytitle !== false ) {
 			// Escape entities as in OutputPage::setPageTitle()
@@ -266,7 +277,7 @@ class ApiVisualEditorEdit extends ApiBase {
 			return false;
 		}
 
-		$cache = MediaWikiServices::getInstance()->getObjectCacheFactory()->getLocalClusterInstance();
+		$cache = ObjectCache::getLocalClusterInstance();
 
 		// Store the corresponding wikitext, referenceable by a new key
 		$hash = md5( $wikitext );
@@ -277,7 +288,7 @@ class ApiVisualEditorEdit extends ApiBase {
 		}
 
 		$status = $ok ? 'ok' : 'failed';
-		$this->getStats()->increment( "editstash.ve_serialization_cache.set_" . $status );
+		$this->statsdDataFactory->increment( "editstash.ve_serialization_cache.set_" . $status );
 
 		// Also parse and prepare the edit in case it might be saved later
 		$pageUpdater = $this->wikiPageFactory->newFromTitle( $title )->newPageUpdater( $this->getUser() );
@@ -288,12 +299,17 @@ class ApiVisualEditorEdit extends ApiBase {
 			$logger = LoggerFactory::getInstance( 'StashEdit' );
 			$logger->debug( "Cached parser output for VE content key '$key'." );
 		}
-		$this->getStats()->increment( "editstash.ve_cache_stores.$status" );
+		$this->statsdDataFactory->increment( "editstash.ve_cache_stores.$status" );
 
 		return $hash;
 	}
 
-	private function pruneExcessStashedEntries( BagOStuff $cache, UserIdentity $user, string $newKey ): void {
+	/**
+	 * @param BagOStuff $cache
+	 * @param UserIdentity $user
+	 * @param string $newKey
+	 */
+	private function pruneExcessStashedEntries( BagOStuff $cache, UserIdentity $user, $newKey ) {
 		$key = $cache->makeKey( 'visualeditor-serialization-recent', $user->getName() );
 
 		$keyList = $cache->get( $key ) ?: [];
@@ -310,15 +326,15 @@ class ApiVisualEditorEdit extends ApiBase {
 	 * Load some parsed wikitext of an edit from the serialisation cache.
 	 *
 	 * @param string $hash The key of the wikitext in the serialisation cache
-	 * @return string|false The wikitext
+	 * @return string|null The wikitext
 	 */
 	protected function trySerializationCache( $hash ) {
-		$cache = MediaWikiServices::getInstance()->getObjectCacheFactory()->getLocalClusterInstance();
+		$cache = ObjectCache::getLocalClusterInstance();
 		$key = $cache->makeKey( 'visualeditor', 'serialization', $hash );
 		$value = $cache->get( $key );
 
 		$status = ( $value !== false ) ? 'hit' : 'miss';
-		$this->getStats()->increment( "editstash.ve_serialization_cache.get_$status" );
+		$this->statsdDataFactory->increment( "editstash.ve_serialization_cache.get_$status" );
 
 		return $value;
 	}
@@ -327,22 +343,19 @@ class ApiVisualEditorEdit extends ApiBase {
 	 * Calculate the different between the wikitext of an edit and an existing revision.
 	 *
 	 * @param Title $title The title of the page
-	 * @param int|null $fromId The existing revision of the page to compare with
+	 * @param int $fromId The existing revision of the page to compare with
 	 * @param string $wikitext The wikitext to compare against
 	 * @param int|null $section Whether the wikitext refers to a given section or the whole page
 	 * @return array The comparison, or `[ 'result' => 'nochanges' ]` if there are none
 	 */
-	protected function diffWikitext( Title $title, ?int $fromId, $wikitext, $section = null ) {
+	protected function diffWikitext( Title $title, $fromId, $wikitext, $section = null ) {
 		$apiParams = [
 			'action' => 'compare',
 			'prop' => 'diff',
-			// Because we're just providing wikitext, we only care about the main slot
-			'slots' => SlotRecord::MAIN,
 			'fromtitle' => $title->getPrefixedDBkey(),
 			'fromrev' => $fromId,
 			'fromsection' => $section,
-			'toslots' => SlotRecord::MAIN,
-			'totext-main' => $wikitext,
+			'totext' => $wikitext,
 			'topst' => true,
 		];
 
@@ -359,12 +372,15 @@ class ApiVisualEditorEdit extends ApiBase {
 			/* enable write? */ false
 		);
 		$api->execute();
-		$result = $api->getResult()->getResultData();
+		$result = $api->getResult()->getResultData( null, [
+			/* Transform content nodes to '*' */ 'BC' => [],
+			/* Add back-compat subelements */ 'Types' => [],
+		] );
 
-		if ( !isset( $result['compare']['bodies'][SlotRecord::MAIN] ) ) {
+		if ( !isset( $result['compare']['*'] ) ) {
 			$this->dieWithError( 'apierror-visualeditor-difffailed', 'difffailed' );
 		}
-		$diffRows = $result['compare']['bodies'][SlotRecord::MAIN];
+		$diffRows = $result['compare']['*'];
 
 		$context = new DerivativeContext( $this->getContext() );
 		$context->setTitle( $title );
@@ -388,12 +404,9 @@ class ApiVisualEditorEdit extends ApiBase {
 
 		$result = [];
 		$title = Title::newFromText( $params['page'] );
-		if ( $title && $title->isSpecialPage() ) {
+		if ( $title && $title->isSpecial( 'CollabPad' ) ) {
 			// Convert Special:CollabPad/MyPage to MyPage so we can serialize properly
-			[ $special, $subPage ] = $this->specialPageFactory->resolveAlias( $title->getDBkey() );
-			if ( $special === 'CollabPad' ) {
-				$title = Title::newFromText( $subPage );
-			}
+			$title = SpecialCollabPad::getSubPage( $title );
 		}
 		if ( !$title ) {
 			$this->dieWithError( [ 'apierror-invalidtitle', wfEscapeWikiText( $params['page'] ) ] );
@@ -453,22 +466,20 @@ class ApiVisualEditorEdit extends ApiBase {
 			} else {
 				// Success
 				$result['result'] = 'success';
-
-				if ( $params['nocontent'] ) {
-					$result['nocontent'] = true;
+				if ( isset( $saveresult['edit']['newrevid'] ) ) {
+					$newRevId = intval( $saveresult['edit']['newrevid'] );
 				} else {
-					if ( isset( $saveresult['edit']['newrevid'] ) ) {
-						$newRevId = intval( $saveresult['edit']['newrevid'] );
-					} else {
-						$newRevId = $title->getLatestRevID();
-					}
-
-					// Return result of parseWikitext instead of saveWikitext so that the
-					// frontend can update the page rendering without a refresh.
-					$parseWikitextResult = $this->parseWikitext( $newRevId, $params );
-
-					$result = array_merge( $result, $parseWikitextResult );
+					$newRevId = $title->getLatestRevID();
 				}
+
+				// Return result of parseWikitext instead of saveWikitext so that the
+				// frontend can update the page rendering without a refresh.
+				$parseWikitextResult = $this->parseWikitext( $newRevId, $params );
+				if ( $parseWikitextResult === false ) {
+					$this->dieWithError( 'apierror-visualeditor-docserver', 'docserver' );
+				}
+
+				$result = array_merge( $result, $parseWikitextResult );
 
 				$result['isRedirect'] = (string)$title->isRedirect();
 
@@ -519,22 +530,15 @@ class ApiVisualEditorEdit extends ApiBase {
 					$result['newrevid'] = intval( $saveresult['edit']['newrevid'] );
 				}
 
-				if ( isset( $saveresult['edit']['tempusercreated'] ) ) {
-					$result['tempusercreated'] = $saveresult['edit']['tempusercreated'];
-				}
-				if ( isset( $saveresult['edit']['tempusercreatedredirect'] ) ) {
-					$result['tempusercreatedredirect'] = $saveresult['edit']['tempusercreatedredirect'];
-				}
-
 				$result['watched'] = $saveresult['edit']['watched'] ?? false;
 				$result['watchlistexpiry'] = $saveresult['edit']['watchlistexpiry'] ?? null;
 			}
 
-			// Refresh article ID (which is used by toPageIdentity()) in case we just created the page.
-			// Maybe it's not great to rely on this side-effect…
-			$title->getArticleID( IDBAccessObject::READ_LATEST );
-
 			$this->hookRunner->onVisualEditorApiVisualEditorEditPostSave(
+			// The earlier call to $title->toPageIdentity() will have an article ID of 0 for new article
+			// creation. Because of title cache (Title::$titleCache), $title->getId() will change value during the
+			// parseWikitext() call in that case, but the ID of a PageIdentityValue object won't, so we need to create
+			// a new one here.
 				$title->toPageIdentity(),
 				$user,
 				$wikitext,
@@ -573,15 +577,9 @@ class ApiVisualEditorEdit extends ApiBase {
 			],
 			'section' => null,
 			'sectiontitle' => null,
-			'basetimestamp' => [
-				ParamValidator::PARAM_TYPE => 'timestamp',
-			],
-			'starttimestamp' => [
-				ParamValidator::PARAM_TYPE => 'timestamp',
-			],
-			'oldid' => [
-				ParamValidator::PARAM_TYPE => 'integer',
-			],
+			'basetimestamp' => null,
+			'starttimestamp' => null,
+			'oldid' => null,
 			'minor' => null,
 			'watchlist' => null,
 			'html' => [
@@ -600,21 +598,6 @@ class ApiVisualEditorEdit extends ApiBase {
 			'captchaid' => null,
 			'captchaword' => null,
 			'cachekey' => null,
-			'nocontent' => false,
-			'returnto' => [
-				ParamValidator::PARAM_TYPE => 'title',
-				ApiBase::PARAM_HELP_MSG => 'apihelp-edit-param-returnto',
-			],
-			'returntoquery' => [
-				ParamValidator::PARAM_TYPE => 'string',
-				ParamValidator::PARAM_DEFAULT => '',
-				ApiBase::PARAM_HELP_MSG => 'apihelp-edit-param-returntoquery',
-			],
-			'returntoanchor' => [
-				ParamValidator::PARAM_TYPE => 'string',
-				ParamValidator::PARAM_DEFAULT => '',
-				ApiBase::PARAM_HELP_MSG => 'apihelp-edit-param-returntoanchor',
-			],
 			'useskin' => [
 				ParamValidator::PARAM_TYPE => array_keys( $this->skinFactory->getInstalledSkins() ),
 				ApiBase::PARAM_HELP_MSG => 'apihelp-parse-param-useskin',
@@ -655,5 +638,4 @@ class ApiVisualEditorEdit extends ApiBase {
 	public function isWriteMode() {
 		return true;
 	}
-
 }

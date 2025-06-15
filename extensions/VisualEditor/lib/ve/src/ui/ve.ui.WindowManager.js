@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface WindowManager class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -12,7 +12,7 @@
  *
  * @constructor
  * @param {Object} [config] Configuration options
- * @param {ve.ui.Overlay} [config.overlay] Overlay to use for menus
+ * @cfg {ve.ui.Overlay} [overlay] Overlay to use for menus
  */
 ve.ui.WindowManager = function VeUiWindowManager( config ) {
 	// Configuration initialization

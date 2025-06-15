@@ -20,10 +20,8 @@
  * @file
  */
 
-use MediaWiki\Context\IContextSource;
-
 class SlideshowImageGallery extends TraditionalImageGallery {
-	public function __construct( $mode = 'traditional', ?IContextSource $context = null ) {
+	public function __construct( $mode = 'traditional', IContextSource $context = null ) {
 		parent::__construct( $mode, $context );
 		// Does not support per row option.
 		$this->mPerRow = 0;

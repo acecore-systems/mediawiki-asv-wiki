@@ -789,7 +789,7 @@ end
 function mw.loadJsonData( module )
 	if type( module ) ~= "string" then
 		error( string.format( "bad argument #1 to 'mw.loadJsonData' (string expected, got %s)",
-			type( module ) ), 2 )
+			type( arg ) ), 2 )
 	end
 	local data = loadedJsonData[module]
 	if type( data ) == 'string' then

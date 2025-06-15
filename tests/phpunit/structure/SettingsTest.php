@@ -2,9 +2,9 @@
 
 namespace MediaWiki\Tests\Structure;
 
+use ExtensionRegistry;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MainConfigSchema;
-use MediaWiki\Registration\ExtensionRegistry;
 use MediaWiki\Settings\Config\ArrayConfigBuilder;
 use MediaWiki\Settings\Config\PhpIniSink;
 use MediaWiki\Settings\SettingsBuilder;
@@ -27,7 +27,7 @@ class SettingsTest extends MediaWikiIntegrationTestCase {
 	 *
 	 * @return array
 	 */
-	private static function getSchemaData(): array {
+	private function getSchemaData(): array {
 		$source = new ReflectionSchemaSource( MainConfigSchema::class, true );
 		$settings = $source->load();
 		return $settings;
@@ -69,7 +69,8 @@ class SettingsTest extends MediaWikiIntegrationTestCase {
 	 * Check that currently loaded settings validate against the schema.
 	 */
 	public function testCurrentSettingsValidate() {
-		$validationResult = SettingsBuilder::getInstance()->validate();
+		global $wgSettings;
+		$validationResult = $wgSettings->validate();
 		$this->assertStatusOK( $validationResult );
 	}
 
@@ -77,34 +78,28 @@ class SettingsTest extends MediaWikiIntegrationTestCase {
 	 * Check that currently loaded config does not use deprecated settings.
 	 */
 	public function testCurrentSettingsNotDeprecated() {
-		$deprecations = SettingsBuilder::getInstance()->detectDeprecatedConfig();
+		global $wgSettings;
+		$deprecations = $wgSettings->detectDeprecatedConfig();
 		$this->assertEquals( [], $deprecations );
-	}
-
-	/**
-	 * Check that currently loaded config does not use obsolete settings.
-	 */
-	public function testCurrentSettingsNotObsolete() {
-		$obsolete = SettingsBuilder::getInstance()->detectObsoleteConfig();
-		$this->assertEquals( [], $obsolete );
 	}
 
 	/**
 	 * Check that currently loaded config does not have warnings.
 	 */
 	public function testCurrentSettingsHaveNoWarnings() {
-		$deprecations = SettingsBuilder::getInstance()->getWarnings();
+		global $wgSettings;
+		$deprecations = $wgSettings->getWarnings();
 		$this->assertEquals( [], $deprecations );
 	}
 
-	public static function provideConfigGeneration() {
+	public function provideConfigGeneration() {
 		yield 'includes/config-schema.php' => [
 			'option' => '--schema',
 			'expectedFile' => MW_INSTALL_PATH . '/includes/config-schema.php',
 		];
-		yield 'docs/config-vars.php' => [
+		yield 'includes/config-vars.php' => [
 			'option' => '--vars',
-			'expectedFile' => MW_INSTALL_PATH . '/docs/config-vars.php',
+			'expectedFile' => MW_INSTALL_PATH . '/includes/config-vars.php',
 		];
 		yield 'docs/config-schema.yaml' => [
 			'option' => '--yaml',
@@ -120,14 +115,10 @@ class SettingsTest extends MediaWikiIntegrationTestCase {
 	 * @dataProvider provideConfigGeneration
 	 */
 	public function testConfigGeneration( string $option, string $expectedFile ) {
-		$script = 'GenerateConfigSchema';
+		$script = MW_INSTALL_PATH . '/maintenance/generateConfigSchema.php';
 		$schemaGenerator = Shell::makeScriptCommand( $script, [ $option, 'php://stdout' ] );
 		$result = $schemaGenerator->execute();
-		$this->assertSame(
-			0,
-			$result->getExitCode(),
-			'Config generation must finish successfully.' . "\n" . $result->getStderr()
-		);
+		$this->assertSame( 0, $result->getExitCode(), 'Config generation must finish successfully' );
 
 		$errors = $result->getStderr();
 		$errors = preg_replace( '/^Xdebug:.*\n/m', '', $errors );
@@ -143,7 +134,7 @@ class SettingsTest extends MediaWikiIntegrationTestCase {
 		);
 	}
 
-	public static function provideDefaultSettingsConsistency() {
+	public function provideDefaultSettingsConsistency() {
 		yield 'YAML' => [ new FileSource( MW_INSTALL_PATH . '/docs/config-schema.yaml' ) ];
 		yield 'PHP' => [ new PhpSettingsSource( MW_INSTALL_PATH . '/includes/config-schema.php' ) ];
 	}
@@ -192,7 +183,7 @@ class SettingsTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( [], $missingKeys, 'Keys missing from DefaultSettings.php' );
 	}
 
-	public static function provideArraysHaveMergeStrategy() {
+	public function provideArraysHaveMergeStrategy() {
 		[ 'config-schema' => $allSchemas ] = self::getSchemaData();
 
 		foreach ( $allSchemas as $name => $schema ) {
@@ -207,8 +198,6 @@ class SettingsTest extends MediaWikiIntegrationTestCase {
 	public function testSchemaCompleteness( $schema ) {
 		$type = $schema['type'] ?? null;
 		$type = (array)$type;
-
-		$this->assertArrayNotHasKey( 'obsolete', $schema, 'Obsolete schemas should have been filtered out' );
 
 		if ( isset( $schema['properties'] ) ) {
 			$this->assertContains(
@@ -310,7 +299,7 @@ class SettingsTest extends MediaWikiIntegrationTestCase {
 		}
 	}
 
-	public static function provideConfigStructureHandling() {
+	public function provideConfigStructureHandling() {
 		yield 'NamespacesWithSubpages' => [
 			MainConfigNames::NamespacesWithSubpages,
 			[ 0 => true, 1 => false,
@@ -398,7 +387,18 @@ class SettingsTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expected, $config->get( $key ) );
 	}
 
-	public static function provideConfigStructurePartialReplacement() {
+	public function provideConfigStructurePartialReplacement() {
+		yield 'ObjectCaches' => [
+			'ObjectCaches',
+			[ // the spec for each cache should be replaced entirely
+				1 => [ 'factory' => 'ObjectCache::newAnything' ],
+				'test' => [ 'factory' => 'Testing' ]
+			],
+			[
+				1 => [ 'factory' => 'ObjectCache::newAnything' ],
+				'test' => [ 'factory' => 'Testing' ]
+			],
+		];
 		yield 'GroupPermissions' => [
 			'GroupPermissions',
 			[ // permissions for each group should be merged
@@ -579,7 +579,7 @@ class SettingsTest extends MediaWikiIntegrationTestCase {
 		$defaults = iterator_to_array( MainConfigSchema::listDefaultValues() );
 		$prefixed = iterator_to_array( MainConfigSchema::listDefaultValues( 'wg' ) );
 
-		$schema = self::getSchemaData();
+		$schema = $this->getSchemaData();
 		foreach ( $schema['config-schema'] as $name => $sch ) {
 			$this->assertArrayHasKey( $name, $defaults );
 			$this->assertArrayHasKey( "wg$name", $prefixed );
@@ -598,7 +598,7 @@ class SettingsTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testSetLocaltimezone(): void {
 		// Make sure the configured timezone ewas applied to the PHP runtime.
-		$tz = $this->getConfVar( MainConfigNames::Localtimezone );
+		$tz = $this->getServiceContainer()->getMainConfig()->get( 'Localtimezone' );
 		$this->assertSame( $tz, date_default_timezone_get() );
 	}
 }

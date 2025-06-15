@@ -1,9 +1,11 @@
 <nav class="page-actions-menu">
-	<ul id="p-views" class="page-actions-menu__list">
+	<ul id="page-actions" class="page-actions-menu__list">
 		{{#toolbar}}
 		<li id="{{name}}" class="page-actions-menu__list-item">
 			{{#components}}
-				{{>Button}}
+				<a id="{{id}}" href="{{href}}" class="{{class}}"
+					data-mw="interface"
+					data-event-name="{{data-event-name}}" role="button" title="{{title}}">{{text}}</a>
 			{{/components}}
 		</li>
 		{{/toolbar}}

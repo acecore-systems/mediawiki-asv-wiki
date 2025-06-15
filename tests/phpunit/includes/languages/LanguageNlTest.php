@@ -11,14 +11,14 @@
 class LanguageNlTest extends LanguageClassesTestCase {
 
 	/**
-	 * @covers \MediaWiki\Language\Language::formatNum
+	 * @covers Language::formatNum
 	 * @dataProvider provideFormatNum
 	 */
 	public function testFormatNum( $unformatted, $formatted ) {
 		$this->assertEquals( $formatted, $this->getLang()->formatNum( $unformatted ) );
 	}
 
-	public static function provideFormatNum() {
+	public function provideFormatNum() {
 		return [
 			[ '1234567', '1.234.567' ],
 			[ '12345', '12.345' ],

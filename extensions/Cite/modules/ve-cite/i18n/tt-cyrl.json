@@ -3,10 +3,10 @@
 		"authors": [
 			"Ajdar",
 			"Derslek",
-			"Don Alessandro",
 			"Ерней",
+			"Ильнар",
 			"Ильгиз",
-			"Ильнар"
+			"Don Alessandro"
 		]
 	},
 	"visualeditor-cite-tool-name-book": "Китап",
@@ -18,6 +18,7 @@
 	"cite-ve-dialog-reference-editing-reused": "Әлеге сылтама бу биттә $1 {{PLURAL:$1|$1 тапкыр}} кулланыла.",
 	"cite-ve-dialog-reference-options-group-label": "Бу тупламны куллану",
 	"cite-ve-dialog-reference-options-group-placeholder": "Гомуми сылтамалар",
+	"cite-ve-dialog-reference-options-name-label": "Кабаттан шушы исем белән куллану",
 	"cite-ve-dialog-reference-options-section": "Көйләнмәләр",
 	"cite-ve-dialog-reference-title": "Искәрмә",
 	"cite-ve-dialog-reference-useexisting-tool": "Яңадан куллану",
@@ -35,5 +36,7 @@
 	"cite-ve-referenceslist-isempty-default": "Әлеге биттә исемлеккә кертер өчен сылтамалар юк.",
 	"cite-ve-referenceslist-missingref": "Әлеге сылтама калыпта гына яки аерым блокта гына билгеләнә, һәм хәзерге вакытта аны чыганак код режимында гына үзгәртеп була.",
 	"cite-ve-toolbar-group-label": "Чыганакка җибәрү",
-	"cite-ve-othergroup-item": "$1 искәрмә"
+	"cite-ve-othergroup-item": "$1 искәрмә",
+	"visualeditor-internal-list-diff-default-group-name-mwreference": "Сылтамалар",
+	"visualeditor-internal-list-diff-group-name-mwreference": "Сылтамалар төркеме исеме: «$1»"
 }

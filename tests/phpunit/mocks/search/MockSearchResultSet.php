@@ -23,7 +23,8 @@ class MockSearchResultSet extends SearchResultSet {
 	}
 
 	public function hasInterwikiResults( $type = self::SECONDARY_RESULTS ) {
-		return (bool)( $this->interwikiResults[$type] ?? false );
+		return isset( $this->interwikiResults[$type] ) &&
+			count( $this->interwikiResults[$type] ) > 0;
 	}
 
 	public function extractResults() {
@@ -40,6 +41,10 @@ class MockSearchResultSet extends SearchResultSet {
 	}
 
 	public function getInterwikiResults( $type = self::SECONDARY_RESULTS ) {
-		return $this->interwikiResults[$type] ?? [];
+		if ( $this->hasInterwikiResults( $type ) ) {
+			return $this->interwikiResults[$type];
+		} else {
+			return null;
+		}
 	}
 }

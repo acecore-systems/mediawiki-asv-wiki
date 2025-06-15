@@ -1,17 +1,17 @@
-@import 'mediawiki.skin.variables.less';
-@import 'mw.rcfilters.variables.less';
 @import 'mediawiki.mixins.less';
+@import 'mediawiki.ui/variables.less';
+@import 'mw.rcfilters.variables.less';
 
 .mw-rcfilters-ui-itemMenuOptionWidget {
 	padding: 0 0.5em;
 	box-sizing: border-box;
 
 	&:not( :last-child ):not( .mw-rcfilters-ui-itemMenuOptionWidget-identifier-talk ) {
-		border-bottom: @border-width-base @border-style-base #eaecf0;
+		border-bottom: 1px solid @colorGray14;
 	}
 
 	&-view-namespaces {
-		border-top: 4px solid @border-color-subtle;
+		border-top: 4px solid @colorGray12;
 	}
 
 	// Don't show border for first namespace & hide for every 'talk' option in second selector
@@ -21,36 +21,34 @@
 	}
 
 	&:hover {
-		background-color: @background-color-interactive-subtle;
+		background-color: @colorGray15;
 	}
 
 	.mw-rcfilters-ui-table {
-		padding-top: (6 / @font-size-system-ui / @font-size-vector);
-		padding-bottom: (6 / @font-size-system-ui / @font-size-vector);
+		padding-top: 6 / @font-size-system-ui / @font-size-vector;
+		padding-bottom: 6 / @font-size-system-ui / @font-size-vector;
 	}
 
 	&.oo-ui-optionWidget-selected {
-		background-color: @background-color-progressive-subtle;
+		background-color: @background-color-primary;
 	}
 
 	&-label {
 		&-title {
 			font-weight: bold;
 			font-size: 1.15em;
-			color: @color-base;
+			color: @colorGray2;
 		}
 
 		&-desc {
-			color: @color-subtle;
+			color: @colorGray5;
 			white-space: normal;
 		}
 	}
 
 	&-itemCheckbox {
-		flex-grow: 1;
-
 		.oo-ui-fieldLayout-body > .oo-ui-fieldLayout-header {
-			padding-left: (12 / @font-size-system-ui / @font-size-vector);
+			padding-left: 12 / @font-size-system-ui / @font-size-vector;
 		}
 
 		.oo-ui-fieldLayout.oo-ui-fieldLayout-align-inline {
@@ -62,6 +60,11 @@
 			}
 		}
 
+		.oo-ui-checkboxInputWidget {
+			// Workaround for IE11 rendering issues. T162098
+			display: block;
+		}
+
 		label {
 			// Workaround for Chrome browser bug (T199932)
 			// Override padding rule from FieldLayout
@@ -70,14 +73,17 @@
 	}
 
 	.mw-rcfilters-ui-cell {
-		align-self: center;
-
-		> * {
-			margin-left: 1em;
-		}
+		vertical-align: middle;
 	}
 
 	&-excludeLabel {
-		color: @color-subtle;
+		width: 5em;
+		padding-left: 1em;
+		color: @colorGray5;
+	}
+
+	&-highlightButton {
+		width: 4em;
+		padding-left: 1em;
 	}
 }

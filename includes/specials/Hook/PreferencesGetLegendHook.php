@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\HTMLForm\HTMLForm;
+use HTMLForm;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

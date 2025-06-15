@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable linear delete key down handler
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /* istanbul ignore next */
@@ -43,14 +43,14 @@ ve.ce.LinearDeleteKeyDownHandler.static.supportedSelections = [ 'linear' ];
  * In these cases, it will perform the content removal itself.
  */
 ve.ce.LinearDeleteKeyDownHandler.static.execute = function ( surface, e ) {
-	const direction = e.keyCode === OO.ui.Keys.DELETE ? 1 : -1,
+	var direction = e.keyCode === OO.ui.Keys.DELETE ? 1 : -1,
 		unit = ( e.altKey === true || e.ctrlKey === true ) ? 'word' : 'character',
+		offset = 0,
+		rangeToRemove = surface.getModel().getSelection().getRange(),
 		documentModel = surface.getModel().getDocument(),
 		focusedNode = surface.getFocusedNode(),
 		uiSurface = surface.getSurface(),
 		data = documentModel.data;
-	let offset = 0,
-		rangeToRemove = surface.getModel().getSelection().getRange();
 
 	if ( surface.isReadOnly() ) {
 		e.preventDefault();
@@ -64,7 +64,7 @@ ve.ce.LinearDeleteKeyDownHandler.static.execute = function ( surface, e ) {
 	}
 
 	if ( focusedNode ) {
-		const command = uiSurface.commandRegistry.getDeleteCommandForNode( focusedNode );
+		var command = uiSurface.commandRegistry.getDeleteCommandForNode( focusedNode );
 		if ( command ) {
 			command.execute( uiSurface );
 			e.preventDefault();
@@ -83,7 +83,7 @@ ve.ce.LinearDeleteKeyDownHandler.static.execute = function ( surface, e ) {
 			return true;
 		}
 
-		let position = ve.adjacentDomPosition(
+		var position = ve.adjacentDomPosition(
 			{
 				node: surface.nativeSelection.focusNode,
 				offset: surface.nativeSelection.focusOffset
@@ -91,7 +91,7 @@ ve.ce.LinearDeleteKeyDownHandler.static.execute = function ( surface, e ) {
 			direction,
 			{ stop: ve.isHardCursorStep }
 		);
-		const skipNode = position.steps[ position.steps.length - 1 ].node;
+		var skipNode = position.steps[ position.steps.length - 1 ].node;
 		if ( skipNode.nodeType === Node.TEXT_NODE ) {
 			surface.eventSequencer.afterOne( {
 				keydown: surface.surfaceObserver.pollOnce.bind( surface.surfaceObserver )
@@ -99,7 +99,7 @@ ve.ce.LinearDeleteKeyDownHandler.static.execute = function ( surface, e ) {
 			return true;
 		}
 
-		let range;
+		var range;
 		// If the native action would delete an outside nail, move *two* cursor positions
 		// in the deletion direction, to get inside the link just past the inside nail,
 		// then preventDefault
@@ -122,7 +122,7 @@ ve.ce.LinearDeleteKeyDownHandler.static.execute = function ( surface, e ) {
 			return true;
 		}
 
-		let pairNode;
+		var pairNode;
 		// If inside an empty link, delete it and preventDefault
 		if (
 			skipNode.classList &&
@@ -143,7 +143,7 @@ ve.ce.LinearDeleteKeyDownHandler.static.execute = function ( surface, e ) {
 					've-ce-nail-pre-close'
 			)
 		) {
-			const linkNode = skipNode.parentNode;
+			var linkNode = skipNode.parentNode;
 			range = document.createRange();
 			// Set start to link's offset, minus 1 to allow for outer nail deletion
 			// (browsers actually tend to adjust range offsets automatically
@@ -197,7 +197,6 @@ ve.ce.LinearDeleteKeyDownHandler.static.execute = function ( surface, e ) {
 
 	// Else range is uncollapsed or is adjacent to a non-nail element.
 	if ( rangeToRemove.isCollapsed() ) {
-		const originalRange = new ve.Range( rangeToRemove.from, rangeToRemove.to );
 		// Expand rangeToRemove
 		rangeToRemove = documentModel.getRelativeRange( rangeToRemove, direction, unit, true );
 		if ( surface.getActiveNode() && !surface.getActiveNode().getRange().containsRange( rangeToRemove ) ) {
@@ -205,43 +204,45 @@ ve.ce.LinearDeleteKeyDownHandler.static.execute = function ( surface, e ) {
 			return true;
 		}
 
-		const documentModelSelectedNodes = documentModel.selectNodes( rangeToRemove, 'siblings' );
-		for ( let i = 0; i < documentModelSelectedNodes.length; i++ ) {
-			const node = documentModelSelectedNodes[ i ].node;
-			const nodeOuterRange = documentModelSelectedNodes[ i ].nodeOuterRange;
-			let adjacentBlockSelection = null;
+		// Prevent backspacing/deleting over table cells, select the cell instead
+		var documentModelSelectedNodes = documentModel.selectNodes( rangeToRemove, 'siblings' );
+		for ( var i = 0; i < documentModelSelectedNodes.length; i++ ) {
+			var node = documentModelSelectedNodes[ i ].node;
+			var nodeOuterRange = documentModelSelectedNodes[ i ].nodeOuterRange;
 			if ( node instanceof ve.dm.TableNode ) {
-				// Prevent backspacing/deleting over table cells
 				if ( rangeToRemove.containsOffset( nodeOuterRange.start ) ) {
-					adjacentBlockSelection = new ve.dm.TableSelection(
+					surface.getModel().setSelection( new ve.dm.TableSelection(
 						nodeOuterRange, 0, 0
-					);
+					) );
 				} else {
-					const matrix = node.getMatrix();
-					const row = matrix.getRowCount() - 1;
-					const col = matrix.getColCount( row ) - 1;
-					adjacentBlockSelection = new ve.dm.TableSelection(
+					var matrix = node.getMatrix();
+					var row = matrix.getRowCount() - 1;
+					var col = matrix.getColCount( row ) - 1;
+					surface.getModel().setSelection( new ve.dm.TableSelection(
 						nodeOuterRange, col, row
-					);
+					) );
 				}
-			} else if ( node.isFocusable() ) {
-				// Prevent backspacing/deleting over focusable nodes
-				adjacentBlockSelection = new ve.dm.LinearSelection( node.getOuterRange() );
-			}
-			if ( adjacentBlockSelection ) {
-				// Create a fragment from the selection as we might delete first
-				const adjacentFragment = surface.getModel().getFragment( adjacentBlockSelection, true );
-				const currentNode = documentModel.getDocumentNode().getNodeFromOffset( originalRange.start );
-				if ( currentNode.canContainContent() && !currentNode.getLength() ) {
-					// If starting in an empty CBN, delete the CBN instead (T338622)
-					surface.getModel().getLinearFragment( currentNode.getOuterRange(), true ).delete( direction );
-				}
-				adjacentFragment.select();
 				e.preventDefault();
 				return true;
 			}
 		}
 
+		offset = rangeToRemove.start;
+		var docLength = documentModel.getDocumentRange().getLength();
+		var startNode;
+		if ( offset < docLength - 1 ) {
+			while ( offset < docLength - 1 && data.isCloseElementData( offset ) ) {
+				offset++;
+			}
+			// If the user tries to delete a focusable node from a collapsed selection,
+			// just select the node and cancel the deletion.
+			startNode = documentModel.getDocumentNode().getNodeFromOffset( offset + 1 );
+			if ( startNode.isFocusable() ) {
+				surface.getModel().setLinearSelection( startNode.getOuterRange() );
+				e.preventDefault();
+				return true;
+			}
+		}
 		if ( rangeToRemove.isCollapsed() ) {
 			// For some reason (most likely: we're at the beginning or end of the document) we can't
 			// expand the range. So, should we delete something or not?
@@ -249,15 +250,8 @@ ve.ce.LinearDeleteKeyDownHandler.static.execute = function ( surface, e ) {
 			// * if we're literally at the start or end, and are in a content node, don't do anything
 			// * if we're in a plain paragraph, don't do anything
 			// * if we're in a list item and it's empty get rid of the item
-			offset = rangeToRemove.start;
-			const docLength = documentModel.getDocumentRange().getLength();
-			if ( offset < docLength - 1 ) {
-				while ( offset < docLength - 1 && data.isCloseElementData( offset ) ) {
-					offset++;
-				}
-			}
-			const startNode = documentModel.getDocumentNode().getNodeFromOffset( offset - 1 );
-			const nodeRange = startNode.getOuterRange();
+			startNode = documentModel.getDocumentNode().getNodeFromOffset( offset - 1 );
+			var nodeRange = startNode.getOuterRange();
 			if (
 				// The node is not unwrappable (e.g. table cells, text nodes)
 				!startNode.isUnwrappable() ||

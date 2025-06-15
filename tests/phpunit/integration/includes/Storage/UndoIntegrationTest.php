@@ -3,29 +3,27 @@
 namespace MediaWiki\Tests\Storage;
 
 use Article;
+use EditPage;
+use FauxRequest;
 use McrUndoAction;
-use MediaWiki\Content\WikitextContent;
-use MediaWiki\Context\DerivativeContext;
-use MediaWiki\Context\IContextSource;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\EditPage\EditPage;
-use MediaWiki\Output\OutputPage;
-use MediaWiki\Request\FauxRequest;
 use MediaWiki\Revision\RevisionStoreRecord;
 use MediaWiki\Revision\SlotRecord;
 use MediaWiki\Storage\EditResult;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
 use MediaWikiIntegrationTestCase;
+use OutputPage;
+use RequestContext;
+use Title;
+use User;
 use WikiPage;
+use WikitextContent;
 
 /**
  * Integration tests for undos.
  * TODO: This should also test edits with multiple slots.
  *
- * @covers \McrUndoAction
- * @covers \WikiPage
- * @covers \MediaWiki\EditPage\EditPage
+ * @covers McrUndoAction
+ * @covers WikiPage
+ * @covers EditPage
  *
  * @group Database
  * @group medium
@@ -34,17 +32,30 @@ class UndoIntegrationTest extends MediaWikiIntegrationTestCase {
 
 	private const PAGE_NAME = 'McrUndoTestPage';
 
+	protected function setUp(): void {
+		parent::setUp();
+
+		// Clean up these tables after each test
+		$this->tablesUsed = [
+			'page',
+			'revision',
+			'comment',
+			'text',
+			'content'
+		];
+	}
+
 	/**
 	 * Creates a new McrUndoAction object for testing.
 	 *
-	 * @param IContextSource $context
+	 * @param RequestContext $context
 	 * @param Article $article
 	 * @param array $params POST/GET parameters passed to the action on submit
 	 *
 	 * @return McrUndoAction
 	 */
 	private function makeNewMcrUndoAction(
-		IContextSource $context,
+		RequestContext $context,
 		Article $article,
 		array $params
 	): McrUndoAction {
@@ -60,7 +71,6 @@ class UndoIntegrationTest extends MediaWikiIntegrationTestCase {
 		$revisionRenderer = $services->getRevisionRenderer();
 		$revisionLookup = $services->getRevisionLookup();
 		$readOnlyMode = $services->getReadOnlyMode();
-		$commentFormatter = $services->getCommentFormatter();
 		$config = $services->getMainConfig();
 		return new class(
 			$article,
@@ -68,7 +78,6 @@ class UndoIntegrationTest extends MediaWikiIntegrationTestCase {
 			$readOnlyMode,
 			$revisionLookup,
 			$revisionRenderer,
-			$commentFormatter,
 			$config
 		) extends McrUndoAction {
 			public function show() {
@@ -180,7 +189,7 @@ class UndoIntegrationTest extends MediaWikiIntegrationTestCase {
 	 *
 	 * @return array[]
 	 */
-	public static function provideUndos() {
+	public function provideUndos() {
 		return [
 			'undoing a single revision' => [
 				[ '1', '2' ],
@@ -241,7 +250,7 @@ class UndoIntegrationTest extends MediaWikiIntegrationTestCase {
 	 *
 	 * @return array[]
 	 */
-	public static function provideIncompleteUndos() {
+	public function provideIncompleteUndos() {
 		return [
 			'undoing a revision without undoafter param' => [
 				[ '1', '2' ],
@@ -297,8 +306,7 @@ class UndoIntegrationTest extends MediaWikiIntegrationTestCase {
 	) {
 		$this->markTestSkippedIfNoDiff3();
 
-		$context = new DerivativeContext( RequestContext::getMain() );
-		$context->setUser( $this->getTestUser()->getUser() );
+		$context = RequestContext::getMain();
 		$revisionIds = $this->setUpPageForTesting( $revisions );
 		$article = Article::newFromTitle( Title::newFromText( self::PAGE_NAME ), $context );
 
@@ -404,8 +412,7 @@ class UndoIntegrationTest extends MediaWikiIntegrationTestCase {
 		$this->markTestSkippedIfNoDiff3();
 
 		$revisionIds = $this->setUpPageForTesting( $revisions );
-		$context = new DerivativeContext( RequestContext::getMain() );
-		$context->setUser( $this->getTestUser()->getUser() );
+		$context = RequestContext::getMain();
 		$article = Article::newFromTitle( Title::newFromText( self::PAGE_NAME ), $context );
 
 		// Set the hook with asserts
@@ -438,7 +445,7 @@ class UndoIntegrationTest extends MediaWikiIntegrationTestCase {
 
 		$editPage = new EditPage( $article );
 		$editPage->importFormData( $request );
-		$editPage->attemptSave( $result );
+		$editPage->internalAttemptSave( $result, false );
 	}
 
 	/**
@@ -451,8 +458,7 @@ class UndoIntegrationTest extends MediaWikiIntegrationTestCase {
 			"line 1\n\nvandalism\n\nline3",
 			"line 1\n\nvandalism\n\nline3 more content"
 		] );
-		$context = new DerivativeContext( RequestContext::getMain() );
-		$context->setUser( $this->getTestUser()->getUser() );
+		$context = RequestContext::getMain();
 		$article = Article::newFromTitle( Title::newFromText( self::PAGE_NAME ), $context );
 
 		// set up a temporary hook with asserts
@@ -491,7 +497,7 @@ class UndoIntegrationTest extends MediaWikiIntegrationTestCase {
 
 		$editPage = new EditPage( $article );
 		$editPage->importFormData( $request );
-		$editPage->attemptSave( $result );
+		$editPage->internalAttemptSave( $result, false );
 	}
 
 	/**
@@ -547,6 +553,6 @@ class UndoIntegrationTest extends MediaWikiIntegrationTestCase {
 
 		$editPage = new EditPage( $article );
 		$editPage->importFormData( $request );
-		$editPage->attemptSave( $result );
+		$editPage->internalAttemptSave( $result, false );
 	}
 }

@@ -7,25 +7,24 @@
 ( function () {
 
 	/**
-	 * @classdesc Like TitleInputWidget, but the namespace has to be input through a separate dropdown field.
+	 * Like TitleInputWidget, but the namespace has to be input through a separate dropdown field.
 	 *
 	 * @class
 	 * @extends OO.ui.Widget
 	 *
 	 * @constructor
-	 * @description Create an instance of `mw.widgets.ComplexTitleInputWidget`.
 	 * @param {Object} [config] Configuration options
-	 * @param {Object} config.namespace Configuration for the NamespaceInputWidget dropdown with list of
+	 * @cfg {Object} namespace Configuration for the NamespaceInputWidget dropdown with list of
 	 *     namespaces
-	 * @param {Object} config.title Configuration for the TitleInputWidget text field
+	 * @cfg {Object} title Configuration for the TitleInputWidget text field
 	 */
 	mw.widgets.ComplexTitleInputWidget = function MwWidgetsComplexTitleInputWidget( config ) {
 		// Parent constructor
-		mw.widgets.ComplexTitleInputWidget.super.call( this, config );
+		mw.widgets.ComplexTitleInputWidget.parent.call( this, config );
 
 		// Properties
 		this.namespace = new mw.widgets.NamespaceInputWidget( config.namespace );
-		this.title = new mw.widgets.TitleInputWidget( Object.assign(
+		this.title = new mw.widgets.TitleInputWidget( $.extend(
 			{},
 			config.title,
 			{
@@ -57,7 +56,7 @@
 	 * @inheritdoc
 	 */
 	mw.widgets.ComplexTitleInputWidget.static.reusePreInfuseDOM = function ( node, config ) {
-		config = mw.widgets.ComplexTitleInputWidget.super.static.reusePreInfuseDOM( node, config );
+		config = mw.widgets.ComplexTitleInputWidget.parent.static.reusePreInfuseDOM( node, config );
 		config.namespace = mw.widgets.NamespaceInputWidget.static.reusePreInfuseDOM(
 			$( node ).find( '.mw-widget-namespaceInputWidget' ),
 			config.namespace
@@ -73,7 +72,7 @@
 	 * @inheritdoc
 	 */
 	mw.widgets.ComplexTitleInputWidget.static.gatherPreInfuseState = function ( node, config ) {
-		const state = mw.widgets.ComplexTitleInputWidget.super.static.gatherPreInfuseState( node, config );
+		var state = mw.widgets.ComplexTitleInputWidget.parent.static.gatherPreInfuseState( node, config );
 		state.namespace = mw.widgets.NamespaceInputWidget.static.gatherPreInfuseState(
 			$( node ).find( '.mw-widget-namespaceInputWidget' ),
 			config.namespace
@@ -99,7 +98,7 @@
 	 * @inheritdoc
 	 */
 	mw.widgets.ComplexTitleInputWidget.prototype.restorePreInfuseState = function ( state ) {
-		mw.widgets.ComplexTitleInputWidget.super.prototype.restorePreInfuseState.call( this, state );
+		mw.widgets.ComplexTitleInputWidget.parent.prototype.restorePreInfuseState.call( this, state );
 		this.namespace.restorePreInfuseState( state.namespace );
 		this.title.restorePreInfuseState( state.title );
 	};
@@ -108,7 +107,7 @@
 	 * @inheritdoc
 	 */
 	mw.widgets.ComplexTitleInputWidget.prototype.setDisabled = function ( disabled ) {
-		mw.widgets.ComplexTitleInputWidget.super.prototype.setDisabled.call( this, disabled );
+		mw.widgets.ComplexTitleInputWidget.parent.prototype.setDisabled.call( this, disabled );
 		if ( this.namespace ) {
 			this.namespace.setDisabled( disabled );
 		}

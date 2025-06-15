@@ -4,7 +4,6 @@ namespace Wikimedia\ParamValidator\Util;
 
 use Psr\Http\Message\StreamInterface;
 use RuntimeException;
-use Stringable;
 use Throwable;
 use Wikimedia\AtEase\AtEase;
 
@@ -18,7 +17,7 @@ use Wikimedia\AtEase\AtEase;
  * @internal
  * @since 1.34
  */
-class UploadedFileStream implements Stringable, StreamInterface {
+class UploadedFileStream implements StreamInterface {
 
 	/** @var resource|null File handle */
 	private $fp;

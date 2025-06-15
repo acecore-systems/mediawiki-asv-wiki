@@ -2,8 +2,8 @@
 
 namespace MediaWiki\Tests\Unit\Settings\Config;
 
+use HashConfig;
 use InvalidArgumentException;
-use MediaWiki\Config\HashConfig;
 use MediaWiki\Settings\Config\ConfigSchemaAggregator;
 use MediaWiki\Settings\Config\MergeStrategy;
 use MediaWiki\Settings\SettingsBuilderException;
@@ -191,7 +191,7 @@ class ConfigSchemaAggregatorTest extends TestCase {
 		$aggregator->addMergeStrategies( [ 'foo' => 'array_plus', ] );
 	}
 
-	public static function provideGetMergeStrategiesFor() {
+	public function provideGetMergeStrategiesFor() {
 		yield 'no schema' => [ null, null ];
 		yield 'no strategy' => [ [ 'default' => '' ], null ];
 		yield 'with strategy' => [ [ 'mergeStrategy' => 'array_merge' ], 'array_merge' ];
@@ -240,7 +240,7 @@ class ConfigSchemaAggregatorTest extends TestCase {
 		);
 	}
 
-	public static function provideValidate() {
+	public function provideValidate() {
 		yield 'invalid config' => [
 			'config-schema' => [ 'foo' => [ 'type' => 'string', ], ],
 			'config' => [ 'foo' => 1 ],

@@ -23,7 +23,7 @@
  * @since 1.24
  */
 
-use MediaWiki\Languages\LanguageNameUtils;
+use MediaWiki\MediaWikiServices;
 
 /**
  * This class formats language change log entries.
@@ -31,16 +31,6 @@ use MediaWiki\Languages\LanguageNameUtils;
  * @since 1.24
  */
 class PageLangLogFormatter extends LogFormatter {
-	private LanguageNameUtils $languageNameUtils;
-
-	public function __construct(
-		LogEntry $entry,
-		LanguageNameUtils $languageNameUtils
-	) {
-		parent::__construct( $entry );
-		$this->languageNameUtils = $languageNameUtils;
-	}
-
 	protected function getMessageParameters() {
 		// Get the user language for displaying language names
 		$userLang = $this->context->getLanguage()->getCode();
@@ -60,9 +50,10 @@ class PageLangLogFormatter extends LogFormatter {
 		}
 
 		// Convert language codes to names in user language
-		$logOld = $this->languageNameUtils->getLanguageName( $oldLang, $userLang )
+		$languageNameUtils = MediaWikiServices::getInstance()->getLanguageNameUtils();
+		$logOld = $languageNameUtils->getLanguageName( $oldLang, $userLang )
 			. ' (' . $oldLang . ')';
-		$logNew = $this->languageNameUtils->getLanguageName( $newLang, $userLang )
+		$logNew = $languageNameUtils->getLanguageName( $newLang, $userLang )
 			. ' (' . $newLang . ')';
 
 		// Add the default message to languages if required

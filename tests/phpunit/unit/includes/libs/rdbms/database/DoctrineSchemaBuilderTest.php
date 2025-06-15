@@ -1,10 +1,7 @@
 <?php
 
-namespace Wikimedia\Tests\Rdbms;
-
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Platforms\SqlitePlatform;
-use MediaWikiUnitTestCase;
 use Wikimedia\Rdbms\DoctrineSchemaBuilder;
 use Wikimedia\Rdbms\MWMySQLPlatform;
 use Wikimedia\Rdbms\MWPostgreSqlPlatform;
@@ -37,7 +34,7 @@ class DoctrineSchemaBuilderTest extends MediaWikiUnitTestCase {
 		$this->assertSame( $expected, $actual );
 	}
 
-	public static function provideTestGetResultAllTables() {
+	public function provideTestGetResultAllTables() {
 		yield 'MySQL schema tables' => [
 			new MWMySQLPlatform,
 			'/data/db/mysql/tables.sql',

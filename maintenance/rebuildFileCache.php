@@ -21,17 +21,12 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\Context\RequestContext;
-use MediaWiki\Debug\MWDebug;
 use MediaWiki\MainConfigNames;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Settings\SettingsBuilder;
-use MediaWiki\Title\Title;
 use Wikimedia\AtEase\AtEase;
-use Wikimedia\Rdbms\SelectQueryBuilder;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script that builds the file cache.
@@ -39,7 +34,6 @@ require_once __DIR__ . '/Maintenance.php';
  * @ingroup Maintenance
  */
 class RebuildFileCache extends Maintenance {
-	/** @var bool */
 	private $enabled = true;
 
 	public function __construct() {
@@ -52,13 +46,13 @@ class RebuildFileCache extends Maintenance {
 		$this->setBatchSize( 100 );
 	}
 
-	public function finalSetup( SettingsBuilder $settingsBuilder ) {
+	public function finalSetup( SettingsBuilder $settingsBuilder = null ) {
 		$this->enabled = $settingsBuilder->getConfig()->get( MainConfigNames::UseFileCache );
 		// Script will handle capturing output and saving it itself
 		$settingsBuilder->putConfigValue( MainConfigNames::UseFileCache, false );
 
 		// Avoid DB writes (like enotif/counters)
-		$this->getServiceContainer()->getReadOnlyMode()
+		MediaWiki\MediaWikiServices::getInstance()->getReadOnlyMode()
 			->setReason( 'Building cache' );
 
 		// Ensure no debug-specific logic ends up in the cache (must be after Setup.php)
@@ -86,21 +80,15 @@ class RebuildFileCache extends Maintenance {
 
 		$this->output( "Building page file cache from page_id {$start}!\n" );
 
-		$dbr = $this->getReplicaDB();
+		$dbr = $this->getDB( DB_REPLICA );
 		$batchSize = $this->getBatchSize();
 		$overwrite = $this->hasOption( 'overwrite' );
 		$start = ( $start > 0 )
 			? $start
-			: $dbr->newSelectQueryBuilder()
-				->select( 'MIN(page_id)' )
-				->from( 'page' )
-				->caller( __METHOD__ )->fetchField();
+			: $dbr->selectField( 'page', 'MIN(page_id)', '', __METHOD__ );
 		$end = ( $end > 0 )
 			? $end
-			: $dbr->newSelectQueryBuilder()
-				->select( 'MAX(page_id)' )
-				->from( 'page' )
-				->caller( __METHOD__ )->fetchField();
+			: $dbr->selectField( 'page', 'MAX(page_id)', '', __METHOD__ );
 		if ( !$start ) {
 			$this->fatalError( "Nothing to do." );
 		}
@@ -110,7 +98,7 @@ class RebuildFileCache extends Maintenance {
 			// If 'all' isn't passed as an option, just fall back to previous behaviour
 			// of using content namespaces
 			$where['page_namespace'] =
-				$this->getServiceContainer()->getNamespaceInfo()->getContentNamespaces();
+				MediaWikiServices::getInstance()->getNamespaceInfo()->getContentNamespaces();
 		}
 
 		// Mock request (hack, no real client)
@@ -121,21 +109,16 @@ class RebuildFileCache extends Maintenance {
 		$blockStart = $start;
 		$blockEnd = $start + $batchSize - 1;
 
-		$dbw = $this->getPrimaryDB();
+		$dbw = $this->getDB( DB_PRIMARY );
 		// Go through each page and save the output
 		while ( $blockEnd <= $end ) {
 			// Get the pages
-			$res = $dbr->newSelectQueryBuilder()
-				->select( [ 'page_namespace', 'page_title', 'page_id' ] )
-				->from( 'page' )
-				->useIndex( 'PRIMARY' )
-				->where( $where )
-				->andWhere( [
-					$dbr->expr( 'page_id', '>=', (int)$blockStart ),
-					$dbr->expr( 'page_id', '<=', (int)$blockEnd ),
-				] )
-				->orderBy( 'page_id', SelectQueryBuilder::SORT_ASC )
-				->caller( __METHOD__ )->fetchResultSet();
+			$res = $dbr->select( 'page',
+				[ 'page_namespace', 'page_title', 'page_id' ],
+				$where + [ "page_id BETWEEN " . (int)$blockStart . " AND " . (int)$blockEnd ],
+				__METHOD__,
+				[ 'ORDER BY' => 'page_id ASC', 'USE INDEX' => 'PRIMARY' ]
+			);
 
 			$this->beginTransaction( $dbw, __METHOD__ ); // for any changes
 			foreach ( $res as $row ) {
@@ -212,7 +195,5 @@ class RebuildFileCache extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = RebuildFileCache::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

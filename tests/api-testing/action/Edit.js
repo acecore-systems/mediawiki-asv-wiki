@@ -2,7 +2,7 @@
 
 const { action, assert, utils, wiki } = require( 'api-testing' );
 
-describe( 'The edit action', () => {
+describe( 'The edit action', function testEditAction() {
 	let alice;
 	let Clark = action.getAnon();
 
@@ -14,7 +14,7 @@ describe( 'The edit action', () => {
 	const pageA = utils.title( 'Edit_A_' );
 	const edits = {};
 
-	const testEditAndLog = async ( page, user, isAnonEdit = false ) => {
+	const testEditAndLog = async ( page, user ) => {
 		const edit = await user.edit( page, {
 			text: utils.uniq(),
 			summary: utils.uniq()
@@ -22,10 +22,7 @@ describe( 'The edit action', () => {
 
 		const rev1 = await user.getRevision( page );
 		assert.equal( rev1.revid, edit.newrevid );
-		// Temporary accounts (anonymous users) have auto-generated usernames
-		if ( !isAnonEdit ) {
-			assert.equal( rev1.user, edit.param_user );
-		}
+		assert.equal( rev1.user, edit.param_user );
 		assert.equal( rev1.comment, edit.param_summary );
 		assert.equal( rev1.timestamp, edit.newtimestamp );
 		assert.equal( rev1.slots.main[ '*' ], edit.param_text );
@@ -33,9 +30,7 @@ describe( 'The edit action', () => {
 		const rc1 = await user.getChangeEntry( { rctitle: page } );
 		assert.equal( rc1.type, edit.oldrevid ? 'edit' : 'new' );
 		assert.equal( rc1.revid, edit.newrevid );
-		if ( !isAnonEdit ) {
-			assert.equal( rc1.user, edit.param_user );
-		}
+		assert.equal( rc1.user, edit.param_user );
 		assert.equal( rc1.comment, edit.param_summary );
 		assert.equal( rc1.timestamp, edit.newtimestamp );
 
@@ -56,7 +51,7 @@ describe( 'The edit action', () => {
 		const { name } = await anon.meta( 'userinfo', {} );
 		anon.username = name;
 
-		await testEditAndLog( title, anon, true );
+		await testEditAndLog( title, anon );
 	} );
 
 	it( 'skips redundant edit', async () => {
@@ -219,22 +214,22 @@ describe( 'The edit action', () => {
 
 		await Clark.edit( pageB, {
 			section: 0,
-			text: `${ editText } some text`
+			text: `${editText} some text`
 		} );
 
 		const secondModification = await Clark.getHtml( pageB );
-		assert.include( secondModification, `${ editText } some text` );
+		assert.include( secondModification, `${editText} some text` );
 		assert.include( secondModification, sectionText1 );
 		assert.include( secondModification, sectionText2 );
 
 		await Clark.edit( pageB, {
 			section: 1,
-			text: `== First ==\n${ sectionText1 } some text`
+			text: `== First ==\n${sectionText1} some text`
 		} );
 
 		const thirdModification = await Clark.getHtml( pageB );
-		assert.include( thirdModification, `${ editText } some text` );
-		assert.include( thirdModification, `${ sectionText1 } some text` );
+		assert.include( thirdModification, `${editText} some text` );
+		assert.include( thirdModification, `${sectionText1} some text` );
 		assert.include( thirdModification, sectionText2 );
 
 		await Clark.edit( pageB, {
@@ -243,7 +238,7 @@ describe( 'The edit action', () => {
 		} );
 
 		const fourthModification = await Clark.getHtml( pageB );
-		assert.include( fourthModification, `${ editText } some text` );
+		assert.include( fourthModification, `${editText} some text` );
 		assert.notInclude( fourthModification, '== First ==' );
 		assert.include( fourthModification, sectionText2 );
 	} );
@@ -265,7 +260,7 @@ describe( 'The edit action', () => {
 		} );
 
 		const pageContent = await Clark.getHtml( page );
-		assert.include( pageContent, `${ top }${ text }${ bottom }` );
+		assert.include( pageContent, `${top}${text}${bottom}` );
 	} );
 
 	it( 'should allow a user make edits on a page passing the timestamp from the previous edit on the same page the basetimetamp', async () => {

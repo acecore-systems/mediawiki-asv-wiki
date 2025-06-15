@@ -4,7 +4,6 @@ namespace MediaWiki\Extension\AbuseFilter\Pager;
 
 use MediaWiki\Extension\AbuseFilter\AbuseFilterPermissionManager;
 use MediaWiki\Extension\AbuseFilter\CentralDBManager;
-use MediaWiki\Extension\AbuseFilter\FilterUtils;
 use MediaWiki\Extension\AbuseFilter\SpecsFormatter;
 use MediaWiki\Extension\AbuseFilter\View\AbuseFilterViewList;
 use MediaWiki\Linker\LinkRenderer;
@@ -30,7 +29,7 @@ class GlobalAbuseFilterPager extends AbuseFilterPager {
 		CentralDBManager $centralDBManager,
 		array $conds
 	) {
-		// Set database before parent constructor to avoid setting it there
+		// Set database before parent constructor to avoid setting it there with wfGetDB
 		$this->mDb = $centralDBManager->getConnection( DB_REPLICA );
 		parent::__construct( $page, $linkRenderer, null, $afPermManager, $specsFormatter, $conds, null, null );
 	}
@@ -64,8 +63,8 @@ class GlobalAbuseFilterPager extends AbuseFilterPager {
 
 				return $lang->commaList( $statuses );
 			case 'af_hit_count':
-				// If the rule is hidden or protected, don't show it, even to privileged local admins
-				if ( FilterUtils::isHidden( $row->af_hidden ) || FilterUtils::isProtected( $row->af_hidden ) ) {
+				// If the rule is hidden, don't show it, even to priviledged local admins
+				if ( $row->af_hidden ) {
 					return '';
 				}
 				return $this->msg( 'abusefilter-hitcount' )->numParams( $value )->parse();

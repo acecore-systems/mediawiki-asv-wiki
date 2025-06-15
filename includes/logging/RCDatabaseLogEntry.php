@@ -25,9 +25,8 @@
 
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Title\Title;
 use MediaWiki\User\UserIdentity;
-use Wikimedia\Rdbms\IReadableDatabase;
+use Wikimedia\Rdbms\IDatabase;
 
 /**
  * A subclass of DatabaseLogEntry for objects constructed from entries in the
@@ -37,7 +36,7 @@ use Wikimedia\Rdbms\IReadableDatabase;
  */
 class RCDatabaseLogEntry extends DatabaseLogEntry {
 
-	public static function newFromId( $id, IReadableDatabase $db ) {
+	public static function newFromId( $id, IDatabase $db ) {
 		// @phan-suppress-previous-line PhanPluginNeverReturnMethod
 		// Make the LSP violation explicit to prevent sneaky failures
 		throw new LogicException( 'Not implemented!' );
@@ -120,15 +119,9 @@ class RCDatabaseLogEntry extends DatabaseLogEntry {
 	}
 
 	public function getComment() {
-		$services = MediaWikiServices::getInstance();
-
-		return $services->getCommentStore()
+		return CommentStore::getStore()
 			// Legacy because the row may have used RecentChange::selectFields()
-			->getCommentLegacy(
-				$services->getConnectionProvider()->getReplicaDatabase(),
-				'rc_comment',
-				$this->row
-			)->text;
+			->getCommentLegacy( wfGetDB( DB_REPLICA ), 'rc_comment', $this->row )->text;
 	}
 
 	public function getDeleted() {

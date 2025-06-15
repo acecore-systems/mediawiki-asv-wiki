@@ -2,13 +2,13 @@
 
 namespace MediaWiki\Tests\ResourceLoader;
 
-use MediaWiki\HookContainer\HookContainer;
-use MediaWiki\HookContainer\StaticHookRegistry;
-use MediaWiki\Request\FauxRequest;
+use EmptyResourceLoader;
+use FauxRequest;
 use MediaWiki\ResourceLoader\Context;
 use MediaWiki\ResourceLoader\FilePath;
 use MediaWiki\ResourceLoader\Image;
 use MediaWiki\ResourceLoader\ImageModule;
+use ResourceLoaderTestCase;
 use Wikimedia\TestingAccessWrapper;
 
 /**
@@ -17,7 +17,7 @@ use Wikimedia\TestingAccessWrapper;
  */
 class ImageModuleTest extends ResourceLoaderTestCase {
 
-	public const COMMON_IMAGE_DATA = [
+	public static $commonImageData = [
 		'abc' => 'abc.gif',
 		'def' => [
 			'file' => 'def.svg',
@@ -49,7 +49,7 @@ class ImageModuleTest extends ResourceLoaderTestCase {
 		]
 	];
 
-	private const COMMON_IMAGE_VARIANTS = [
+	public static $commonImageVariants = [
 		'invert' => [
 			'color' => '#FFFFFF',
 			'global' => true,
@@ -71,8 +71,8 @@ class ImageModuleTest extends ResourceLoaderTestCase {
 				[
 					'class' => ImageModule::class,
 					'prefix' => 'oo-ui-icon',
-					'variants' => self::COMMON_IMAGE_VARIANTS,
-					'images' => self::COMMON_IMAGE_DATA,
+					'variants' => self::$commonImageVariants,
+					'images' => self::$commonImageData,
 				],
 				'.oo-ui-icon-abc {
 	...
@@ -114,8 +114,8 @@ class ImageModuleTest extends ResourceLoaderTestCase {
 					'selectorWithoutVariant' => '.mw-ui-icon-{name}:after, .mw-ui-icon-{name}:before',
 					'selectorWithVariant' =>
 						'.mw-ui-icon-{name}-{variant}:after, .mw-ui-icon-{name}-{variant}:before',
-					'variants' => self::COMMON_IMAGE_VARIANTS,
-					'images' => self::COMMON_IMAGE_DATA,
+					'variants' => self::$commonImageVariants,
+					'images' => self::$commonImageData,
 				],
 				'.mw-ui-icon-abc:after, .mw-ui-icon-abc:before {
 	...
@@ -155,16 +155,12 @@ class ImageModuleTest extends ResourceLoaderTestCase {
 	}
 
 	/**
-	 * Test reading files from elsewhere than localBasePath using FilePath.
+	 * Test reading files from elsewhere than localBasePath using ResourceLoaderFilePath.
 	 *
 	 * This mimics modules modified by skins using 'ResourceModuleSkinStyles' and 'OOUIThemePaths'
 	 * skin attributes.
 	 */
 	public function testResourceLoaderFilePath() {
-		$hookContainer = new HookContainer(
-			new StaticHookRegistry(),
-			$this->getServiceContainer()->getObjectFactory()
-		);
 		$basePath = __DIR__ . '/../../data/blahblah';
 		$filePath = __DIR__ . '/../../data/rlfilepath';
 		$testModule = new ImageModule( [
@@ -182,7 +178,6 @@ class ImageModuleTest extends ResourceLoaderTestCase {
 			],
 		] );
 		$testModule->setName( 'testModule' );
-		$testModule->setHookContainer( $hookContainer );
 		$expectedModule = new ImageModule( [
 			'localBasePath' => $filePath,
 			'remoteBasePath' => 'rlfilepath',
@@ -198,7 +193,6 @@ class ImageModuleTest extends ResourceLoaderTestCase {
 			],
 		] );
 		$expectedModule->setName( 'testModule' );
-		$expectedModule->setHookContainer( $hookContainer );
 
 		$context = $this->getResourceLoaderContext();
 		$this->assertEquals(
@@ -216,10 +210,6 @@ class ImageModuleTest extends ResourceLoaderTestCase {
 			$module,
 			__DIR__ . '/../../data/resourceloader'
 		);
-		$module->setHookContainer( new HookContainer(
-			new StaticHookRegistry(),
-			$this->getServiceContainer()->getObjectFactory()
-		) );
 		$styles = $module->getStyles( $this->getResourceLoaderContext() );
 		$this->assertEquals( $expected, $styles['all'] );
 	}
@@ -268,25 +258,27 @@ class ImageModuleTest extends ResourceLoaderTestCase {
 		return [
 			[
 				false,
-				'background-image: url(original.svg);',
+<<<TEXT
+background-image: url(rasterized.png);
+	background-image: linear-gradient(transparent, transparent), url(original.svg);
+TEXT
 			],
 			[
 				'data:image/svg+xml',
-				'background-image: url(data:image/svg+xml);',
+<<<TEXT
+background-image: url(rasterized.png);
+	background-image: linear-gradient(transparent, transparent), url(data:image/svg+xml);
+TEXT
 			],
-			[
-				'data:image/svg+xml',
-				"-webkit-mask-image: url(data:image/svg+xml);\n	mask-image: url(data:image/svg+xml);",
-				true
-			]
+
 		];
 	}
 
 	/**
 	 * @dataProvider providerGetStyleDeclarations
 	 */
-	public function testGetStyleDeclarations( $dataUriReturnValue, $expected, $useMaskImage = false ) {
-		$module = TestingAccessWrapper::newFromObject( new ImageModule( [ 'useMaskImage' => $useMaskImage ] ) );
+	public function testGetStyleDeclarations( $dataUriReturnValue, $expected ) {
+		$module = TestingAccessWrapper::newFromObject( new ImageModule() );
 		$context = $this->getResourceLoaderContext();
 		$image = $this->getImageMock( $context, $dataUriReturnValue );
 
@@ -318,7 +310,7 @@ class ImageModuleTestable extends ImageModule {
 	 * Replace with a stub to make test cases easier to write.
 	 * @inheritDoc
 	 */
-	protected function getCssDeclarations( $primary ): array {
+	protected function getCssDeclarations( $primary, $fallback ): array {
 		return [ '...' ];
 	}
 }

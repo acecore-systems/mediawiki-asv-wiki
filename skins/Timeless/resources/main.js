@@ -58,13 +58,22 @@ mw.hook( 'wikipage.content' ).add( function ( $content ) {
 	 */
 	function setScrollClass( $table ) {
 		var $tableWrapper = $table.parent(),
+			$wrapper = $tableWrapper.parent(),
 			// wtf browser rtl implementations
 			scroll = Math.abs( $tableWrapper.scrollLeft() );
 
-		$tableWrapper.parent()
-			// 1 instead of 0 because of weird rtl rounding errors or something
-			.toggleClass( 'scroll-left', scroll > 1 )
-			.toggleClass( 'scroll-right', $table.outerWidth() - $tableWrapper.innerWidth() - scroll > 1 );
+		// 1 instead of 0 because of weird rtl rounding errors or something
+		if ( scroll > 1 ) {
+			$wrapper.addClass( 'scroll-left' );
+		} else {
+			$wrapper.removeClass( 'scroll-left' );
+		}
+
+		if ( $table.outerWidth() - $tableWrapper.innerWidth() - scroll > 1 ) {
+			$wrapper.addClass( 'scroll-right' );
+		} else {
+			$wrapper.removeClass( 'scroll-right' );
+		}
 	}
 
 	$content.find( '.content-table' ).on( 'scroll', function () {
@@ -151,20 +160,28 @@ mw.hook( 'wikipage.content' ).add( function ( $content ) {
 	 */
 	function determineActiveSpoofScrollbars() {
 		$content.find( '.overflowed .content-table' ).each( function () {
-			var $scrollbar = $( this ).siblings( '.content-table-scrollbar' ).first();
+			var $scrollbar = $( this ).siblings( '.content-table-scrollbar' ).first(),
+				tableTop, tableBottom, viewBottom, captionHeight;
 
 			// Skip caption
-			var captionHeight = $( this ).find( 'caption' ).outerHeight() || 0;
-			if ( captionHeight ) {
+			captionHeight = $( this ).find( 'caption' ).outerHeight();
+
+			if ( !captionHeight ) {
+				captionHeight = 0;
+			} else {
 				// Pad slightly for reasons
 				captionHeight += 8;
 			}
 
-			var tableTop = $( this ).offset().top,
-				tableBottom = tableTop + $( this ).outerHeight(),
-				viewBottom = window.scrollY + document.documentElement.clientHeight,
-				active = tableTop + captionHeight < viewBottom && tableBottom > viewBottom;
-			$scrollbar.toggleClass( 'inactive', !active );
+			tableTop = $( this ).offset().top;
+			tableBottom = tableTop + $( this ).outerHeight();
+			viewBottom = window.scrollY + document.documentElement.clientHeight;
+
+			if ( tableTop + captionHeight < viewBottom && tableBottom > viewBottom ) {
+				$scrollbar.removeClass( 'inactive' );
+			} else {
+				$scrollbar.addClass( 'inactive' );
+			}
 		} );
 	}
 

@@ -23,9 +23,9 @@
 	"cite-ve-citationneeded-title": "Çitaçión necesâia",
 	"cite-ve-dialog-reference-editing-reused": "Sta çitaçión chi a l'é dêuviâ {{PLURAL:$1|'na vòtta|2=dôe vòtte|$1 vòtte}} inte sta pàgina chi.",
 	"cite-ve-dialog-reference-editing-reused-long": "Sta çitaçión chi a l'é dêuviâ {{PLURAL:$1|'na vòtta|2=dôe vòtte|$1 vòtte}} inte sta pàgina chi. I càngi fæti chi saiàn apricæ da tùtte e pàrte dónde l'é dêuviòu tórna sta çitaçión chi.",
-	"cite-ve-dialog-reference-editing-extends": "Sta chi a l'é 'n'estensción de 'n'âtra nòtta.",
 	"cite-ve-dialog-reference-options-group-label": "Dêuvia sto grùppo chi",
 	"cite-ve-dialog-reference-options-group-placeholder": "Nòtte generâli",
+	"cite-ve-dialog-reference-options-name-label": "Dêuvia tórna con sto nómme chi",
 	"cite-ve-dialog-reference-options-responsive-label": "Dêuvia a dispoxiçión de colònna reatîva",
 	"cite-ve-dialog-reference-options-section": "Opçioìn",
 	"cite-ve-dialog-reference-placeholder": "Scrîvi ò cópia a tò nòtta chi, ò dónque inserìsci 'n template pe-e çitaçioìn.",
@@ -45,7 +45,9 @@
 	"cite-ve-referenceslist-isempty-default": "Inte sta pàgina chi nòtte da elencâ no ghe n'é.",
 	"cite-ve-referenceslist-missingref": "Sta nòtta chi a l'é definîa inte 'n template ò inte 'n âtro blòcco generòu e pe òua a peu êse modificâ sôlo che inta modalitæ wikitèsto.",
 	"cite-ve-referenceslist-missingref-in-list": "Sta nòtta chi a l'é definîa inte 'n template ò inte 'n âtro blòcco generòu e pò-u moménto a sò anteprìmma a peu êse vizoalizâ sôlo che in modalitæ wikitèsto.",
-	"cite-ve-referenceslist-missingreflist": "Sta lìsta de nòtte chi a l'é generâ da 'n template.",
+	"cite-ve-referenceslist-missingreflist": "Sta lista de rifeimenti a l'è generâ da 'n modello e pe oua a poeu vese modificâ soo che in modalitæ vivagna.",
 	"cite-ve-toolbar-group-label": "Çìtta",
-	"cite-ve-othergroup-item": "$1 nòtte"
+	"cite-ve-othergroup-item": "$1 nòtte",
+	"visualeditor-internal-list-diff-default-group-name-mwreference": "Refeimenti",
+	"visualeditor-internal-list-diff-group-name-mwreference": "Nomme groppo rifeimenti: \"$1\""
 }

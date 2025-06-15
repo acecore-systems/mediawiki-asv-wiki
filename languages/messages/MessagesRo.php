@@ -1,6 +1,8 @@
 <?php
 /** Romanian (română)
  *
+ * To improve a translation please visit https://translatewiki.net
+ *
  * @file
  * @ingroup Languages
  *
@@ -83,7 +85,7 @@ $magicWords = [
 	'img_thumbnail'             => [ '1', 'miniatura', 'mini', 'thumb', 'thumbnail' ],
 	'img_top'                   => [ '1', 'sus', 'top' ],
 	'img_upright'               => [ '1', 'dreaptasus', 'dreaptasus=$1', 'dreaptasus $1', 'upright', 'upright=$1', 'upright $1' ],
-	'language'                  => [ '0', '#LIMBA', '#LANGUAGE' ],
+	'language'                  => [ '0', '#LIMBA:', '#LANGUAGE:' ],
 	'lc'                        => [ '0', 'MINUSCULA:', 'LC:' ],
 	'lcfirst'                   => [ '0', 'MINUSCULAPRIMA:', 'LCFIRST:' ],
 	'localday'                  => [ '1', 'ZIUALOCALA', 'LOCALDAY' ],
@@ -251,7 +253,6 @@ $specialPageAliases = [
 	'Randomredirect'            => [ 'Redirectare_aleatorie' ],
 	'Recentchanges'             => [ 'Schimbări_recente' ],
 	'Recentchangeslinked'       => [ 'Modificări_corelate' ],
-	'Renameuser'                => [ 'Redenumire_utilizator' ],
 	'Revisiondelete'            => [ 'Şterge_revizie' ],
 	'Search'                    => [ 'Căutare' ],
 	'Shortpages'                => [ 'Pagini_scurte' ],

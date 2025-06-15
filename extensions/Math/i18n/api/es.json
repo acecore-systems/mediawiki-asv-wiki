@@ -1,8 +1,8 @@
 {
 	"@metadata": {
 		"authors": [
-			"Dgstranz",
-			"Fitoschido"
+			"Fitoschido",
+			"Dgstranz"
 		]
 	},
 	"apihelp-query+mathwbextracts-example-1": "Solicita un resumen de elementos matemáticos de Wikibase.",

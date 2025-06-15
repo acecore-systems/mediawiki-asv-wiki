@@ -1,10 +1,6 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
-use MediaWiki\Api\ApiUsageException;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Title\Title;
 
 /**
  * Tests for Rollback API.
@@ -13,33 +9,39 @@ use MediaWiki\Title\Title;
  * @group Database
  * @group medium
  *
- * @covers MediaWiki\Api\ApiRollback
+ * @covers ApiRollback
  */
 class ApiRollbackTest extends ApiTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
 
+		$this->tablesUsed = array_merge(
+			$this->tablesUsed,
+			[ 'watchlist', 'watchlist_expiry' ]
+		);
+
 		$this->overrideConfigValue( MainConfigNames::WatchlistExpiry, true );
 	}
 
 	public function testProtectWithWatch(): void {
-		$title = Title::makeTitle( NS_MAIN, 'TestProtectWithWatch' );
+		$name = ucfirst( __FUNCTION__ );
+		$title = Title::newFromText( $name );
 		$revisionStore = $this->getServiceContainer()->getRevisionStore();
 
 		$user = $this->getTestUser()->getUser();
 		$sysop = $this->getTestSysop()->getUser();
 
 		// Create page as sysop.
-		$this->editPage( $title, 'Some text', '', NS_MAIN, $sysop );
+		$this->editPage( $name, 'Some text', '', NS_MAIN, $sysop );
 
 		// Edit as non-sysop.
-		$this->editPage( $title, 'Vandalism', '', NS_MAIN, $user );
+		$this->editPage( $name, 'Vandalism', '', NS_MAIN, $user );
 
 		// Rollback as sysop.
 		$apiResult = $this->doApiRequestWithToken( [
 			'action' => 'rollback',
-			'title' => $title->getPrefixedText(),
+			'title' => $name,
 			'user' => $user->getName(),
 			'watchlist' => 'watch',
 			'watchlistexpiry' => '99990123000000',
@@ -54,7 +56,7 @@ class ApiRollbackTest extends ApiTestCase {
 
 		// Make sure the API response looks good.
 		$this->assertArrayHasKey( 'rollback', $apiResult );
-		$this->assertSame( $title->getPrefixedText(), $apiResult['rollback']['title'] );
+		$this->assertSame( $name, $apiResult['rollback']['title'] );
 
 		// And that the page was temporarily watched.
 		$this->assertTrue( $this->getServiceContainer()->getWatchlistManager()->isTempWatched( $sysop, $title ) );
@@ -66,27 +68,27 @@ class ApiRollbackTest extends ApiTestCase {
 
 	public function testRollbackMarkAsBot() {
 		$revisionStore = $this->getServiceContainer()->getRevisionStore();
-		$title = Title::makeTitle( NS_MAIN, 'ApiRollbackTest::testRollbackMarkAsBot' );
+		$title = Title::newFromText( __METHOD__ );
 
 		$user = $this->getTestUser()->getUser();
 		$sysop = $this->getTestSysop()->getUser();
 
 		// Create page as sysop.
-		$this->editPage( $title, 'Some text', '', NS_MAIN, $sysop );
+		$this->editPage( __METHOD__, 'Some text', '', NS_MAIN, $sysop );
 
 		// Edit as non-sysop.
-		$this->editPage( $title, 'Vandalism', '', NS_MAIN, $user );
+		$this->editPage( __METHOD__, 'Vandalism', '', NS_MAIN, $user );
 
 		// Rollback as sysop.
 		$apiResult = $this->doApiRequestWithToken( [
 			'action' => 'rollback',
-			'title' => $title->getPrefixedText(),
+			'title' => __METHOD__,
 			'user' => $user->getName(),
 			'markbot' => true
 		] )[0];
 		// Make sure the API response looks good.
 		$this->assertArrayHasKey( 'rollback', $apiResult );
-		$this->assertSame( $title->getPrefixedText(), $apiResult['rollback']['title'] );
+		$this->assertSame( __METHOD__, $apiResult['rollback']['title'] );
 
 		$recentChange = $revisionStore->getRecentChange( $revisionStore->getRevisionByTitle( $title ) );
 		$this->assertSame( '1', $recentChange->getAttribute( 'rc_bot' ) );
@@ -96,17 +98,16 @@ class ApiRollbackTest extends ApiTestCase {
 		$user = $this->getTestUser()->getUser();
 		$sysop = $this->getTestSysop()->getUser();
 
-		$title = Title::makeTitle( NS_MAIN, 'ApiRollbackTest::testRollbackNoToken' );
 		// Create page as sysop.
-		$this->editPage( $title, 'Some text', '', NS_MAIN, $sysop );
+		$this->editPage( __METHOD__, 'Some text', '', NS_MAIN, $sysop );
 
 		// Edit as non-sysop.
-		$this->editPage( $title, 'Vandalism', '', NS_MAIN, $user );
+		$this->editPage( __METHOD__, 'Vandalism', '', NS_MAIN, $user );
 
 		$this->expectException( ApiUsageException::class );
 		$this->doApiRequest( [
 			'action' => 'rollback',
-			'title' => $title->getPrefixedText(),
+			'title' => __METHOD__,
 			'user' => $user->getName(),
 		] )[0];
 	}

@@ -1,10 +1,5 @@
 <?php
 
-namespace MediaWiki\Tests\Site;
-
-use MediaWiki\Site\Site;
-use MediaWikiIntegrationTestCase;
-
 /**
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,7 +35,7 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider instanceProvider
 	 * @param Site $site
-	 * @covers \MediaWiki\Site\Site::getInterwikiIds
+	 * @covers Site::getInterwikiIds
 	 */
 	public function testGetInterwikiIds( Site $site ) {
 		$this->assertIsArray( $site->getInterwikiIds() );
@@ -49,7 +44,7 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider instanceProvider
 	 * @param Site $site
-	 * @covers \MediaWiki\Site\Site::getNavigationIds
+	 * @covers Site::getNavigationIds
 	 */
 	public function testGetNavigationIds( Site $site ) {
 		$this->assertIsArray( $site->getNavigationIds() );
@@ -58,7 +53,7 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider instanceProvider
 	 * @param Site $site
-	 * @covers \MediaWiki\Site\Site::addNavigationId
+	 * @covers Site::addNavigationId
 	 */
 	public function testAddNavigationId( Site $site ) {
 		$site->addNavigationId( 'foobar' );
@@ -68,7 +63,7 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider instanceProvider
 	 * @param Site $site
-	 * @covers \MediaWiki\Site\Site::addInterwikiId
+	 * @covers Site::addInterwikiId
 	 */
 	public function testAddInterwikiId( Site $site ) {
 		$site->addInterwikiId( 'foobar' );
@@ -78,7 +73,7 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider instanceProvider
 	 * @param Site $site
-	 * @covers \MediaWiki\Site\Site::getLanguageCode
+	 * @covers Site::getLanguageCode
 	 */
 	public function testGetLanguageCode( Site $site ) {
 		$this->assertThat(
@@ -90,7 +85,7 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider instanceProvider
 	 * @param Site $site
-	 * @covers \MediaWiki\Site\Site::setLanguageCode
+	 * @covers Site::setLanguageCode
 	 */
 	public function testSetLanguageCode( Site $site ) {
 		$site->setLanguageCode( 'en' );
@@ -100,7 +95,7 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider instanceProvider
 	 * @param Site $site
-	 * @covers \MediaWiki\Site\Site::normalizePageName
+	 * @covers Site::normalizePageName
 	 */
 	public function testNormalizePageName( Site $site ) {
 		$this->assertIsString( $site->normalizePageName( 'Foobar' ) );
@@ -109,7 +104,7 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider instanceProvider
 	 * @param Site $site
-	 * @covers \MediaWiki\Site\Site::getGlobalId
+	 * @covers Site::getGlobalId
 	 */
 	public function testGetGlobalId( Site $site ) {
 		$this->assertThat(
@@ -121,7 +116,7 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider instanceProvider
 	 * @param Site $site
-	 * @covers \MediaWiki\Site\Site::setGlobalId
+	 * @covers Site::setGlobalId
 	 */
 	public function testSetGlobalId( Site $site ) {
 		$site->setGlobalId( 'foobar' );
@@ -131,7 +126,7 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider instanceProvider
 	 * @param Site $site
-	 * @covers \MediaWiki\Site\Site::getType
+	 * @covers Site::getType
 	 */
 	public function testGetType( Site $site ) {
 		$this->assertIsString( $site->getType() );
@@ -140,7 +135,7 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider instanceProvider
 	 * @param Site $site
-	 * @covers \MediaWiki\Site\Site::getPath
+	 * @covers Site::getPath
 	 */
 	public function testGetPath( Site $site ) {
 		$this->assertThat(
@@ -160,7 +155,7 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider instanceProvider
 	 * @param Site $site
-	 * @covers \MediaWiki\Site\Site::getAllPaths
+	 * @covers Site::getAllPaths
 	 */
 	public function testGetAllPaths( Site $site ) {
 		$this->assertIsArray( $site->getAllPaths() );
@@ -169,8 +164,8 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider instanceProvider
 	 * @param Site $site
-	 * @covers \MediaWiki\Site\Site::setPath
-	 * @covers \MediaWiki\Site\Site::removePath
+	 * @covers Site::setPath
+	 * @covers Site::removePath
 	 */
 	public function testSetAndRemovePath( Site $site ) {
 		$count = count( $site->getAllPaths() );
@@ -194,7 +189,7 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Site\Site::setLinkPath
+	 * @covers Site::setLinkPath
 	 */
 	public function testSetLinkPath() {
 		$site = new Site();
@@ -205,7 +200,7 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Site\Site::getLinkPathType
+	 * @covers Site::getLinkPathType
 	 */
 	public function testGetLinkPathType() {
 		$site = new Site();
@@ -220,7 +215,7 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Site\Site::setPath
+	 * @covers Site::setPath
 	 */
 	public function testSetPath() {
 		$site = new Site();
@@ -232,8 +227,8 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Site\Site::setPath
-	 * @covers \MediaWiki\Site\Site::getProtocol
+	 * @covers Site::setPath
+	 * @covers Site::getProtocol
 	 */
 	public function testProtocolRelativePath() {
 		$site = new Site();
@@ -272,7 +267,7 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideGetPageUrl
-	 * @covers \MediaWiki\Site\Site::getPageUrl
+	 * @covers Site::getPageUrl
 	 */
 	public function testGetPageUrl( $path, $page, $expected ) {
 		$site = new Site();
@@ -289,10 +284,12 @@ class SiteTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider instanceProvider
 	 * @param Site $site
-	 * @covers \MediaWiki\Site\Site::__serialize
-	 * @covers \MediaWiki\Site\Site::__unserialize
+	 * @covers Site::serialize
+	 * @covers Site::unserialize
 	 */
 	public function testSerialization( Site $site ) {
+		$this->assertInstanceOf( Serializable::class, $site );
+
 		$serialization = serialize( $site );
 		$newInstance = unserialize( $serialization );
 

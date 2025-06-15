@@ -19,10 +19,11 @@
  */
 namespace MediaWiki\ResourceLoader;
 
+use Config;
+use ConfigException;
 use InvalidArgumentException;
-use MediaWiki\Config\Config;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Output\OutputPage;
+use OutputPage;
 use Wikimedia\Minify\CSSMin;
 
 /**
@@ -32,6 +33,10 @@ use Wikimedia\Minify\CSSMin;
  * @internal
  */
 class SkinModule extends LessVarFileModule {
+	/**
+	 * All skins are assumed to be compatible with mobile
+	 */
+	public $targets = [ 'desktop', 'mobile' ];
 
 	/**
 	 * Every skin should define which features it would like to reuse for core inside a
@@ -59,13 +64,17 @@ class SkinModule extends LessVarFileModule {
 	 *     TOC is present. This level is for skins that want to implement the entire style of even
 	 *     content area structures like the TOC themselves.
 	 *
+	 * "content":
+	 *     Deprecated. Alias for "content-media".
+	 *
+	 * "content-thumbnails":
+	 *     Deprecated. Alias for "content-media".
+	 *
 	 * "content-media":
 	 *     Styles for thumbnails and floated elements.
 	 *     Will add styles for the new media structure on wikis where $wgParserEnableLegacyMediaDOM is disabled,
 	 *     or $wgUseContentMediaStyles is enabled.
 	 *     See https://www.mediawiki.org/wiki/Parsing/Media_structure
-	 *
-	 *     Compatibility aliases: "content", "content-thumbnails".
 	 *
 	 * "content-links":
 	 *     The skin will apply optional styling rules for links that should be styled differently
@@ -102,8 +111,7 @@ class SkinModule extends LessVarFileModule {
 	 *     Default interface styling for indicators.
 	 *
 	 * "interface-message-box":
-	 *     Styles for message boxes. Can be used by skins that do not load Codex styles on page load.
-	 *     Deprecated since MediaWiki 1.43. Skins should now use CodexModule::class to style messages.
+	 *     Styles for message boxes.
 	 *
 	 * "interface-site-notice":
 	 *     Default interface styling for site notices.
@@ -118,7 +126,7 @@ class SkinModule extends LessVarFileModule {
 	 *     Styles for ordered lists elements that support mixed language content.
 	 *
 	 * "i18n-all-lists-margins":
-	 *     Deprecated since MediaWiki 1.43. It's merged into the `elements` module.
+	 *     Styles for margins of list elements where LTR and RTL are mixed.
 	 *
 	 * "i18n-headings":
 	 *     Styles for line-heights of headings across different languages.
@@ -141,8 +149,11 @@ class SkinModule extends LessVarFileModule {
 			// Reserves whitespace for the logo in a pseudo element.
 			'print' => [ 'resources/src/mediawiki.skinning/logo-print.less' ],
 		],
-		// Placeholder for dynamic definition in getFeatureFilePaths()
-		'content-media' => [],
+		'content-media' => [
+			'all' => [ 'resources/src/mediawiki.skinning/content.thumbnails-common.less' ],
+			'screen' => [ 'resources/src/mediawiki.skinning/content.thumbnails-screen.less' ],
+			'print' => [ 'resources/src/mediawiki.skinning/content.thumbnails-print.less' ],
+		],
 		'content-links' => [
 			'screen' => [ 'resources/src/mediawiki.skinning/content.links.less' ]
 		],
@@ -157,6 +168,9 @@ class SkinModule extends LessVarFileModule {
 			'screen' => [ 'resources/src/mediawiki.skinning/content.tables.less' ],
 			'print' => [ 'resources/src/mediawiki.skinning/content.tables-print.less' ]
 		],
+		// Legacy shorthand for 6 features: interface-core, interface-edit-section-links,
+		// interface-indicators, interface-subtitle, interface-site-notice, interface-user-message
+		'interface' => [],
 		'interface-category' => [
 			'screen' => [ 'resources/src/mediawiki.skinning/interface.category.less' ],
 			'print' => [ 'resources/src/mediawiki.skinning/interface.category-print.less' ],
@@ -187,6 +201,9 @@ class SkinModule extends LessVarFileModule {
 			'screen' => [ 'resources/src/mediawiki.skinning/elements.less' ],
 			'print' => [ 'resources/src/mediawiki.skinning/elements-print.less' ],
 		],
+		// The styles of the legacy feature was removed in 1.39. This can be removed when no skins are referencing it
+		// (Dropping this line will trigger InvalidArgumentException: Feature 'legacy' is not recognised)
+		'legacy' => [],
 		'i18n-ordered-lists' => [
 			'screen' => [ 'resources/src/mediawiki.skinning/i18n-ordered-lists.less' ],
 		],
@@ -197,23 +214,10 @@ class SkinModule extends LessVarFileModule {
 			'screen' => [ 'resources/src/mediawiki.skinning/i18n-headings.less' ],
 		],
 		'toc' => [
-			'all' => [ 'resources/src/mediawiki.skinning/toc/common.less' ],
+			'all' => [ 'resources/src/mediawiki.skinning/toc/common.css' ],
 			'screen' => [ 'resources/src/mediawiki.skinning/toc/screen.less' ],
-			'print' => [ 'resources/src/mediawiki.skinning/toc/print.less' ],
+			'print' => [ 'resources/src/mediawiki.skinning/toc/print.css' ],
 		],
-	];
-
-	private const COMPAT_ALIASES = [
-		// MediaWiki 1.36
-		'content-parser-output' => 'content-body',
-		// MediaWiki 1.37
-		'content' => 'content-media',
-		'content-thumbnails' => 'content-media',
-		// MediaWiki 1.39
-		// The 'legacy' feature has been folded into other features that relevant skins
-		// are expected to have already enabled separately. It is now a no-op that can
-		// be safely removed from any skin.json files (T89981, T304325).
-		'legacy' => null,
 	];
 
 	/** @var string[] */
@@ -223,12 +227,14 @@ class SkinModule extends LessVarFileModule {
 	 * Defaults for when a 'features' parameter is specified.
 	 *
 	 * When these apply, they are the merged into the specified options.
+	 *
+	 * @var array<string,bool>
 	 */
 	private const DEFAULT_FEATURES_SPECIFIED = [
 		'accessibility' => true,
 		'content-body' => true,
 		'interface-core' => true,
-		'toc' => true
+		'toc' => true,
 	];
 
 	/**
@@ -236,6 +242,8 @@ class SkinModule extends LessVarFileModule {
 	 *
 	 * For backward-compatibility, when the parameter is not declared
 	 * only 'logo' styles are loaded.
+	 *
+	 * @var string[]
 	 */
 	private const DEFAULT_FEATURES_ABSENT = [
 		'logo',
@@ -261,7 +269,7 @@ class SkinModule extends LessVarFileModule {
 	 *   after an upgrade until you enable them or implement them by other means.
 	 *
 	 * - lessMessages: Interface message keys to export as LESS variables.
-	 *   See also LessVarFileModule.
+	 *   See also ResourceLoaderLessVarFileModule.
 	 *
 	 * @param string|null $localBasePath
 	 * @param string|null $remoteBasePath
@@ -277,14 +285,10 @@ class SkinModule extends LessVarFileModule {
 
 		$messages = '';
 		// NOTE: Compatibility is only applied when features are provided
-		// in map-form. The list-form takes full control instead.
-		$features = $listMode ?
-			self::applyFeaturesCompatibility(
-				array_fill_keys( $features, true ),
-				false,
-				$messages
-			)
-			: self::applyFeaturesCompatibility( $features, true, $messages );
+		// in map-form. The list-form does not currently get these.
+		$features = $listMode ? self::applyFeaturesCompatibility(
+			array_fill_keys( $features, true ), false, $messages
+		) : self::applyFeaturesCompatibility( $features, true, $messages );
 
 		foreach ( $features as $key => $enabled ) {
 			if ( !isset( self::FEATURE_FILES[$key] ) ) {
@@ -316,58 +320,62 @@ class SkinModule extends LessVarFileModule {
 	/**
 	 * @internal
 	 * @param array $features
-	 * @param bool $addUnspecifiedFeatures Whether to add new features if missing
-	 * @param string &$messages Messages to report deprecations
+	 * @param bool $addUnspecifiedFeatures whether to add new features if missing
+	 * @param string &$messages to report deprecations
 	 * @return array
 	 */
 	protected static function applyFeaturesCompatibility(
 		array $features, bool $addUnspecifiedFeatures = true, &$messages = ''
 	): array {
-		if ( isset( $features[ 'i18n-all-lists-margins' ] ) ) {
-			// Emit warning only. Key is supported as-is.
-			// Replacement requires maintainer intervention as it has non-trivial side-effects.
-			$messages .= '[1.43] The use of the `i18n-all-lists-margins` feature with SkinModule'
-				. ' is deprecated as it is now provided by `elements`. Please remove and '
-				. ' add `elements`, drop support for RTL languages, or incorporate the '
-				. ' styles provided by this module into your skin.';
-		}
-		if ( isset( $features[ 'interface-message-box' ] ) && $features[ 'interface-message-box' ] ) {
-			// Emit warning only. Key is supported as-is (For now)
-			// Replacement requires maintainer loading a suitable Codex module instead.
-			// Note: When removing this deprecation notice and associated code, please
-			// make sure mediawiki.legacy.messageBox is not broken.
-			$messages .= '[1.43] The use of the `interface-message-box` feature with SkinModule'
-				. ' is deprecated in favor of CodexModule. Please remove this feature.';
+		// The `content` feature is mapped to `content-media`.
+		if ( isset( $features[ 'content' ] ) ) {
+			$features[ 'content-media' ] = $features[ 'content' ];
+			unset( $features[ 'content' ] );
+			$messages .= '[1.37] The use of the `content` feature with ResourceLoaderSkinModule'
+				. ' is deprecated. Use `content-media` instead. ';
 		}
 
-		foreach ( self::COMPAT_ALIASES as $from => $to ) {
-			if ( isset( $features[ $from ] ) && $to !== null ) {
-				if ( isset( $features[ $to ] ) ) {
-					$messages .= "SkinModule feature `$from` conflicts with `$to` and was ignored. ";
-				} else {
-					$features[ $to ] = $features[ $from ];
-				}
-			}
-			unset( $features[ $from ] );
+		// The `content-thumbnails` feature is mapped to `content-media`.
+		if ( isset( $features[ 'content-thumbnails' ] ) ) {
+			$features[ 'content-media' ] = $features[ 'content-thumbnails' ];
+			$messages .= '[1.37] The use of the `content-thumbnails` feature with ResourceLoaderSkinModule'
+				. ' is deprecated. Use `content-media` instead. ';
+			unset( $features[ 'content-thumbnails' ] );
 		}
 
 		// If `content-links` feature is set but no preference for `content-links-external` is set
-		if ( $addUnspecifiedFeatures
-			&& isset( $features[ 'content-links' ] )
+		if ( $addUnspecifiedFeatures && isset( $features[ 'content-links' ] )
 			&& !isset( $features[ 'content-links-external' ] )
 		) {
 			// Assume the same true/false preference for both.
 			$features[ 'content-links-external' ] = $features[ 'content-links' ];
 		}
 
+		// The legacy feature no longer exists (T89981) but to avoid fatals in skins is retained.
+		if ( isset( $features['legacy'] ) && $features['legacy'] ) {
+			$messages .= '[1.37] The use of the `legacy` feature with ResourceLoaderSkinModule is deprecated'
+				. '(T89981) and is a NOOP since 1.39 (T304325). This should be urgently omited to retain compatibility '
+				. 'with future MediaWiki versions';
+		}
+
 		// The `content-links` feature was split out from `elements`.
 		// Make sure skins asking for `elements` also get these by default.
-		if ( $addUnspecifiedFeatures && isset( $features[ 'elements' ] ) && !isset( $features[ 'content-links' ] ) ) {
-			$features[ 'content-links' ] = $features[ 'elements' ];
+		if ( $addUnspecifiedFeatures && isset( $features[ 'element' ] ) && !isset( $features[ 'content-links' ] ) ) {
+			$features[ 'content-links' ] = $features[ 'element' ];
+		}
+
+		// `content-parser-output` was renamed to `content-body`.
+		// No need to go through deprecation process here since content-parser-output added and removed in 1.36.
+		// Remove this check when no matches for
+		// https://codesearch.wmcloud.org/search/?q=content-parser-output&i=nope&files=&excludeFiles=&repos=
+		if ( isset( $features[ 'content-parser-output' ] ) ) {
+			$features[ 'content-body' ] = $features[ 'content-parser-output' ];
+			unset( $features[ 'content-parser-output' ] );
 		}
 
 		// The interface module is a short hand for several modules. Enable them now.
 		if ( isset( $features[ 'interface' ] ) && $features[ 'interface' ] ) {
+			unset( $features[ 'interface' ] );
 			$features[ 'interface-core' ] = true;
 			$features[ 'interface-indicators' ] = true;
 			$features[ 'interface-subtitle' ] = true;
@@ -375,20 +383,21 @@ class SkinModule extends LessVarFileModule {
 			$features[ 'interface-site-notice' ] = true;
 			$features[ 'interface-edit-section-links' ] = true;
 		}
-		unset( $features[ 'interface' ] );
-
 		return $features;
 	}
 
 	/**
-	 * Get styles defined in the module definition.
+	 * Get styles defined in the module definition, plus any enabled feature styles.
 	 *
-	 * @return array
+	 * @param Context $context
+	 * @return string[][]
 	 */
-	public function getFeatureFilePaths() {
+	public function getStyleFiles( Context $context ) {
+		$styles = parent::getStyleFiles( $context );
+
 		// Bypass the current module paths so that these files are served from core,
 		// instead of the individual skin's module directory.
-		[ $defaultLocalBasePath, $defaultRemoteBasePath ] =
+		list( $defaultLocalBasePath, $defaultRemoteBasePath ) =
 			FileModule::extractBasePaths(
 				[],
 				null,
@@ -408,113 +417,38 @@ class SkinModule extends LessVarFileModule {
 						);
 					}
 				}
-
-				if ( $feature === 'content-media' ) {
-					if ( $this->getConfig()->get( MainConfigNames::UseLegacyMediaStyles ) ) {
-						$featureFilePaths['all'][] = new FilePath(
-							'resources/src/mediawiki.skinning/content.thumbnails-common.less',
-							$defaultLocalBasePath,
-							$defaultRemoteBasePath
-						);
-						$featureFilePaths['screen'][] = new FilePath(
-							'resources/src/mediawiki.skinning/content.thumbnails-screen.less',
-							$defaultLocalBasePath,
-							$defaultRemoteBasePath
-						);
-						$featureFilePaths['print'][] = new FilePath(
-							'resources/src/mediawiki.skinning/content.thumbnails-print.less',
-							$defaultLocalBasePath,
-							$defaultRemoteBasePath
-						);
-					}
-					if (
-						!$this->getConfig()->get( MainConfigNames::ParserEnableLegacyMediaDOM ) ||
-						$this->getConfig()->get( MainConfigNames::UseContentMediaStyles )
-					) {
-						$featureFilePaths['all'][] = new FilePath(
-							'resources/src/mediawiki.skinning/content.media-common.less',
-							$defaultLocalBasePath,
-							$defaultRemoteBasePath
-						);
-						$featureFilePaths['screen'][] = new FilePath(
-							'resources/src/mediawiki.skinning/content.media-screen.less',
-							$defaultLocalBasePath,
-							$defaultRemoteBasePath
-						);
-						$featureFilePaths['print'][] = new FilePath(
-							'resources/src/mediawiki.skinning/content.media-print.less',
-							$defaultLocalBasePath,
-							$defaultRemoteBasePath
-						);
-					}
+				if ( $feature === 'content-media' && (
+					!$this->getConfig()->get( MainConfigNames::ParserEnableLegacyMediaDOM ) ||
+					$this->getConfig()->get( MainConfigNames::UseContentMediaStyles )
+				) ) {
+					$featureFilePaths['all'][] = new FilePath(
+						'resources/src/mediawiki.skinning/content.media-common.less',
+						$defaultLocalBasePath,
+						$defaultRemoteBasePath
+					);
+					$featureFilePaths['screen'][] = new FilePath(
+						'resources/src/mediawiki.skinning/content.media-screen.less',
+						$defaultLocalBasePath,
+						$defaultRemoteBasePath
+					);
+					$featureFilePaths['print'][] = new FilePath(
+						'resources/src/mediawiki.skinning/content.media-print.less',
+						$defaultLocalBasePath,
+						$defaultRemoteBasePath
+					);
 				}
 			}
 		}
+
+		// Styles defines in options are added to the $featureFilePaths to ensure
+		// that $featureFilePaths styles precede module defined ones.
+		// This is particularly important given the `normalize` styles need to be the first
+		// outputted (see T269618).
+		foreach ( $styles as $mediaType => $paths ) {
+			$featureFilePaths[$mediaType] = array_merge( $featureFilePaths[$mediaType] ?? [], $paths );
+		}
+
 		return $featureFilePaths;
-	}
-
-	/**
-	 * Combines feature styles and parent skin styles, ensuring that all
-	 * feature styles are output *first*, followed by skin related styles.
-	 *
-	 * @param array $featureStyles
-	 * @param array $parentStyles
-	 *
-	 * @return array
-	 */
-	private function combineFeatureAndParentStyles( $featureStyles, $parentStyles ) {
-		$combinedFeatureStyles = ResourceLoader::makeCombinedStyles( $featureStyles );
-		$combinedParentStyles = ResourceLoader::makeCombinedStyles( $parentStyles );
-		$combinedStyles = array_merge( $combinedFeatureStyles, $combinedParentStyles );
-		return [ '' => $combinedStyles ];
-	}
-
-	/**
-	 * Generates CSS for .mw-logo-logo styles and appends them
-	 * to the skin feature styles array.
-	 * @param array $featureStyles
-	 * @param Context $context
-	 * @return array
-	 */
-	public function generateAndAppendLogoStyles( $featureStyles, $context ) {
-		$logo = $this->getLogoData( $this->getConfig(), $context->getLanguage() );
-		$default = !is_array( $logo ) ? $logo : ( $logo['svg'] ?? $logo['1x'] ?? null );
-
-		// Can't add logo CSS if no logo defined.
-		if ( !$default ) {
-			return $featureStyles;
-		}
-
-		$featureStyles['all'][] = '.mw-wiki-logo { background-image: ' .
-			CSSMin::buildUrlValue( $default ) .
-			'; }';
-
-		if ( is_array( $logo ) ) {
-			if ( isset( $logo['svg'] ) ) {
-				$featureStyles['all'][] = '.mw-wiki-logo { ' .
-					'background-size: 135px auto; }';
-			} else {
-				if ( isset( $logo['1.5x'] ) ) {
-					$featureStyles[
-						'(-webkit-min-device-pixel-ratio: 1.5), ' .
-						'(min-resolution: 1.5dppx), ' .
-						'(min-resolution: 144dpi)'
-					][] = '.mw-wiki-logo { background-image: ' .
-						CSSMin::buildUrlValue( $logo['1.5x'] ) . ';' .
-						'background-size: 135px auto; }';
-				}
-				if ( isset( $logo['2x'] ) ) {
-					$featureStyles[
-						'(-webkit-min-device-pixel-ratio: 2), ' .
-						'(min-resolution: 2dppx), ' .
-						'(min-resolution: 192dpi)'
-					][] = '.mw-wiki-logo { background-image: ' .
-						CSSMin::buildUrlValue( $logo['2x'] ) . ';' .
-						'background-size: 135px auto; }';
-				}
-			}
-		}
-		return $featureStyles;
 	}
 
 	/**
@@ -522,19 +456,51 @@ class SkinModule extends LessVarFileModule {
 	 * @return array
 	 */
 	public function getStyles( Context $context ) {
-		$parentStyles = parent::getStyles( $context );
-		$featureFilePaths = $this->getFeatureFilePaths();
-		$featureStyles = $this->readStyleFiles( $featureFilePaths, $context );
-
-		$this->normalizeStyles( $featureStyles );
-		$this->normalizeStyles( $parentStyles );
+		$logo = $this->getLogoData( $this->getConfig(), $context->getLanguage() );
+		$styles = parent::getStyles( $context );
+		$this->normalizeStyles( $styles );
 
 		$isLogoFeatureEnabled = in_array( 'logo', $this->features );
 		if ( $isLogoFeatureEnabled ) {
-			$featureStyles = $this->generateAndAppendLogoStyles( $featureStyles, $context );
+			$default = !is_array( $logo ) ? $logo : ( $logo['1x'] ?? null );
+			// Can't add logo CSS if no logo defined.
+			if ( !$default ) {
+				return $styles;
+			}
+			$styles['all'][] = '.mw-wiki-logo { background-image: ' .
+				CSSMin::buildUrlValue( $default ) .
+				'; }';
+
+			if ( is_array( $logo ) ) {
+				if ( isset( $logo['svg'] ) ) {
+					$styles['all'][] = '.mw-wiki-logo { ' .
+						'background-image: linear-gradient(transparent, transparent), ' .
+							CSSMin::buildUrlValue( $logo['svg'] ) . ';' .
+						'background-size: 135px auto; }';
+				} else {
+					if ( isset( $logo['1.5x'] ) ) {
+						$styles[
+							'(-webkit-min-device-pixel-ratio: 1.5), ' .
+							'(min-resolution: 1.5dppx), ' .
+							'(min-resolution: 144dpi)'
+						][] = '.mw-wiki-logo { background-image: ' .
+							CSSMin::buildUrlValue( $logo['1.5x'] ) . ';' .
+							'background-size: 135px auto; }';
+					}
+					if ( isset( $logo['2x'] ) ) {
+						$styles[
+							'(-webkit-min-device-pixel-ratio: 2), ' .
+							'(min-resolution: 2dppx), ' .
+							'(min-resolution: 192dpi)'
+						][] = '.mw-wiki-logo { background-image: ' .
+							CSSMin::buildUrlValue( $logo['2x'] ) . ';' .
+							'background-size: 135px auto; }';
+					}
+				}
+			}
 		}
 
-		return $this->combineFeatureAndParentStyles( $featureStyles, $parentStyles );
+		return $styles;
 	}
 
 	/**
@@ -664,11 +630,11 @@ class SkinModule extends LessVarFileModule {
 	 *      height fields defined in pixels, which are converted to ems based on 16px font-size.
 	 *  - icon (string): a square logo similar to 1x, but without the wordmark. SVG recommended.
 	 */
-	public static function getAvailableLogos( Config $conf, ?string $lang = null ): array {
+	public static function getAvailableLogos( Config $conf, string $lang = null ): array {
 		$logos = $conf->get( MainConfigNames::Logos );
 		if ( $logos === false ) {
 			// no logos were defined... this will either
-			// 1. Load from wgLogo
+			// 1. Load from wgLogo and wgLogoHD
 			// 2. Trigger runtime exception if those are not defined.
 			$logos = [];
 		}
@@ -684,6 +650,17 @@ class SkinModule extends LessVarFileModule {
 			if ( $logo ) {
 				$logos['1x'] = $logo;
 			}
+		}
+
+		try {
+			$logoHD = $conf->get( MainConfigNames::LogoHD );
+			// make sure not false
+			if ( $logoHD ) {
+				// wfDeprecated( __METHOD__ . ' with $wgLogoHD set instead of $wgLogos', '1.35', false, 1 );
+				$logos += $logoHD;
+			}
+		} catch ( ConfigException $e ) {
+			// no backwards compatibility changes needed.
 		}
 
 		if ( isset( $logos['wordmark'] ) ) {
@@ -706,7 +683,7 @@ class SkinModule extends LessVarFileModule {
 	 *  Key "1x" is always defined. Key "svg" may also be defined,
 	 *  in which case variants other than "1x" are omitted.
 	 */
-	protected function getLogoData( Config $conf, ?string $lang = null ) {
+	protected function getLogoData( Config $conf, string $lang = null ) {
 		$logoHD = self::getAvailableLogos( $conf, $lang );
 		$logo = $logoHD['1x'];
 
@@ -761,7 +738,7 @@ class SkinModule extends LessVarFileModule {
 	 */
 	protected function getLessVars( Context $context ) {
 		$lessVars = parent::getLessVars( $context );
-		$logos = self::getAvailableLogos( $this->getConfig(), $context->getLanguage() );
+		$logos = self::getAvailableLogos( $this->getConfig() );
 
 		if ( isset( $logos['wordmark'] ) ) {
 			$logo = $logos['wordmark'];
@@ -778,8 +755,11 @@ class SkinModule extends LessVarFileModule {
 	public function getDefinitionSummary( Context $context ) {
 		$summary = parent::getDefinitionSummary( $context );
 		$summary[] = [
-			'logos' => self::getAvailableLogos( $this->getConfig(), $context->getLanguage() ),
+			'logos' => self::getAvailableLogos( $this->getConfig() ),
 		];
 		return $summary;
 	}
 }
+
+/** @deprecated since 1.39 */
+class_alias( SkinModule::class, 'ResourceLoaderSkinModule' );

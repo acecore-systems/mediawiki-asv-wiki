@@ -4,13 +4,12 @@
 
 .content {
 	p {
-		padding-bottom: 0.5em;
-		margin: 0.5em 0 0 0;
+		margin: 0.5em 0 1em 0;
 	}
 
 	hr {
-		// border-color used as background-color as exception here.
-		background-color: @border-color-base;
+		// @color used as background-color as exception here.
+		background-color: @colorGray10;
 		height: 1px;
 		border: 0;
 	}
@@ -43,12 +42,12 @@
 	code,
 	pre {
 		font-family: @font-family-monospace;
-		border: @border-subtle;
+		border: solid 1px @colorGray12;
 		white-space: pre-wrap;
 	}
 
 	code {
-		padding: @spacing-12 @spacing-25;
+		padding: 0.2em 0.5em;
 	}
 
 	pre {
@@ -62,7 +61,7 @@ strong {
 }
 
 blockquote {
-	border-left: 3px @border-style-base @border-color-subtle;
+	border-left: 3px solid @colorGray12;
 	padding: @padding-vertical-blockquote @padding-end-blockquote @padding-vertical-blockquote @padding-start-blockquote;
 	font-family: @font-family-serif;
 	font-size: 1.1em;

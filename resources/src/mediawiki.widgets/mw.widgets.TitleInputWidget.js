@@ -6,27 +6,26 @@
  */
 ( function () {
 
-	const trimByteLength = require( 'mediawiki.String' ).trimByteLength;
+	var trimByteLength = require( 'mediawiki.String' ).trimByteLength;
 
 	/**
-	 * @classdesc Title input widget.
+	 * Creates an mw.widgets.TitleInputWidget object.
 	 *
 	 * @class
 	 * @extends OO.ui.TextInputWidget
-	 * @mixes mw.widgets.TitleWidget
-	 * @mixes OO.ui.mixin.LookupElement
+	 * @mixins mw.widgets.TitleWidget
+	 * @mixins OO.ui.mixin.LookupElement
 	 *
 	 * @constructor
-	 * @description Create an mw.widgets.TitleInputWidget object.
 	 * @param {Object} [config] Configuration options
-	 * @param {boolean} [config.suggestions=true] Display search suggestions
-	 * @param {RegExp|Function|string} [config.validate] Perform title validation
+	 * @cfg {boolean} [suggestions=true] Display search suggestions
+	 * @cfg {RegExp|Function|string} [validate] Perform title validation
 	 */
 	mw.widgets.TitleInputWidget = function MwWidgetsTitleInputWidget( config ) {
 		config = config || {};
 
 		// Parent constructor
-		mw.widgets.TitleInputWidget.super.call( this, Object.assign( {}, config, {
+		mw.widgets.TitleInputWidget.parent.call( this, $.extend( {}, config, {
 			validate: config.validate !== undefined ? config.validate : this.isQueryValid.bind( this ),
 			autocomplete: false
 		} ) );
@@ -59,14 +58,14 @@
 	/* Methods */
 
 	/**
-	 * @inheritdoc
+	 * @inheritdoc mw.widgets.TitleWidget
 	 */
 	mw.widgets.TitleInputWidget.prototype.getQueryValue = function () {
 		return this.getValue();
 	};
 
 	/**
-	 * @inheritdoc
+	 * @inheritdoc mw.widgets.TitleWidget
 	 */
 	mw.widgets.TitleInputWidget.prototype.setNamespace = function ( namespace ) {
 		// Mixin method
@@ -84,14 +83,14 @@
 	};
 
 	/**
-	 * @inheritdoc
+	 * @inheritdoc OO.ui.mixin.LookupElement
 	 */
 	mw.widgets.TitleInputWidget.prototype.getLookupCacheDataFromResponse = function ( response ) {
 		return response.query || {};
 	};
 
 	/**
-	 * @inheritdoc
+	 * @inheritdoc OO.ui.mixin.LookupElement
 	 */
 	mw.widgets.TitleInputWidget.prototype.getLookupMenuOptionsFromData = function ( response ) {
 		return this.getOptionsFromData( response );
@@ -115,11 +114,13 @@
 	 * @inheritdoc
 	 */
 	mw.widgets.TitleInputWidget.prototype.focus = function () {
+		var retval;
+
 		// Prevent programmatic focus from opening the menu
 		this.setLookupsDisabled( true );
 
 		// Parent method
-		const retval = mw.widgets.TitleInputWidget.super.prototype.focus.apply( this, arguments );
+		retval = mw.widgets.TitleInputWidget.parent.prototype.focus.apply( this, arguments );
 
 		this.setLookupsDisabled( !this.suggestions );
 
@@ -130,11 +131,13 @@
 	 * @inheritdoc
 	 */
 	mw.widgets.TitleInputWidget.prototype.cleanUpValue = function ( value ) {
-		// Parent method
-		value = mw.widgets.TitleInputWidget.super.prototype.cleanUpValue.call( this, value );
+		var widget = this;
 
-		return trimByteLength( this.value, value, this.maxLength, ( val ) => {
-			const title = this.getMWTitle( val );
+		// Parent method
+		value = mw.widgets.TitleInputWidget.parent.prototype.cleanUpValue.call( this, value );
+
+		return trimByteLength( this.value, value, this.maxLength, function ( val ) {
+			var title = widget.getMWTitle( val );
 			return title ? title.getMain() : val;
 		} ).newVal;
 	};

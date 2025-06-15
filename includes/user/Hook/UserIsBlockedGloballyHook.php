@@ -2,7 +2,7 @@
 
 namespace MediaWiki\User\Hook;
 
-use MediaWiki\User\User;
+use User;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.
@@ -10,7 +10,6 @@ use MediaWiki\User\User;
  *
  * @stable to implement
  * @ingroup Hooks
- * @deprecated since 1.40. Use GetUserBlockHook instead.
  */
 interface UserIsBlockedGloballyHook {
 	/**

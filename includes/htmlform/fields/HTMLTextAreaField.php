@@ -1,22 +1,16 @@
 <?php
 
-namespace MediaWiki\HTMLForm\Field;
-
-use InvalidArgumentException;
-use MediaWiki\Html\Html;
-use MediaWiki\HTMLForm\HTMLFormField;
-use MediaWiki\MediaWikiServices;
-
 /*
  * @stable to extend
  */
+
+use MediaWiki\MediaWikiServices;
+
 class HTMLTextAreaField extends HTMLFormField {
 	protected const DEFAULT_COLS = 80;
 	protected const DEFAULT_ROWS = 25;
 
-	/** @var string */
 	protected $mPlaceholder = '';
-	/** @var bool */
 	protected $mUseEditFont = false;
 
 	/**
@@ -74,7 +68,7 @@ class HTMLTextAreaField extends HTMLFormField {
 			] + $this->getTooltipAndAccessKey();
 
 		if ( $this->mClass !== '' ) {
-			$classes[] = $this->mClass;
+			array_push( $classes, $this->mClass );
 		}
 		if ( $this->mUseEditFont ) {
 			$userOptionsLookup = MediaWikiServices::getInstance()
@@ -83,9 +77,13 @@ class HTMLTextAreaField extends HTMLFormField {
 			// * mw-editfont-monospace
 			// * mw-editfont-sans-serif
 			// * mw-editfont-serif
-			$classes[] =
-				'mw-editfont-' .
-				$userOptionsLookup->getOption( $this->mParent->getUser(), 'editfont' );
+			array_push(
+				$classes,
+				'mw-editfont-' . $userOptionsLookup->getOption(
+					$this->mParent->getUser(),
+					'editfont'
+				)
+			);
 			$this->mParent->getOutput()->addModuleStyles( 'mediawiki.editfont.styles' );
 		}
 		if ( $this->mPlaceholder !== '' ) {
@@ -96,8 +94,6 @@ class HTMLTextAreaField extends HTMLFormField {
 		}
 
 		$allowedParams = [
-			'maxlength',
-			'minlength',
 			'tabindex',
 			'disabled',
 			'readonly',
@@ -117,13 +113,13 @@ class HTMLTextAreaField extends HTMLFormField {
 		$classes = [];
 
 		if ( isset( $this->mParams['cols'] ) ) {
-			throw new InvalidArgumentException( "OOUIHTMLForm does not support the 'cols' parameter for textareas" );
+			throw new Exception( "OOUIHTMLForm does not support the 'cols' parameter for textareas" );
 		}
 
 		$attribs = $this->getTooltipAndAccessKeyOOUI();
 
 		if ( $this->mClass !== '' ) {
-			$classes[] = $this->mClass;
+			array_push( $classes, $this->mClass );
 		}
 		if ( $this->mUseEditFont ) {
 			$userOptionsLookup = MediaWikiServices::getInstance()
@@ -132,9 +128,13 @@ class HTMLTextAreaField extends HTMLFormField {
 			// * mw-editfont-monospace
 			// * mw-editfont-sans-serif
 			// * mw-editfont-serif
-			$classes[] =
-				'mw-editfont-' .
-				$userOptionsLookup->getOption( $this->mParent->getUser(), 'editfont' );
+			array_push(
+				$classes,
+				'mw-editfont-' . $userOptionsLookup->getOption(
+					$this->mParent->getUser(),
+					'editfont'
+				)
+			);
 			$this->mParent->getOutput()->addModuleStyles( 'mediawiki.editfont.styles' );
 		}
 		if ( $this->mPlaceholder !== '' ) {
@@ -145,8 +145,6 @@ class HTMLTextAreaField extends HTMLFormField {
 		}
 
 		$allowedParams = [
-			'maxlength',
-			'minlength',
 			'tabindex',
 			'disabled',
 			'readonly',
@@ -154,72 +152,15 @@ class HTMLTextAreaField extends HTMLFormField {
 			'autofocus',
 		];
 
-		$attribs += \OOUI\Element::configFromHtmlAttributes(
+		$attribs += OOUI\Element::configFromHtmlAttributes(
 			$this->getAttributes( $allowedParams )
 		);
 
-		return new \OOUI\MultilineTextInputWidget( [
+		return new OOUI\MultilineTextInputWidget( [
 			'id' => $this->mID,
 			'name' => $this->mName,
 			'value' => $value,
 			'rows' => $this->getRows(),
 		] + $attribs );
 	}
-
-	public function getInputCodex( $value, $hasErrors ) {
-		$textareaClasses = [ 'cdx-text-area__textarea' ];
-		if ( $this->mClass !== '' ) {
-			$textareaClasses[] = $this->mClass;
-		}
-		if ( $this->mUseEditFont ) {
-			$userOptionsLookup = MediaWikiServices::getInstance()
-				->getUserOptionsLookup();
-			// The following classes can be used here:
-			// * mw-editfont-monospace
-			// * mw-editfont-sans-serif
-			// * mw-editfont-serif
-			$textareaClasses[] =
-				'mw-editfont-' .
-				$userOptionsLookup->getOption( $this->mParent->getUser(), 'editfont' );
-			$this->mParent->getOutput()->addModuleStyles( 'mediawiki.editfont.styles' );
-		}
-
-		$textareaAttribs = [
-			'id' => $this->mID,
-			'cols' => $this->getCols(),
-			'rows' => $this->getRows(),
-			'spellcheck' => $this->getSpellCheck(),
-			'class' => $textareaClasses
-		] + $this->getTooltipAndAccessKey();
-
-		if ( $this->mPlaceholder !== '' ) {
-			$textareaAttribs['placeholder'] = $this->mPlaceholder;
-		}
-
-		$allowedParams = [
-			'maxlength',
-			'minlength',
-			'tabindex',
-			'disabled',
-			'readonly',
-			'required',
-			'autofocus'
-		];
-		$textareaAttribs += $this->getAttributes( $allowedParams );
-
-		$textarea = Html::textarea( $this->mName, $value, $textareaAttribs );
-
-		$wrapperAttribs = [ 'class' => [ 'cdx-text-area' ] ];
-		if ( $hasErrors ) {
-			$wrapperAttribs['class'][] = 'cdx-text-area--status-error';
-		}
-		return Html::rawElement(
-			'div',
-			$wrapperAttribs,
-			$textarea
-		);
-	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( HTMLTextAreaField::class, 'HTMLTextAreaField' );

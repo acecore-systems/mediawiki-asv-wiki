@@ -1,7 +1,7 @@
 /*!
  * VisualEditor EventSequencer tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.EventSequencer' );
@@ -31,11 +31,11 @@ ve.TestEventSequencer.prototype.runPostponed = function () {
 	function sortStringIds( a, b ) {
 		return parseInt( a ) - parseInt( b );
 	}
-	let ids;
+	var ids;
 	while ( ( ids = Object.keys( this.postponedCallbacks ) ).length > 0 ) {
 		ids.sort( sortStringIds );
-		for ( let i = 0, len = ids.length; i < len; i++ ) {
-			const callback = this.postponedCallbacks[ ids[ i ] ];
+		for ( var i = 0, len = ids.length; i < len; i++ ) {
+			var callback = this.postponedCallbacks[ ids[ i ] ];
 			delete this.postponedCallbacks[ ids[ i ] ];
 			// Check for existence, because a previous iteration may have cancelled
 			if ( callback ) {
@@ -47,35 +47,21 @@ ve.TestEventSequencer.prototype.runPostponed = function () {
 
 /* Tests */
 
-QUnit.test( 'EventSequencer', ( assert ) => {
-	const calls = [];
+QUnit.test( 'EventSequencer', function ( assert ) {
+	var calls = [];
 
-	let sequencer = new ve.TestEventSequencer( [ 'event1', 'event2', 'event3' ] ).on( {
-		event1: function () {
-			calls.push( 'on1' );
-		},
-		event3: function () {
-			calls.push( 'on3' );
-		}
+	var sequencer = new ve.TestEventSequencer( [ 'event1', 'event2', 'event3' ] ).on( {
+		event1: function () { calls.push( 'on1' ); },
+		event3: function () { calls.push( 'on3' ); }
 	} ).after( {
-		event2: function () {
-			calls.push( 'after2' );
-		},
-		event3: function () {
-			calls.push( 'after3' );
-		}
+		event2: function () { calls.push( 'after2' ); },
+		event3: function () { calls.push( 'after3' ); }
 	} ).onLoop(
-		() => {
-			calls.push( 'onLoop' );
-		}
+		function () { calls.push( 'onLoop' ); }
 	).afterLoop(
-		() => {
-			calls.push( 'afterLoop' );
-		}
+		function () { calls.push( 'afterLoop' ); }
 	).afterOne( {
-		event1: function () {
-			calls.push( 'after1One' );
-		}
+		event1: function () { calls.push( 'after1One' ); }
 	} );
 
 	sequencer.onEvent( 'event1' );
@@ -90,7 +76,7 @@ QUnit.test( 'EventSequencer', ( assert ) => {
 	);
 
 	calls.length = 0;
-	sequencer.afterLoopOne( () => {
+	sequencer.afterLoopOne( function () {
 		calls.push( 'afterLoopOne' );
 	} );
 
@@ -108,19 +94,11 @@ QUnit.test( 'EventSequencer', ( assert ) => {
 	calls.length = 0;
 
 	sequencer = new ve.TestEventSequencer( [ 'keydown', 'keypress' ] ).on( {
-		keydown: function () {
-			calls.push( 'onkeydown' );
-		},
-		keypress: function () {
-			calls.push( 'onkeypress' );
-		}
+		keydown: function () { calls.push( 'onkeydown' ); },
+		keypress: function () { calls.push( 'onkeypress' ); }
 	} ).after( {
-		keydown: function () {
-			calls.push( 'afterkeydown' );
-		},
-		keypress: function () {
-			calls.push( 'afterkeypress' );
-		}
+		keydown: function () { calls.push( 'afterkeydown' ); },
+		keypress: function () { calls.push( 'afterkeypress' ); }
 	} );
 	sequencer.onEvent( 'keydown' );
 	sequencer.onEvent( 'keypress' );

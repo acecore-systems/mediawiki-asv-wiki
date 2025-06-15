@@ -28,15 +28,7 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\Content\WikitextContent;
-use MediaWiki\Parser\ParserOptions;
-use MediaWiki\User\User;
-use Wikimedia\Diff\Diff;
-use Wikimedia\Diff\UnifiedDiffFormatter;
-
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/dumpIterator.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script to take page text out of an XML dump file and render
@@ -46,7 +38,6 @@ require_once __DIR__ . '/dumpIterator.php';
  */
 class CompareParsers extends DumpIterator {
 
-	/** @var int */
 	private $count = 0;
 	/** @var string|false */
 	private $saveFailed = false;
@@ -201,7 +192,5 @@ class CompareParsers extends DumpIterator {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = CompareParsers::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

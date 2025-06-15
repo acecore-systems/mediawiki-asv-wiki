@@ -1,12 +1,12 @@
 {
 	"@metadata": {
 		"authors": [
-			"Constraque",
 			"Dicto23456",
 			"Gazeb",
 			"Gramo6",
 			"KHMELNYTSKYIA",
-			"Vlad5250"
+			"Vlad5250",
+			"Constraque"
 		]
 	},
 	"mobile-frontend-editor-edit": "Редагувати",
@@ -23,6 +23,5 @@
 	"mobile-frontend-pageaction-edit-tooltip": "Редагувати основну ділянку цієї сторінки.",
 	"mobile-frontend-placeholder": "Глядати {{SITENAME}}",
 	"mobile-frontend-random-button": "Трафункова",
-	"mobile-frontend-user-page-member-since": "{{GENDER:$2|Припоїв ся|Припоїла ся}} $1",
-	"minerva-page-actions-editfull": "Едітовати цїлу сторінку"
+	"mobile-frontend-user-page-member-since": "{{GENDER:$2|Припоїв ся|Припоїла ся}} $1"
 }

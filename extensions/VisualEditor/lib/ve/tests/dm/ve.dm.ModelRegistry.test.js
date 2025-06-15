@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel ModelRegistry tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.dm.ModelRegistry' );
@@ -141,10 +141,9 @@ ve.dm.example.StubRegExpNode.static.matchRdfaTypes = [
 
 /* Tests */
 
-QUnit.test( 'register/unregister/matchElement', ( assert ) => {
-	const registry = new ve.dm.ModelRegistry();
-
-	let element = document.createElement( 'a' );
+QUnit.test( 'register/unregister/matchElement', function ( assert ) {
+	var registry = new ve.dm.ModelRegistry(),
+		element = document.createElement( 'a' );
 
 	assert.strictEqual( registry.matchElement( element ), null, 'matchElement() returns null if registry empty' );
 
@@ -239,12 +238,13 @@ QUnit.test( 'register/unregister/matchElement', ( assert ) => {
 
 } );
 
-QUnit.test( 'isAnnotation', ( assert ) => {
-	const allAnnotationTags = [ 'a', 'abbr', 'b', 'big', 'code', 'dfn', 'font', 'i', 'kbd', 'mark', 'q', 's', 'samp', 'small', 'span', 'sub', 'sup', 'time', 'u', 'var' ],
+QUnit.test( 'isAnnotation', function ( assert ) {
+	var i, len, node,
+		allAnnotationTags = [ 'a', 'abbr', 'b', 'big', 'code', 'dfn', 'font', 'i', 'kbd', 'mark', 'q', 's', 'samp', 'small', 'span', 'sub', 'sup', 'time', 'u', 'var' ],
 		nonAnnotationTags = [ 'h1', 'p', 'ul', 'li', 'table', 'tr', 'td' ];
 
-	for ( let i = 0, len = allAnnotationTags.length; i < len; i++ ) {
-		const node = document.createElement( allAnnotationTags[ i ] );
+	for ( i = 0, len = allAnnotationTags.length; i < len; i++ ) {
+		node = document.createElement( allAnnotationTags[ i ] );
 		assert.strictEqual(
 			ve.dm.modelRegistry.isAnnotation( node ),
 			true,
@@ -252,8 +252,8 @@ QUnit.test( 'isAnnotation', ( assert ) => {
 		);
 	}
 
-	for ( let i = 0, len = nonAnnotationTags.length; i < len; i++ ) {
-		const node = document.createElement( nonAnnotationTags[ i ] );
+	for ( i = 0, len = nonAnnotationTags.length; i < len; i++ ) {
+		node = document.createElement( nonAnnotationTags[ i ] );
 		assert.strictEqual(
 			ve.dm.modelRegistry.isAnnotation( node ),
 			false,
@@ -261,7 +261,7 @@ QUnit.test( 'isAnnotation', ( assert ) => {
 		);
 	}
 
-	const node = document.createElement( 'span' );
+	node = document.createElement( 'span' );
 	node.setAttribute( 'rel', 've:Alien' );
 	assert.strictEqual( ve.dm.modelRegistry.isAnnotation( node ), false, 'alien span' );
 	node.removeAttribute( 'rel' );

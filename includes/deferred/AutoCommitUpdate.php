@@ -1,7 +1,5 @@
 <?php
 
-namespace MediaWiki\Deferred;
-
 use Wikimedia\Rdbms\IDatabase;
 
 /**
@@ -20,8 +18,7 @@ class AutoCommitUpdate implements DeferrableUpdate, DeferrableCallback {
 	 * @param IDatabase $dbw DB handle; update aborts if a transaction now this rolls back
 	 * @param string $fname Caller name (usually __METHOD__)
 	 * @param callable $callback Callback that takes (IDatabase, method name string)
-	 * @param IDatabase[] $conns Cancel the update if a transaction on these
-	 * connections is rolled back [optional]
+	 * @param IDatabase[] $conns Abort if a transaction now on one of these rolls back [optional]
 	 */
 	public function __construct( IDatabase $dbw, $fname, callable $callback, array $conns = [] ) {
 		$this->dbw = $dbw;
@@ -66,6 +63,3 @@ class AutoCommitUpdate implements DeferrableUpdate, DeferrableCallback {
 		return $this->fname;
 	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( AutoCommitUpdate::class, 'AutoCommitUpdate' );

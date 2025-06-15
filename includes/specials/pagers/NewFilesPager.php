@@ -19,20 +19,10 @@
  * @ingroup Pager
  */
 
-namespace MediaWiki\Pager;
-
-use ImageGalleryBase;
-use ImageGalleryClassNotFoundException;
 use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Context\IContextSource;
-use MediaWiki\Html\FormOptions;
 use MediaWiki\Linker\LinkRenderer;
 use MediaWiki\Permissions\GroupPermissionsLookup;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleValue;
-use MediaWiki\User\ExternalUserNames;
-use RecentChange;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * @ingroup Pager
@@ -49,15 +39,18 @@ class NewFilesPager extends RangeChronologicalPager {
 	 */
 	protected $opts;
 
-	private GroupPermissionsLookup $groupPermissionsLookup;
-	private LinkBatchFactory $linkBatchFactory;
+	/** @var GroupPermissionsLookup */
+	private $groupPermissionsLookup;
+
+	/** @var LinkBatchFactory */
+	private $linkBatchFactory;
 
 	/**
 	 * @param IContextSource $context
 	 * @param GroupPermissionsLookup $groupPermissionsLookup
 	 * @param LinkBatchFactory $linkBatchFactory
 	 * @param LinkRenderer $linkRenderer
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param FormOptions $opts
 	 */
 	public function __construct(
@@ -65,11 +58,11 @@ class NewFilesPager extends RangeChronologicalPager {
 		GroupPermissionsLookup $groupPermissionsLookup,
 		LinkBatchFactory $linkBatchFactory,
 		LinkRenderer $linkRenderer,
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		FormOptions $opts
 	) {
-		// Set database before parent constructor to avoid setting it there
-		$this->mDb = $dbProvider->getReplicaDatabase();
+		// Set database before parent constructor to avoid setting it there with wfGetDB
+		$this->mDb = $loadBalancer->getConnectionRef( ILoadBalancer::DB_REPLICA );
 
 		parent::__construct( $context, $linkRenderer );
 
@@ -108,13 +101,13 @@ class NewFilesPager extends RangeChronologicalPager {
 
 			if ( count( $groupsWithBotPermission ) ) {
 				$tables[] = 'user_groups';
-				$conds['ug_group'] = null;
+				$conds[] = 'ug_group IS NULL';
 				$jconds['user_groups'] = [
 					'LEFT JOIN',
 					[
 						'ug_group' => $groupsWithBotPermission,
 						'ug_user = actor_user',
-						$dbr->expr( 'ug_expiry', '=', null )->or( 'ug_expiry', '>=', $dbr->timestamp() )
+						'ug_expiry IS NULL OR ug_expiry >= ' . $dbr->addQuotes( $dbr->timestamp() )
 					]
 				];
 			}
@@ -161,7 +154,7 @@ class NewFilesPager extends RangeChronologicalPager {
 	}
 
 	public function getIndexField() {
-		return [ [ 'img_timestamp', 'img_name' ] ];
+		return 'img_timestamp';
 	}
 
 	protected function getStartBody() {
@@ -221,9 +214,3 @@ class NewFilesPager extends RangeChronologicalPager {
 		return '';
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( NewFilesPager::class, 'NewFilesPager' );

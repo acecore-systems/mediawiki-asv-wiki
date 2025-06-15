@@ -30,15 +30,14 @@ class HooksTest extends MediaWikiIntegrationTestCase {
 	 * @dataProvider provideOnLinkerMakeExternalLink
 	 */
 	public function testOnLinkerMakeExternalLink( $input, $expected ) {
-		$services = $this->getServiceContainer();
-		$hooks = new Hooks( $services->getService( 'HSTSPreloadLookup' ), $services->getUrlUtils() );
+		$hooks = new Hooks( $this->getServiceContainer()->getService( 'HSTSPreloadLookup' ) );
 		$dummy = '';
 		$dummy2 = [];
 		$hooks->onLinkerMakeExternalLink( $input, $dummy, $dummy, $dummy2, $dummy );
 		$this->assertSame( $expected, $input );
 	}
 
-	public static function provideOnLinkerMakeExternalLink() {
+	public function provideOnLinkerMakeExternalLink() {
 		return [
 			[ 'http://test.localhost/', 'http://test.localhost/' ],
 			[ 'http://en.wikipedia.org/wiki/Main_Page', 'https://en.wikipedia.org/wiki/Main_Page' ],

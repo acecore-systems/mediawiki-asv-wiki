@@ -24,9 +24,7 @@
  * @ingroup Language
  */
 class ConstantDependency extends CacheDependency {
-	/** @var string */
 	private $name;
-	/** @var mixed */
 	private $value;
 
 	public function __construct( $name ) {

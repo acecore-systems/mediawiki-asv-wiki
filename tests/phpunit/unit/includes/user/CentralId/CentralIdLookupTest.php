@@ -2,53 +2,41 @@
 
 namespace MediaWiki\Tests\User\CentralId;
 
+use CentralIdLookup;
 use InvalidArgumentException;
 use LogicException;
 use MediaWiki\Permissions\Authority;
 use MediaWiki\Tests\Unit\Permissions\MockAuthorityTrait;
-use MediaWiki\User\CentralId\CentralIdLookup;
-use MediaWiki\User\User;
-use MediaWiki\User\UserFactory;
 use MediaWiki\User\UserIdentity;
 use MediaWiki\User\UserIdentityLookup;
 use MediaWiki\User\UserIdentityValue;
 use MediaWikiUnitTestCase;
-use Wikimedia\Rdbms\IDBAccessObject;
+use User;
 use Wikimedia\TestingAccessWrapper;
 
 /**
- * @covers \MediaWiki\User\CentralId\CentralIdLookup
+ * @covers CentralIdLookup
  */
 class CentralIdLookupTest extends MediaWikiUnitTestCase {
 	use MockAuthorityTrait;
 
 	public function testGetProviderId() {
 		$mock = $this->getMockForAbstractClass( CentralIdLookup::class );
-		$mock->init( 'this is a test', $this->createNoOpMock( UserIdentityLookup::class ),
-			$this->createNoOpMock( UserFactory::class ) );
+		$mock->init( 'this is a test', $this->createNoOpMock( UserIdentityLookup::class ) );
 		$this->assertSame( 'this is a test', $mock->getProviderId() );
 	}
 
 	public function testRepeatingInitThrows() {
 		$mock = $this->getMockForAbstractClass( CentralIdLookup::class );
-		$mock->init( 'foo', $this->createNoOpMock( UserIdentityLookup::class ),
-			$this->createNoOpMock( UserFactory::class ) );
+		$mock->init( 'foo', $this->createNoOpMock( UserIdentityLookup::class ) );
 		$this->expectException( LogicException::class );
-		$mock->init( 'bar', $this->createNoOpMock( UserIdentityLookup::class ),
-			$this->createNoOpMock( UserFactory::class ) );
+		$mock->init( 'bar', $this->createNoOpMock( UserIdentityLookup::class ) );
 	}
 
 	public function testCheckAudience() {
 		$mock = TestingAccessWrapper::newFromObject(
 			$this->getMockForAbstractClass( CentralIdLookup::class )
 		);
-		$userFactory = $this->createMock( UserFactory::class );
-		$userFactory->method( 'newAnonymous' )->willReturnCallback( function () {
-			$user = $this->createNoOpMock( User::class );
-			$user->mFrom = 'defaults';
-			return $user;
-		} );
-		$mock->init( 'test', $this->createNoOpMock( UserIdentityLookup::class ), $userFactory );
 
 		$authority = $this->mockAnonUltimateAuthority();
 		$this->assertSame( $authority, $mock->checkAudience( $authority ) );
@@ -76,13 +64,13 @@ class CentralIdLookupTest extends MediaWikiUnitTestCase {
 			->with(
 				[ 15 => null ],
 				CentralIdLookup::AUDIENCE_RAW,
-				IDBAccessObject::READ_LATEST
+				CentralIdLookup::READ_LATEST
 			)
 			->willReturn( [ 15 => 'FooBar' ] );
 
 		$this->assertSame(
 			'FooBar',
-			$mock->nameFromCentralId( 15, CentralIdLookup::AUDIENCE_RAW, IDBAccessObject::READ_LATEST )
+			$mock->nameFromCentralId( 15, CentralIdLookup::AUDIENCE_RAW, CentralIdLookup::READ_LATEST )
 		);
 	}
 
@@ -100,7 +88,6 @@ class CentralIdLookupTest extends MediaWikiUnitTestCase {
 		$userIdentityLookup->method( 'getUserIdentityByName' )
 			->with( $name )
 			->willReturn( $lookupResult );
-		$userFactory = $this->createMock( UserFactory::class );
 
 		$mock = $this->getMockForAbstractClass( CentralIdLookup::class );
 		$mock->method( 'isAttached' )
@@ -109,13 +96,13 @@ class CentralIdLookupTest extends MediaWikiUnitTestCase {
 			->with(
 				[ 42 => null ],
 				CentralIdLookup::AUDIENCE_RAW,
-				IDBAccessObject::READ_LATEST
+				CentralIdLookup::READ_LATEST
 			)
 			->willReturn( [ 42 => $name ] );
 
-		$mock->init( 'test', $userIdentityLookup, $userFactory );
+		$mock->init( 'test', $userIdentityLookup );
 		$user = $mock->localUserFromCentralId(
-			42, CentralIdLookup::AUDIENCE_RAW, IDBAccessObject::READ_LATEST
+			42, CentralIdLookup::AUDIENCE_RAW, CentralIdLookup::READ_LATEST
 		);
 		if ( $succeeds ) {
 			$this->assertInstanceOf( UserIdentity::class, $user );
@@ -131,13 +118,13 @@ class CentralIdLookupTest extends MediaWikiUnitTestCase {
 			->with(
 				[ 42 => null ],
 				CentralIdLookup::AUDIENCE_RAW,
-				IDBAccessObject::READ_LATEST
+				CentralIdLookup::READ_LATEST
 			)
 			->willReturn( [ 42 => $name ] );
-		$mock->init( 'test', $userIdentityLookup, $userFactory );
+		$mock->init( 'test', $userIdentityLookup );
 
 		$this->assertNull(
-			$mock->localUserFromCentralId( 42, CentralIdLookup::AUDIENCE_RAW, IDBAccessObject::READ_LATEST )
+			$mock->localUserFromCentralId( 42, CentralIdLookup::AUDIENCE_RAW, CentralIdLookup::READ_LATEST )
 		);
 	}
 
@@ -157,13 +144,13 @@ class CentralIdLookupTest extends MediaWikiUnitTestCase {
 			->with(
 				[ 'FooBar' => 0 ],
 				CentralIdLookup::AUDIENCE_RAW,
-				IDBAccessObject::READ_LATEST
+				CentralIdLookup::READ_LATEST
 			)
 			->willReturn( [ 'FooBar' => 23 ] );
 
 		$this->assertSame(
 			23,
-			$mock->centralIdFromName( 'FooBar', CentralIdLookup::AUDIENCE_RAW, IDBAccessObject::READ_LATEST )
+			$mock->centralIdFromName( 'FooBar', CentralIdLookup::AUDIENCE_RAW, CentralIdLookup::READ_LATEST )
 		);
 	}
 
@@ -175,7 +162,7 @@ class CentralIdLookupTest extends MediaWikiUnitTestCase {
 			->with(
 				[ 'FooBar' => 0 ],
 				CentralIdLookup::AUDIENCE_RAW,
-				IDBAccessObject::READ_LATEST
+				CentralIdLookup::READ_LATEST
 			)
 			->willReturn( [ 'FooBar' => 23 ] );
 
@@ -184,7 +171,7 @@ class CentralIdLookupTest extends MediaWikiUnitTestCase {
 			$mock->centralIdFromLocalUser(
 				new UserIdentityValue( 10, 'FooBar' ),
 				CentralIdLookup::AUDIENCE_RAW,
-				IDBAccessObject::READ_LATEST
+				CentralIdLookup::READ_LATEST
 			)
 		);
 
@@ -198,7 +185,7 @@ class CentralIdLookupTest extends MediaWikiUnitTestCase {
 			$mock->centralIdFromLocalUser(
 				new UserIdentityValue( 10, 'FooBar' ),
 				CentralIdLookup::AUDIENCE_RAW,
-				IDBAccessObject::READ_LATEST
+				CentralIdLookup::READ_LATEST
 			)
 		);
 	}

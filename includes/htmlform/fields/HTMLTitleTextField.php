@@ -1,12 +1,5 @@
 <?php
 
-namespace MediaWiki\HTMLForm\Field;
-
-use InvalidArgumentException;
-use MediaWiki\Json\FormatJson;
-use MediaWiki\MediaWikiServices;
-use MediaWiki\Title\MalformedTitleException;
-use MediaWiki\Title\Title;
 use MediaWiki\Widget\TitleInputWidget;
 
 /**
@@ -51,20 +44,21 @@ class HTMLTitleTextField extends HTMLTextField {
 			throw new InvalidArgumentException( 'relative and interwiki may not be used together' );
 		}
 		// Default value (from getDefault()) is null, which breaks Title::newFromTextThrow() below
-		$value ??= '';
+		if ( $value === null ) {
+			$value = '';
+		}
 
 		if ( !$this->mParams['required'] && $value === '' ) {
 			// If this field is not required and the value is empty, that's okay, skip validation
 			return parent::validate( $value, $alldata );
 		}
 
-		$titleFactory = MediaWikiServices::getInstance()->getTitleFactory();
 		try {
 			if ( !$this->mParams['relative'] ) {
-				$title = $titleFactory->newFromTextThrow( $value );
+				$title = Title::newFromTextThrow( $value );
 			} else {
-				// Can't use makeTitleSafe(), because it doesn't throw useful exceptions
-				$title = $titleFactory->newFromTextThrow( Title::makeName( $this->mParams['namespace'], $value ) );
+				// Can't use Title::makeTitleSafe(), because it doesn't throw useful exceptions
+				$title = Title::newFromTextThrow( Title::makeName( $this->mParams['namespace'], $value ) );
 			}
 		} catch ( MalformedTitleException $e ) {
 			return $this->msg( $e->getErrorMessage(), $e->getErrorMessageParameters() );
@@ -130,6 +124,3 @@ class HTMLTitleTextField extends HTMLTextField {
 		];
 	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( HTMLTitleTextField::class, 'HTMLTitleTextField' );

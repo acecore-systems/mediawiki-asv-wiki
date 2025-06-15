@@ -14,18 +14,17 @@
 					{{{html-minerva-tagline}}}
 				</div>
 				{{#data-minerva-tabs}}
-					<ul{{#id}} id="{{.}}"{{/id}} class="minerva__tab-container">
+					<div class="minerva__tab-container">
 						{{#items}}
-							<li class="minerva__tab {{class}}">
-								<a class="minerva__tab-text" href="{{href}}" rel="{{rel}}" data-event-name="tabs.{{context}}">{{text}}</a>
-							</li>
+							<a href="{{href}}" rel="{{rel}}" class="minerva__tab {{class}}" data-event-name="tabs.{{context}}">{{text}}</a>
 						{{/items}}
-					</ul>
+					</div>
 				{{/data-minerva-tabs}}
 				{{#data-minerva-page-actions}}
 				{{>PageActionsMenu}}
 				{{/data-minerva-page-actions}}
-				{{{html-subtitle}}}
+				{{{html-minerva-post-heading}}}
+				<div class="minerva__subtitle">{{{html-subtitle}}}</div>
 			</div>
 			{{/is-title-blank}}
 			<div id="bodyContent" class="content">
@@ -37,10 +36,14 @@
 			<div class="post-content" id="page-secondary-actions">
 			{{#data-minerva-secondary-actions}}
 				{{#talk}}
-				{{>Button}}
+				<a {{#attributes}} href="{{href}}" data-title="{{data-title}}" class="{{class}} mw-ui-button button"{{/attributes}}>
+					{{{label}}}
+				</a>
 				{{/talk}}
 				{{#language}}
-				{{>Button}}
+				<a {{#attributes}} href="{{href}}" data-title="{{data-title}}" class="{{class}} mw-ui-button button"{{/attributes}}>
+					{{{label}}}
+				</a>
 				{{/language}}
 			{{/data-minerva-secondary-actions}}
 			</div>

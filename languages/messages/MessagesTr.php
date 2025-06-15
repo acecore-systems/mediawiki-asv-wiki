@@ -1,6 +1,8 @@
 <?php
 /** Turkish (Türkçe)
  *
+ * To improve a translation please visit https://translatewiki.net
+ *
  * @file
  * @ingroup Languages
  *
@@ -162,7 +164,6 @@ $specialPageAliases = [
 	'Randomredirect'            => [ 'RastgeleYönlendirme' ],
 	'Recentchanges'             => [ 'SonDeğişiklikler' ],
 	'Recentchangeslinked'       => [ 'İlgiliDeğişiklikler' ],
-	'Renameuser'                => [ 'KullanıcıAdınıDeğiştir', 'KullanıcıİsminiDeğiştir' ],
 	'Revisiondelete'            => [ 'RevizyonSil' ],
 	'Search'                    => [ 'Ara', 'Arama' ],
 	'Shortpages'                => [ 'KısaSayfalar' ],
@@ -258,7 +259,7 @@ $magicWords = [
 	'img_width'                 => [ '1', '$1pik', '$1piksel', '$1px' ],
 	'index'                     => [ '1', '__DİZİN__', '__ENDEKS__', '__INDEX__' ],
 	'int'                       => [ '0', 'İNT:', 'INT:' ],
-	'language'                  => [ '0', '#DİL', '#LİSAN', '#LANGUAGE' ],
+	'language'                  => [ '0', '#DİL:', '#LİSAN:', '#LANGUAGE:' ],
 	'lc'                        => [ '0', 'KH:', 'LC:' ],
 	'lcfirst'                   => [ '0', 'KHİLK:', 'LCFIRST:' ],
 	'localday'                  => [ '1', 'YERELGÜN', 'LOCALDAY' ],
@@ -315,7 +316,7 @@ $magicWords = [
 	'plural'                    => [ '0', 'ÇOĞUL:', 'PLURAL:' ],
 	'protectionlevel'           => [ '1', 'KORUMASEVİYESİ', 'PROTECTIONLEVEL' ],
 	'raw'                       => [ '0', 'HAM:', 'RAW:' ],
-	'redirect'                  => [ '0', '#YÖNLENDİRME', '#YÖNLENDİR', '#yönlendirme', '#yönlendir', '#REDIRECT' ],
+	'redirect'                  => [ '0', '#YÖNLENDİRME', '#YÖNLENDİR', '#REDIRECT' ],
 	'revisionday'               => [ '1', 'SÜRÜMGÜNÜ', 'REVISIONDAY' ],
 	'revisionday2'              => [ '1', 'SÜRÜMGÜNÜ2', 'REVISIONDAY2' ],
 	'revisionid'                => [ '1', 'SÜRÜMNU', 'SÜRÜMNO', 'REVİZYONNU', 'REVİZYONNO', 'REVISIONID' ],

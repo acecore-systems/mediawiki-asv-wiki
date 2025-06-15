@@ -1,5 +1,4 @@
 <?php
-
 /**
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,12 +18,6 @@
  * @file
  * @ingroup Installer
  */
-
-namespace MediaWiki\Installer;
-
-use MediaWiki\Html\Html;
-use MediaWiki\Status\Status;
-use MediaWiki\Xml\Xml;
 
 class WebInstallerDBConnect extends WebInstallerPage {
 
@@ -52,6 +45,7 @@ class WebInstallerDBConnect extends WebInstallerPage {
 		$this->startForm();
 
 		$types = "<ul class=\"config-settings-block\">\n";
+		$settings = '';
 		$defaultType = $this->getVar( 'wgDBtype' );
 
 		// Messages: config-dbsupport-mysql, config-dbsupport-postgres, config-dbsupport-sqlite
@@ -68,27 +62,21 @@ class WebInstallerDBConnect extends WebInstallerPage {
 		if ( !in_array( $defaultType, $compiledDBs ) ) {
 			$defaultType = $compiledDBs[0];
 		}
-		$types .= "</ul>";
 
-		$settings = '';
 		foreach ( $compiledDBs as $type ) {
 			$installer = $this->parent->getDBInstaller( $type );
-			$types .= "<span class=\"cdx-radio\">";
-			$id = "DBType_$type";
 			$types .=
-				Xml::radio(
+				'<li>' .
+				Xml::radioLabel(
+					$installer->getReadableName(),
 					'DBType',
 					$type,
+					"DBType_$type",
 					$type == $defaultType,
-					[
-						'id' => $id,
-						'class' => 'cdx-radio__input dbRadio',
-						'rel' => "DB_wrapper_$type",
-					]
+					[ 'class' => 'dbRadio', 'rel' => "DB_wrapper_$type" ]
 				) .
-				"\u{00A0}<span class=\"cdx-radio__icon\"></span>" .
-				Xml::label( $installer->getReadableName(), $id, [ 'class' => 'cdx-radio__label' ] );
-			$types .= "</span>";
+				"</li>\n";
+
 			// Messages: config-header-mysql, config-header-postgres, config-header-sqlite
 			$settings .= Html::openElement(
 					'div',
@@ -98,12 +86,11 @@ class WebInstallerDBConnect extends WebInstallerPage {
 					]
 				) .
 				Html::element( 'h3', [], wfMessage( 'config-header-' . $type )->text() ) .
-				$installer->getConnectForm( $this->parent )->getHtml() .
+				$installer->getConnectForm() .
 				"</div>\n";
-
 		}
 
-		$types .= "<br style=\"clear: left\"/>\n";
+		$types .= "</ul><br style=\"clear: left\"/>\n";
 
 		$this->addHTML( $this->parent->label( 'config-db-type', false, $types ) . $settings );
 		$this->endForm();
@@ -126,7 +113,7 @@ class WebInstallerDBConnect extends WebInstallerPage {
 			return Status::newFatal( 'config-invalid-db-type' );
 		}
 
-		return $installer->getConnectForm( $this->parent )->submit();
+		return $installer->submitConnectForm();
 	}
 
 }

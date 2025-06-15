@@ -42,10 +42,17 @@ class PageSizeConstraint implements IEditConstraint {
 	public const BEFORE_MERGE = 'check-before-edit-merge';
 	public const AFTER_MERGE = 'check-after-edit-merge';
 
-	private int $contentSize;
-	private int $maxSize;
-	private int $errorCode;
-	private string $type;
+	/** @var int */
+	private $contentSize;
+
+	/** @var int */
+	private $maxSize;
+
+	/** @var int */
+	private $errorCode;
+
+	/** @var string */
+	private $type;
 
 	/**
 	 * @param int $maxSize In kibibytes, from $wgMaxArticleSize

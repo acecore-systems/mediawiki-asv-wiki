@@ -1,6 +1,6 @@
-let doc, HIDDEN, VISIBILITY_CHANGE,
-	nextId = 1;
-const clearHandles = Object.create( null );
+var doc, HIDDEN, VISIBILITY_CHANGE,
+	nextId = 1,
+	clearHandles = Object.create( null );
 
 function init( overrideDoc ) {
 	doc = overrideDoc || document;
@@ -20,10 +20,7 @@ function init( overrideDoc ) {
 init();
 
 /**
- * A library similar to similar to setTimeout and clearTimeout,
- * that pauses the time when page visibility is hidden.
- *
- * @exports mediawiki.visibleTimeout
+ * @class mw.visibleTimeout
  * @singleton
  */
 module.exports = {
@@ -39,9 +36,9 @@ module.exports = {
 	 *  value can be passed to clear() to cancel the timeout.
 	 */
 	set: function ( fn, delay ) {
-		let nativeId = null,
+		var nativeId = null,
+			visibleId = nextId++,
 			lastStartedAt = mw.now();
-		const visibleId = nextId++;
 
 		function clearHandle() {
 			if ( nativeId !== null ) {
@@ -61,7 +58,7 @@ module.exports = {
 		}
 
 		function visibilityCheck() {
-			const now = mw.now();
+			var now = mw.now();
 
 			if ( HIDDEN && doc[ HIDDEN ] ) {
 				if ( nativeId !== null ) {

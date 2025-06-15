@@ -20,32 +20,31 @@
 
 namespace MediaWiki\Installer;
 
-use MediaWiki\Status\Status;
 use Throwable;
 
 /**
- * Exception thrown if an error occurs during installation
+ * Exception thrown if an error occur which installation
  * @ingroup Exception
  */
 class InstallException extends \MWException {
 	/**
-	 * @var Status The state when an exception occurs
+	 * @var \Status State when an exception occurs
 	 */
 	private $status;
 
 	/**
-	 * @param Status $status The state when an exception occurs
+	 * @param \Status $status State when an exception occurs
 	 * @param string $message The Exception message to throw
 	 * @param int $code The Exception code
 	 * @param Throwable|null $previous The previous throwable used for the exception chaining
 	 */
-	public function __construct( Status $status, $message = '', $code = 0,
-		?Throwable $previous = null ) {
+	public function __construct( \Status $status, $message = '', $code = 0,
+		Throwable $previous = null ) {
 		parent::__construct( $message, $code, $previous );
 		$this->status = $status;
 	}
 
-	public function getStatus(): Status {
+	public function getStatus(): \Status {
 		return $this->status;
 	}
 }

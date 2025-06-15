@@ -2,29 +2,26 @@
 
 namespace MediaWiki\Extension\AbuseFilter\View;
 
-use MediaWiki\Context\IContextSource;
+use Html;
+use HTMLForm;
+use IContextSource;
+use Linker;
 use MediaWiki\Extension\AbuseFilter\AbuseFilterPermissionManager;
-use MediaWiki\Extension\AbuseFilter\ActionSpecifier;
 use MediaWiki\Extension\AbuseFilter\Consequences\Consequence\ReversibleConsequence;
 use MediaWiki\Extension\AbuseFilter\Consequences\ConsequencesFactory;
 use MediaWiki\Extension\AbuseFilter\Consequences\Parameters;
 use MediaWiki\Extension\AbuseFilter\FilterLookup;
 use MediaWiki\Extension\AbuseFilter\SpecsFormatter;
-use MediaWiki\Extension\AbuseFilter\Variables\UnsetVariableException;
 use MediaWiki\Extension\AbuseFilter\Variables\VariablesBlobStore;
-use MediaWiki\Html\Html;
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\Linker\Linker;
 use MediaWiki\Linker\LinkRenderer;
-use MediaWiki\Message\Message;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Title\TitleValue;
 use MediaWiki\User\UserFactory;
+use Message;
+use MWException;
 use PermissionsError;
-use UnexpectedValueException;
+use SpecialPage;
+use TitleValue;
 use UserBlockedError;
-use Wikimedia\Rdbms\LBFactory;
-use Wikimedia\Rdbms\SelectQueryBuilder;
+use Xml;
 
 class AbuseFilterViewRevert extends AbuseFilterView {
 	/** @var int */
@@ -41,10 +38,6 @@ class AbuseFilterViewRevert extends AbuseFilterView {
 	 * @var string|null The reason provided for the revert
 	 */
 	private $reason;
-	/**
-	 * @var LBFactory
-	 */
-	private $lbFactory;
 	/**
 	 * @var UserFactory
 	 */
@@ -67,7 +60,6 @@ class AbuseFilterViewRevert extends AbuseFilterView {
 	private $specsFormatter;
 
 	/**
-	 * @param LBFactory $lbFactory
 	 * @param UserFactory $userFactory
 	 * @param AbuseFilterPermissionManager $afPermManager
 	 * @param FilterLookup $filterLookup
@@ -80,7 +72,6 @@ class AbuseFilterViewRevert extends AbuseFilterView {
 	 * @param array $params
 	 */
 	public function __construct(
-		LBFactory $lbFactory,
 		UserFactory $userFactory,
 		AbuseFilterPermissionManager $afPermManager,
 		FilterLookup $filterLookup,
@@ -93,7 +84,6 @@ class AbuseFilterViewRevert extends AbuseFilterView {
 		array $params
 	) {
 		parent::__construct( $afPermManager, $context, $linkRenderer, $basePageName, $params );
-		$this->lbFactory = $lbFactory;
 		$this->userFactory = $userFactory;
 		$this->filterLookup = $filterLookup;
 		$this->consequencesFactory = $consequencesFactory;
@@ -129,8 +119,7 @@ class AbuseFilterViewRevert extends AbuseFilterView {
 		$filter = $this->filter;
 
 		$out->addWikiMsg( 'abusefilter-revert-intro', Message::numParam( $filter ) );
-		// Parse wikitext in this message to allow formatting of numero signs (T343994#9209383)
-		$out->setPageTitle( $this->msg( 'abusefilter-revert-title' )->numParams( $filter )->parse() );
+		$out->setPageTitle( $this->msg( 'abusefilter-revert-title' )->numParams( $filter ) );
 
 		// First, the search form. Limit dates to avoid huge queries
 		$RCMaxAge = $this->getConfig()->get( 'RCMaxAge' );
@@ -199,17 +188,15 @@ class AbuseFilterViewRevert extends AbuseFilterView {
 				$displayActions[] = $this->specsFormatter->getActionDisplay( $action );
 			}
 
-			/** @var ActionSpecifier $spec */
-			$spec = $result['spec'];
 			$msg = $this->msg( 'abusefilter-revert-preview-item' )
 				->params(
 					$lang->userTimeAndDate( $result['timestamp'], $user )
 				)->rawParams(
-					Linker::userLink( $spec->getUser()->getId(), $spec->getUser()->getName() )
+					Linker::userLink( $result['userid'], $result['user'] )
 				)->params(
-					$spec->getAction()
+					$result['action']
 				)->rawParams(
-					$this->linkRenderer->makeLink( $spec->getTitle() )
+					$this->linkRenderer->makeLink( $result['title'] )
 				)->params(
 					$lang->commaList( $displayActions )
 				)->rawParams(
@@ -219,13 +206,11 @@ class AbuseFilterViewRevert extends AbuseFilterView {
 						[],
 						[ 'details' => $result['id'] ]
 					)
-				)->params(
-					$spec->getUser()->getName()
-				)->parse();
-			$list[] = Html::rawElement( 'li', [], $msg );
+				)->params( $result['user'] )->parse();
+			$list[] = Xml::tags( 'li', null, $msg );
 		}
 
-		$dateForm->addPostHtml( Html::rawElement( 'ul', [], implode( "\n", $list ) ) );
+		$dateForm->addPostHtml( Xml::tags( 'ul', null, implode( "\n", $list ) ) );
 
 		// Add a button down the bottom.
 		$confirmForm = [];
@@ -260,27 +245,26 @@ class AbuseFilterViewRevert extends AbuseFilterView {
 		$periodStart = $this->periodStart;
 		$periodEnd = $this->periodEnd;
 		$filter = $this->filter;
-		$dbr = $this->lbFactory->getReplicaDatabase();
+		$dbr = wfGetDB( DB_REPLICA );
 
 		// Only hits from local filters can be reverted
 		$conds = [ 'afl_filter_id' => $filter, 'afl_global' => 0 ];
 
 		if ( $periodStart !== null ) {
-			$conds[] = $dbr->expr( 'afl_timestamp', '>=', $dbr->timestamp( $periodStart ) );
+			$conds[] = 'afl_timestamp >= ' . $dbr->addQuotes( $dbr->timestamp( $periodStart ) );
 		}
 		if ( $periodEnd !== null ) {
-			$conds[] = $dbr->expr( 'afl_timestamp', '<=', $dbr->timestamp( $periodEnd ) );
+			$conds[] = 'afl_timestamp <= ' . $dbr->addQuotes( $dbr->timestamp( $periodEnd ) );
 		}
 
 		// Don't revert if there was no action, or the action was global
-		$conds[] = $dbr->expr( 'afl_actions', '!=', '' );
-		$conds['afl_wiki'] = null;
+		$conds[] = 'afl_actions != ' . $dbr->addQuotes( '' );
+		$conds[] = 'afl_wiki IS NULL';
 
 		$selectFields = [
 			'afl_id',
 			'afl_user',
 			'afl_user_text',
-			'afl_ip',
 			'afl_action',
 			'afl_actions',
 			'afl_var_dump',
@@ -288,40 +272,29 @@ class AbuseFilterViewRevert extends AbuseFilterView {
 			'afl_namespace',
 			'afl_title',
 		];
-		$res = $dbr->newSelectQueryBuilder()
-			->select( $selectFields )
-			->from( 'abuse_filter_log' )
-			->where( $conds )
-			->caller( __METHOD__ )
-			->orderBy( 'afl_timestamp', SelectQueryBuilder::SORT_DESC )
-			->fetchResultSet();
-
-		// TODO: get the following from ConsequencesRegistry or sth else
-		static $reversibleActions = [ 'block', 'blockautopromote', 'degroup' ];
+		$res = $dbr->select(
+			'abuse_filter_log',
+			$selectFields,
+			$conds,
+			__METHOD__,
+			[ 'ORDER BY' => 'afl_timestamp DESC' ]
+		);
 
 		$results = [];
 		foreach ( $res as $row ) {
 			$actions = explode( ',', $row->afl_actions );
+			// TODO: get the following from ConsequencesRegistry or sth else
+			$reversibleActions = [ 'block', 'blockautopromote', 'degroup' ];
 			$currentReversibleActions = array_intersect( $actions, $reversibleActions );
 			if ( count( $currentReversibleActions ) ) {
-				$vars = $this->varBlobStore->loadVarDump( $row );
-				try {
-					// The variable is not lazy-loaded
-					$accountName = $vars->getComputedVariable( 'accountname' )->toNative();
-				} catch ( UnsetVariableException $_ ) {
-					$accountName = null;
-				}
 				$results[] = [
 					'id' => $row->afl_id,
 					'actions' => $currentReversibleActions,
-					'vars' => $vars,
-					'spec' => new ActionSpecifier(
-						$row->afl_action,
-						new TitleValue( (int)$row->afl_namespace, $row->afl_title ),
-						$this->userFactory->newFromAnyId( (int)$row->afl_user, $row->afl_user_text ),
-						$row->afl_ip,
-						$accountName
-					),
+					'user' => $row->afl_user_text,
+					'userid' => $row->afl_user,
+					'vars' => $this->varBlobStore->loadVarDump( $row->afl_var_dump ),
+					'title' => new TitleValue( (int)$row->afl_namespace, $row->afl_title ),
+					'action' => $row->afl_action,
 					'timestamp' => $row->afl_timestamp
 				];
 			}
@@ -348,7 +321,7 @@ class AbuseFilterViewRevert extends AbuseFilterView {
 	public function attemptRevert() {
 		$filter = $this->filter;
 		$token = $this->getRequest()->getVal( 'wpEditToken' );
-		if ( !$this->getCsrfTokenSet()->matchToken( $token, "abusefilter-revert-$filter" ) ) {
+		if ( !$this->getUser()->matchEditToken( $token, "abusefilter-revert-$filter" ) ) {
 			return false;
 		}
 
@@ -374,12 +347,19 @@ class AbuseFilterViewRevert extends AbuseFilterView {
 	 * @param string $action
 	 * @param array $result
 	 * @return ReversibleConsequence
+	 * @throws MWException
 	 */
 	private function getConsequence( string $action, array $result ): ReversibleConsequence {
 		$params = new Parameters(
 			$this->filterLookup->getFilter( $this->filter, false ),
 			false,
-			$result['spec']
+			$this->userFactory->newFromAnyId(
+				$result['userid'],
+				$result['user'],
+				null
+			),
+			$result['title'],
+			$result['action']
 		);
 
 		switch ( $action ) {
@@ -391,7 +371,7 @@ class AbuseFilterViewRevert extends AbuseFilterView {
 			case 'degroup':
 				return $this->consequencesFactory->newDegroup( $params, $result['vars'] );
 			default:
-				throw new UnexpectedValueException( "Invalid action $action" );
+				throw new MWException( "Invalid action $action" );
 		}
 	}
 
@@ -399,6 +379,7 @@ class AbuseFilterViewRevert extends AbuseFilterView {
 	 * @param string $action
 	 * @param array $result
 	 * @return bool
+	 * @throws MWException
 	 */
 	public function revertAction( string $action, array $result ): bool {
 		$message = $this->msg(

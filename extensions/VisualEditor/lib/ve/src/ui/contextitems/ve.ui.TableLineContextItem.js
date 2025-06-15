@@ -1,7 +1,7 @@
 /*!
  * VisualEditor TableLineContextItem class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -11,10 +11,10 @@
  * @abstract
  * @extends ve.ui.ContextItem
  *
- * @param {ve.ui.TableLineContext} context Context the item is in
+ * @param {ve.ui.Context} context Context item is in
  * @param {ve.dm.Model} model Model the item is related to
  * @param {Function} tool Tool class the item is based on
- * @param {Object} [config] Configuration options
+ * @param {Object} config Configuration options
  */
 ve.ui.TableLineContextItem = function VeUiTableLineContextItem() {
 	// Parent constructor
@@ -58,10 +58,9 @@ ve.ui.TableLineContextItem.static.title = null;
  * @localdoc Executes the command related to #static-commandName on the context's surface
  *
  * @protected
- * @fires ve.ui.ContextItem#command
  */
 ve.ui.TableLineContextItem.prototype.onActionButtonClick = function () {
-	const command = this.getCommand();
+	var command = this.getCommand();
 
 	if ( command ) {
 		command.execute( this.context.getSurface() );
@@ -93,17 +92,17 @@ ve.ui.TableLineContextItem.prototype.setup = function () {
 /* Specific tools */
 
 ( function () {
-	const modes = [ 'row', 'col' ],
+	var modes = [ 'row', 'col' ],
 		sides = [ 'before', 'after' ],
 		modeNames = { row: 'Row', col: 'Column' },
 		sideNames = { before: 'Before', after: 'After' };
 
-	modes.forEach( ( mode ) => {
-		const modeName = modeNames[ mode ];
-		let className;
+	modes.forEach( function ( mode ) {
+		var modeName = modeNames[ mode ];
+		var className;
 
-		sides.forEach( ( side ) => {
-			const sideName = sideNames[ side ];
+		sides.forEach( function ( side ) {
+			var sideName = sideNames[ side ];
 
 			className = 'Insert' + modeName + sideName + 'ContextItem';
 			// The following classes are used here:
@@ -153,8 +152,8 @@ ve.ui.TableLineContextItem.prototype.setup = function () {
 				// Parent method
 				ve.ui.TableLineContextItem.prototype.setup.call( this );
 
-				const selection = this.context.getSurface().getModel().getSelection();
-				const documentModel = this.context.getSurface().getModel().getDocument();
+				var selection = this.context.getSurface().getModel().getSelection();
+				var documentModel = this.context.getSurface().getModel().getDocument();
 
 				if ( !( selection instanceof ve.dm.TableSelection ) ) {
 					this.actionButton.setDisabled( true );
@@ -167,7 +166,7 @@ ve.ui.TableLineContextItem.prototype.setup = function () {
 						( mode === 'col' && selection.startCol === 0 )
 					);
 				} else {
-					const matrix = selection.getTableNode( documentModel ).getMatrix();
+					var matrix = selection.getTableNode( documentModel ).getMatrix();
 					this.actionButton.setDisabled(
 						( mode === 'row' && selection.endRow === matrix.getRowCount() - 1 ) ||
 						( mode === 'col' && selection.endCol === matrix.getMaxColCount() - 1 )
@@ -192,9 +191,9 @@ ve.ui.TableLineContextItem.prototype.setup = function () {
 		ve.ui[ className ].static.icon = 'trash';
 		ve.ui[ className ].static.commandName = 'delete' + modeName;
 		ve.ui[ className ].prototype.getTitle = function () {
-			const selection = this.context.getSurface().getModel().getSelection();
+			var selection = this.context.getSurface().getModel().getSelection();
 
-			let count;
+			var count;
 			if ( !( selection instanceof ve.dm.TableSelection ) ) {
 				count = 0;
 			} else if ( mode === 'row' ) {
@@ -224,7 +223,7 @@ ve.ui.TableLineContextItem.prototype.setup = function () {
 	ve.ui.TablePropertiesContextItem.static.title = OO.ui.deferMsg( 'visualeditor-table-contextitem-properties' );
 	ve.ui.TablePropertiesContextItem.prototype.onActionButtonClick = function () {
 		// Tweak the selection here:
-		const command = this.context.getSurface().commandRegistry.lookup( 'exitTableCell' );
+		var command = this.context.getSurface().commandRegistry.lookup( 'exitTableCell' );
 		if ( command ) {
 			command.execute( this.context.getSurface() );
 		}
@@ -255,13 +254,12 @@ ve.ui.TableLineContextItem.prototype.setup = function () {
 	ve.ui.ToggleTableSelectionContextItem.static.group = 'table';
 	ve.ui.ToggleTableSelectionContextItem.static.icon = 'table';
 	ve.ui.ToggleTableSelectionContextItem.prototype.getCommand = function () {
-		const commandName = this.context.wasEditing ? 'exitTableCell' : 'enterTableCell';
+		var commandName = this.context.wasEditing ? 'exitTableCell' : 'enterTableCell';
 		return this.context.getSurface().commandRegistry.lookup( commandName );
 	};
 	ve.ui.ToggleTableSelectionContextItem.prototype.getTitle = function () {
-		const selection = this.context.getSurface().getModel().getSelection();
-
-		let mode = 'cells';
+		var mode = 'cells',
+			selection = this.context.getSurface().getModel().getSelection();
 		if ( selection instanceof ve.dm.TableSelection ) {
 			mode = 'contents';
 		}

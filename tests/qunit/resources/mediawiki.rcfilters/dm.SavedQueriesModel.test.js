@@ -1,7 +1,6 @@
 /* eslint-disable camelcase */
 ( function () {
-	const rcfilters = require( 'mediawiki.rcfilters.filters.ui' );
-	const filterDefinition = [ {
+	var filterDefinition = [ {
 			name: 'group1',
 			type: 'send_unselected_if_any',
 			filters: [
@@ -37,14 +36,6 @@
 			hidden: true,
 			filters: [ {
 				name: 'invert',
-				default: '0'
-			} ]
-		}, {
-			name: 'invertTagsGroup',
-			type: 'boolean',
-			hidden: true,
-			filters: [ {
-				name: 'inverttags',
 				default: '0'
 			} ]
 		} ],
@@ -104,16 +95,16 @@
 			}
 		},
 		removeHighlights = function ( data ) {
-			const copy = $.extend( true, {}, data );
+			var copy = $.extend( true, {}, data );
 			copy.queries[ 1234 ].data.highlights = {};
 			return copy;
 		};
 
 	QUnit.module( 'mediawiki.rcfilters - SavedQueriesModel' );
 
-	QUnit.test( 'Initializing queries', ( assert ) => {
-		const filtersModel = new rcfilters.dm.FiltersViewModel(),
-			queriesModel = new rcfilters.dm.SavedQueriesModel( filtersModel ),
+	QUnit.test( 'Initializing queries', function ( assert ) {
+		var filtersModel = new mw.rcfilters.dm.FiltersViewModel(),
+			queriesModel = new mw.rcfilters.dm.SavedQueriesModel( filtersModel ),
 			exampleQueryStructure = {
 				version: '2',
 				default: '1234',
@@ -205,7 +196,7 @@
 
 		filtersModel.initializeFilters( filterDefinition );
 
-		cases.forEach( ( testCase ) => {
+		cases.forEach( function ( testCase ) {
 			queriesModel.initialize( testCase.input );
 			assert.deepEqual(
 				queriesModel.getState(),
@@ -215,9 +206,9 @@
 		} );
 	} );
 
-	QUnit.test( 'Adding new queries', ( assert ) => {
-		const filtersModel = new rcfilters.dm.FiltersViewModel(),
-			queriesModel = new rcfilters.dm.SavedQueriesModel( filtersModel ),
+	QUnit.test( 'Adding new queries', function ( assert ) {
+		var filtersModel = new mw.rcfilters.dm.FiltersViewModel(),
+			queriesModel = new mw.rcfilters.dm.SavedQueriesModel( filtersModel ),
 			cases = [
 				{
 					methodParams: [
@@ -256,7 +247,6 @@
 						{
 							filter1: '1',
 							invert: '1',
-							inverttags: '1',
 							filter15: '1', // Invalid filter - removed
 							filter2: '0', // Falsey value - removed
 							group1__filter1_color: 'c3',
@@ -268,9 +258,7 @@
 							label: 'label2',
 							data: {
 								params: {
-									filter1: '1'
-									// 'invert' is dropped because there are no namespaces
-									// 'inverttags' is dropped because there are no tags
+									filter1: '1' // Invert will be dropped because there are no namespaces
 								},
 								highlights: {
 									group1__filter1_color: 'c3'
@@ -288,8 +276,8 @@
 		// Start with an empty saved queries model
 		queriesModel.initialize( {} );
 
-		cases.forEach( ( testCase ) => {
-			const itemID = queriesModel.addNewQuery( ...testCase.methodParams ),
+		cases.forEach( function ( testCase ) {
+			var itemID = queriesModel.addNewQuery.apply( queriesModel, testCase.methodParams ),
 				item = queriesModel.getItemByID( itemID );
 
 			assert.deepEqual(
@@ -314,10 +302,11 @@
 		} );
 	} );
 
-	QUnit.test( 'Manipulating queries', ( assert ) => {
-		const queriesStructure = {},
-			filtersModel = new rcfilters.dm.FiltersViewModel(),
-			queriesModel = new rcfilters.dm.SavedQueriesModel( filtersModel );
+	QUnit.test( 'Manipulating queries', function ( assert ) {
+		var id1, id2, item1, matchingItem,
+			queriesStructure = {},
+			filtersModel = new mw.rcfilters.dm.FiltersViewModel(),
+			queriesModel = new mw.rcfilters.dm.SavedQueriesModel( filtersModel );
 
 		filtersModel.initializeFilters( filterDefinition );
 
@@ -325,7 +314,7 @@
 		queriesModel.initialize( {} );
 
 		// Add items
-		const id1 = queriesModel.addNewQuery(
+		id1 = queriesModel.addNewQuery(
 			'New query 1',
 			{
 				group2: 'filter5',
@@ -333,7 +322,7 @@
 				group3__group3option1_color: 'c1'
 			}
 		);
-		const id2 = queriesModel.addNewQuery(
+		id2 = queriesModel.addNewQuery(
 			'New query 2',
 			{
 				filter1: '1',
@@ -341,7 +330,7 @@
 				invert: '1'
 			}
 		);
-		const item1 = queriesModel.getItemByID( id1 );
+		item1 = queriesModel.getItemByID( id1 );
 
 		assert.strictEqual(
 			item1.getID(),
@@ -411,7 +400,7 @@
 		);
 
 		// Find matching query
-		let matchingItem = queriesModel.findMatchingQuery(
+		matchingItem = queriesModel.findMatchingQuery(
 			{
 				group2: 'filter5',
 				group1__filter1_color: 'c5',
@@ -441,9 +430,10 @@
 		);
 	} );
 
-	QUnit.test( 'Testing invert property', ( assert ) => {
-		const filtersModel = new rcfilters.dm.FiltersViewModel(),
-			queriesModel = new rcfilters.dm.SavedQueriesModel( filtersModel ),
+	QUnit.test( 'Testing invert property', function ( assert ) {
+		var itemID, item,
+			filtersModel = new mw.rcfilters.dm.FiltersViewModel(),
+			queriesModel = new mw.rcfilters.dm.SavedQueriesModel( filtersModel ),
 			viewsDefinition = {
 				namespace: {
 					label: 'Namespaces',
@@ -453,28 +443,11 @@
 						label: 'Namespaces',
 						type: 'string_options',
 						separator: ';',
-						supportsAll: false,
 						filters: [
 							{ name: 0, label: 'Main', cssClass: 'namespace-0' },
 							{ name: 1, label: 'Talk', cssClass: 'namespace-1' },
 							{ name: 2, label: 'User', cssClass: 'namespace-2' },
 							{ name: 3, label: 'User talk', cssClass: 'namespace-3' }
-						]
-					} ]
-				},
-				tags: {
-					label: 'Tags',
-					trigger: '#',
-					groups: [ {
-						name: 'tagfilter',
-						label: 'Tags',
-						type: 'string_options',
-						separator: '|',
-						supportsAll: false,
-						filters: [
-							{ name: 'foo', label: 'Foo', cssClass: 'tag-foo' },
-							{ name: 'bar', label: 'Bar', cssClass: 'tag-bar' },
-							{ name: 'baz', label: 'Baz', cssClass: 'tag-baz' }
 						]
 					} ]
 				}
@@ -489,13 +462,13 @@
 			group1__filter3: true,
 			invertGroup__invert: true
 		} );
-		let itemID = queriesModel.addNewQuery(
+		itemID = queriesModel.addNewQuery(
 			'label1', // Label
 			filtersModel.getMinimizedParamRepresentation(),
 			true, // isDefault
 			'2345' // ID
 		);
-		let item = queriesModel.getItemByID( itemID );
+		item = queriesModel.getItemByID( itemID );
 
 		assert.deepEqual(
 			item.getState(),
@@ -542,67 +515,6 @@
 				}
 			},
 			'Invert parameter saved if there are namespaces.'
-		);
-
-		// Reset
-		filtersModel.initializeFilters( filterDefinition, viewsDefinition );
-		filtersModel.toggleFiltersSelected( {
-			group1__filter3: true,
-			invertTagsGroup__inverttags: true
-		} );
-		itemID = queriesModel.addNewQuery(
-			'label1', // Label
-			filtersModel.getMinimizedParamRepresentation(),
-			true, // isDefault
-			'3456' // ID
-		);
-		item = queriesModel.getItemByID( itemID );
-
-		assert.deepEqual(
-			item.getState(),
-			{
-				label: 'label1',
-				data: {
-					params: {
-						filter1: '1',
-						filter2: '1'
-					},
-					highlights: {}
-				}
-			},
-			'Inverttags parameter is not saved if there are no tags.'
-		);
-
-		// Reset
-		filtersModel.initializeFilters( filterDefinition, viewsDefinition );
-		filtersModel.toggleFiltersSelected( {
-			group1__filter3: true,
-			invertTagsGroup__inverttags: true,
-			tagfilter__foo: true
-		} );
-		itemID = queriesModel.addNewQuery(
-			'label1', // Label
-			filtersModel.getMinimizedParamRepresentation(),
-			true, // isDefault
-			'4567' // ID
-		);
-		item = queriesModel.getItemByID( itemID );
-
-		assert.deepEqual(
-			item.getState(),
-			{
-				label: 'label1',
-				data: {
-					params: {
-						filter1: '1',
-						filter2: '1',
-						inverttags: '1',
-						tagfilter: 'foo'
-					},
-					highlights: {}
-				}
-			},
-			'Inverttags parameter saved if there are tags.'
 		);
 	} );
 }() );

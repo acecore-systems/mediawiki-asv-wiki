@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable DefinitionListItemNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -42,7 +42,7 @@ ve.ce.DefinitionListItemNode.static.splitOnEnter = true;
  * @throws {Error} If style is invalid
  */
 ve.ce.DefinitionListItemNode.prototype.getTagName = function () {
-	const style = this.model.getAttribute( 'style' ),
+	var style = this.model.getAttribute( 'style' ),
 		types = { definition: 'dd', term: 'dt' };
 
 	if ( !Object.prototype.hasOwnProperty.call( types, style ) ) {

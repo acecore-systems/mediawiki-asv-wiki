@@ -1,14 +1,10 @@
 <?php
 
-use MediaWiki\Content\CssContent;
-use MediaWiki\Content\JsonContent;
-use MediaWiki\Content\TextContent;
-use MediaWiki\Content\WikitextContent;
 use Wikimedia\Assert\ParameterTypeException;
 use Wikimedia\TestingAccessWrapper;
 
 /**
- * @covers \SlotDiffRenderer
+ * @covers SlotDiffRenderer
  */
 class SlotDiffRendererTest extends \MediaWikiIntegrationTestCase {
 
@@ -34,7 +30,7 @@ class SlotDiffRendererTest extends \MediaWikiIntegrationTestCase {
 		}
 	}
 
-	public static function provideNormalizeContents() {
+	public function provideNormalizeContents() {
 		return [
 			'both null' => [ null, null, null, null, null, InvalidArgumentException::class ],
 			'left null' => [
@@ -59,20 +55,10 @@ class SlotDiffRendererTest extends \MediaWikiIntegrationTestCase {
 			],
 			'type filter failure (left)' => [
 				new TextContent( 'abc' ), new WikitextContent( 'def' ), WikitextContent::class,
-				// Throws incompatible exception because the right content matches the filter and the
-				// left doesn't. All other kinds of mismatches should result in a parameter type exception.
-				null, null, IncompatibleDiffTypesException::class,
+				null, null, ParameterTypeException::class,
 			],
 			'type filter failure (right)' => [
 				new WikitextContent( 'abc' ), new TextContent( 'def' ), WikitextContent::class,
-				null, null, ParameterTypeException::class,
-			],
-			'type filter failure (left, with null)' => [
-				new TextContent( 'abc' ), null, WikitextContent::class,
-				null, null, ParameterTypeException::class,
-			],
-			'type filter failure (right, with null)' => [
-				null, new TextContent( 'def' ), WikitextContent::class,
 				null, null, ParameterTypeException::class,
 			],
 			'type filter (array syntax)' => [

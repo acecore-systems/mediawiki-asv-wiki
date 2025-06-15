@@ -24,9 +24,7 @@
  * @todo More efficient cleanup of text records
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 use Wikimedia\Rdbms\IDatabase;
 
@@ -48,7 +46,7 @@ class DeleteOrphanedRevisions extends Maintenance {
 
 		$report = $this->hasOption( 'report' );
 
-		$dbw = $this->getPrimaryDB();
+		$dbw = $this->getDB( DB_PRIMARY );
 		$this->beginTransaction( $dbw, __METHOD__ );
 
 		# Find all the orphaned revisions
@@ -93,20 +91,12 @@ class DeleteOrphanedRevisions extends Maintenance {
 	 * @param IDatabase $dbw Primary DB handle
 	 */
 	private function deleteRevs( array $id, $dbw ) {
-		$dbw->newDeleteQueryBuilder()
-			->deleteFrom( 'revision' )
-			->where( [ 'rev_id' => $id ] )
-			->caller( __METHOD__ )->execute();
+		$dbw->delete( 'revision', [ 'rev_id' => $id ], __METHOD__ );
 
 		// Delete from ip_changes should a record exist.
-		$dbw->newDeleteQueryBuilder()
-			->deleteFrom( 'ip_changes' )
-			->where( [ 'ipc_rev_id' => $id ] )
-			->caller( __METHOD__ )->execute();
+		$dbw->delete( 'ip_changes', [ 'ipc_rev_id' => $id ], __METHOD__ );
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = DeleteOrphanedRevisions::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

@@ -1,11 +1,11 @@
 <?php
 namespace MediaWiki\Content\Transform;
 
-use MediaWiki\Content\Content;
+use Content;
 use MediaWiki\Content\IContentHandlerFactory;
 use MediaWiki\Page\PageReference;
-use MediaWiki\Parser\ParserOptions;
 use MediaWiki\User\UserIdentity;
+use ParserOptions;
 
 /**
  * A service to transform content.

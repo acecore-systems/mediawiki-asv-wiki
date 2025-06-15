@@ -18,7 +18,6 @@
  * @file
  */
 
-use MediaWiki\Language\Language;
 use MediaWiki\Languages\LanguageFactory;
 
 /**

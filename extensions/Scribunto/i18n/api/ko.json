@@ -2,11 +2,12 @@
 	"@metadata": {
 		"authors": [
 			"Kwj2772",
-			"Markingdots",
 			"Ykhwong",
+			"Markingdots",
 			"Suleiman the Magnificent Television"
 		]
 	},
+	"apihelp-scribunto-console-description": "Scribunto 콘솔에서 XHR 요청을 서비스하기 위한 내부 모듈입니다.",
 	"apihelp-scribunto-console-summary": "Scribunto 콘솔에서 XHR 요청을 서비스하기 위한 내부 모듈입니다.",
 	"apihelp-scribunto-console-param-title": "테스트할 모듈의 제목입니다.",
 	"apihelp-scribunto-console-param-content": "모듈의 새로운 내용입니다.",

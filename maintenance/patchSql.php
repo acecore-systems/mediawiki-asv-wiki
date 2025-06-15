@@ -22,11 +22,7 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\Installer\DatabaseUpdater;
-
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script that manually runs an SQL patch outside of the general updaters.
@@ -51,11 +47,11 @@ class PatchSql extends Maintenance {
 		$dbw = $this->getDB( DB_PRIMARY );
 		$updater = DatabaseUpdater::newForDB( $dbw, true, $this );
 
-		foreach ( $this->getArgs() as $name ) {
+		foreach ( $this->mArgs as $arg ) {
 			$files = [
-				$name,
-				$updater->patchPath( $dbw, $name ),
-				$updater->patchPath( $dbw, "patch-$name.sql" ),
+				$arg,
+				$updater->patchPath( $dbw, $arg ),
+				$updater->patchPath( $dbw, "patch-$arg.sql" ),
 			];
 			foreach ( $files as $file ) {
 				if ( file_exists( $file ) ) {
@@ -64,13 +60,11 @@ class PatchSql extends Maintenance {
 					continue 2;
 				}
 			}
-			$this->error( "Could not find $name\n" );
+			$this->error( "Could not find $arg\n" );
 		}
 		$this->output( "done.\n" );
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = PatchSql::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

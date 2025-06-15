@@ -1,7 +1,6 @@
 <?php
 
 use MediaWiki\Revision\RevisionRecord;
-use MediaWiki\Title\Title;
 
 /**
  * A manually constructed search result, for use with FauxSearchResultSet.
@@ -12,11 +11,10 @@ class FauxSearchResult extends SearchResult {
 
 	public function __construct(
 		Title $title,
-		?RevisionRecord $revRecord = null,
-		?File $image = null,
+		RevisionRecord $revRecord = null,
+		File $image = null,
 		$text = ''
 	) {
-		parent::__construct();
 		$this->mTitle = $title;
 		$this->mRevisionRecord = $revRecord;
 		$this->mImage = $image;

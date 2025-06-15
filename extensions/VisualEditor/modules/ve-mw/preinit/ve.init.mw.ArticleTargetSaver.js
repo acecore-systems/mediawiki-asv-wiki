@@ -1,7 +1,7 @@
 /*!
  * VisualEditor MediaWiki ArticleTargetSaver.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -12,7 +12,6 @@
  *
  * @class mw.libs.ve.targetSaver
  * @singleton
- * @hideconstructor
  */
 ( function () {
 	mw.libs.ve = mw.libs.ve || {};
@@ -33,7 +32,9 @@
 		 * @return {jQuery.Promise} Promise resolved with deflated HTML
 		 */
 		deflate: function ( html ) {
-			return mw.loader.using( 'mediawiki.deflate' ).then( () => mw.deflate( html ) );
+			return mw.loader.using( 'mediawiki.deflate' ).then( function () {
+				return mw.deflate( html );
+			} );
 
 		},
 
@@ -50,14 +51,14 @@
 		 */
 		getHtml: function ( newDoc, oldDoc ) {
 			function copyAttributes( from, to ) {
-				Array.prototype.forEach.call( from.attributes, ( attr ) => {
+				Array.prototype.forEach.call( from.attributes, function ( attr ) {
 					to.setAttribute( attr.name, attr.value );
 				} );
 			}
 
 			if ( oldDoc ) {
 				// Copy the head from the old document
-				for ( let i = 0, len = oldDoc.head.childNodes.length; i < len; i++ ) {
+				for ( var i = 0, len = oldDoc.head.childNodes.length; i < len; i++ ) {
 					newDoc.head.appendChild( oldDoc.head.childNodes[ i ].cloneNode( true ) );
 				}
 				// Copy attributes from the old document for the html, head and body
@@ -72,7 +73,7 @@
 					'script', // T54884, T65229, T96533, T103430
 					'noscript', // T144891
 					'object', // T65229
-					'style:not( [ data-mw ] ):not( [ data-mw-deduplicate ] )', // T55252, but allow <style data-mw(-deduplicate)/> e.g. TemplateStyles T188143
+					'style:not( [ data-mw ] )', // T55252, but allow <style data-mw/> e.g. TemplateStyles T188143
 					'embed', // T53521, T54791, T65121
 					'a[href^="javascript:"]', // T200971
 					'img[src^="data:"]', // T192392
@@ -84,17 +85,17 @@
 					'div.donut-container', // Web of Trust (T189148)
 					'div.shield-container' // Web of Trust (T297862)
 				].join( ',' ) )
-				.each( ( j, el ) => {
+				.each( function () {
 					function truncate( text, l ) {
 						return text.length > l ? text.slice( 0, l ) + '…' : text;
 					}
-					const errorMessage = 'DOM content matching deny list found:\n' + truncate( el.outerHTML, 100 ) +
-						'\nContext:\n' + truncate( el.parentNode.outerHTML, 200 );
+					var errorMessage = 'DOM content matching deny list found:\n' + truncate( this.outerHTML, 100 ) +
+						'\nContext:\n' + truncate( this.parentNode.outerHTML, 200 );
 					mw.log.error( errorMessage );
-					const err = new Error( errorMessage );
+					var err = new Error( errorMessage );
 					err.name = 'VeDomDenyListWarning';
 					mw.errorLogger.logError( err, 'error.visualeditor' );
-					$( el ).remove();
+					$( this ).remove();
 				} );
 
 			// data-mw-section-id is copied to headings by mw.libs.ve.unwrapParsoidSections
@@ -106,9 +107,9 @@
 			mw.libs.ve.deduplicateStyles( newDoc.body );
 
 			// Add doctype manually
-			// ve.properOuterHtml is loaded separately in ve.utils.parsing.js
+			// ve.serializeXhtml is loaded separately from utils.parsing
 			// eslint-disable-next-line no-undef
-			return '<!doctype html>' + ve.properOuterHtml( newDoc.documentElement );
+			return '<!doctype html>' + ve.serializeXhtml( newDoc );
 		},
 
 		/**
@@ -133,12 +134,15 @@
 		 * @return {jQuery.Promise} Promise which resolves if the post was successful
 		 */
 		saveDoc: function ( doc, extraData, options ) {
-			return this.deflateDoc( doc ).then( ( html ) => this.postHtml(
-				html,
-				null,
-				extraData,
-				options
-			) );
+			var saver = this;
+			return this.deflateDoc( doc ).then( function ( html ) {
+				return saver.postHtml(
+					html,
+					null,
+					extraData,
+					options
+				);
+			} );
 		},
 
 		/**
@@ -172,8 +176,10 @@
 		 * @return {jQuery.Promise} Promise which resolves with API save data, or rejects with error details
 		 */
 		postHtml: function ( html, cacheKey, extraData, options ) {
+			var saver = this;
+
 			options = options || {};
-			let data;
+			var data;
 			if ( cacheKey ) {
 				data = $.extend( { cachekey: cacheKey }, extraData );
 			} else {
@@ -181,14 +187,14 @@
 			}
 			return this.postContent( data, options ).then(
 				null,
-				( code, response ) => {
+				function ( code, response ) {
 					// This cache key is evidently bad, clear it
 					if ( options.onCacheKeyFail ) {
 						options.onCacheKeyFail();
 					}
 					if ( code === 'badcachekey' ) {
 						// If the cache key failed, try again without the cache key
-						return this.postHtml(
+						return saver.postHtml(
 							html,
 							null,
 							extraData,
@@ -217,9 +223,9 @@
 		 */
 		postContent: function ( data, options ) {
 			options = options || {};
-			const api = options.api || new mw.Api();
+			var api = options.api || new mw.Api();
 
-			let start;
+			var start;
 			if ( options.now ) {
 				start = options.now();
 			}
@@ -234,34 +240,32 @@
 					formatversion: 2,
 					errorformat: 'html',
 					errorlang: mw.config.get( 'wgUserLanguage' ),
-					errorsuselocal: true
+					errorsuselocal: true,
+					editingStatsId: window.ve && window.ve.init && window.ve.init.editingSessionId
 				},
 				data
 			);
 
-			const action = data.action;
+			var action = data.action;
 
-			const request = api.postWithToken( 'csrf', data, {
-				contentType: 'multipart/form-data',
-				trackEditAttemptStepSessionId: true
-			} );
+			var request = api.postWithToken( 'csrf', data, { contentType: 'multipart/form-data' } );
 
 			return request.then(
-				( response, jqxhr ) => {
-					const responseData = response[ action ];
+				function ( response, jqxhr ) {
+					var responseData = response[ action ];
 
 					// Log data about the request if eventName was set
 					if ( options.track && options.eventName ) {
-						const eventData = {
+						var eventData = {
 							bytes: require( 'mediawiki.String' ).byteLength( jqxhr.responseText ),
 							duration: options.now() - start
 						};
-						const fullEventName = 'performance.system.' + options.eventName +
+						var fullEventName = 'performance.system.' + options.eventName +
 							( responseData.cachekey ? '.withCacheKey' : '.withoutCacheKey' );
 						options.track( fullEventName, eventData );
 					}
 
-					let error;
+					var error;
 					if ( !responseData ) {
 						error = {
 							code: 'invalidresponse',
@@ -300,15 +304,15 @@
 					}
 					return responseData;
 				},
-				( code, response ) => {
-					const responseText = OO.getProp( response, 'xhr', 'responseText' );
+				function ( code, response ) {
+					var responseText = OO.getProp( response, 'xhr', 'responseText' );
 
 					if ( responseText && options.track && options.eventName ) {
-						const eventData = {
+						var eventData = {
 							bytes: require( 'mediawiki.String' ).byteLength( responseText ),
 							duration: options.now() - start
 						};
-						let fullEventName;
+						var fullEventName;
 						if ( code === 'badcachekey' ) {
 							fullEventName = 'performance.system.' + options.eventName + '.badCacheKey';
 						} else {

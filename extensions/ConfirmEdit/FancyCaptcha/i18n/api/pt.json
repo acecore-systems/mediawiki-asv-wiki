@@ -5,6 +5,7 @@
 			"Hamilton Abreu"
 		]
 	},
+	"apihelp-fancycaptchareload-description": "Gerar novo FancyCaptcha.",
 	"apihelp-fancycaptchareload-summary": "Gerar novo FancyCaptcha.",
 	"apihelp-fancycaptchareload-example-1": "Gerar novo FancyCaptcha"
 }

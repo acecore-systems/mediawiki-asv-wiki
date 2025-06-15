@@ -1,15 +1,15 @@
 /*!
  * VisualEditor UserInterface Actions AnnotationAction tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ui.AnnotationAction' );
 
 /* Tests */
 
-QUnit.test( 'toggle', ( assert ) => {
-	const newBold = { type: 'textStyle/bold' },
+QUnit.test( 'toggle', function ( assert ) {
+	var newBold = { type: 'textStyle/bold' },
 		html = '<p>Foo<b>bar</b><strong>baz</strong><i>quux</i> white\u3000space</p>',
 		cases = [
 			{
@@ -32,7 +32,7 @@ QUnit.test( 'toggle', ( assert ) => {
 				method: 'toggle',
 				args: [ 'textStyle/bold' ],
 				expectedData: function ( data ) {
-					data.splice( 7, 3, ...'baz' );
+					data.splice( 7, 3, 'b', 'a', 'z' );
 				},
 				msg: 'toggle bold on strong text'
 			},
@@ -42,7 +42,7 @@ QUnit.test( 'toggle', ( assert ) => {
 				method: 'toggle',
 				args: [ 'textStyle/bold' ],
 				expectedData: function ( data ) {
-					data.splice( 4, 6, ...'barbaz' );
+					data.splice( 4, 6, 'b', 'a', 'r', 'b', 'a', 'z' );
 				},
 				msg: 'toggle bold on bold then strong text'
 			},
@@ -95,8 +95,8 @@ QUnit.test( 'toggle', ( assert ) => {
 				method: 'toggle',
 				args: [ 'textStyle/bold' ],
 				expectedData: function ( data ) {
-					data.splice( 5, 3, ...'Foo' );
-					data.splice( 12, 3, ...'Bar' );
+					data.splice( 5, 3, 'F', 'o', 'o' );
+					data.splice( 12, 3, 'B', 'a', 'r' );
 				},
 				msg: 'toggle bold on comparable bold annotations spanning multiple table cells'
 			},
@@ -136,12 +136,12 @@ QUnit.test( 'toggle', ( assert ) => {
 			}
 		];
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		ve.test.utils.runActionTest(
-			assert,
+			'annotation', assert, caseItem.html, false, caseItem.method, caseItem.args, caseItem.rangeOrSelection, caseItem.msg,
 			{
-				actionName: 'annotation',
-				...caseItem
+				expectedData: caseItem.expectedData,
+				expectedRangeOrSelection: caseItem.expectedRangeOrSelection
 			}
 		);
 	} );

@@ -1,8 +1,7 @@
 <?php
 
-namespace MediaWiki\Tests\Session;
+namespace MediaWiki\Session;
 
-use MediaWiki\Session\Token;
 use MediaWikiUnitTestCase;
 use Wikimedia\TestingAccessWrapper;
 

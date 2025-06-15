@@ -9,40 +9,52 @@ use MediaWiki\Config\ServiceOptions;
 use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Title\NamespaceInfo;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleValue;
+use Wikimedia\ScopedCallback;
 
 class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	use TestAllServiceOptionsUsed;
-
-	private const TEST_EXT_NAMESPACES = [ NS_MAIN => 'No effect', NS_TALK => 'No effect', 12345 => 'Extended' ];
 
 	/**********************************************************************************************
 	 * Shared code
 	 * %{
 	 */
 
+	/** @var ScopedCallback */
+	private $scopedCallback;
+
+	protected function setUp(): void {
+		parent::setUp();
+
+		$this->scopedCallback =
+			ExtensionRegistry::getInstance()->setAttributeForTest( 'ExtensionNamespaces', [] );
+	}
+
+	protected function tearDown(): void {
+		$this->scopedCallback = null;
+
+		parent::tearDown();
+	}
+
 	private const DEFAULT_OPTIONS = [
-		MainConfigNames::CanonicalNamespaceNames => [
+		'CanonicalNamespaceNames' => [
 			NS_TALK => 'Talk',
 			NS_USER => 'User',
 			NS_USER_TALK => 'User_talk',
 			NS_SPECIAL => 'Special',
 			NS_MEDIA => 'Media',
 		],
-		MainConfigNames::CapitalLinkOverrides => [],
-		MainConfigNames::CapitalLinks => true,
-		MainConfigNames::ContentNamespaces => [ NS_MAIN ],
-		MainConfigNames::ExtraNamespaces => [],
-		MainConfigNames::ExtraSignatureNamespaces => [],
-		MainConfigNames::NamespaceContentModels => [],
-		MainConfigNames::NamespacesWithSubpages => [
+		'CapitalLinkOverrides' => [],
+		'CapitalLinks' => true,
+		'ContentNamespaces' => [ NS_MAIN ],
+		'ExtraNamespaces' => [],
+		'ExtraSignatureNamespaces' => [],
+		'NamespaceContentModels' => [],
+		'NamespacesWithSubpages' => [
 			NS_TALK => true,
 			NS_USER => true,
 			NS_USER_TALK => true,
 		],
-		MainConfigNames::NonincludableNamespaces => [],
+		'NonincludableNamespaces' => [],
 	];
 
 	/**
@@ -52,16 +64,14 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 		return $this->getServiceContainer()->getHookContainer();
 	}
 
-	private function newObj( array $options = [], array $extensionNamespaces = [] ): NamespaceInfo {
+	private function newObj( array $options = [] ): NamespaceInfo {
 		return new NamespaceInfo(
 			new LoggedServiceOptions(
 				self::$serviceOptionsAccessLog,
 				NamespaceInfo::CONSTRUCTOR_OPTIONS,
 				$options, self::DEFAULT_OPTIONS
 			),
-			$this->getHookContainer(),
-			$extensionNamespaces,
-			[]
+			$this->getHookContainer()
 		);
 	}
 
@@ -73,7 +83,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	 */
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::__construct
+	 * @covers NamespaceInfo::__construct
 	 * @dataProvider provideConstructor
 	 * @param ServiceOptions $options
 	 * @param string|null $expectedExceptionText
@@ -83,11 +93,11 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 			$this->expectException( \Wikimedia\Assert\PreconditionException::class );
 			$this->expectExceptionMessage( $expectedExceptionText );
 		}
-		new NamespaceInfo( $options, $this->getHookContainer(), [], [] );
+		new NamespaceInfo( $options, $this->getHookContainer() );
 		$this->assertTrue( true );
 	}
 
-	public static function provideConstructor() {
+	public function provideConstructor() {
 		return [
 			[ new ServiceOptions( NamespaceInfo::CONSTRUCTOR_OPTIONS, self::DEFAULT_OPTIONS ) ],
 			[ new ServiceOptions( [], [] ), 'Required options missing: ' ],
@@ -101,7 +111,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideIsMovable
-	 * @covers \MediaWiki\Title\NamespaceInfo::isMovable
+	 * @covers NamespaceInfo::isMovable
 	 *
 	 * @param bool $expected
 	 * @param int $ns
@@ -111,7 +121,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expected, $obj->isMovable( $ns ) );
 	}
 
-	public static function provideIsMovable() {
+	public function provideIsMovable() {
 		return [
 			'Main' => [ true, NS_MAIN ],
 			'Talk' => [ true, NS_TALK ],
@@ -128,7 +138,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	 * @param int $ns
 	 * @param bool $expected
 	 * @dataProvider provideIsSubject
-	 * @covers \MediaWiki\Title\NamespaceInfo::isSubject
+	 * @covers NamespaceInfo::isSubject
 	 */
 	public function testIsSubject( $ns, $expected ) {
 		$this->assertSame( $expected, $this->newObj()->isSubject( $ns ) );
@@ -138,13 +148,13 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	 * @param int $ns
 	 * @param bool $expected
 	 * @dataProvider provideIsSubject
-	 * @covers \MediaWiki\Title\NamespaceInfo::isTalk
+	 * @covers NamespaceInfo::isTalk
 	 */
 	public function testIsTalk( $ns, $expected ) {
 		$this->assertSame( !$expected, $this->newObj()->isTalk( $ns ) );
 	}
 
-	public static function provideIsSubject() {
+	public function provideIsSubject() {
 		return [
 			// Special namespaces
 			[ NS_MEDIA, true ],
@@ -163,7 +173,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::exists
+	 * @covers NamespaceInfo::exists
 	 * @dataProvider provideExists
 	 * @param int $ns
 	 * @param bool $expected
@@ -172,7 +182,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expected, $this->newObj()->exists( $ns ) );
 	}
 
-	public static function provideExists() {
+	public function provideExists() {
 		return [
 			'Main' => [ NS_MAIN, true ],
 			'Talk' => [ NS_TALK, true ],
@@ -187,7 +197,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	 * Note if we add a namespace registration system with keys like 'MAIN'
 	 * we should add tests here for equivalence on things like 'MAIN' == 0
 	 * and 'MAIN' == NS_MAIN.
-	 * @covers \MediaWiki\Title\NamespaceInfo::equals
+	 * @covers NamespaceInfo::equals
 	 */
 	public function testEquals() {
 		$obj = $this->newObj();
@@ -207,13 +217,13 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	 * @param int $ns2
 	 * @param bool $expected
 	 * @dataProvider provideSubjectEquals
-	 * @covers \MediaWiki\Title\NamespaceInfo::subjectEquals
+	 * @covers NamespaceInfo::subjectEquals
 	 */
 	public function testSubjectEquals( $ns1, $ns2, $expected ) {
 		$this->assertSame( $expected, $this->newObj()->subjectEquals( $ns1, $ns2 ) );
 	}
 
-	public static function provideSubjectEquals() {
+	public function provideSubjectEquals() {
 		return [
 			[ NS_MAIN, NS_MAIN, true ],
 			// In case we make NS_MAIN 'MAIN'
@@ -234,7 +244,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideHasTalkNamespace
-	 * @covers \MediaWiki\Title\NamespaceInfo::hasTalkNamespace
+	 * @covers NamespaceInfo::hasTalkNamespace
 	 *
 	 * @param int $ns
 	 * @param bool $expected
@@ -243,7 +253,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expected, $this->newObj()->hasTalkNamespace( $ns ) );
 	}
 
-	public static function provideHasTalkNamespace() {
+	public function provideHasTalkNamespace() {
 		return [
 			[ NS_MEDIA, false ],
 			[ NS_SPECIAL, false ],
@@ -262,15 +272,15 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	 * @param int $ns
 	 * @param bool $expected
 	 * @param array $contentNamespaces
-	 * @covers \MediaWiki\Title\NamespaceInfo::isContent
+	 * @covers NamespaceInfo::isContent
 	 * @dataProvider provideIsContent
 	 */
 	public function testIsContent( $ns, $expected, $contentNamespaces = [ NS_MAIN ] ) {
-		$obj = $this->newObj( [ MainConfigNames::ContentNamespaces => $contentNamespaces ] );
+		$obj = $this->newObj( [ 'ContentNamespaces' => $contentNamespaces ] );
 		$this->assertSame( $expected, $obj->isContent( $ns ) );
 	}
 
-	public static function provideIsContent() {
+	public function provideIsContent() {
 		return [
 			[ NS_MAIN, true ],
 			[ NS_MEDIA, false ],
@@ -289,7 +299,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideWantSignatures
-	 * @covers \MediaWiki\Title\NamespaceInfo::wantSignatures
+	 * @covers NamespaceInfo::wantSignatures
 	 *
 	 * @param int $index
 	 * @param bool $expected
@@ -298,7 +308,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expected, $this->newObj()->wantSignatures( $index ) );
 	}
 
-	public static function provideWantSignatures() {
+	public function provideWantSignatures() {
 		return [
 			'Main' => [ NS_MAIN, false ],
 			'Talk' => [ NS_TALK, true ],
@@ -314,13 +324,13 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideWantSignatures_ExtraSignatureNamespaces
-	 * @covers \MediaWiki\Title\NamespaceInfo::wantSignatures
+	 * @covers NamespaceInfo::wantSignatures
 	 *
 	 * @param int $index
 	 * @param int $expected
 	 */
 	public function testWantSignatures_ExtraSignatureNamespaces( $index, $expected ) {
-		$obj = $this->newObj( [ MainConfigNames::ExtraSignatureNamespaces =>
+		$obj = $this->newObj( [ 'ExtraSignatureNamespaces' =>
 			[ NS_MAIN, NS_USER, NS_SPECIAL, NS_MEDIA, 123456, -12345 ] ] );
 		$this->assertSame( $expected, $obj->wantSignatures( $index ) );
 	}
@@ -342,14 +352,14 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @param int $ns
 	 * @param bool $expected
-	 * @covers \MediaWiki\Title\NamespaceInfo::isWatchable
+	 * @covers NamespaceInfo::isWatchable
 	 * @dataProvider provideIsWatchable
 	 */
 	public function testIsWatchable( $ns, $expected ) {
 		$this->assertSame( $expected, $this->newObj()->isWatchable( $ns ) );
 	}
 
-	public static function provideIsWatchable() {
+	public function provideIsWatchable() {
 		return [
 			// Specials namespaces are not watchable
 			[ NS_MEDIA, false ],
@@ -369,17 +379,17 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	 * @param int $ns
 	 * @param int $expected
 	 * @param array|null $namespacesWithSubpages To pass to constructor
-	 * @covers \MediaWiki\Title\NamespaceInfo::hasSubpages
+	 * @covers NamespaceInfo::hasSubpages
 	 * @dataProvider provideHasSubpages
 	 */
-	public function testHasSubpages( $ns, $expected, ?array $namespacesWithSubpages = null ) {
+	public function testHasSubpages( $ns, $expected, array $namespacesWithSubpages = null ) {
 		$obj = $this->newObj( $namespacesWithSubpages
-			? [ MainConfigNames::NamespacesWithSubpages => $namespacesWithSubpages ]
+			? [ 'NamespacesWithSubpages' => $namespacesWithSubpages ]
 			: [] );
 		$this->assertSame( $expected, $obj->hasSubpages( $ns ) );
 	}
 
-	public static function provideHasSubpages() {
+	public function provideHasSubpages() {
 		return [
 			// Special namespaces:
 			[ NS_MEDIA, false ],
@@ -399,14 +409,14 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideGetContentNamespaces
-	 * @covers \MediaWiki\Title\NamespaceInfo::getContentNamespaces
+	 * @covers NamespaceInfo::getContentNamespaces
 	 */
 	public function testGetContentNamespaces( $contentNamespaces, array $expected ) {
-		$obj = $this->newObj( [ MainConfigNames::ContentNamespaces => $contentNamespaces ] );
+		$obj = $this->newObj( [ 'ContentNamespaces' => $contentNamespaces ] );
 		$this->assertSame( $expected, $obj->getContentNamespaces() );
 	}
 
-	public static function provideGetContentNamespaces() {
+	public function provideGetContentNamespaces() {
 		return [
 			// Non-array
 			[ '', [ NS_MAIN ] ],
@@ -427,7 +437,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getSubjectNamespaces
+	 * @covers NamespaceInfo::getSubjectNamespaces
 	 */
 	public function testGetSubjectNamespaces() {
 		$subjectsNS = $this->newObj()->getSubjectNamespaces();
@@ -443,7 +453,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getTalkNamespaces
+	 * @covers NamespaceInfo::getTalkNamespaces
 	 */
 	public function testGetTalkNamespaces() {
 		$talkNS = $this->newObj()->getTalkNamespaces();
@@ -464,19 +474,19 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	 * @param bool $capitalLinks To pass to constructor
 	 * @param array $capitalLinkOverrides To pass to constructor
 	 * @dataProvider provideIsCapitalized
-	 * @covers \MediaWiki\Title\NamespaceInfo::isCapitalized
+	 * @covers NamespaceInfo::isCapitalized
 	 */
 	public function testIsCapitalized(
 		$ns, $expected, $capitalLinks = true, array $capitalLinkOverrides = []
 	) {
 		$obj = $this->newObj( [
-			MainConfigNames::CapitalLinks => $capitalLinks,
-			MainConfigNames::CapitalLinkOverrides => $capitalLinkOverrides,
+			'CapitalLinks' => $capitalLinks,
+			'CapitalLinkOverrides' => $capitalLinkOverrides,
 		] );
 		$this->assertSame( $expected, $obj->isCapitalized( $ns ) );
 	}
 
-	public static function provideIsCapitalized() {
+	public function provideIsCapitalized() {
 		return [
 			// Test default settings
 			[ NS_PROJECT, true ],
@@ -507,7 +517,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::hasGenderDistinction
+	 * @covers NamespaceInfo::hasGenderDistinction
 	 */
 	public function testHasGenderDistinction() {
 		$obj = $this->newObj();
@@ -524,29 +534,29 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::isNonincludable
+	 * @covers NamespaceInfo::isNonincludable
 	 */
 	public function testIsNonincludable() {
-		$obj = $this->newObj( [ MainConfigNames::NonincludableNamespaces => [ NS_USER ] ] );
+		$obj = $this->newObj( [ 'NonincludableNamespaces' => [ NS_USER ] ] );
 		$this->assertTrue( $obj->isNonincludable( NS_USER ) );
 		$this->assertFalse( $obj->isNonincludable( NS_TEMPLATE ) );
 	}
 
 	/**
 	 * @dataProvider provideGetNamespaceContentModel
-	 * @covers \MediaWiki\Title\NamespaceInfo::getNamespaceContentModel
+	 * @covers NamespaceInfo::getNamespaceContentModel
 	 *
 	 * @param int $ns
 	 * @param string $expected
 	 */
 	public function testGetNamespaceContentModel( $ns, $expected ) {
-		$obj = $this->newObj( [ MainConfigNames::NamespaceContentModels =>
+		$obj = $this->newObj( [ 'NamespaceContentModels' =>
 			[ NS_USER => CONTENT_MODEL_WIKITEXT, 123 => CONTENT_MODEL_JSON, 1234 => 'abcdef' ],
 		] );
 		$this->assertSame( $expected, $obj->getNamespaceContentModel( $ns ) );
 	}
 
-	public static function provideGetNamespaceContentModel() {
+	public function provideGetNamespaceContentModel() {
 		return [
 			[ NS_MAIN, null ],
 			[ NS_TALK, null ],
@@ -562,7 +572,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideGetCategoryLinkType
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCategoryLinkType
+	 * @covers NamespaceInfo::getCategoryLinkType
 	 *
 	 * @param int $ns
 	 * @param string $expected
@@ -571,7 +581,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expected, $this->newObj()->getCategoryLinkType( $ns ) );
 	}
 
-	public static function provideGetCategoryLinkType() {
+	public function provideGetCategoryLinkType() {
 		return [
 			[ NS_MAIN, 'page' ],
 			[ NS_TALK, 'page' ],
@@ -598,10 +608,10 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideSubjectTalk
-	 * @covers \MediaWiki\Title\NamespaceInfo::getSubject
-	 * @covers \MediaWiki\Title\NamespaceInfo::getSubjectPage
-	 * @covers \MediaWiki\Title\NamespaceInfo::isMethodValidFor
-	 * @covers \MediaWiki\Title\Title::getSubjectPage
+	 * @covers NamespaceInfo::getSubject
+	 * @covers NamespaceInfo::getSubjectPage
+	 * @covers NamespaceInfo::isMethodValidFor
+	 * @covers Title::getSubjectPage
 	 *
 	 * @param int $subject
 	 * @param int $talk
@@ -626,8 +636,8 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideSpecialNamespaces
-	 * @covers \MediaWiki\Title\NamespaceInfo::getSubject
-	 * @covers \MediaWiki\Title\NamespaceInfo::getSubjectPage
+	 * @covers NamespaceInfo::getSubject
+	 * @covers NamespaceInfo::getSubjectPage
 	 *
 	 * @param int $ns
 	 */
@@ -641,10 +651,10 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideSubjectTalk
-	 * @covers \MediaWiki\Title\NamespaceInfo::getTalk
-	 * @covers \MediaWiki\Title\NamespaceInfo::getTalkPage
-	 * @covers \MediaWiki\Title\NamespaceInfo::isMethodValidFor
-	 * @covers \MediaWiki\Title\Title::getTalkPage
+	 * @covers NamespaceInfo::getTalk
+	 * @covers NamespaceInfo::getTalkPage
+	 * @covers NamespaceInfo::isMethodValidFor
+	 * @covers Title::getTalkPage
 	 *
 	 * @param int $subject
 	 * @param int $talk
@@ -669,8 +679,8 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideSpecialNamespaces
-	 * @covers \MediaWiki\Title\NamespaceInfo::getTalk
-	 * @covers \MediaWiki\Title\NamespaceInfo::isMethodValidFor
+	 * @covers NamespaceInfo::getTalk
+	 * @covers NamespaceInfo::isMethodValidFor
 	 *
 	 * @param int $ns
 	 */
@@ -684,8 +694,8 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideSpecialNamespaces
-	 * @covers \MediaWiki\Title\NamespaceInfo::getAssociated
-	 * @covers \MediaWiki\Title\NamespaceInfo::isMethodValidFor
+	 * @covers NamespaceInfo::getAssociated
+	 * @covers NamespaceInfo::isMethodValidFor
 	 *
 	 * @param int $ns
 	 */
@@ -711,7 +721,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideCanHaveTalkPage
-	 * @covers \MediaWiki\Title\NamespaceInfo::canHaveTalkPage
+	 * @covers NamespaceInfo::canHaveTalkPage
 	 */
 	public function testCanHaveTalkPage( LinkTarget $t, $expected ) {
 		$actual = $this->newObj()->canHaveTalkPage( $t );
@@ -728,9 +738,9 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideGetTalkPage_good
-	 * @covers \MediaWiki\Title\NamespaceInfo::getTalk
-	 * @covers \MediaWiki\Title\NamespaceInfo::getTalkPage
-	 * @covers \MediaWiki\Title\NamespaceInfo::isMethodValidFor
+	 * @covers NamespaceInfo::getTalk
+	 * @covers NamespaceInfo::getTalkPage
+	 * @covers NamespaceInfo::isMethodValidFor
 	 */
 	public function testGetTalkPage_good( LinkTarget $t, LinkTarget $expected ) {
 		$actual = $this->newObj()->getTalkPage( $t );
@@ -748,9 +758,9 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideGetTalkPage_bad
-	 * @covers \MediaWiki\Title\NamespaceInfo::getTalk
-	 * @covers \MediaWiki\Title\NamespaceInfo::getTalkPage
-	 * @covers \MediaWiki\Title\NamespaceInfo::isMethodValidFor
+	 * @covers NamespaceInfo::getTalk
+	 * @covers NamespaceInfo::getTalkPage
+	 * @covers NamespaceInfo::isMethodValidFor
 	 */
 	public function testGetTalkPage_bad( LinkTarget $t ) {
 		$this->expectException( MWException::class );
@@ -759,9 +769,9 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideGetTalkPage_bad
-	 * @covers \MediaWiki\Title\NamespaceInfo::getAssociated
-	 * @covers \MediaWiki\Title\NamespaceInfo::getAssociatedPage
-	 * @covers \MediaWiki\Title\NamespaceInfo::isMethodValidFor
+	 * @covers NamespaceInfo::getAssociated
+	 * @covers NamespaceInfo::getAssociatedPage
+	 * @covers NamespaceInfo::isMethodValidFor
 	 */
 	public function testGetAssociatedPage_bad( LinkTarget $t ) {
 		$this->expectException( MWException::class );
@@ -770,9 +780,9 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideSubjectTalk
-	 * @covers \MediaWiki\Title\NamespaceInfo::getAssociated
-	 * @covers \MediaWiki\Title\NamespaceInfo::getAssociatedPage
-	 * @covers \MediaWiki\Title\Title::getOtherPage
+	 * @covers NamespaceInfo::getAssociated
+	 * @covers NamespaceInfo::getAssociatedPage
+	 * @covers Title::getOtherPage
 	 *
 	 * @param int $subject
 	 * @param int $talk
@@ -825,7 +835,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalNamespaces
+	 * @covers NamespaceInfo::getCanonicalNamespaces
 	 */
 	public function testGetCanonicalNamespaces() {
 		$this->assertSame(
@@ -836,7 +846,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideGetCanonicalName
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalName
+	 * @covers NamespaceInfo::getCanonicalName
 	 *
 	 * @param int $index
 	 * @param string|bool $expected
@@ -845,7 +855,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expected, $this->newObj()->getCanonicalName( $index ) );
 	}
 
-	public static function provideGetCanonicalName() {
+	public function provideGetCanonicalName() {
 		return [
 			'Main' => [ NS_MAIN, '' ],
 			'Talk' => [ NS_TALK, 'Talk' ],
@@ -858,7 +868,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideGetCanonicalIndex
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalIndex
+	 * @covers NamespaceInfo::getCanonicalIndex
 	 *
 	 * @param string $name
 	 * @param int|null $expected
@@ -867,7 +877,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expected, $this->newObj()->getCanonicalIndex( $name ) );
 	}
 
-	public static function provideGetCanonicalIndex() {
+	public function provideGetCanonicalIndex() {
 		return [
 			'Main' => [ '', NS_MAIN ],
 			'Talk' => [ 'talk', NS_TALK ],
@@ -879,7 +889,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getValidNamespaces
+	 * @covers NamespaceInfo::getValidNamespaces
 	 */
 	public function testGetValidNamespaces() {
 		$this->assertSame(
@@ -894,39 +904,39 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	// %{
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalNamespaces
+	 * @covers NamespaceInfo::getCanonicalNamespaces
 	 */
 	public function testGetCanonicalNamespaces_NoCanonicalNamespaceNames() {
-		$obj = $this->newObj( [ MainConfigNames::CanonicalNamespaceNames => [] ] );
+		$obj = $this->newObj( [ 'CanonicalNamespaceNames' => [] ] );
 
 		$this->assertSame( [ NS_MAIN => '' ], $obj->getCanonicalNamespaces() );
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalName
+	 * @covers NamespaceInfo::getCanonicalName
 	 */
 	public function testGetCanonicalName_NoCanonicalNamespaceNames() {
-		$obj = $this->newObj( [ MainConfigNames::CanonicalNamespaceNames => [] ] );
+		$obj = $this->newObj( [ 'CanonicalNamespaceNames' => [] ] );
 
 		$this->assertSame( '', $obj->getCanonicalName( NS_MAIN ) );
 		$this->assertFalse( $obj->getCanonicalName( NS_TALK ) );
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalIndex
+	 * @covers NamespaceInfo::getCanonicalIndex
 	 */
 	public function testGetCanonicalIndex_NoCanonicalNamespaceNames() {
-		$obj = $this->newObj( [ MainConfigNames::CanonicalNamespaceNames => [] ] );
+		$obj = $this->newObj( [ 'CanonicalNamespaceNames' => [] ] );
 
 		$this->assertSame( NS_MAIN, $obj->getCanonicalIndex( '' ) );
 		$this->assertNull( $obj->getCanonicalIndex( 'talk' ) );
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getValidNamespaces
+	 * @covers NamespaceInfo::getValidNamespaces
 	 */
 	public function testGetValidNamespaces_NoCanonicalNamespaceNames() {
-		$obj = $this->newObj( [ MainConfigNames::CanonicalNamespaceNames => [] ] );
+		$obj = $this->newObj( [ 'CanonicalNamespaceNames' => [] ] );
 
 		$this->assertSame( [ NS_MAIN ], $obj->getValidNamespaces() );
 	}
@@ -935,22 +945,32 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	// Test extension namespaces
 	// %{
-
-	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalNamespaces
-	 */
-	public function testGetCanonicalNamespaces_ExtensionNamespaces() {
-		$this->assertSame(
-			$this->getDefaultNamespaces() + [ 12345 => 'Extended' ],
-			$this->newObj( [], self::TEST_EXT_NAMESPACES )->getCanonicalNamespaces()
+	private function setupExtensionNamespaces() {
+		$this->scopedCallback = null;
+		$this->scopedCallback = ExtensionRegistry::getInstance()->setAttributeForTest(
+			'ExtensionNamespaces',
+			[ NS_MAIN => 'No effect', NS_TALK => 'No effect', 12345 => 'Extended' ]
 		);
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalName
+	 * @covers NamespaceInfo::getCanonicalNamespaces
+	 */
+	public function testGetCanonicalNamespaces_ExtensionNamespaces() {
+		$this->setupExtensionNamespaces();
+
+		$this->assertSame(
+			$this->getDefaultNamespaces() + [ 12345 => 'Extended' ],
+			$this->newObj()->getCanonicalNamespaces()
+		);
+	}
+
+	/**
+	 * @covers NamespaceInfo::getCanonicalName
 	 */
 	public function testGetCanonicalName_ExtensionNamespaces() {
-		$obj = $this->newObj( [], self::TEST_EXT_NAMESPACES );
+		$this->setupExtensionNamespaces();
+		$obj = $this->newObj();
 
 		$this->assertSame( '', $obj->getCanonicalName( NS_MAIN ) );
 		$this->assertSame( 'Talk', $obj->getCanonicalName( NS_TALK ) );
@@ -958,10 +978,11 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalIndex
+	 * @covers NamespaceInfo::getCanonicalIndex
 	 */
 	public function testGetCanonicalIndex_ExtensionNamespaces() {
-		$obj = $this->newObj( [], self::TEST_EXT_NAMESPACES );
+		$this->setupExtensionNamespaces();
+		$obj = $this->newObj();
 
 		$this->assertSame( NS_MAIN, $obj->getCanonicalIndex( '' ) );
 		$this->assertSame( NS_TALK, $obj->getCanonicalIndex( 'talk' ) );
@@ -969,12 +990,14 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getValidNamespaces
+	 * @covers NamespaceInfo::getValidNamespaces
 	 */
 	public function testGetValidNamespaces_ExtensionNamespaces() {
+		$this->setupExtensionNamespaces();
+
 		$this->assertSame(
 			[ NS_MAIN, NS_TALK, NS_USER, NS_USER_TALK, 12345 ],
-			$this->newObj( [], self::TEST_EXT_NAMESPACES )->getValidNamespaces()
+			$this->newObj()->getValidNamespaces()
 		);
 	}
 
@@ -1000,7 +1023,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalNamespaces
+	 * @covers NamespaceInfo::getCanonicalNamespaces
 	 */
 	public function testGetCanonicalNamespaces_HookNamespaces() {
 		$expected = $this->setupHookNamespaces();
@@ -1009,7 +1032,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalName
+	 * @covers NamespaceInfo::getCanonicalName
 	 */
 	public function testGetCanonicalName_HookNamespaces() {
 		$this->setupHookNamespaces();
@@ -1021,7 +1044,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalIndex
+	 * @covers NamespaceInfo::getCanonicalIndex
 	 */
 	public function testGetCanonicalIndex_HookNamespaces() {
 		$this->setupHookNamespaces();
@@ -1033,7 +1056,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getValidNamespaces
+	 * @covers NamespaceInfo::getValidNamespaces
 	 */
 	public function testGetValidNamespaces_HookNamespaces() {
 		$this->setupHookNamespaces();
@@ -1053,13 +1076,13 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	 * @return NamespaceInfo
 	 */
 	private function setupExtraNamespaces() {
-		return $this->newObj( [ MainConfigNames::ExtraNamespaces =>
+		return $this->newObj( [ 'ExtraNamespaces' =>
 			[ NS_MAIN => 'No effect', NS_TALK => 'No effect', 1234567 => 'Extra' ]
 		] );
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalNamespaces
+	 * @covers NamespaceInfo::getCanonicalNamespaces
 	 */
 	public function testGetCanonicalNamespaces_ExtraNamespaces() {
 		$this->assertSame(
@@ -1069,7 +1092,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalName
+	 * @covers NamespaceInfo::getCanonicalName
 	 */
 	public function testGetCanonicalName_ExtraNamespaces() {
 		$obj = $this->setupExtraNamespaces();
@@ -1080,7 +1103,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalIndex
+	 * @covers NamespaceInfo::getCanonicalIndex
 	 */
 	public function testGetCanonicalIndex_ExtraNamespaces() {
 		$obj = $this->setupExtraNamespaces();
@@ -1091,7 +1114,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getValidNamespaces
+	 * @covers NamespaceInfo::getValidNamespaces
 	 */
 	public function testGetValidNamespaces_ExtraNamespaces() {
 		$this->assertSame(
@@ -1106,7 +1129,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	// %{
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalNamespaces
+	 * @covers NamespaceInfo::getCanonicalNamespaces
 	 */
 	public function testGetCanonicalNamespaces_caching() {
 		$obj = $this->newObj();
@@ -1115,6 +1138,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 		$obj->getCanonicalNamespaces();
 
 		// Now try to alter them through nefarious means
+		$this->setupExtensionNamespaces();
 		$this->setupHookNamespaces();
 
 		// Should have no effect
@@ -1122,7 +1146,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalName
+	 * @covers NamespaceInfo::getCanonicalName
 	 */
 	public function testGetCanonicalName_caching() {
 		$obj = $this->newObj();
@@ -1131,6 +1155,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 		$obj->getCanonicalName( NS_MAIN );
 
 		// Now try to alter them through nefarious means
+		$this->setupExtensionNamespaces();
 		$this->setupHookNamespaces();
 
 		// Should have no effect
@@ -1141,7 +1166,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getCanonicalIndex
+	 * @covers NamespaceInfo::getCanonicalIndex
 	 */
 	public function testGetCanonicalIndex_caching() {
 		$obj = $this->newObj();
@@ -1150,6 +1175,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 		$obj->getCanonicalIndex( '' );
 
 		// Now try to alter them through nefarious means
+		$this->setupExtensionNamespaces();
 		$this->setupHookNamespaces();
 
 		// Should have no effect
@@ -1160,7 +1186,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Title\NamespaceInfo::getValidNamespaces
+	 * @covers NamespaceInfo::getValidNamespaces
 	 */
 	public function testGetValidNamespaces_caching() {
 		$obj = $this->newObj();
@@ -1169,6 +1195,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 		$obj->getValidNamespaces();
 
 		// Now try to alter through nefarious means
+		$this->setupExtensionNamespaces();
 		$this->setupHookNamespaces();
 
 		// Should have no effect
@@ -1185,7 +1212,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideGetValidNamespaces_misc
-	 * @covers \MediaWiki\Title\NamespaceInfo::getValidNamespaces
+	 * @covers NamespaceInfo::getValidNamespaces
 	 *
 	 * @param array $namespaces List of namespace indices to return from getCanonicalNamespaces()
 	 *   (list is overwritten by a hook, so NS_MAIN doesn't have to be present)
@@ -1201,7 +1228,7 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expected, $this->newObj()->getValidNamespaces() );
 	}
 
-	public static function provideGetValidNamespaces_misc() {
+	public function provideGetValidNamespaces_misc() {
 		return [
 			'Out of order (T109137)' => [ [ 1, 0 ], [ 0, 1 ] ],
 			'Alphabetical order' => [ [ 10, 2 ], [ 2, 10 ] ],
@@ -1211,6 +1238,77 @@ class NamespaceInfoTest extends MediaWikiIntegrationTestCase {
 
 	// %} End miscellaneous
 	// %} End canonical namespaces
+
+	/**********************************************************************************************
+	 * Restriction levels
+	 * %{
+	 */
+
+	/**
+	 * TODO: This is superceeded by PermissionManagerTest::testGetNamespaceRestrictionLevels
+	 * Remove when deprecated method is removed.
+	 * @dataProvider provideGetRestrictionLevels
+	 * @covers NamespaceInfo::getRestrictionLevels
+	 */
+	public function testGetRestrictionLevels( array $expected, $ns, array $groups = null ) {
+		$this->hideDeprecated( 'NamespaceInfo::getRestrictionLevels' );
+		$this->setGroupPermissions( [
+			'*' => [ 'edit' => true ],
+			'autoconfirmed' => [ 'editsemiprotected' => true ],
+			'sysop' => [
+				'editsemiprotected' => true,
+				'editprotected' => true,
+			],
+			'privileged' => [ 'privileged' => true ],
+		] );
+		$this->overrideConfigValues( [
+			MainConfigNames::RevokePermissions => [
+				'noeditsemiprotected' => [ 'editsemiprotected' => true ],
+			],
+			MainConfigNames::NamespaceProtection => [
+				NS_MAIN => 'autoconfirmed',
+				NS_USER => 'sysop',
+				101 => [ 'editsemiprotected', 'privileged' ],
+			],
+			MainConfigNames::RestrictionLevels => [ '', 'autoconfirmed', 'sysop' ],
+			MainConfigNames::Autopromote => []
+		] );
+		$obj = $this->newObj();
+		$user = $groups === null ? null : $this->getTestUser( $groups )->getUser();
+		$this->assertSame( $expected, $obj->getRestrictionLevels( $ns, $user ) );
+	}
+
+	public function provideGetRestrictionLevels() {
+		return [
+			'No namespace restriction' => [ [ '', 'autoconfirmed', 'sysop' ], NS_TALK ],
+			'Restricted to autoconfirmed' => [ [ '', 'sysop' ], NS_MAIN ],
+			'Restricted to sysop' => [ [ '' ], NS_USER ],
+			'Restricted to someone in two groups' => [ [ '', 'sysop' ], 101 ],
+			'No special permissions' => [ [ '' ], NS_TALK, [] ],
+			'autoconfirmed' => [
+				[ '', 'autoconfirmed' ],
+				NS_TALK,
+				[ 'autoconfirmed' ]
+			],
+			'autoconfirmed revoked' => [
+				[ '' ],
+				NS_TALK,
+				[ 'autoconfirmed', 'noeditsemiprotected' ]
+			],
+			'sysop' => [
+				[ '', 'autoconfirmed', 'sysop' ],
+				NS_TALK,
+				[ 'sysop' ]
+			],
+			'sysop with autoconfirmed revoked (a bit silly)' => [
+				[ '', 'sysop' ],
+				NS_TALK,
+				[ 'sysop', 'noeditsemiprotected' ]
+			],
+		];
+	}
+
+	// %} End restriction levels
 
 	/**
 	 * @coversNothing

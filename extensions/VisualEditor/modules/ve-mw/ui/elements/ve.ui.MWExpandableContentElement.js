@@ -5,11 +5,11 @@
  *
  * @class
  * @extends OO.ui.Element
- * @mixes OO.EventEmitter
+ * @mixins OO.EventEmitter
  *
  * @constructor
  * @param {Object} config
- * @param {jQuery} config.$content
+ * @cfg {jQuery} $content
  */
 ve.ui.MWExpandableContentElement = function VeUiMWExpandableContentElement( config ) {
 	// Parent constructor
@@ -45,7 +45,7 @@ ve.ui.MWExpandableContentElement.prototype.getLineHeight = function () {
  * @return {number}
  */
 ve.ui.MWExpandableContentElement.prototype.calculateCurrentTextHeight = function () {
-	const currentHeight = this.$content.height(),
+	var currentHeight = this.$content.height(),
 		expandedHeight = this.$content.css( 'height', 'auto' ).height();
 	if ( expandedHeight !== currentHeight ) {
 		this.$content.css( 'height', currentHeight );
@@ -82,7 +82,7 @@ ve.ui.MWExpandableContentElement.prototype.makeCollapsible = function () {
  * @private
  */
 ve.ui.MWExpandableContentElement.prototype.recalculateVisuals = function () {
-	const height = this.calculateCurrentTextHeight() + this.button.$element.height(),
+	var height = this.calculateCurrentTextHeight() + this.button.$element.height(),
 		collapsedHeight = this.getLineHeight(),
 		label = this.collapsed ? 'visualeditor-expandable-more' : 'visualeditor-expandable-less';
 

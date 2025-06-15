@@ -22,11 +22,9 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\User\User;
-
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
+
+use MediaWiki\MediaWikiServices;
 
 class EmptyUserGroup extends Maintenance {
 	public function __construct() {
@@ -38,7 +36,8 @@ class EmptyUserGroup extends Maintenance {
 
 	public function execute() {
 		$group = $this->getArg( 0 );
-		$userGroupManager = $this->getServiceContainer()->getUserGroupManager();
+		$lb = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
+		$userGroupManager = MediaWikiServices::getInstance()->getUserGroupManager();
 
 		$totalCount = 0;
 		$this->output( "Removing users from $group...\n" );
@@ -51,7 +50,7 @@ class EmptyUserGroup extends Maintenance {
 			foreach ( $users as $user ) {
 				$totalCount += (int)$userGroupManager->removeUserFromGroup( $user, $group );
 			}
-			$this->waitForReplication();
+			$lb->waitForReplication();
 		}
 		if ( $totalCount ) {
 			$this->output( "  ...done! Removed $totalCount users in total.\n" );
@@ -61,7 +60,5 @@ class EmptyUserGroup extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = EmptyUserGroup::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

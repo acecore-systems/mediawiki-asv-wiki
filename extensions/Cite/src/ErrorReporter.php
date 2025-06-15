@@ -2,34 +2,32 @@
 
 namespace Cite;
 
-use InvalidArgumentException;
-use MediaWiki\Html\Html;
-use MediaWiki\Language\Language;
-use MediaWiki\Message\Message;
-use MediaWiki\Parser\Parser;
-use MediaWiki\Parser\ParserOptions;
-use MediaWiki\Parser\Sanitizer;
-use StatusValue;
+use Html;
+use Language;
+use Message;
+use Parser;
+use Sanitizer;
 
 /**
  * @license GPL-2.0-or-later
  */
 class ErrorReporter {
 
-	private ReferenceMessageLocalizer $messageLocalizer;
-	private ?Language $cachedInterfaceLanguage = null;
-
-	public function __construct( ReferenceMessageLocalizer $messageLocalizer ) {
-		$this->messageLocalizer = $messageLocalizer;
-	}
+	/**
+	 * @var ReferenceMessageLocalizer
+	 */
+	private $messageLocalizer;
 
 	/**
-	 * @deprecated Intermediate helper function. Long-term all errors should be rendered, not only
-	 * the first one.
+	 * @var Language
 	 */
-	public function firstError( Parser $parser, StatusValue $status ): string {
-		$error = $status->getErrors()[0];
-		return $this->halfParsed( $parser, $error['message'], ...$error['params'] );
+	private $cachedInterfaceLanguage = null;
+
+	/**
+	 * @param ReferenceMessageLocalizer $messageLocalizer
+	 */
+	public function __construct( ReferenceMessageLocalizer $messageLocalizer ) {
+		$this->messageLocalizer = $messageLocalizer;
 	}
 
 	/**
@@ -67,29 +65,41 @@ class ErrorReporter {
 	 * @return Message
 	 */
 	private function msg( Parser $parser, string $key, ...$params ): Message {
-		$language = $this->getInterfaceLanguageAndSplitCache( $parser->getOptions() );
+		$language = $this->getInterfaceLanguageAndSplitCache( $parser );
 		$msg = $this->messageLocalizer->msg( $key, ...$params )->inLanguage( $language );
 
-		[ $type ] = $this->parseTypeAndIdFromMessageKey( $key );
+		[ $type ] = $this->parseTypeAndIdFromMessageKey( $msg->getKey() );
 
 		if ( $type === 'error' ) {
 			// Take care; this is a sideeffect that might not belong to this class.
 			$parser->addTrackingCategory( 'cite-tracking-category-cite-error' );
 		}
 
-		// Optional wrapper messages: cite_error, cite_warning
-		$wrapper = $this->messageLocalizer->msg( "cite_$type", $msg->plain() )->inLanguage( $language );
-		return $wrapper->isDisabled() ? $msg : $wrapper;
+		// Messages: cite_error, cite_warning
+		return $this->messageLocalizer->msg( "cite_$type", $msg->plain() )->inLanguage( $language );
 	}
 
 	/**
 	 * Note the startling side effect of splitting ParserCache by user interface language!
+	 *
+	 * @param Parser $parser
+	 *
+	 * @return Language
 	 */
-	private function getInterfaceLanguageAndSplitCache( ParserOptions $parserOptions ): Language {
-		$this->cachedInterfaceLanguage ??= $parserOptions->getUserLangObj();
+	private function getInterfaceLanguageAndSplitCache( Parser $parser ): Language {
+		if ( !$this->cachedInterfaceLanguage ) {
+			$this->cachedInterfaceLanguage = $parser->getOptions()->getUserLangObj();
+		}
 		return $this->cachedInterfaceLanguage;
 	}
 
+	/**
+	 * @param string $wikitext
+	 * @param string $key
+	 * @param Language $language
+	 *
+	 * @return string
+	 */
 	private function wrapInHtmlContainer(
 		string $wikitext,
 		string $key,
@@ -103,9 +113,6 @@ class ErrorReporter {
 		return Html::rawElement(
 			'span',
 			[
-				// The following classes are generated here:
-				// * mw-ext-cite-warning
-				// * mw-ext-cite-error
 				'class' => "$type mw-ext-cite-$type" . $extraClass,
 				'lang' => $language->getHtmlCode(),
 				'dir' => $language->getDir(),
@@ -115,15 +122,12 @@ class ErrorReporter {
 	}
 
 	/**
-	 * @param string $messageKey Expected to be a message key like "cite_error_ref_numeric_key"
+	 * @param string $messageKey Expected to be a message key like "cite_error_ref_too_many_keys"
 	 *
-	 * @return string[] Two elements, e.g. "error" and "ref_numeric_key"
+	 * @return string[] Two elements, e.g. "error" and "ref_too_many_keys"
 	 */
 	private function parseTypeAndIdFromMessageKey( string $messageKey ): array {
-		if ( !preg_match( '/^cite.(error|warning).(.+)/i', $messageKey, $matches ) ) {
-			throw new InvalidArgumentException( 'Unexpected message key' );
-		}
-		return array_slice( $matches, 1 );
+		return array_slice( explode( '_', str_replace( '-', '_', $messageKey ), 3 ), 1 );
 	}
 
 }

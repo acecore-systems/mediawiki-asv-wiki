@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface Command class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -33,14 +33,13 @@ ve.ui.Command = function VeUiCommand( name, action, method, options ) {
  *
  * @param {ve.ui.Surface} surface Surface to execute command on
  * @param {Array} [args] Custom arguments to override defaults
- * @param {string} [source] Label for the source of the command.
- *  One of 'trigger', 'sequence', 'tool', or 'context'
+ * @param {string} [source] Label for the source of the command, for tracking
  * @return {boolean} Command was executed
  */
 ve.ui.Command.prototype.execute = function ( surface, args, source ) {
 	args = args || this.args;
 	if ( this.isExecutable( surface.getModel().getFragment() ) ) {
-		return surface.executeWithSource( this.action, this.method, source, ...args );
+		return surface.executeWithSource.apply( surface, [ this.action, this.method, source ].concat( args ) );
 	} else {
 		return false;
 	}

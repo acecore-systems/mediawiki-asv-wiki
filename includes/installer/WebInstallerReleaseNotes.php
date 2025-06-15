@@ -1,5 +1,4 @@
 <?php
-
 /**
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,18 +19,15 @@
  * @ingroup Installer
  */
 
-namespace MediaWiki\Installer;
-
-use LogicException;
-
 class WebInstallerReleaseNotes extends WebInstallerDocument {
 
 	/**
+	 * @throws MWException
 	 * @return string
 	 */
 	protected function getFileName() {
 		if ( !preg_match( '/^(\d+)\.(\d+).*/i', MW_VERSION, $result ) ) {
-			throw new LogicException( 'Constant MW_VERSION has an invalid value.' );
+			throw new MWException( 'Constant MW_VERSION has an invalid value.' );
 		}
 
 		return 'RELEASE-NOTES-' . $result[1] . '.' . $result[2];

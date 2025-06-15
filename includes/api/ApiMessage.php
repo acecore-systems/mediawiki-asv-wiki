@@ -18,12 +18,6 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
-use MediaWiki\Language\RawMessage;
-use MediaWiki\Message\Message;
-use Wikimedia\Message\MessageSpecifier;
-
 /**
  * Extension of Message implementing IApiMessage
  * @newable
@@ -40,17 +34,21 @@ class ApiMessage extends Message implements IApiMessage {
 	 * $msg is a RawMessage, or calls 'new ApiMessage' in all other cases.
 	 *
 	 * @stable to call
-	 * @param MessageSpecifier|array|string $msg
+	 * @param Message|RawMessage|array|string $msg
 	 * @param string|null $code
 	 * @param array|null $data
 	 * @return IApiMessage
 	 * @param-taint $msg tainted
 	 */
-	public static function create( $msg, $code = null, ?array $data = null ) {
+	public static function create( $msg, $code = null, array $data = null ) {
 		if ( is_array( $msg ) ) {
 			// From StatusValue
 			if ( isset( $msg['message'] ) ) {
-				$msg = [ $msg['message'], ...$msg['params'] ?? [] ];
+				if ( isset( $msg['params'] ) ) {
+					$msg = array_merge( [ $msg['message'] ], $msg['params'] );
+				} else {
+					$msg = [ $msg['message'] ];
+				}
 			}
 
 			// Weirdness that comes in sometimes, including the above
@@ -69,14 +67,14 @@ class ApiMessage extends Message implements IApiMessage {
 	}
 
 	/**
-	 * @param MessageSpecifier|string|array $msg
+	 * @param Message|string|array $msg
 	 *  - Message: is cloned
 	 *  - array: first element is $key, rest are $params to Message::__construct
-	 *  - string, any other MessageSpecifier: passed to Message::__construct
+	 *  - string: passed to Message::__construct
 	 * @param string|null $code
 	 * @param array|null $data
 	 */
-	public function __construct( $msg, $code = null, ?array $data = null ) {
+	public function __construct( $msg, $code = null, array $data = null ) {
 		if ( $msg instanceof Message ) {
 			foreach ( get_class_vars( get_class( $this ) ) as $key => $value ) {
 				if ( isset( $msg->$key ) ) {
@@ -92,6 +90,3 @@ class ApiMessage extends Message implements IApiMessage {
 		$this->setApiCode( $code, $data );
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiMessage::class, 'ApiMessage' );

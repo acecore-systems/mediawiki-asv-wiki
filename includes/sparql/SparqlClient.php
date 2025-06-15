@@ -37,31 +37,38 @@ class SparqlClient {
 
 	/**
 	 * User agent for HTTP requests.
+	 * @var string
 	 */
-	private string $userAgent;
+	private $userAgent;
 
 	/**
 	 * Query timeout (seconds)
+	 * @var int
 	 */
-	private int $timeout = 30;
+	private $timeout = 30;
 
 	/**
 	 * SPARQL endpoint URL
+	 * @var string
 	 */
-	private string $endpoint;
+	private $endpoint;
 
 	/**
 	 * Client options
+	 * @var array
 	 */
-	private array $options = [];
+	private $options = [];
 
-	private HttpRequestFactory $requestFactory;
+	/**
+	 * @var HttpRequestFactory
+	 */
+	private $requestFactory;
 
 	/**
 	 * @param string $url SPARQL Endpoint
 	 * @param HttpRequestFactory $requestFactory
 	 */
-	public function __construct( string $url, HttpRequestFactory $requestFactory ) {
+	public function __construct( $url, HttpRequestFactory $requestFactory ) {
 		$this->endpoint = $url;
 		$this->requestFactory = $requestFactory;
 		$this->userAgent = $requestFactory->getUserAgent() . " SparqlClient";
@@ -72,7 +79,7 @@ class SparqlClient {
 	 * @param int $timeout
 	 * @return $this
 	 */
-	public function setTimeout( int $timeout ): SparqlClient {
+	public function setTimeout( $timeout ) {
 		if ( $timeout >= 0 ) {
 			$this->timeout = $timeout;
 		}
@@ -83,7 +90,7 @@ class SparqlClient {
 	 * @param array $options
 	 * @return $this
 	 */
-	public function setClientOptions( array $options ): SparqlClient {
+	public function setClientOptions( $options ) {
 		$this->options = $options;
 		return $this;
 	}
@@ -92,7 +99,7 @@ class SparqlClient {
 	 * Get current user agent.
 	 * @return string
 	 */
-	public function getUserAgent(): string {
+	public function getUserAgent() {
 		return $this->userAgent;
 	}
 
@@ -103,7 +110,7 @@ class SparqlClient {
 	 *
 	 * @param string $agent
 	 */
-	public function setUserAgent( string $agent ) {
+	public function setUserAgent( $agent ) {
 		$this->userAgent = $agent;
 	}
 
@@ -116,7 +123,7 @@ class SparqlClient {
 	 *
 	 * @param string $agent
 	 */
-	public function appendUserAgent( string $agent ) {
+	public function appendUserAgent( $agent ) {
 		$this->userAgent .= ' ' . $agent;
 	}
 
@@ -130,8 +137,8 @@ class SparqlClient {
 	 *               Each row will contain fields indexed by variable name.
 	 * @throws SparqlException
 	 */
-	public function query( string $sparql, bool $rawData = false ): array {
-		if ( !$this->endpoint ) {
+	public function query( $sparql, $rawData = false ) {
+		if ( empty( $this->endpoint ) ) {
 			throw new SparqlException( 'Endpoint URL can not be empty' );
 		}
 		$queryData = [ "query" => $sparql, "format" => "json" ];
@@ -184,7 +191,7 @@ class SparqlClient {
 	 *
 	 * @return array[] List of results, one row per element.
 	 */
-	private function extractData( array $data, bool $rawData = false ): array {
+	private function extractData( $data, $rawData = false ) {
 		$result = [];
 		if ( $data && !empty( $data['results'] ) ) {
 			$vars = $data['head']['vars'];

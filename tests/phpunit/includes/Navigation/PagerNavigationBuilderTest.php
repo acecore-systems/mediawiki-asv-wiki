@@ -1,6 +1,5 @@
 <?php
 
-use MediaWiki\MainConfigNames;
 use MediaWiki\Navigation\PagerNavigationBuilder;
 use MediaWiki\Page\PageReferenceValue;
 
@@ -12,9 +11,10 @@ class PagerNavigationBuilderTest extends MediaWikiIntegrationTestCase {
 	protected function setUp(): void {
 		parent::setUp();
 
-		$this->overrideConfigValues( [
-			MainConfigNames::ScriptPath => '/w',
-			MainConfigNames::Script => '/w/index.php',
+		$this->setMwGlobals( [
+			'wgArticlePath' => '/wiki/$1',
+			'wgScriptPath' => '/w',
+			'wgScript' => '/w/index.php',
 		] );
 	}
 

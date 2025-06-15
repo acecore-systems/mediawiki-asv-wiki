@@ -5,6 +5,7 @@
 			"Vogone"
 		]
 	},
+	"apihelp-fancycaptchareload-description": "Gauti naują FancyCaptcha.",
 	"apihelp-fancycaptchareload-summary": "Gauti naują FancyCaptcha.",
 	"apihelp-fancycaptchareload-example-1": "Gauti naują FancyCaptcha"
 }

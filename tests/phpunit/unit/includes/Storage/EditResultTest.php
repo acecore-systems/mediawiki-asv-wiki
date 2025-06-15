@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Tests\Storage;
 
-use MediaWiki\Json\FormatJson;
+use FormatJson;
 use MediaWiki\Storage\EditResult;
 use MediaWikiUnitTestCase;
 
@@ -11,7 +11,7 @@ use MediaWikiUnitTestCase;
  */
 class EditResultTest extends MediaWikiUnitTestCase {
 
-	public static function provideIsRevertEditResults() {
+	public function provideIsRevertEditResults() {
 		return [
 			'a new page' => [
 				new EditResult(
@@ -63,7 +63,7 @@ class EditResultTest extends MediaWikiUnitTestCase {
 		$this->assertSame( $isRevert, $er->isRevert(), 'isRevert()' );
 	}
 
-	public static function provideGetRevertMethodEditResults() {
+	public function provideGetRevertMethodEditResults() {
 		return [
 			'an undo' => [
 				new EditResult(
@@ -138,7 +138,7 @@ class EditResultTest extends MediaWikiUnitTestCase {
 		$this->assertArrayEquals( $tags, $er->getRevertTags(), 'getRevertTags()' );
 	}
 
-	public static function provideGetUndidRevIdEditResults() {
+	public function provideGetUndidRevIdEditResults() {
 		return [
 			// an undo, should return the oldest undid revision ID
 			'an undo' => [
@@ -194,7 +194,7 @@ class EditResultTest extends MediaWikiUnitTestCase {
 		$this->assertSame( $undidRevId, $er->getUndidRevId(), 'getUndidRevId()' );
 	}
 
-	public static function provideSerialization() {
+	public function provideSerialization() {
 		yield 'page creation' => [
 			new EditResult(
 				true,

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable NailedAnnotation class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -35,10 +35,10 @@ ve.ce.NailedAnnotation.static.canBeActive = true;
  * @return {HTMLElement} The new nail
  */
 ve.ce.NailedAnnotation.static.makeNail = function ( type ) {
-	const nail = document.createElement( 'img' );
+	var nail = document.createElement( 'img' );
 	// Support: Firefox
 	// Firefox <=37 misbehaves if we don't set an src: https://bugzilla.mozilla.org/show_bug.cgi?id=989012
-	// Firefox <= ~69 misbehaves if we don't set an src and there is no sizing at node creation time: https://bugzilla.mozilla.org/show_bug.cgi?id=1267906
+	// Firefox misbehaves if we don't set an src and there is no sizing at node creation time: https://bugzilla.mozilla.org/show_bug.cgi?id=1267906
 	// Setting an src in Chrome is slow, so only set it in affected versions of Firefox
 	if ( $.client.profile().layout === 'gecko' || ve.inputDebug ) {
 		nail.src = ve.inputDebug ? ve.ce.nailImgDataUri : ve.ce.minImgDataUri;
@@ -54,28 +54,26 @@ ve.ce.NailedAnnotation.static.makeNail = function ( type ) {
 
 /* Methods */
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.ce.Annotation
+ * @inheritdoc ve.ce.Annotation
  */
 ve.ce.NailedAnnotation.prototype.getContentContainer = function () {
 	return this.contentFragment;
 };
 
 /**
- * @see ve.ce.Annotation
+ * @inheritdoc ve.ce.Annotation
  */
 ve.ce.NailedAnnotation.prototype.attachContents = function () {
-	const element = this.$element[ 0 ];
+	var element = this.$element[ 0 ];
 	// Insert post-open nail, annotation contents, and pre-close nail into the element
 	element.appendChild( this.constructor.static.makeNail( 'post-open' ) );
 	element.appendChild( this.contentFragment );
 	element.appendChild( this.constructor.static.makeNail( 'pre-close' ) );
 };
 
-// eslint-disable-next-line jsdoc/require-param
 /**
- * @see ve.ce.Annotation
+ * @inheritdoc ve.ce.Annotation
  */
 ve.ce.NailedAnnotation.prototype.appendTo = function ( node ) {
 	// Insert pre-open nail, element, and post-close nail into a parent node

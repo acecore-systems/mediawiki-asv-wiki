@@ -1,29 +1,9 @@
 <?php
 
-use MediaWiki\Context\DerivativeContext;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\Extension\ConfirmEdit\ReCaptchaNoCaptcha\HTMLReCaptchaNoCaptchaField;
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\Request\FauxRequest;
-use MediaWiki\Title\Title;
-
 /**
- * @covers \MediaWiki\Extension\ConfirmEdit\ReCaptchaNoCaptcha\HTMLReCaptchaNoCaptchaField
+ * @covers HTMLReCaptchaNoCaptchaField
  */
-class HTMLReCaptchaNoCaptchaFieldTest extends MediaWikiIntegrationTestCase {
-
-	public function setUp(): void {
-		parent::setUp();
-
-		$this->mergeMwGlobalArrayValue(
-			'wgAutoloadClasses',
-			[
-				'MediaWiki\\Extension\\ConfirmEdit\\ReCaptchaNoCaptcha\\HTMLReCaptchaNoCaptchaField'
-					=> __DIR__ . '/../../ReCaptchaNoCaptcha/includes/HTMLReCaptchaNoCaptchaField.php'
-			]
-		);
-	}
-
+class HTMLReCaptchaNoCaptchaFieldTest extends PHPUnit\Framework\TestCase {
 	public function testSubmit() {
 		$request = new FauxRequest( [
 			'foo' => 'abc',

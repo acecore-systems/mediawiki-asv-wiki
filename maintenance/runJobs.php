@@ -21,12 +21,9 @@
  * @ingroup Maintenance
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
-use MediaWiki\Json\FormatJson;
-use MediaWiki\Maintenance\ForkController;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Settings\SettingsBuilder;
 
 /**
@@ -47,7 +44,7 @@ class RunJobs extends Maintenance {
 		$this->addOption( 'wait', 'Wait for new jobs instead of exiting', false, false );
 	}
 
-	public function finalSetup( SettingsBuilder $settingsBuilder ) {
+	public function finalSetup( SettingsBuilder $settingsBuilder = null ) {
 		// So extensions (and other code) can check whether they're running in job mode.
 		// This is not defined if this script is included from installer/updater or phpunit.
 		define( 'MEDIAWIKI_JOB_RUNNER', true );
@@ -71,11 +68,11 @@ class RunJobs extends Maintenance {
 			} elseif ( $procs != 1 ) {
 				try {
 					$fc = new ForkController( $procs );
-				} catch ( Throwable $e ) {
+					if ( $fc->start() != 'child' ) {
+						return;
+					}
+				} catch ( MWException $e ) {
 					$this->fatalError( $e->getMessage() );
-				}
-				if ( $fc->start() != 'child' ) {
-					return;
 				}
 			}
 		}
@@ -83,7 +80,7 @@ class RunJobs extends Maintenance {
 		$outputJSON = ( $this->getOption( 'result' ) === 'json' );
 		$wait = $this->hasOption( 'wait' );
 
-		$runner = $this->getServiceContainer()->getJobRunner();
+		$runner = MediaWikiServices::getInstance()->getJobRunner();
 		if ( !$outputJSON ) {
 			$runner->setDebugHandler( [ $this, 'debugInternal' ] );
 		}
@@ -135,7 +132,5 @@ class RunJobs extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = RunJobs::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

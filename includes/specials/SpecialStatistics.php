@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Statistics
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,19 +18,11 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
-use MediaWiki\Html\Html;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Parser\Sanitizer;
-use MediaWiki\SiteStats\SiteStats;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Title\Title;
 use MediaWiki\User\UserGroupManager;
-use MediaWiki\User\UserGroupMembership;
-use MediaWiki\Xml\Xml;
 
 /**
  * Special page lists various statistics, including the contents of
@@ -37,14 +31,11 @@ use MediaWiki\Xml\Xml;
  * @ingroup SpecialPage
  */
 class SpecialStatistics extends SpecialPage {
-	private int $edits;
-	private int $good;
-	private int $images;
-	private int $total;
-	private int $users;
-	private int $activeUsers;
+	private $edits, $good, $images, $total, $users,
+		$activeUsers = 0;
 
-	private UserGroupManager $userGroupManager;
+	/** @var UserGroupManager */
+	private $userGroupManager;
 
 	/**
 	 * @param UserGroupManager $userGroupManager
@@ -139,10 +130,10 @@ class SpecialStatistics extends SpecialPage {
 		$linkRenderer = $this->getLinkRenderer();
 
 		$specialAllPagesTitle = SpecialPage::getTitleFor( 'Allpages' );
-		$pageStatsHtml = Html::rawElement( 'tr', [],
-			Xml::tags( 'th', [ 'colspan' => '2' ],
-				$this->msg( 'statistics-header-pages' )->parse()
-			) ) .
+		$pageStatsHtml = Xml::openElement( 'tr' ) .
+			Xml::tags( 'th', [ 'colspan' => '2' ], $this->msg( 'statistics-header-pages' )
+				->parse() ) .
+			Xml::closeElement( 'tr' ) .
 				$this->formatRow(
 					$this->getConfig()->get( MainConfigNames::MiserMode )
 						? $this->msg( 'statistics-articles' )->escaped()
@@ -172,10 +163,10 @@ class SpecialStatistics extends SpecialPage {
 	}
 
 	private function getEditStats() {
-		return Html::rawElement( 'tr', [],
+		return Xml::openElement( 'tr' ) .
 			Xml::tags( 'th', [ 'colspan' => '2' ],
-				$this->msg( 'statistics-header-edits' )->parse()
-			) ) .
+				$this->msg( 'statistics-header-edits' )->parse() ) .
+			Xml::closeElement( 'tr' ) .
 			$this->formatRow( $this->msg( 'statistics-edits' )->parse(),
 				$this->getLanguage()->formatNum( $this->edits ),
 				[ 'class' => 'mw-statistics-edits' ]
@@ -188,10 +179,10 @@ class SpecialStatistics extends SpecialPage {
 	}
 
 	private function getUserStats() {
-		return Html::rawElement( 'tr', [],
+		return Xml::openElement( 'tr' ) .
 			Xml::tags( 'th', [ 'colspan' => '2' ],
-				$this->msg( 'statistics-header-users' )->parse()
-			) ) .
+				$this->msg( 'statistics-header-users' )->parse() ) .
+			Xml::closeElement( 'tr' ) .
 			$this->formatRow( $this->msg( 'statistics-users' )->parse() . ' ' .
 				$this->getLinkRenderer()->makeKnownLink(
 					SpecialPage::getTitleFor( 'Listusers' ),
@@ -308,18 +299,12 @@ class SpecialStatistics extends SpecialPage {
 	 * @return string
 	 */
 	private function formatRowHeader( $header ) {
-		return Html::rawElement( 'tr', [],
-			Xml::tags( 'th', [ 'colspan' => '2' ], $this->msg( $header )->parse() )
-		);
+		return Xml::openElement( 'tr' ) .
+			Xml::tags( 'th', [ 'colspan' => '2' ], $this->msg( $header )->parse() ) .
+			Xml::closeElement( 'tr' );
 	}
 
 	protected function getGroupName() {
 		return 'wiki';
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialStatistics::class, 'SpecialStatistics' );

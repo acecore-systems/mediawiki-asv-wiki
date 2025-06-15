@@ -2,20 +2,21 @@
 
 namespace MediaWiki\Extension\AbuseFilter\Tests\Unit;
 
+use HashBagOStuff;
+use IBufferingStatsdDataFactory;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\Extension\AbuseFilter\FilterProfiler;
-use MediaWiki\Title\Title;
 use MediaWikiUnitTestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use TestLogger;
-use Wikimedia\ObjectCache\HashBagOStuff;
-use Wikimedia\Stats\IBufferingStatsdDataFactory;
+use Title;
 use Wikimedia\WRStats\BagOStuffStatsStore;
 use Wikimedia\WRStats\WRStatsFactory;
 
 /**
- * @covers \MediaWiki\Extension\AbuseFilter\FilterProfiler
+ * @coversDefaultClass \MediaWiki\Extension\AbuseFilter\FilterProfiler
+ * @covers ::__construct
  */
 class FilterProfilerTest extends MediaWikiUnitTestCase {
 
@@ -34,11 +35,13 @@ class FilterProfilerTest extends MediaWikiUnitTestCase {
 		'matches' => 0,
 	];
 
-	private function getFilterProfiler( ?LoggerInterface $logger = null ): FilterProfiler {
-		$options = [
-			'AbuseFilterConditionLimit' => 1000,
-			'AbuseFilterSlowFilterRuntimeLimit' => 500,
-		];
+	private function getFilterProfiler( array $options = null, LoggerInterface $logger = null ): FilterProfiler {
+		if ( $options === null ) {
+			$options = [
+				'AbuseFilterConditionLimit' => 1000,
+				'AbuseFilterSlowFilterRuntimeLimit' => 500,
+			];
+		}
 		return new FilterProfiler(
 			new WRStatsFactory( new BagOStuffStatsStore( new HashBagOStuff() ) ),
 			new ServiceOptions( FilterProfiler::CONSTRUCTOR_OPTIONS, $options ),
@@ -48,11 +51,20 @@ class FilterProfilerTest extends MediaWikiUnitTestCase {
 		);
 	}
 
+	/**
+	 * @covers ::getFilterProfile
+	 */
 	public function testGetFilterProfile_noData() {
 		$profiler = $this->getFilterProfiler();
 		$this->assertSame( self::NULL_FILTER_PROFILE, $profiler->getFilterProfile( 1 ) );
 	}
 
+	/**
+	 * @covers ::getFilterProfile
+	 * @covers ::recordPerFilterProfiling
+	 * @covers ::recordProfilingResult
+	 * @covers ::filterProfileKey
+	 */
 	public function testGetFilterProfile() {
 		$profiler = $this->getFilterProfiler();
 		$profiler->recordPerFilterProfiling(
@@ -76,6 +88,11 @@ class FilterProfilerTest extends MediaWikiUnitTestCase {
 		);
 	}
 
+	/**
+	 * @covers ::getFilterProfile
+	 * @covers ::recordPerFilterProfiling
+	 * @covers ::recordProfilingResult
+	 */
 	public function testRecordPerFilterProfiling_mergesResults() {
 		$profiler = $this->getFilterProfiler();
 		$profiler->recordPerFilterProfiling(
@@ -109,13 +126,18 @@ class FilterProfilerTest extends MediaWikiUnitTestCase {
 		);
 	}
 
+	/**
+	 * @covers ::recordPerFilterProfiling
+	 * @covers ::recordProfilingResult
+	 * @covers ::recordSlowFilter
+	 */
 	public function testRecordPerFilterProfiling_reportsSlowFilter() {
 		$logger = new TestLogger();
 		$logger->setCollect( true );
 		$title = $this->createMock( Title::class );
 		$title->method( 'getPrefixedText' )->willReturn( 'title' );
 
-		$profiler = $this->getFilterProfiler( $logger );
+		$profiler = $this->getFilterProfiler( null, $logger );
 		$profiler->recordPerFilterProfiling(
 			$title,
 			[
@@ -128,7 +150,7 @@ class FilterProfilerTest extends MediaWikiUnitTestCase {
 		);
 
 		$found = false;
-		foreach ( $logger->getBuffer() as [ , $entry ] ) {
+		foreach ( $logger->getBuffer() as list( , $entry ) ) {
 			$check = preg_match(
 				"/^Edit filter .+ on .+ is taking longer than expected$/",
 				$entry
@@ -144,6 +166,9 @@ class FilterProfilerTest extends MediaWikiUnitTestCase {
 		);
 	}
 
+	/**
+	 * @covers ::resetFilterProfile
+	 */
 	public function testResetFilterProfile() {
 		$profiler = $this->getFilterProfiler();
 		$profiler->recordPerFilterProfiling(
@@ -166,6 +191,11 @@ class FilterProfilerTest extends MediaWikiUnitTestCase {
 		$this->assertNotSame( self::NULL_FILTER_PROFILE, $profiler->getFilterProfile( 2 ) );
 	}
 
+	/**
+	 * @covers ::recordStats
+	 * @covers ::getGroupProfile
+	 * @covers ::filterProfileGroupKey
+	 */
 	public function testGetGroupProfile_noData() {
 		$profiler = $this->getFilterProfiler();
 		$this->assertSame( self::NULL_GROUP_PROFILE, $profiler->getGroupProfile( 'default' ) );
@@ -176,6 +206,9 @@ class FilterProfilerTest extends MediaWikiUnitTestCase {
 	 * @param float $time
 	 * @param bool $matches
 	 * @param array $expected
+	 * @covers ::recordStats
+	 * @covers ::getGroupProfile
+	 * @covers ::filterProfileGroupKey
 	 * @dataProvider provideRecordStats
 	 */
 	public function testRecordStats( int $condsUsed, float $time, bool $matches, array $expected ) {
@@ -185,7 +218,7 @@ class FilterProfilerTest extends MediaWikiUnitTestCase {
 		$this->assertSame( $expected, $profiler->getGroupProfile( $group ) );
 	}
 
-	public static function provideRecordStats(): array {
+	public function provideRecordStats(): array {
 		return [
 			'No overflow' => [
 				100,
@@ -214,6 +247,10 @@ class FilterProfilerTest extends MediaWikiUnitTestCase {
 		];
 	}
 
+	/**
+	 * @covers ::recordStats
+	 * @covers ::getGroupProfile
+	 */
 	public function testRecordStats_mergesResults() {
 		$profiler = $this->getFilterProfiler();
 		$profiler->recordStats( 'default', 100, 256.5, true );

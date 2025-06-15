@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Tests\Unit\Settings;
 
-use MediaWiki\Registration\ExtensionRegistry;
+use ExtensionRegistry;
 use MediaWiki\Settings\Config\ArrayConfigBuilder;
 use MediaWiki\Settings\Config\PhpIniSink;
 use MediaWiki\Settings\LocalSettingsLoader;
@@ -28,7 +28,7 @@ class LocalSettingsLoaderTest extends TestCase {
 		);
 	}
 
-	public static function provideLoadingFromFile() {
+	public function provideLoadingFromFile() {
 		$expected = [
 			'SiteName' => 'TestSite',
 			'HttpsPort' => 443,

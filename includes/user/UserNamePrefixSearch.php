@@ -23,11 +23,8 @@
 namespace MediaWiki\User;
 
 use InvalidArgumentException;
-use MediaWiki\Block\HideUserUtils;
 use MediaWiki\Permissions\Authority;
-use Wikimedia\Rdbms\IConnectionProvider;
-use Wikimedia\Rdbms\IExpression;
-use Wikimedia\Rdbms\LikeValue;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * Handles searching prefixes of user names
@@ -41,25 +38,25 @@ use Wikimedia\Rdbms\LikeValue;
  */
 class UserNamePrefixSearch {
 
+	/** @var string */
 	public const AUDIENCE_PUBLIC = 'public';
 
-	private IConnectionProvider $dbProvider;
-	private UserNameUtils $userNameUtils;
-	private HideUserUtils $hideUserUtils;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
+
+	/** @var UserNameUtils */
+	private $userNameUtils;
 
 	/**
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param UserNameUtils $userNameUtils
-	 * @param HideUserUtils $hideUserUtils
 	 */
 	public function __construct(
-		IConnectionProvider $dbProvider,
-		UserNameUtils $userNameUtils,
-		HideUserUtils $hideUserUtils
+		ILoadBalancer $loadBalancer,
+		UserNameUtils $userNameUtils
 	) {
-		$this->dbProvider = $dbProvider;
+		$this->loadBalancer = $loadBalancer;
 		$this->userNameUtils = $userNameUtils;
-		$this->hideUserUtils = $hideUserUtils;
 	}
 
 	/**
@@ -85,20 +82,32 @@ class UserNamePrefixSearch {
 		// Invalid user names are treated as empty strings
 		$prefix = $this->userNameUtils->getCanonical( $search ) ?: '';
 
-		$dbr = $this->dbProvider->getReplicaDatabase();
-		$queryBuilder = $dbr->newSelectQueryBuilder()
-			->select( 'user_name' )
-			->from( 'user' )
-			->where( $dbr->expr( 'user_name', IExpression::LIKE, new LikeValue( $prefix, $dbr->anyString() ) ) )
-			->orderBy( 'user_name' )
-			->limit( $limit )
-			->offset( $offset );
+		$dbr = $this->loadBalancer->getConnectionRef( DB_REPLICA );
+
+		$tables = [ 'user' ];
+		$conds = [ 'user_name ' . $dbr->buildLike( $prefix, $dbr->anyString() ) ];
+		$joinConds = [];
 
 		// Filter out hidden user names
 		if ( $audience === self::AUDIENCE_PUBLIC || !$audience->isAllowed( 'hideuser' ) ) {
-			$queryBuilder->andWhere( $this->hideUserUtils->getExpression( $dbr ) );
+			$tables[] = 'ipblocks';
+			$conds['ipb_deleted'] = [ 0, null ];
+			$joinConds['ipblocks'] = [ 'LEFT JOIN', 'user_id=ipb_user' ];
 		}
 
-		return $queryBuilder->caller( __METHOD__ )->fetchFieldValues();
+		$res = $dbr->selectFieldValues(
+			$tables,
+			'user_name',
+			$conds,
+			__METHOD__,
+			[
+				'LIMIT' => $limit,
+				'ORDER BY' => 'user_name',
+				'OFFSET' => $offset
+			],
+			$joinConds
+		);
+
+		return $res;
 	}
 }

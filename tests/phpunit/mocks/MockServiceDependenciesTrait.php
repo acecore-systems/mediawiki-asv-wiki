@@ -9,11 +9,12 @@ use ReflectionParameter;
  * Helper trait for instantiating MW service object for testing
  * with mocked dependencies.
  *
+ * @package MediaWiki\Tests\Unit
  */
 trait MockServiceDependenciesTrait {
 
 	/**
-	 * Construct a new instance of $serviceClass with all constructor arguments
+	 * Construct an new instance of $serviceClass with all constructor arguments
 	 * mocked. $parameterOverrides allows to provide some constructor argument.
 	 *
 	 * @param string $serviceClass
@@ -28,9 +29,8 @@ trait MockServiceDependenciesTrait {
 		$reflectionClass = new ReflectionClass( $serviceClass );
 		$constructor = $reflectionClass->getConstructor();
 		foreach ( $constructor->getParameters() as $parameter ) {
-			$params[] = array_key_exists( $parameter->getName(), $parameterOverrides )
-				? $parameterOverrides[$parameter->getName()]
-				: $this->getMockValueForParam( $parameter );
+			$params[] = $parameterOverrides[$parameter->getName()]
+				?? $this->getMockValueForParam( $parameter );
 		}
 		return new $serviceClass( ...$params );
 	}

@@ -1,5 +1,11 @@
+/**
+ * Provides an interface for uploading files to MediaWiki.
+ *
+ * @class mw.Api.plugin.upload
+ * @singleton
+ */
 ( function () {
-	const
+	var
 		fieldsAllowed = {
 			stash: true,
 			filekey: true,
@@ -25,7 +31,7 @@
 		return obj[ Object.keys( obj )[ 0 ] ];
 	}
 
-	Object.assign( mw.Api.prototype, /** @lends mw.Api.prototype */ {
+	$.extend( mw.Api.prototype, {
 		/**
 		 * Upload a file to MediaWiki.
 		 *
@@ -62,15 +68,16 @@
 		 * @return {jQuery.Promise}
 		 */
 		uploadWithFormData: function ( file, data ) {
-			const deferred = $.Deferred();
+			var key, request,
+				deferred = $.Deferred();
 
-			for ( const key in data ) {
+			for ( key in data ) {
 				if ( !fieldsAllowed[ key ] ) {
 					delete data[ key ];
 				}
 			}
 
-			data = Object.assign( {}, this.defaults.parameters, { action: 'upload' }, data );
+			data = $.extend( {}, this.defaults.parameters, { action: 'upload' }, data );
 			if ( !data.chunk ) {
 				data.file = file;
 			}
@@ -80,18 +87,18 @@
 			}
 
 			// Use this.postWithEditToken() or this.post()
-			const request = this[ this.needToken() ? 'postWithEditToken' : 'post' ]( data, {
+			request = this[ this.needToken() ? 'postWithEditToken' : 'post' ]( data, {
 				// Use FormData (if we got here, we know that it's available)
 				contentType: 'multipart/form-data',
 				// No timeout (default from mw.Api is 30 seconds)
 				timeout: 0,
 				// Provide upload progress notifications
 				xhr: function () {
-					const xhr = $.ajaxSettings.xhr();
+					var xhr = $.ajaxSettings.xhr();
 					if ( xhr.upload ) {
 						// need to bind this event before we open the connection (see note at
 						// https://developer.mozilla.org/en-US/docs/DOM/XMLHttpRequest/Using_XMLHttpRequest#Monitoring_progress)
-						xhr.upload.addEventListener( 'progress', ( ev ) => {
+						xhr.upload.addEventListener( 'progress', function ( ev ) {
 							if ( ev.lengthComputable ) {
 								deferred.notify( ev.loaded / ev.total );
 							}
@@ -100,7 +107,7 @@
 					return xhr;
 				}
 			} )
-				.done( ( result ) => {
+				.done( function ( result ) {
 					deferred.notify( 1 );
 					if ( result.upload && result.upload.warnings ) {
 						deferred.reject( getFirstKey( result.upload.warnings ), result );
@@ -108,7 +115,7 @@
 						deferred.resolve( result );
 					}
 				} )
-				.fail( ( errorCode, result ) => {
+				.fail( function ( errorCode, result ) {
 					deferred.notify( 1 );
 					deferred.reject( errorCode, result );
 				} );
@@ -126,7 +133,8 @@
 		 * @return {jQuery.Promise}
 		 */
 		chunkedUpload: function ( file, data, chunkSize, chunkRetries ) {
-			const deferred = $.Deferred();
+			var start, end, promise, next, active,
+				deferred = $.Deferred();
 
 			chunkSize = chunkSize === undefined ? 5 * 1024 * 1024 : chunkSize;
 			chunkRetries = chunkRetries === undefined ? 1 : chunkRetries;
@@ -135,17 +143,16 @@
 				throw new Error( 'Filename not included in file data.' );
 			}
 
-			let promise;
 			// Submit first chunk to get the filekey
-			let active = promise = this.uploadChunk( file, data, 0, chunkSize, '', chunkRetries )
+			active = promise = this.uploadChunk( file, data, 0, chunkSize, '', chunkRetries )
 				.done( chunkSize >= file.size ? deferred.resolve : null )
 				.fail( deferred.reject )
 				.progress( deferred.notify );
 
 			// Now iteratively submit the rest of the chunks
-			for ( let start = chunkSize; start < file.size; start += chunkSize ) {
-				const end = Math.min( start + chunkSize, file.size );
-				const next = $.Deferred();
+			for ( start = chunkSize; start < file.size; start += chunkSize ) {
+				end = Math.min( start + chunkSize, file.size );
+				next = $.Deferred();
 
 				// We could simply chain one this.uploadChunk after another with
 				// .then(), but then we'd hit an `Uncaught RangeError: Maximum
@@ -154,7 +161,7 @@
 				// having to properly relay the results to the returned promise.
 				// eslint-disable-next-line no-loop-func
 				promise.done( function ( s, e, n, result ) {
-					const filekey = result.upload.filekey;
+					var filekey = result.upload.filekey;
 					active = this.uploadChunk( file, data, s, e, filekey, chunkRetries )
 						.done( e === file.size ? deferred.resolve : n.resolve )
 						.fail( deferred.reject )
@@ -182,7 +189,8 @@
 		 * @return {jQuery.Promise}
 		 */
 		uploadChunk: function ( file, data, start, end, filekey, retries ) {
-			const api = this,
+			var upload,
+				api = this,
 				chunk = this.slice( file, start, end );
 
 			// When uploading in chunks, we're going to be issuing a lot more
@@ -201,10 +209,12 @@
 				data.filekey = filekey;
 			}
 
-			const upload = this.uploadWithFormData( file, data );
+			upload = this.uploadWithFormData( file, data );
 			return upload.then(
 				null,
-				( code, result ) => {
+				function ( code, result ) {
+					var retry;
+
 					// uploadWithFormData will reject uploads with warnings, but
 					// these warnings could be "harmless" or recovered from
 					// (e.g. exists-normalized, when it'll be renamed later)
@@ -229,13 +239,15 @@
 					}
 
 					// If the call flat out failed, we may want to try again...
-					const retry = api.uploadChunk.bind( api, file, data, start, end, filekey, retries - 1 );
+					retry = api.uploadChunk.bind( api, file, data, start, end, filekey, retries - 1 );
 					return api.retry( code, result, retry );
 				},
-				// Since we're only uploading small parts of a file, we
-				// need to adjust the reported progress to reflect where
-				// we actually are in the combined upload
-				( fraction ) => ( start + fraction * ( end - start ) ) / file.size
+				function ( fraction ) {
+					// Since we're only uploading small parts of a file, we
+					// need to adjust the reported progress to reflect where
+					// we actually are in the combined upload
+					return ( start + fraction * ( end - start ) ) / file.size;
+				}
 			).promise( { abort: upload.abort } );
 		},
 
@@ -249,8 +261,9 @@
 		 * @return {jQuery.Promise}
 		 */
 		retry: function ( code, result, callable ) {
-			let uploadPromise;
-			const deferred = $.Deferred(),
+			var uploadPromise,
+				retryTimer,
+				deferred = $.Deferred(),
 				// Wrap around the callable, so that once it completes, it'll
 				// resolve/reject the promise we'll return
 				retry = function () {
@@ -264,7 +277,7 @@
 				return deferred.reject( code, result );
 			}
 
-			const retryTimer = setTimeout( retry, 1000 );
+			retryTimer = setTimeout( retry, 1000 );
 			return deferred.promise( { abort: function () {
 				// Clear the scheduled upload, or abort if already in flight
 				if ( retryTimer ) {
@@ -316,23 +329,26 @@
 		 * @private
 		 * @param {jQuery.Promise} uploadPromise
 		 * @param {Object} data
-		 * @return {jQuery.Promise<function(Object): jQuery.Promise>} Promise that resolves with a
-		 *  function that should be called to finish the upload.
+		 * @return {jQuery.Promise}
+		 * @return {Function} return.finishUpload Call this function to finish the upload.
+		 * @return {Object} return.finishUpload.data Additional data for the upload.
+		 * @return {jQuery.Promise} return.finishUpload.return API promise for the final upload
+		 * @return {Object} return.finishUpload.return.data API return value for the final upload
 		 */
 		finishUploadToStash: function ( uploadPromise, data ) {
-			const api = this;
-			let filekey;
+			var filekey,
+				api = this;
 
 			function finishUpload( moreData ) {
-				return api.uploadFromStash( filekey, Object.assign( {}, data, moreData ) );
+				return api.uploadFromStash( filekey, $.extend( data, moreData ) );
 			}
 
 			return uploadPromise.then(
-				( result ) => {
+				function ( result ) {
 					filekey = result.upload.filekey;
 					return finishUpload;
 				},
-				( errorCode, result ) => {
+				function ( errorCode, result ) {
 					if ( result && result.upload && result.upload.result === 'Success' && result.upload.filekey ) {
 						// When a file is uploaded with `ignorewarnings` and there are warnings,
 						// the promise will be rejected (because of those warnings, e.g. 'duplicate')
@@ -352,29 +368,33 @@
 		 *
 		 * This function will return a promise, which when resolved, will pass back a function
 		 * to finish the stash upload. You can call that function with an argument containing
-		 * more, or conflicting, data to pass to the server.
+		 * more, or conflicting, data to pass to the server. For example:
 		 *
-		 * @example
-		 * // upload a file to the stash with a placeholder filename
-		 * api.uploadToStash( file, { filename: 'testing.png' } ).done( function ( finish ) {
-		 *     // finish is now the function we can use to finalize the upload
-		 *     // pass it a new filename from user input to override the initial value
-		 *     finish( { filename: getFilenameFromUser() } ).done( function ( data ) {
-		 *         // the upload is complete, data holds the API response
+		 *     // upload a file to the stash with a placeholder filename
+		 *     api.uploadToStash( file, { filename: 'testing.png' } ).done( function ( finish ) {
+		 *         // finish is now the function we can use to finalize the upload
+		 *         // pass it a new filename from user input to override the initial value
+		 *         finish( { filename: getFilenameFromUser() } ).done( function ( data ) {
+		 *             // the upload is complete, data holds the API response
+		 *         } );
 		 *     } );
-		 * } );
 		 *
 		 * @param {File|HTMLInputElement} file
 		 * @param {Object} [data]
-		 * @return {jQuery.Promise<function(Object): jQuery.Promise>} Promise that resolves with a
-		 *  function that should be called to finish the upload.
+		 * @return {jQuery.Promise}
+		 * @return {Function} return.finishUpload Call this function to finish the upload.
+		 * @return {Object} return.finishUpload.data Additional data for the upload.
+		 * @return {jQuery.Promise} return.finishUpload.return API promise for the final upload
+		 * @return {Object} return.finishUpload.return.data API return value for the final upload
 		 */
 		uploadToStash: function ( file, data ) {
+			var promise;
+
 			if ( !data.filename ) {
 				throw new Error( 'Filename not included in file data.' );
 			}
 
-			const promise = this.upload( file, { stash: true, filename: data.filename, ignorewarnings: data.ignorewarnings } );
+			promise = this.upload( file, { stash: true, filename: data.filename, ignorewarnings: data.ignorewarnings } );
 
 			return this.finishUploadToStash( promise, data );
 		},
@@ -385,20 +405,25 @@
 		 * This function will return a promise, which when resolved, will pass back a function
 		 * to finish the stash upload.
 		 *
-		 * @see mw.Api#uploadToStash
+		 * @see #method-uploadToStash
 		 * @param {File|HTMLInputElement} file
 		 * @param {Object} [data]
 		 * @param {number} [chunkSize] Size (in bytes) per chunk (default: 5 MiB)
 		 * @param {number} [chunkRetries] Amount of times to retry a failed chunk (default: 1)
-		 * @return {jQuery.Promise<function(Object): jQuery.Promise>} Promise that resolves with a
-		 *  function that should be called to finish the upload.
+		 * @return {jQuery.Promise}
+		 * @return {Function} return.finishUpload Call this function to finish the upload.
+		 * @return {Object} return.finishUpload.data Additional data for the upload.
+		 * @return {jQuery.Promise} return.finishUpload.return API promise for the final upload
+		 * @return {Object} return.finishUpload.return.data API return value for the final upload
 		 */
 		chunkedUploadToStash: function ( file, data, chunkSize, chunkRetries ) {
+			var promise;
+
 			if ( !data.filename ) {
 				throw new Error( 'Filename not included in file data.' );
 			}
 
-			const promise = this.chunkedUpload(
+			promise = this.chunkedUpload(
 				file,
 				{ stash: true, filename: data.filename, ignorewarnings: data.ignorewarnings },
 				chunkSize,
@@ -424,7 +449,7 @@
 				throw new Error( 'Filename not included in file data.' );
 			}
 
-			return this.postWithEditToken( data ).then( ( result ) => {
+			return this.postWithEditToken( data ).then( function ( result ) {
 				if ( result.upload && result.upload.warnings ) {
 					return $.Deferred().reject( getFirstKey( result.upload.warnings ), result ).promise();
 				}
@@ -432,13 +457,13 @@
 			} );
 		},
 
-		/**
-		 * @private
-		 * @return {boolean}
-		 */
 		needToken: function () {
 			return true;
 		}
 	} );
 
+	/**
+	 * @class mw.Api
+	 * @mixins mw.Api.plugin.upload
+	 */
 }() );

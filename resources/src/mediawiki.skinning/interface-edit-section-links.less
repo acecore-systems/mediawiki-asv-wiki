@@ -1,8 +1,8 @@
-@import 'mediawiki.mixins.less';
-@import 'mediawiki.skin.variables.less';
-
 .mw-editsection {
-	.user-select( none );
+	-moz-user-select: none;
+	-webkit-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
 }
 
 /* Display editsection links smaller and next to headings */
@@ -10,14 +10,29 @@
 .mw-editsection-like {
 	font-size: small;
 	font-weight: normal;
-	.margin-inline( 1em, 0 );
+	margin-left: 1em;
 	vertical-align: baseline;
-	/* Avoid affecting the height of the heading */
-	line-height: 0;
-	unicode-bidi: isolate;
+	/* Reset line-height; headings tend to have it set to larger values */
+	line-height: 1em;
 }
 
-.mw-editsection-bracket,
-.mw-editsection-divider {
-	color: @color-subtle;
+/* Correct directionality when page dir is different from site/user dir */
+.mw-content-ltr .mw-editsection,
+.mw-content-rtl .mw-content-ltr .mw-editsection,
+.mw-content-ltr .mw-editsection-like,
+.mw-content-rtl .mw-content-ltr .mw-editsection-like {
+	/* @noflip */
+	margin-left: 1em;
+	/* @noflip */
+	margin-right: 0;
+}
+
+.mw-content-rtl .mw-editsection,
+.mw-content-ltr .mw-content-rtl .mw-editsection,
+.mw-content-rtl .mw-editsection-like,
+.mw-content-ltr .mw-content-rtl .mw-editsection-like {
+	/* @noflip */
+	margin-right: 1em;
+	/* @noflip */
+	margin-left: 0;
 }

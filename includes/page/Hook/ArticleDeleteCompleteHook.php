@@ -2,9 +2,9 @@
 
 namespace MediaWiki\Page\Hook;
 
+use Content;
 use ManualLogEntry;
-use MediaWiki\Content\Content;
-use MediaWiki\User\User;
+use User;
 use WikiPage;
 
 /**
@@ -21,8 +21,7 @@ interface ArticleDeleteCompleteHook {
 	 *
 	 * @since 1.35
 	 *
-	 * @param WikiPage $wikiPage WikiPage that was deleted.
-	 *   This object represents state before deletion (e.g. $wikiPage->exists() will return true).
+	 * @param WikiPage $wikiPage WikiPage that was deleted
 	 * @param User $user User that deleted the article
 	 * @param string $reason Reason the article was deleted
 	 * @param int $id ID of the article that was deleted

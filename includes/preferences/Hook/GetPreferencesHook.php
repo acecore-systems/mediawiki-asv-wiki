@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Preferences\Hook;
 
-use MediaWiki\User\User;
+use User;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

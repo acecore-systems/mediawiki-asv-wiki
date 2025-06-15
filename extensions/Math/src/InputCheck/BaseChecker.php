@@ -4,7 +4,7 @@ namespace MediaWiki\Extension\Math\InputCheck;
 
 use MediaWiki\Extension\Math\MathConfig;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Message\Message;
+use Message;
 use stdClass;
 
 /**
@@ -16,19 +16,18 @@ use stdClass;
  * @author Moritz Schubotz
  */
 abstract class BaseChecker {
-	protected string $inputTeX;
-	protected ?string $validTeX = null;
+	/** @var string */
+	protected $inputTeX;
+	/** @var string|null */
+	protected $validTeX;
 	/** @var bool */
 	protected $isValid = false;
-	protected bool $purge = false;
 
 	/**
 	 * @param string $tex the TeX InputString to be checked
-	 * @param bool $purge if true, the cache will be purged
 	 */
-	public function __construct( $tex = '', bool $purge = false ) {
+	public function __construct( $tex = '' ) {
 		$this->inputTeX = $tex;
-		$this->purge = $purge;
 		$this->isValid = false;
 	}
 
@@ -50,14 +49,10 @@ abstract class BaseChecker {
 	 * Some TeX checking programs may return
 	 * a modified tex string after having checked it.
 	 * You can get the altered tex string with this method
-	 * @return ?string A valid Tex string
+	 * @return string A valid Tex string
 	 */
-	public function getValidTex(): ?string {
+	public function getValidTex() {
 		return $this->validTeX;
-	}
-
-	public function setPurge( bool $purge ) {
-		$this->purge = $purge;
 	}
 
 	/**

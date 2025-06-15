@@ -18,16 +18,16 @@ class ResponseException extends HttpException {
 
 	/**
 	 * The wrapped Response.
-	 * @var ResponseInterface
+	 * @var Response
 	 */
 	private $response;
 
 	/**
 	 * @stable to call
 	 *
-	 * @param ResponseInterface $response The wrapped Response
+	 * @param Response $response The wrapped Response
 	 */
-	public function __construct( ResponseInterface $response ) {
+	public function __construct( Response $response ) {
 		parent::__construct( 'Response', $response->getStatusCode() );
 		$this->response = $response;
 	}
@@ -36,8 +36,6 @@ class ResponseException extends HttpException {
 	 * @return Response
 	 */
 	public function getResponse(): Response {
-		// TODO: Allow this method to return a ResponseInterface.
-		//       But that would be a breaking change.
-		return Response::cast( $this->response );
+		return $this->response;
 	}
 }

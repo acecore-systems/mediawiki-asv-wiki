@@ -1,12 +1,6 @@
 <?php
 
-namespace MediaWiki\HTMLForm\Field;
-
-use MediaWiki\HTMLForm\HTMLFormField;
-use MediaWiki\MediaWikiServices;
-use MediaWiki\Message\Message;
-use MediaWiki\Request\WebRequest;
-use MWRestrictions;
+use Wikimedia\IPUtils;
 
 /**
  * Class for updating an MWRestrictions value (which is, currently, basically just an IP address
@@ -18,12 +12,10 @@ use MWRestrictions;
  * The value returned will be an MWRestrictions or the input string if it was not a list of
  * valid IP ranges.
  *
+ * @stable to extend
  */
-class HTMLRestrictionsField extends HTMLFormField {
+class HTMLRestrictionsField extends HTMLTextAreaField {
 	protected const DEFAULT_ROWS = 5;
-
-	private HTMLTextAreaField $ipField;
-	private HTMLTagMultiselectField $pagesField;
 
 	/**
 	 * @stable to call
@@ -31,53 +23,50 @@ class HTMLRestrictionsField extends HTMLFormField {
 	 */
 	public function __construct( array $params ) {
 		parent::__construct( $params );
-		$this->ipField = new HTMLTextAreaField( [
-			'parent' => $params['parent'],
-			'fieldname' => $params['fieldname'] . '-ip',
-			'rows' => self::DEFAULT_ROWS,
-			'required' => $params['required'] ?? false,
-			'help-message' => 'restrictionsfield-help',
-			'label-message' => 'restrictionsfield-label',
-		] );
+		if ( !$this->mLabel ) {
+			$this->mLabel = $this->msg( 'restrictionsfield-label' )->parse();
+		}
+	}
 
-		// Cannot really use a TitlesMultiselect field as the pages could be
-		// on other wikis!
-		$this->pagesField = new HTMLTagMultiselectField( [
-			'parent' => $params['parent'],
-			'fieldname' => $params['fieldname'] . '-pages',
-			'label-message' => 'restrictionsfields-pages-label',
-			'help-message' => 'restrictionsfields-pages-help',
-			'allowArbitrary' => true,
-			'required' => false,
-			'max' => 25,
-		] );
+	public function getHelpText() {
+		$helpText = parent::getHelpText();
+		if ( $helpText === null ) {
+			$helpText = $this->msg( 'restrictionsfield-help' )->parse();
+		}
+		return $helpText;
 	}
 
 	/**
 	 * @param WebRequest $request
-	 * @return MWRestrictions Restrictions object
+	 * @return string|MWRestrictions Restrictions object or original string if invalid
 	 */
 	public function loadDataFromRequest( $request ) {
-		if ( !$request->getCheck( $this->mName . '-ip' ) ) {
+		if ( !$request->getCheck( $this->mName ) ) {
 			return $this->getDefault();
 		}
 
-		$ipValue = rtrim( $request->getText( $this->mName . '-ip' ), "\r\n" );
-		$ips = $ipValue === '' ? [] : explode( "\n", $ipValue );
-		$pagesValue = $request->getText( $this->mName . '-pages' );
-		$pageList = $pagesValue ? explode( "\n", $pagesValue ) : [];
-		return MWRestrictions::newFromArray( [ 'IPAddresses' => $ips, 'Pages' => $pageList ] );
+		$value = rtrim( $request->getText( $this->mName ), "\r\n" );
+		$ips = $value === '' ? [] : explode( "\n", $value );
+		try {
+			return MWRestrictions::newFromArray( [ 'IPAddresses' => $ips ] );
+		} catch ( InvalidArgumentException $e ) {
+			return $value;
+		}
 	}
 
 	/**
 	 * @return MWRestrictions
 	 */
 	public function getDefault() {
-		return parent::getDefault() ?? MWRestrictions::newDefault();
+		$default = parent::getDefault();
+		if ( $default === null ) {
+			$default = MWRestrictions::newDefault();
+		}
+		return $default;
 	}
 
 	/**
-	 * @param MWRestrictions $value The value the field was submitted with
+	 * @param string|MWRestrictions $value The value the field was submitted with
 	 * @param array $alldata The data collected from the form
 	 *
 	 * @return bool|string|Message True on success, or String/Message error to display, or
@@ -90,16 +79,23 @@ class HTMLRestrictionsField extends HTMLFormField {
 
 		if (
 			isset( $this->mParams['required'] ) && $this->mParams['required'] !== false
-			&& !$value->toArray()['IPAddresses']
+			&& $value instanceof MWRestrictions && !$value->toArray()['IPAddresses']
 		) {
 			return $this->msg( 'htmlform-required' );
 		}
 
-		if ( !$value->validity->isGood() ) {
-			$statusFormatter = MediaWikiServices::getInstance()->getFormatterFactory()->getStatusFormatter(
-				$this->mParent->getContext()
-			);
-			return $statusFormatter->getMessage( $value->validity );
+		if ( is_string( $value ) ) {
+			// MWRestrictions::newFromArray failed; one of the IP ranges must be invalid
+			$status = Status::newGood();
+			foreach ( explode( "\n", $value ) as $range ) {
+				if ( !IPUtils::isIPAddress( $range ) ) {
+					$status->fatal( 'restrictionsfield-badip', $range );
+				}
+			}
+			if ( $status->isOK() ) {
+				$status->fatal( 'unknown-error' );
+			}
+			return $status->getMessage();
 		}
 
 		if ( isset( $this->mValidationCallback ) ) {
@@ -110,32 +106,24 @@ class HTMLRestrictionsField extends HTMLFormField {
 	}
 
 	/**
-	 * @param MWRestrictions $value
+	 * @param string|MWRestrictions $value
 	 * @return string
 	 */
 	public function getInputHTML( $value ) {
-		$ipValue = implode( "\n", $value->toArray()['IPAddresses'] );
-		$pagesValue = implode( "\n", $value->toArray()['Pages'] ?? [] );
-		return (
-			$this->ipField->getDiv( $ipValue ) .
-			$this->pagesField->getDiv( $pagesValue )
-		);
+		if ( $value instanceof MWRestrictions ) {
+			$value = implode( "\n", $value->toArray()['IPAddresses'] );
+		}
+		return parent::getInputHTML( $value );
 	}
 
 	/**
 	 * @param MWRestrictions $value
 	 * @return string
-	 * @suppress PhanParamSignatureMismatch
 	 */
 	public function getInputOOUI( $value ) {
-		$ipValue = implode( "\n", $value->toArray()['IPAddresses'] );
-		$pagesValue = implode( "\n", $value->toArray()['Pages'] ?? [] );
-		return (
-			$this->ipField->getOOUI( $ipValue ) .
-			$this->pagesField->getOOUI( $pagesValue )
-		);
+		if ( $value instanceof MWRestrictions ) {
+			$value = implode( "\n", $value->toArray()['IPAddresses'] );
+		}
+		return parent::getInputOOUI( $value );
 	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( HTMLRestrictionsField::class, 'HTMLRestrictionsField' );

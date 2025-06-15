@@ -1,15 +1,8 @@
 <?php
-
-namespace Wikimedia\Tests;
-
-use ArrayUtils;
-use MediaWikiCoversValidator;
-use PHPUnit\Framework\TestCase;
-
 /**
- * @covers \ArrayUtils
+ * @covers ArrayUtils
  */
-class ArrayUtilsTest extends TestCase {
+class ArrayUtilsTest extends PHPUnit\Framework\TestCase {
 
 	use MediaWikiCoversValidator;
 
@@ -141,7 +134,7 @@ class ArrayUtilsTest extends TestCase {
 		$this->assertEquals( $expected, ArrayUtils::arrayDiffAssocRecursive( ...$args ) );
 	}
 
-	public static function provideArrayDiffAssocRecursive() {
+	public function provideArrayDiffAssocRecursive() {
 		return [
 			[
 				[],
@@ -316,7 +309,7 @@ class ArrayUtilsTest extends TestCase {
 		$this->assertSame( $expected, $result );
 	}
 
-	public static function provideCartesianProduct() {
+	public function provideCartesianProduct() {
 		$ab = [ 'a', 'b' ];
 		$cd = [ 'c', 'd' ];
 		$ac = [ 'a', 'c' ];
@@ -359,7 +352,7 @@ class ArrayUtilsTest extends TestCase {
 		];
 	}
 
-	public static function provideConsistentSort() {
+	public function provideConsistentSort() {
 		yield 'initial' => [
 			[
 				'tag1',
@@ -423,7 +416,7 @@ class ArrayUtilsTest extends TestCase {
 		$this->assertSame( $expectList, array_values( $actual ) );
 	}
 
-	public static function provideConsistentSortStability() {
+	public function provideConsistentSortStability() {
 		yield 'initial' => [
 			[ 'tag1', 'tag2', 'tag3', 'tag4' ],
 			[
@@ -464,7 +457,8 @@ class ArrayUtilsTest extends TestCase {
 		foreach ( $expected as $key => $_ ) {
 			$sortedTags = $serverTags;
 			ArrayUtils::consistentHashSort( $sortedTags, $key );
-			$dest = $serverTags[array_key_first( $sortedTags )];
+			reset( $sortedTags );
+			$dest = $serverTags[key( $sortedTags )];
 
 			$actual[$key] = $dest;
 		}

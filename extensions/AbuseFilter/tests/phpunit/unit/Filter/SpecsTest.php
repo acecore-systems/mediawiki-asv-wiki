@@ -8,9 +8,17 @@ use MediaWikiUnitTestCase;
 /**
  * @group Test
  * @group AbuseFilter
- * @covers \MediaWiki\Extension\AbuseFilter\Filter\Specs
+ * @coversDefaultClass \MediaWiki\Extension\AbuseFilter\Filter\Specs
  */
 class SpecsTest extends MediaWikiUnitTestCase {
+	/**
+	 * @covers ::__construct
+	 * @covers ::getRules
+	 * @covers ::getComments
+	 * @covers ::getName
+	 * @covers ::getActionsNames
+	 * @covers ::getGroup
+	 */
 	public function testGetters() {
 		$rules = 'rules';
 		$comments = 'comments';
@@ -30,6 +38,11 @@ class SpecsTest extends MediaWikiUnitTestCase {
 	 * @param mixed $value
 	 * @param string $setter
 	 * @param string $getter
+	 * @covers ::setRules
+	 * @covers ::setComments
+	 * @covers ::setName
+	 * @covers ::setActionsNames
+	 * @covers ::setGroup
 	 * @dataProvider provideSetters
 	 */
 	public function testSetters( $value, string $setter, string $getter ) {
@@ -39,7 +52,10 @@ class SpecsTest extends MediaWikiUnitTestCase {
 		$this->assertSame( $value, $specs->$getter() );
 	}
 
-	public static function provideSetters() {
+	/**
+	 * @return array
+	 */
+	public function provideSetters() {
 		return [
 			'rules' => [ 'rules', 'setRules', 'getRules' ],
 			'comments' => [ 'comments', 'setComments', 'getComments' ],

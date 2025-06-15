@@ -3,7 +3,7 @@
  */
 ( function () {
 
-	Object.assign( mw.Api.prototype, {
+	$.extend( mw.Api.prototype, {
 		/**
 		 * Convenience method for `action=titleblacklist`.
 		 *
@@ -25,11 +25,7 @@
 			this.get( {
 				action: 'titleblacklist',
 				tbaction: 'create',
-				tbtitle: title.toString(),
-				errorformat: 'html',
-				errorlang: mw.config.get( 'wgUserLanguage' ),
-				errorsuselocal: '',
-				formatversion: 2
+				tbtitle: title.toString()
 			} )
 				.done( function ( data ) {
 					var result;
@@ -66,7 +62,7 @@
 
 	/**
 	 * @class mw.Api
-	 * @mixes mw.Api.plugin.titleblacklist
+	 * @mixins mw.Api.plugin.titleblacklist
 	 */
 
 }() );

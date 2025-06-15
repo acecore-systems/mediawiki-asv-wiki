@@ -7,10 +7,14 @@ use MediaWiki\Extension\AbuseFilter\Hooks\Handlers\ChangeTagsHandler;
 use MediaWikiUnitTestCase;
 
 /**
- * @covers \MediaWiki\Extension\AbuseFilter\Hooks\Handlers\ChangeTagsHandler
+ * @coversDefaultClass \MediaWiki\Extension\AbuseFilter\Hooks\Handlers\ChangeTagsHandler
+ * @covers ::__construct
  */
 class ChangeTagsHandlerTest extends MediaWikiUnitTestCase {
 
+	/**
+	 * @covers ::onListDefinedTags
+	 */
 	public function testOnListDefinedTags() {
 		$condsLimitTag = 'conds-limit';
 		$filtersTags = [ 'foo', 'bar' ];
@@ -20,9 +24,12 @@ class ChangeTagsHandlerTest extends MediaWikiUnitTestCase {
 		$handler = new ChangeTagsHandler( $manager );
 		$tags = $initial = [ 'some-tag' ];
 		$handler->onListDefinedTags( $tags );
-		$this->assertArrayEquals( [ ...$initial, $condsLimitTag, ...$filtersTags ], $tags );
+		$this->assertArrayEquals( array_merge( $initial, [ $condsLimitTag ], $filtersTags ), $tags );
 	}
 
+	/**
+	 * @covers ::onChangeTagsListActive
+	 */
 	public function testOnChangeTagsListActive() {
 		$condsLimitTag = 'conds-limit';
 		$activeFiltersTags = [ 'foo', 'bar' ];
@@ -32,6 +39,6 @@ class ChangeTagsHandlerTest extends MediaWikiUnitTestCase {
 		$handler = new ChangeTagsHandler( $manager );
 		$tags = $initial = [ 'some-tag' ];
 		$handler->onChangeTagsListActive( $tags );
-		$this->assertArrayEquals( [ ...$initial, $condsLimitTag, ...$activeFiltersTags ], $tags );
+		$this->assertArrayEquals( array_merge( $initial, [ $condsLimitTag ], $activeFiltersTags ), $tags );
 	}
 }

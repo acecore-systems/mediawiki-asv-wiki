@@ -15,35 +15,29 @@
  * along with MultimediaViewer.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const ThumbnailWidth = require( './model/mmv.model.ThumbnailWidth.js' );
-const { thumbnailBucketSizes } = require( './config.json' );
+( function () {
+	var TWCP;
 
-/**
- * A helper class for bucketing image sizes.
- * Bucketing helps to avoid cache fragmentation and thus speed up image loading:
- * instead of generating potentially hundreds of different thumbnail sizes, we restrict
- * ourselves to a short list of acceptable thumbnail widths, and only ever load thumbnails
- * of that size. Final size adjustment is done in a thumbnail.
- *
- * See also the [Standardized thumbnail sizes RFC][1].
- *
- * [1]: https://www.mediawiki.org/wiki/Talk:Requests_for_comment/Standardized_thumbnails_sizes
- */
-class ThumbnailWidthCalculator {
 	/**
+	 * A helper class for bucketing image sizes.
+	 * Bucketing helps to avoid cache fragmentation and thus speed up image loading:
+	 * instead of generating potentially hundreds of different thumbnail sizes, we restrict
+	 * ourselves to a short list of acceptable thumbnail widths, and only ever load thumbnails
+	 * of that size. Final size adjustment is done in a thumbnail.
+	 *
+	 * See also the [Standardized thumbnail sizes RFC][1].
+	 *
+	 * [1]: https://www.mediawiki.org/wiki/Talk:Requests_for_comment/Standardized_thumbnails_sizes
+	 *
+	 * @class mw.mmv.ThumbnailWidthCalculator
+	 * @constructor
 	 * @param {Object} [options]
-	 * @param {number[]} [options.widthBuckets] see {@link ThumbnailWidthCalculator#widthBuckets}
-	 * @param {number} [options.devicePixelRatio] see {@link ThumbnailWidthCalculator#devicePixelRatio};
+	 * @param {number[]} [options.widthBuckets] see {@link mw.mmv.ThumbnailWidthCalculator#widthBuckets}
+	 * @param {number} [options.devicePixelRatio] see {@link mw.mmv.ThumbnailWidthCalculator#devicePixelRatio};
 	 *     will be autodetected if omitted
 	 */
-	constructor( options ) {
-		options = Object.assign( {
-			// default image widths
-			widthBuckets: thumbnailBucketSizes,
-
-			// screen pixel per CSS pixel
-			devicePixelRatio: window.devicePixelRatio || 1
-		}, options );
+	function ThumbnailWidthCalculator( options ) {
+		options = $.extend( {}, this.defaultOptions, options );
 
 		if ( !options.widthBuckets.length ) {
 			throw new Error( 'No buckets!' );
@@ -55,7 +49,7 @@ class ThumbnailWidthCalculator {
 		 * @property {number[]}
 		 */
 		this.widthBuckets = options.widthBuckets;
-		this.widthBuckets.sort( ( a, b ) => a - b );
+		this.widthBuckets.sort( function ( a, b ) { return a - b; } );
 
 		/**
 		 * Screen pixel count per CSS pixel.
@@ -65,6 +59,30 @@ class ThumbnailWidthCalculator {
 		this.devicePixelRatio = options.devicePixelRatio;
 	}
 
+	TWCP = ThumbnailWidthCalculator.prototype;
+
+	/**
+	 * The default list of image widths
+	 *
+	 * @static
+	 * @property {Object}
+	 */
+	TWCP.defaultOptions = {
+		// default image widths
+		widthBuckets: [
+			320,
+			800,
+			1024,
+			1280,
+			1920,
+			2560,
+			2880
+		],
+
+		// screen pixel per CSS pixel
+		devicePixelRatio: window.devicePixelRatio || 1
+	};
+
 	/**
 	 * Finds the smallest bucket which is large enough to hold the target size
 	 * (i. e. the smallest bucket whose size is equal to or greater than the target).
@@ -73,11 +91,11 @@ class ThumbnailWidthCalculator {
 	 * @param {number} target
 	 * @return {number}
 	 */
-	findNextBucket( target ) {
-		let bucket;
-		const buckets = this.widthBuckets;
+	TWCP.findNextBucket = function ( target ) {
+		var i, bucket,
+			buckets = this.widthBuckets;
 
-		for ( let i = 0; i < buckets.length; i++ ) {
+		for ( i = 0; i < buckets.length; i++ ) {
 			bucket = buckets[ i ];
 
 			if ( bucket >= target ) {
@@ -87,7 +105,7 @@ class ThumbnailWidthCalculator {
 
 		// If we failed to find a high enough size...good luck
 		return bucket;
-	}
+	};
 
 	/**
 	 * Finds the largest width for an image so that it will still fit into a given bounding box,
@@ -104,7 +122,7 @@ class ThumbnailWidthCalculator {
 	 * @return {number} the largest width so that the scaled version of the sample image fits
 	 *     into the bounding box (either horizontal or vertical edges touch on both sides).
 	 */
-	calculateFittingWidth( boundingWidth, boundingHeight, sampleWidth, sampleHeight ) {
+	TWCP.calculateFittingWidth = function ( boundingWidth, boundingHeight, sampleWidth, sampleHeight ) {
 		if ( ( boundingWidth / boundingHeight ) > ( sampleWidth / sampleHeight ) ) {
 			// we are limited by height; we need to calculate the max width that fits
 			return Math.round( ( sampleWidth / sampleHeight ) * boundingHeight );
@@ -112,7 +130,7 @@ class ThumbnailWidthCalculator {
 			// simple case, ratio tells us we're limited by width
 			return boundingWidth;
 		}
-	}
+	};
 
 	/**
 	 * Finds the largest width for an image so that it will still fit into a given bounding box,
@@ -133,20 +151,25 @@ class ThumbnailWidthCalculator {
 	 * @param {number} boundingHeight height of the bounding box, in CSS pixels
 	 * @param {number} sampleWidth width of the sample image (in whatever - only used for aspect ratio)
 	 * @param {number} sampleHeight height of the sample image (in whatever - only used for aspect ratio)
-	 * @return {ThumbnailWidth}
+	 * @return {mw.mmv.model.ThumbnailWidth}
 	 */
-	calculateWidths( boundingWidth, boundingHeight, sampleWidth, sampleHeight ) {
-		const ratio = sampleHeight / sampleWidth;
 
-		const cssWidth = this.calculateFittingWidth( boundingWidth, boundingHeight, sampleWidth, sampleHeight );
-		const cssHeight = Math.max( 1, Math.round( cssWidth * ratio ) );
+	TWCP.calculateWidths = function ( boundingWidth, boundingHeight, sampleWidth, sampleHeight ) {
+		var cssWidth,
+			cssHeight,
+			screenPixelWidth,
+			bucketedWidth,
+			ratio = sampleHeight / sampleWidth;
 
-		const screenPixelWidth = Math.max( 1, cssWidth * this.devicePixelRatio );
+		cssWidth = this.calculateFittingWidth( boundingWidth, boundingHeight, sampleWidth, sampleHeight );
+		cssHeight = Math.max( 1, Math.round( cssWidth * ratio ) );
 
-		const bucketedWidth = this.findNextBucket( screenPixelWidth );
+		screenPixelWidth = Math.max( 1, cssWidth * this.devicePixelRatio );
 
-		return new ThumbnailWidth( cssWidth, cssHeight, screenPixelWidth, bucketedWidth );
-	}
-}
+		bucketedWidth = this.findNextBucket( screenPixelWidth );
 
-module.exports = ThumbnailWidthCalculator;
+		return new mw.mmv.model.ThumbnailWidth( cssWidth, cssHeight, screenPixelWidth, bucketedWidth );
+	};
+
+	mw.mmv.ThumbnailWidthCalculator = ThumbnailWidthCalculator;
+}() );

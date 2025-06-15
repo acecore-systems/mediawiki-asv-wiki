@@ -2,7 +2,7 @@
 
 const { action, assert, utils, wiki } = require( 'api-testing' );
 
-describe( 'The watchlist', () => {
+describe( 'The watchlist', function testWatch() {
 	let alice;
 	const walter = action.getAnon();
 	const title = utils.title( 'Watch_' );

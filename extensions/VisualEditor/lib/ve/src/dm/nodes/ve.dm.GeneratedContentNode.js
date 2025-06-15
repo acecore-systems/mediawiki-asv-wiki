@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel GeneratedContentNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -22,7 +22,7 @@ OO.initClass( ve.dm.GeneratedContentNode );
 /* Events */
 
 /**
- * @event ve.dm.GeneratedContentNode#generatedContentsError
+ * @event generatedContentsError
  * @param {jQuery} $element Element containing the error message
  */
 
@@ -38,7 +38,7 @@ OO.initClass( ve.dm.GeneratedContentNode );
  * @return {string} Hash of stored data
  */
 ve.dm.GeneratedContentNode.static.storeGeneratedContents = function ( dataElement, generatedContents, store ) {
-	const hash = OO.getHash( [ this.getHashObjectForRendering( dataElement ), undefined ] );
+	var hash = OO.getHash( [ this.getHashObjectForRendering( dataElement ), undefined ] );
 	return store.hash( generatedContents, hash );
 };
 

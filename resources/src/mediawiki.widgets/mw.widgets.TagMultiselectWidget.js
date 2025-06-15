@@ -6,7 +6,8 @@
  */
 ( function () {
 	/**
-	 * @classdesc Input list of tags in a single line.
+	 * TagMultiselectWidget can be used to input list of tags in a single
+	 * line.
 	 *
 	 * This extends TagMultiselectWidget by adding an invisible textarea
 	 * element which will be used to submit the values of the tags
@@ -18,13 +19,12 @@
 	 * @extends OO.ui.TagMultiselectWidget
 	 *
 	 * @constructor
-	 * @description Create an instance of `mw.widgets.TagMultiselectWidget`.
 	 * @param {Object} [config] Configuration options
-	 * @param {string} [config.name] Name of input to submit results (when used in HTML forms)
+	 * @cfg {string} [name] Name of input to submit results (when used in HTML forms)
 	 */
 	mw.widgets.TagMultiselectWidget = function MwWidgetsTagMultiselectWidget( config ) {
 		// Parent constructor
-		mw.widgets.TagMultiselectWidget.super.call( this, Object.assign( {}, config, {} ) );
+		mw.widgets.TagMultiselectWidget.parent.call( this, $.extend( {}, config, {} ) );
 
 		if ( 'name' in config ) {
 			// Use this instead of <input type="hidden">, because hidden inputs do not have separate
@@ -42,7 +42,7 @@
 		// Events
 		// When list of selected tags changes, update hidden input
 		this.connect( this, {
-			change: 'updateHiddenInput'
+			change: 'onMultiselectChange'
 		} );
 	};
 
@@ -65,6 +65,16 @@
 			// (it is not triggered when changing the value from JS code).
 			this.$hiddenInput.trigger( 'change' );
 		}
+	};
+
+	/**
+	 * React to the 'change' event.
+	 *
+	 * Updates the hidden input and clears the text from the text box.
+	 */
+	mw.widgets.TagMultiselectWidget.prototype.onMultiselectChange = function () {
+		this.updateHiddenInput();
+		this.input.setValue( '' );
 	};
 
 }() );

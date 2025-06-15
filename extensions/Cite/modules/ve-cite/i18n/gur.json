@@ -23,9 +23,9 @@
 	"cite-ve-citationneeded-title": "\"Citation\" ti ba ɛɛra",
 	"cite-ve-dialog-reference-editing-reused": "Ba dikɛ la viisegɔ lɔgerɔ tuna tum {{PLURAL:$1|once|2=twice|$1times}} n boi pɛgerɛ wa puan.",
 	"cite-ve-dialog-reference-editing-reused-long": "Viisegɔ lɔgerɔ wa tum mɛ {{PLURAL:$1|once|2=twice|$1 times}} bɔna pɛgerɛ wa puan. Teesegɔ la ti ba iŋɛ kalam la, ba wan dikɛ ba iŋɛ zi'a ti viisegɔ lɔgerɔ wa wan tum.",
-	"cite-ve-dialog-reference-editing-extends": "Iŋa wa de la viisegɔ lɔgerɔ na'arɛ dɔlegerɛ",
 	"cite-ve-dialog-reference-options-group-label": "Dikɛ tigerɛ dina wa tum",
 	"cite-ve-dialog-reference-options-group-placeholder": "Viisegɔ lɔgerɔ za'an waabi",
+	"cite-ve-dialog-reference-options-name-label": "Le malum dikɛ yudina wa tum",
 	"cite-ve-dialog-reference-options-responsive-label": "Tum sakɛrɛ kɔlum lase'ere",
 	"cite-ve-dialog-reference-options-section": "Yɔ'ɔ",
 	"cite-ve-dialog-reference-placeholder": "Gulesɛ bii dikɛ fu viisegɔ lɔgerɔ la labelɛ kala, bii kɛ'ɛsɛ \"citation template\" puan.",
@@ -45,7 +45,6 @@
 	"cite-ve-referenceslist-isempty-default": "Viisegɔ lɔgerɔ ka bɔna la tigerɛ wa bɔna pɛgerɛ wa pa'ase liseti wa puan.",
 	"cite-ve-referenceslist-missingref": "Viisegɔ lɔgerɔ wa bɔna la Pa'alɛ pa'asɛ bii sɛba n saale bɔ'ɔrɔ,  gee nananewa, la wa nyaŋɛ leregɛ bɔna ka zuo 'mode'",
 	"cite-ve-referenceslist-missingref-in-list": "Viisegɔ lɔgerɔ wa bɔna la Pa'alɛ pa'asɛ bii sɛba n saale bɔ'ɔrɔ,  gee nananewa, la wa nyaŋɛ nɛŋa bisega bɔna ka zuo 'mode'",
-	"cite-ve-referenceslist-missingreflist": "Viisegɔ lɔgerɔ wa saale la Pa'alɛ pa'asɛ la.",
 	"cite-ve-toolbar-group-label": "Yɛta",
 	"cite-ve-othergroup-item": "$1 viisegɔ lɔgerɔ"
 }

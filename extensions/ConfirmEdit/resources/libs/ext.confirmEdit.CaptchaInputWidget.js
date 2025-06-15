@@ -38,13 +38,14 @@ OO.inheritClass( mw.libs.confirmEdit.CaptchaInputWidget, OO.ui.TextInputWidget )
 /* Methods */
 
 mw.libs.confirmEdit.CaptchaInputWidget.prototype.makeCaptchaInterface = function ( captchaData ) {
-	let $captchaImg, msg, question;
+	var $captchaImg, msg, question,
+		$captchaDiv, $captchaParagraph;
 
-	const $captchaParagraph = $( '<div>' ).append(
+	$captchaParagraph = $( '<div>' ).append(
 		$( '<strong>' ).text( mw.msg( 'captcha-label' ) ),
 		document.createTextNode( mw.msg( 'colon-separator' ) )
 	);
-	const $captchaDiv = $( '<div>' ).append( $captchaParagraph );
+	$captchaDiv = $( '<div>' ).append( $captchaParagraph );
 
 	if ( captchaData.url ) {
 		// FancyCaptcha
@@ -64,7 +65,8 @@ mw.libs.confirmEdit.CaptchaInputWidget.prototype.makeCaptchaInterface = function
 			$( '<a>' ).addClass( 'fancycaptcha-reload' ).text( mw.msg( 'fancycaptcha-reload-text' ) )
 		);
 	} else {
-		if ( captchaData.type === 'simple' ) {
+		if ( captchaData.type === 'simple' || captchaData.type === 'math' ) {
+			// SimpleCaptcha and MathCaptcha
 			msg = 'captcha-edit';
 		} else if ( captchaData.type === 'question' ) {
 			// QuestyCaptcha

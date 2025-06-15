@@ -24,7 +24,7 @@ class ShellTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expected, Shell::escape( ...$args ) );
 	}
 
-	public static function provideEscape() {
+	public function provideEscape() {
 		return [
 			'simple' => [ [ 'true' ], "'true'" ],
 			'with args' => [ [ 'convert', '-font', 'font name' ], "'convert' '-font' 'font name'" ],
@@ -73,21 +73,19 @@ class ShellTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( [], $command->getDisallowedPaths() );
 	}
 
-	public static function provideMakeScriptCommand() {
+	public function provideMakeScriptCommand() {
 		global $wgPhpCli;
 
-		$IP = MW_INSTALL_PATH;
-
 		return [
-			'no option' => [
-				"'$wgPhpCli' '$IP/maintenance/run.php' '$IP/maintenance/foobar.php' 'bar'\\''\"baz' 'safe' unsafe",
-				"\"$wgPhpCli\" \"$IP/maintenance/run.php\" \"$IP/maintenance/foobar.php\" \"bar'\\\"baz\" \"safe\" unsafe",
-				"$IP/maintenance/foobar.php",
+			[
+				"'$wgPhpCli' 'maintenance/foobar.php' 'bar'\\''\"baz' 'safe' unsafe",
+				'"' . $wgPhpCli . '" "maintenance/foobar.php" "bar\'\\"baz" "safe" unsafe',
+				'maintenance/foobar.php',
 				[ 'bar\'"baz' ],
 			],
-			'hook' => [
-				"'$wgPhpCli' '$IP/maintenance/run.php' 'changed.php' '--wiki=somewiki' 'bar'\\''\"baz' 'safe' unsafe",
-				"\"$wgPhpCli\" \"$IP/maintenance/run.php\" \"changed.php\" \"--wiki=somewiki\" \"bar'\\\"baz\" \"safe\" unsafe",
+			[
+				"'$wgPhpCli' 'changed.php' '--wiki=somewiki' 'bar'\\''\"baz' 'safe' unsafe",
+				'"' . $wgPhpCli . '" "changed.php" "--wiki=somewiki" "bar\'\\"baz" "safe" unsafe',
 				'maintenance/foobar.php',
 				[ 'bar\'"baz' ],
 				[],
@@ -96,21 +94,20 @@ class ShellTest extends MediaWikiIntegrationTestCase {
 					array_unshift( $parameters, '--wiki=somewiki' );
 				}
 			],
-			'php option' => [
-				"'/bin/perl' '$IP/maintenance/run.php' 'maintenance/foobar.php'  'safe' unsafe",
-				"\"/bin/perl\" \"$IP/maintenance/run.php\" \"maintenance/foobar.php\"  \"safe\" unsafe",
-				"maintenance/foobar.php",
-				[],
+			[
+				"'/bin/perl' 'maintenance/foobar.php' 'bar'\\''\"baz' 'safe' unsafe",
+				'"/bin/perl" "maintenance/foobar.php" "bar\'\\"baz" "safe" unsafe',
+				'maintenance/foobar.php',
+				[ 'bar\'"baz' ],
 				[ 'php' => '/bin/perl' ],
 			],
-			'wrapper option' => [
-				"'$wgPhpCli' 'foobinize' 'maintenance/foobar.php'  'safe' unsafe",
-				"\"$wgPhpCli\" \"foobinize\" \"maintenance/foobar.php\"  \"safe\" unsafe",
-				"maintenance/foobar.php",
-				[],
+			[
+				"'$wgPhpCli' 'foobinize' 'maintenance/foobar.php' 'bar'\\''\"baz' 'safe' unsafe",
+				'"' . $wgPhpCli . '" "foobinize" "maintenance/foobar.php" "bar\'\\"baz" "safe" unsafe',
+				'maintenance/foobar.php',
+				[ 'bar\'"baz' ],
 				[ 'wrapper' => 'foobinize' ],
 			],
 		];
 	}
-
 }

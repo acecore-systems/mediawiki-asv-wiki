@@ -1,42 +1,20 @@
 <?php
 
-use MediaWiki\Context\DerivativeContext;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\Extension\ConfirmEdit\FancyCaptcha\HTMLFancyCaptchaField;
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\Request\FauxRequest;
-use MediaWiki\Request\WebRequest;
-use MediaWiki\Title\Title;
-
 /**
- * @covers \MediaWiki\Extension\ConfirmEdit\FancyCaptcha\HTMLFancyCaptchaField
- * @group Database
+ * @covers HTMLFancyCaptchaField
  */
-class HTMLFancyCaptchaFieldTest extends MediaWikiIntegrationTestCase {
-
-	public function setUp(): void {
-		parent::setUp();
-
-		$this->mergeMwGlobalArrayValue(
-			'wgAutoloadClasses',
-			[
-				'MediaWiki\\Extension\\ConfirmEdit\\FancyCaptcha\\HTMLFancyCaptchaField'
-					=> __DIR__ . '/../../FancyCaptcha/includes/HTMLFancyCaptchaField.php'
-			]
-		);
-	}
-
+class HTMLFancyCaptchaFieldTest extends PHPUnit\Framework\TestCase {
 	public function testGetHTML() {
 		$html = $this->getForm( [ 'imageUrl' => 'https://example.com/' ] )->getHTML( false );
-		$this->assertMatchesRegularExpression( '/"fancycaptcha-image"/', $html );
-		$this->assertMatchesRegularExpression( '#src="https://example.com/"#', $html );
-		$this->assertDoesNotMatchRegularExpression( '/"mw-createacct-captcha-assisted"/', $html );
+		$this->assertRegExp( '/"fancycaptcha-image"/', $html );
+		$this->assertRegExp( '#src="https://example.com/"#', $html );
+		$this->assertNotRegExp( '/"mw-createacct-captcha-assisted"/', $html );
 
 		$html = $this->getForm( [ 'imageUrl' => '', 'showCreateHelp' => true ] )->getHTML( false );
-		$this->assertMatchesRegularExpression( '/"mw-createacct-captcha-assisted"/', $html );
+		$this->assertRegExp( '/"mw-createacct-captcha-assisted"/', $html );
 
 		$html = $this->getForm( [ 'imageUrl' => '', 'label' => 'FooBarBaz' ] )->getHTML( false );
-		$this->assertMatchesRegularExpression( '/FooBarBaz/', $html );
+		$this->assertRegExp( '/FooBarBaz/', $html );
 	}
 
 	public function testValue() {
@@ -51,7 +29,7 @@ class HTMLFancyCaptchaFieldTest extends MediaWikiIntegrationTestCase {
 		$form->trySubmit();
 	}
 
-	protected function getForm( $params = [], ?WebRequest $request = null ) {
+	protected function getForm( $params = [], WebRequest $request = null ) {
 		if ( $request ) {
 			$context = new DerivativeContext( RequestContext::getMain() );
 			$context->setRequest( $request );

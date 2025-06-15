@@ -1,29 +1,28 @@
 /**
- * RCFilter base item model.
+ * RCFilter base item model
  *
  * @class mw.rcfilters.dm.ItemModel
- * @ignore
- * @mixes OO.EventEmitter
+ * @mixins OO.EventEmitter
  *
+ * @constructor
  * @param {string} param Filter param name
  * @param {Object} config Configuration object
- * @param {string} [config.label] The label for the filter
- * @param {string} [config.description] The description of the filter
- * @param {string|Object} [config.labelPrefixKey] An i18n key defining the prefix label for this
+ * @cfg {string} [label] The label for the filter
+ * @cfg {string} [description] The description of the filter
+ * @cfg {string|Object} [labelPrefixKey] An i18n key defining the prefix label for this
  *  group. If the prefix has 'invert' state, the parameter is expected to be an object
  *  with 'default' and 'inverted' as keys.
- * @param {boolean} [config.active=true] The filter is active and affecting the result
- * @param {boolean} [config.selected] The item is selected
- * @param {any} [config.value] The value of this item
- * @param {string} [config.namePrefix='item_'] A prefix to add to the param name to act as a unique
+ * @cfg {boolean} [active=true] The filter is active and affecting the result
+ * @cfg {boolean} [selected] The item is selected
+ * @cfg {*} [value] The value of this item
+ * @cfg {string} [namePrefix='item_'] A prefix to add to the param name to act as a unique
  *  identifier
- * @param {string} [config.cssClass] The class identifying the results that match this filter
- * @param {string|null} [config.helpLink] Link to a help page for this filter
- * @param {string[]} [config.identifiers] An array of identifiers for this item. They will be
+ * @cfg {string} [cssClass] The class identifying the results that match this filter
+ * @cfg {string[]} [identifiers] An array of identifiers for this item. They will be
  *  added and considered in the view.
- * @param {string} [config.defaultHighlightColor=null] If set, highlight this filter by default with this color
+ * @cfg {string} [defaultHighlightColor=null] If set, highlight this filter by default with this color
  */
-const ItemModel = function MwRcfiltersDmItemModel( param, config ) {
+var ItemModel = function MwRcfiltersDmItemModel( param, config ) {
 	config = config || {};
 
 	// Mixin constructor
@@ -42,7 +41,6 @@ const ItemModel = function MwRcfiltersDmItemModel( param, config ) {
 
 	// Highlight
 	this.cssClass = config.cssClass;
-	this.helpLink = config.helpLink;
 	this.highlightColor = config.defaultHighlightColor || null;
 };
 
@@ -54,10 +52,9 @@ OO.mixinClass( ItemModel, OO.EventEmitter );
 /* Events */
 
 /**
- * The state of this filter has changed.
- *
  * @event update
- * @ignore
+ *
+ * The state of this filter has changed
  */
 
 /* Methods */
@@ -172,7 +169,7 @@ ItemModel.prototype.toggleSelected = function ( isSelected ) {
 /**
  * Get the value
  *
- * @return {any}
+ * @return {*}
  */
 ItemModel.prototype.getValue = function () {
 	return this.value;
@@ -181,8 +178,8 @@ ItemModel.prototype.getValue = function () {
 /**
  * Convert a given value to the appropriate representation based on group type
  *
- * @param {any} value
- * @return {any}
+ * @param {*} value
+ * @return {*}
  */
 ItemModel.prototype.coerceValue = function ( value ) {
 	return this.getGroupModel().getType() === 'any_value' ? value : !!value;
@@ -191,7 +188,7 @@ ItemModel.prototype.coerceValue = function ( value ) {
 /**
  * Set the value
  *
- * @param {any} newValue
+ * @param {*} newValue
  */
 ItemModel.prototype.setValue = function ( newValue ) {
 	newValue = this.coerceValue( newValue );
@@ -245,16 +242,6 @@ ItemModel.prototype.getHighlightColor = function () {
  */
 ItemModel.prototype.getCssClass = function () {
 	return this.cssClass;
-};
-
-/**
- * Get a link to a help page for this filter
- * or null if none is configured
- *
- * @return {string|null}
- */
-ItemModel.prototype.getHelpLink = function () {
-	return this.helpLink;
 };
 
 /**

@@ -20,12 +20,9 @@
  */
 
 use MediaWiki\MainConfigNames;
-use MediaWiki\Title\ForeignTitle;
-use MediaWiki\Title\SubpageImportTitleFactory;
-use MediaWiki\Title\Title;
 
 /**
- * @covers \MediaWiki\Title\SubpageImportTitleFactory
+ * @covers SubpageImportTitleFactory
  *
  * @group Title
  *
@@ -50,22 +47,22 @@ class SubpageImportTitleFactoryTest extends MediaWikiIntegrationTestCase {
 		);
 	}
 
-	public static function basicProvider() {
+	public function basicProvider() {
 		return [
 			[
 				new ForeignTitle( 0, '', 'MainNamespaceArticle' ),
-				Title::makeTitle( NS_USER, 'Graham' ),
-				Title::makeTitle( NS_USER, 'Graham/MainNamespaceArticle' )
+				Title::newFromText( 'User:Graham' ),
+				Title::newFromText( 'User:Graham/MainNamespaceArticle' )
 			],
 			[
 				new ForeignTitle( 1, 'Discussion', 'Nice_talk' ),
-				Title::makeTitle( NS_USER, 'Graham' ),
-				Title::makeTitle( NS_USER, 'Graham/Discussion:Nice_talk' )
+				Title::newFromText( 'User:Graham' ),
+				Title::newFromText( 'User:Graham/Discussion:Nice_talk' )
 			],
 			[
 				new ForeignTitle( 0, '', 'Bogus:Nice_talk' ),
-				Title::makeTitle( NS_USER, 'Graham' ),
-				Title::makeTitle( NS_USER, 'Graham/Bogus:Nice_talk' )
+				Title::newFromText( 'User:Graham' ),
+				Title::newFromText( 'User:Graham/Bogus:Nice_talk' )
 			],
 		];
 	}
@@ -82,8 +79,19 @@ class SubpageImportTitleFactoryTest extends MediaWikiIntegrationTestCase {
 		$this->assertTrue( $testTitle->equals( $title ) );
 	}
 
-	public function testInvalidNamespace() {
-		$this->expectException( InvalidArgumentException::class );
-		$this->newSubpageImportTitleFactory( Title::makeTitle( NS_MAIN, 'Graham' ) );
+	public function failureProvider() {
+		return [
+			[
+				Title::newFromText( 'Graham' ),
+			],
+		];
+	}
+
+	/**
+	 * @dataProvider failureProvider
+	 */
+	public function testFailures( Title $rootPage ) {
+		$this->expectException( MWException::class );
+		$this->newSubpageImportTitleFactory( $rootPage );
 	}
 }

@@ -20,12 +20,7 @@
  * @file
  */
 
-use MediaWiki\HookContainer\HookRunner;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Title\MediaWikiTitleCodec;
-use MediaWiki\Title\Title;
-use Wikimedia\Rdbms\IExpression;
-use Wikimedia\Rdbms\LikeValue;
 
 /**
  * Handles searching prefixes of titles and finding any page
@@ -53,7 +48,7 @@ abstract class PrefixSearch {
 
 		$hasNamespace = SearchEngine::parseNamespacePrefixes( $search, false, true );
 		if ( $hasNamespace !== false ) {
-			[ $search, $namespaces ] = $hasNamespace;
+			list( $search, $namespaces ) = $hasNamespace;
 		}
 
 		return $this->searchBackend( $namespaces, $search, $limit, $offset );
@@ -129,7 +124,7 @@ abstract class PrefixSearch {
 			}
 		}
 		$srchres = [];
-		if ( ( new HookRunner( MediaWikiServices::getInstance()->getHookContainer() ) )->onPrefixSearchBackend(
+		if ( Hooks::runner()->onPrefixSearchBackend(
 			$namespaces, $search, $limit, $srchres, $offset )
 		) {
 			return $this->titles( $this->defaultSearchBackend( $namespaces, $search, $limit, $offset ) );
@@ -188,19 +183,12 @@ abstract class PrefixSearch {
 		// Unlike SpecialPage itself, we want the canonical forms of both
 		// canonical and alias title forms...
 		$keys = [];
-		$listedPages = $spFactory->getListedPages();
-		foreach ( $listedPages as $page => $_obj ) {
+		foreach ( $spFactory->getNames() as $page ) {
 			$keys[$contLang->caseFold( $page )] = [ 'page' => $page, 'rank' => 0 ];
 		}
 
 		foreach ( $contLang->getSpecialPageAliases() as $page => $aliases ) {
-			// Exclude localisation aliases for pages that are not defined (T22885),
-			// e.g. if an extension registers a page based on site configuration.
-			if ( !in_array( $page, $spFactory->getNames() ) ) {
-				continue;
-			}
-			// Exclude aliases for unlisted pages
-			if ( !isset( $listedPages[ $page ] ) ) {
+			if ( !in_array( $page, $spFactory->getNames() ) ) {# T22885
 				continue;
 			}
 
@@ -277,32 +265,53 @@ abstract class PrefixSearch {
 			return [];
 		}
 
-		$services = MediaWikiServices::getInstance();
-		$dbr = $services->getConnectionProvider()->getReplicaDatabase();
+		$dbr = wfGetDB( DB_REPLICA );
 		// Often there is only one prefix that applies to all requested namespaces,
 		// but sometimes there are two if some namespaces do not always capitalize.
 		$conds = [];
 		foreach ( $prefixes as $prefix => $namespaces ) {
-			$expr = $dbr->expr( 'page_namespace', '=', $namespaces );
+			$condition = [ 'page_namespace' => $namespaces ];
 			if ( $prefix !== '' ) {
-				$expr = $expr->and(
-					'page_title',
-					IExpression::LIKE,
-					new LikeValue( (string)$prefix, $dbr->anyString() )
-				);
+				$condition[] = 'page_title' . $dbr->buildLike( $prefix, $dbr->anyString() );
 			}
-			$conds[] = $expr;
+			$conds[] = $dbr->makeList( $condition, LIST_AND );
 		}
 
-		$queryBuilder = $dbr->newSelectQueryBuilder()
-			->select( [ 'page_id', 'page_namespace', 'page_title' ] )
-			->from( 'page' )
-			->where( $dbr->orExpr( $conds ) )
-			->orderBy( [ 'page_title', 'page_namespace' ] )
-			->limit( $limit )
-			->offset( $offset );
-		$res = $queryBuilder->caller( __METHOD__ )->fetchResultSet();
+		$table = 'page';
+		$fields = [ 'page_id', 'page_namespace', 'page_title' ];
+		$conds = $dbr->makeList( $conds, LIST_OR );
+		$options = [
+			'LIMIT' => $limit,
+			'ORDER BY' => [ 'page_title', 'page_namespace' ],
+			'OFFSET' => $offset
+		];
 
-		return iterator_to_array( $services->getTitleFactory()->newTitleArrayFromResult( $res ) );
+		$res = $dbr->select( $table, $fields, $conds, __METHOD__, $options );
+
+		return iterator_to_array( TitleArray::newFromResult( $res ) );
+	}
+
+	/**
+	 * Validate an array of numerical namespace indexes
+	 *
+	 * @param array $namespaces
+	 * @return array (default: contains only NS_MAIN)
+	 */
+	protected function validateNamespaces( $namespaces ) {
+		// We will look at each given namespace against content language namespaces
+		$validNamespaces = MediaWikiServices::getInstance()->getContentLanguage()->getNamespaces();
+		if ( is_array( $namespaces ) && count( $namespaces ) > 0 ) {
+			$valid = [];
+			foreach ( $namespaces as $ns ) {
+				if ( is_numeric( $ns ) && array_key_exists( $ns, $validNamespaces ) ) {
+					$valid[] = $ns;
+				}
+			}
+			if ( count( $valid ) > 0 ) {
+				return $valid;
+			}
+		}
+
+		return [ NS_MAIN ];
 	}
 }

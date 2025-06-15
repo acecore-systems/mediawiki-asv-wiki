@@ -1,8 +1,7 @@
 {
 	"@metadata": {
 		"authors": [
-			"Eitvys200",
-			"Nokeoo"
+			"Eitvys200"
 		]
 	},
 	"renocaptcha-apihelp-param-g-recaptcha-response": "Laukas iš ReCaptcha valdiklio."

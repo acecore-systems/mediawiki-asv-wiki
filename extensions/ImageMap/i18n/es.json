@@ -5,9 +5,9 @@
 			"Drini",
 			"Macofe",
 			"MarcoAurelio",
-			"Qwrop",
 			"Remember the dot",
-			"Sanbec"
+			"Sanbec",
+			"Qwrop"
 		]
 	},
 	"imagemap_desc": "Permite ''image-maps'' dinámicos usando la etiqueta <code>&lt;imagemap&gt;</code>",

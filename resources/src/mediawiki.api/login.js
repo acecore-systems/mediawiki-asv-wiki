@@ -1,30 +1,37 @@
+/**
+ * Make the two-step login easier.
+ *
+ * @author Niklas Laxström
+ * @class mw.Api.plugin.login
+ * @since 1.22
+ */
 ( function () {
 	'use strict';
 
-	Object.assign( mw.Api.prototype, /** @lends mw.Api.prototype */ {
+	$.extend( mw.Api.prototype, {
 		/**
 		 * @param {string} username
 		 * @param {string} password
-		 * @return {jQuery.Promise} See [post()]{@link mw.Api#post}
+		 * @return {jQuery.Promise} See mw.Api#post
 		 */
 		login: function ( username, password ) {
-			const api = this;
+			var params, apiPromise, innerPromise,
+				api = this;
 
-			const params = {
+			params = {
 				action: 'login',
 				lgname: username,
 				lgpassword: password
 			};
 
-			const apiPromise = api.post( params );
+			apiPromise = api.post( params );
 
-			let innerPromise;
 			return apiPromise
-				.then( ( data ) => {
+				.then( function ( data ) {
 					params.lgtoken = data.login.token;
 					innerPromise = api.post( params )
-						.then( ( response ) => {
-							let code;
+						.then( function ( response ) {
+							var code;
 							if ( response.login.result !== 'Success' ) {
 								// Set proper error code whenever possible
 								code = response.error && response.error.code || 'unknown';
@@ -44,5 +51,10 @@
 				} );
 		}
 	} );
+
+	/**
+	 * @class mw.Api
+	 * @mixins mw.Api.plugin.login
+	 */
 
 }() );

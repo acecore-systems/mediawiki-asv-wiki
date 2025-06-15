@@ -7,13 +7,14 @@
  */
 ( function () {
 	function patrol( link ) {
-		const api = new mw.Api();
+		var $spinner,
+			api = new mw.Api();
 
 		// Preload a module concurrently with the ajax request.
 		mw.loader.load( 'mediawiki.notification' );
 
 		// Hide the link and show a spinner inside the brackets.
-		const $spinner = $.createSpinner( { size: 'small', type: 'inline' } );
+		$spinner = $.createSpinner( { size: 'small', type: 'inline' } );
 		$( link ).css( 'display', 'none' ).after( $spinner );
 
 		api.postWithToken( 'patrol', {
@@ -21,13 +22,13 @@
 			action: 'patrol',
 			rcid: mw.util.getParamValue( 'rcid', link.href )
 		} )
-			.then( ( data ) => {
-				const title = new mw.Title( data.patrol.title );
+			.then( function ( data ) {
+				var title = new mw.Title( data.patrol.title );
 				mw.notify( mw.msg( 'markedaspatrollednotify', title.toText() ) );
 				// Remove link wrapper (including the spinner).
 				$( link ).closest( '.patrollink' ).remove();
 			} )
-			.catch( ( code, data ) => {
+			.catch( function ( code, data ) {
 				// Restore the link. This allows the user to try again
 				// (or open it in a new window, bypassing this ajax handler).
 				$spinner.remove();
@@ -45,7 +46,7 @@
 		return;
 	}
 
-	$( () => {
+	$( function () {
 		$( '.patrollink[data-mw="interface"] a' ).on( 'click', function ( e ) {
 			patrol( this );
 			e.preventDefault();

@@ -18,13 +18,9 @@
  * @file
  */
 
-namespace MediaWiki\Content;
-
 use MediaWiki\Content\Renderer\ContentParseParams;
 use MediaWiki\Content\Transform\PreSaveTransformParams;
-use MediaWiki\MediaWikiServices;
-use MediaWiki\Parser\ParserOutput;
-use StatusValue;
+use MediaWiki\Content\ValidationParams;
 
 /**
  * Content handler for JSON text.
@@ -49,7 +45,7 @@ class JsonContentHandler extends CodeContentHandler {
 	}
 
 	/**
-	 * @return class-string<JsonContent>
+	 * @return string
 	 */
 	protected function getContentClass() {
 		return JsonContent::class;
@@ -93,6 +89,18 @@ class JsonContentHandler extends CodeContentHandler {
 		Content $content,
 		PreSaveTransformParams $pstParams
 	): Content {
+		$shouldCallDeprecatedMethod = $this->shouldCallDeprecatedContentTransformMethod(
+			$content,
+			$pstParams
+		);
+
+		if ( $shouldCallDeprecatedMethod ) {
+			return $this->callDeprecatedContentPST(
+				$content,
+				$pstParams
+			);
+		}
+
 		'@phan-var JsonContent $content';
 
 		// FIXME: WikiPage::doUserEditContent invokes PST before validation. As such, native
@@ -123,35 +131,15 @@ class JsonContentHandler extends CodeContentHandler {
 		// As such, native data may be invalid (though output is discarded later in that case).
 		if ( $cpoParams->getGenerateHtml() ) {
 			if ( $content->isValid() ) {
-				$parserOptions = $cpoParams->getParserOptions();
-				if ( $cpoParams->getParserOptions()->getUseParsoid() ) {
-					$title = MediaWikiServices::getInstance()->getTitleFactory()
-						->newFromPageReference( $cpoParams->getPage() );
-					$parser = MediaWikiServices::getInstance()->getParsoidParserFactory()
-						->create();
-					$parserOutput = $parser->parse(
-						// It is necessary to pass a Content rather than a
-						// string in order for Parsoid to handle the
-						// contentmodel correctly.
-						$content, $title, $parserOptions,
-						true, true, $cpoParams->getRevId()
-					);
-					// Register the use of the 'parsoid' option again, since
-					// we have a new $parserOutput now.
-					$parserOptions->getUseParsoid();
-				} else {
-					$parserOutput->setRawText( $content->rootValueTable( $content->getData()->getValue() ) );
-				}
+				$parserOutput->setText( $content->rootValueTable( $content->getData()->getValue() ) );
 			} else {
 				$error = wfMessage( 'invalid-json-data' )->parse();
-				$parserOutput->setRawText( $error );
+				$parserOutput->setText( $error );
 			}
 
 			$parserOutput->addModuleStyles( [ 'mediawiki.content.json' ] );
 		} else {
-			$parserOutput->setRawText( null );
+			$parserOutput->setText( null );
 		}
 	}
 }
-/** @deprecated class alias since 1.43 */
-class_alias( JsonContentHandler::class, 'JsonContentHandler' );

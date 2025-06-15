@@ -22,12 +22,10 @@
  * @ingroup Maintenance
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 use MediaWiki\MainConfigNames;
-use MediaWiki\SpecialPage\QueryPage;
+use MediaWiki\MediaWikiServices;
 
 /**
  * Maintenance script to update cached special pages.
@@ -45,16 +43,16 @@ class UpdateSpecialPages extends Maintenance {
 	}
 
 	public function execute() {
-		$dbw = $this->getPrimaryDB();
+		$dbw = $this->getDB( DB_PRIMARY );
 		$config = $this->getConfig();
-		$specialPageFactory = $this->getServiceContainer()->getSpecialPageFactory();
+		$specialPageFactory = MediaWikiServices::getInstance()->getSpecialPageFactory();
 
 		$this->doSpecialPageCacheUpdates( $dbw );
 
 		$queryCacheLimit = (int)$config->get( MainConfigNames::QueryCacheLimit );
 		$disabledQueryPages = QueryPage::getDisabledQueryPages( $config );
 		foreach ( QueryPage::getPages() as $page ) {
-			[ , $special ] = $page;
+			list( , $special ) = $page;
 			$limit = $page[2] ?? $queryCacheLimit;
 
 			# --list : just show the name of pages
@@ -133,18 +131,18 @@ class UpdateSpecialPages extends Maintenance {
 	 * mysql connection to "go away"
 	 */
 	private function reopenAndWaitForReplicas() {
-		$lbFactory = $this->getServiceContainer()->getDBLoadBalancerFactory();
+		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
 		$lb = $lbFactory->getMainLB();
 		if ( !$lb->pingAll() ) {
 			$this->output( "\n" );
 			do {
 				$this->error( "Connection failed, reconnecting in 10 seconds..." );
 				sleep( 10 );
-				$this->waitForReplication();
 			} while ( !$lb->pingAll() );
 			$this->output( "Reconnected\n\n" );
 		}
-		$this->waitForReplication();
+		// Wait for the replica DB to catch up
+		$lbFactory->waitForReplication();
 	}
 
 	public function doSpecialPageCacheUpdates( $dbw ) {
@@ -184,7 +182,5 @@ class UpdateSpecialPages extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = UpdateSpecialPages::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

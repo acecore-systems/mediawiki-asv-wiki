@@ -18,12 +18,10 @@
  * @file
  */
 
-use MediaWiki\Content\Content;
 use MediaWiki\EditPage\Constraint\IEditConstraint;
 use MediaWiki\EditPage\Constraint\ImageRedirectConstraint;
 use MediaWiki\Permissions\Authority;
 use MediaWiki\Tests\Unit\Permissions\MockAuthorityTrait;
-use MediaWiki\Title\Title;
 
 /**
  * Tests the ImageRedirectConstraint

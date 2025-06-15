@@ -1,7 +1,5 @@
 <?php
 
-namespace MediaWiki\HTMLForm;
-
 /**
  * Allows custom data specific to HTMLFormField to be set for OOUI forms. A matching JS widget
  * (defined in htmlform.Element.js) picks up the extra config when constructed using OO.ui.infuse().
@@ -13,9 +11,7 @@ namespace MediaWiki\HTMLForm;
  */
 trait HTMLFormElement {
 
-	/** @var array|null */
 	protected $condState = null;
-	/** @var array|null */
 	protected $modules = null;
 
 	public function initializeHTMLFormElement( array $config = [] ) {
@@ -37,6 +33,3 @@ trait HTMLFormElement {
 		} );
 	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( HTMLFormElement::class, 'HTMLFormElement' );

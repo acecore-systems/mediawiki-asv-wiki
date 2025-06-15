@@ -22,15 +22,12 @@
  * @ingroup Maintenance
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
-use MediaWiki\Installer\DatabaseUpdater;
+use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\DBQueryError;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IResultWrapper;
-use Wikimedia\Rdbms\ServerInfo;
 
 /**
  * Maintenance script that sends SQL queries from the specified file to the database.
@@ -61,7 +58,7 @@ class MwSql extends Maintenance {
 		// We want to allow "" for the wikidb, meaning don't call select_db()
 		$wiki = $this->hasOption( 'wikidb' ) ? $this->getOption( 'wikidb' ) : false;
 		// Get the appropriate load balancer (for this wiki)
-		$lbFactory = $this->getServiceContainer()->getDBLoadBalancerFactory();
+		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
 		if ( $this->hasOption( 'cluster' ) ) {
 			$lb = $lbFactory->getExternalLB( $this->getOption( 'cluster' ) );
 		} else {
@@ -80,8 +77,7 @@ class MwSql extends Maintenance {
 					break;
 				}
 			}
-			// @phan-suppress-next-line PhanSuspiciousValueComparison
-			if ( $index === null || $index === ServerInfo::WRITER_INDEX ) {
+			if ( $index === null || $index === $lb->getWriterIndex() ) {
 				$this->fatalError( "No replica DB server configured with the name '$replicaDB'." );
 			}
 		} else {
@@ -114,7 +110,7 @@ class MwSql extends Maintenance {
 		if ( $this->hasOption( 'query' ) ) {
 			$query = $this->getOption( 'query' );
 			$res = $this->sqlDoQuery( $db, $query, /* dieOnError */ true );
-			$this->waitForReplication();
+			$lbFactory->waitForReplication();
 			if ( $this->hasOption( 'status' ) && !$res ) {
 				$this->fatalError( 'Failed.', 2 );
 			}
@@ -125,9 +121,8 @@ class MwSql extends Maintenance {
 			function_exists( 'readline_add_history' ) &&
 			Maintenance::posix_isatty( 0 /*STDIN*/ )
 		) {
-			$home = getenv( 'HOME' );
-			$historyFile = $home ?
-				"$home/.mwsql_history" : "$IP/maintenance/.mwsql_history";
+			$historyFile = isset( $_ENV['HOME'] ) ?
+				"{$_ENV['HOME']}/.mwsql_history" : "$IP/maintenance/.mwsql_history";
 			readline_read_history( $historyFile );
 		} else {
 			$historyFile = null;
@@ -139,7 +134,6 @@ class MwSql extends Maintenance {
 		$doDie = !Maintenance::posix_isatty( 0 );
 		$res = 1;
 		$batchCount = 0;
-		// phpcs:ignore Generic.CodeAnalysis.AssignmentInCondition.FoundInWhileCondition
 		while ( ( $line = Maintenance::readconsole( $prompt ) ) !== false ) {
 			if ( !$line ) {
 				# User simply pressed return key
@@ -164,12 +158,12 @@ class MwSql extends Maintenance {
 			$res = $this->sqlDoQuery( $db, $wholeLine, $doDie );
 			if ( $this->getBatchSize() && ++$batchCount >= $this->getBatchSize() ) {
 				$batchCount = 0;
-				$this->waitForReplication();
+				$lbFactory->waitForReplication();
 			}
 			$prompt = $newPrompt;
 			$wholeLine = '';
 		}
-		$this->waitForReplication();
+		$lbFactory->waitForReplication();
 		if ( $this->hasOption( 'status' ) && !$res ) {
 			$this->fatalError( 'Failed.', 2 );
 		}
@@ -238,7 +232,5 @@ class MwSql extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = MwSql::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

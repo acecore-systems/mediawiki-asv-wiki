@@ -22,12 +22,10 @@
  * @ingroup Maintenance
  */
 
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Session\SessionManager;
-use MediaWiki\User\User;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Invalidate the sessions of certain users on the wiki.
@@ -67,6 +65,7 @@ class InvalidateUserSessions extends Maintenance {
 		}
 
 		$i = 0;
+		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
 		$sessionManager = SessionManager::singleton();
 		foreach ( $usernames as $username ) {
 			$i++;
@@ -85,13 +84,11 @@ class InvalidateUserSessions extends Maintenance {
 			}
 
 			if ( $i % $this->getBatchSize() ) {
-				$this->waitForReplication();
+				$lbFactory->waitForReplication();
 			}
 		}
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = InvalidateUserSessions::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

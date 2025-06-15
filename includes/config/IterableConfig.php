@@ -22,6 +22,7 @@
 
 namespace MediaWiki\Config;
 
+use Config;
 use IteratorAggregate;
 use Traversable;
 

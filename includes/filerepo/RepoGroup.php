@@ -20,9 +20,6 @@
 
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\Page\PageIdentity;
-use MediaWiki\Title\Title;
-use Wikimedia\Mime\MimeAnalyzer;
-use Wikimedia\ObjectCache\WANObjectCache;
 
 /**
  * Prioritized list of file repositories.
@@ -422,16 +419,17 @@ class RepoGroup {
 	/**
 	 * Split a virtual URL into repo, zone and rel parts
 	 * @param string $url
+	 * @throws MWException
 	 * @return string[] Containing repo, zone and rel
 	 */
 	private function splitVirtualUrl( $url ) {
-		if ( !str_starts_with( $url, 'mwrepo://' ) ) {
-			throw new InvalidArgumentException( __METHOD__ . ': unknown protocol' );
+		if ( substr( $url, 0, 9 ) != 'mwrepo://' ) {
+			throw new MWException( __METHOD__ . ': unknown protocol' );
 		}
 
 		$bits = explode( '/', substr( $url, 9 ), 3 );
 		if ( count( $bits ) != 3 ) {
-			throw new InvalidArgumentException( __METHOD__ . ": invalid mwrepo URL: $url" );
+			throw new MWException( __METHOD__ . ": invalid mwrepo URL: $url" );
 		}
 
 		return $bits;
@@ -443,7 +441,7 @@ class RepoGroup {
 	 */
 	public function getFileProps( $fileName ) {
 		if ( FileRepo::isVirtualUrl( $fileName ) ) {
-			[ $repoName, /* $zone */, /* $rel */ ] = $this->splitVirtualUrl( $fileName );
+			list( $repoName, /* $zone */, /* $rel */ ) = $this->splitVirtualUrl( $fileName );
 			if ( $repoName === '' ) {
 				$repoName = 'local';
 			}

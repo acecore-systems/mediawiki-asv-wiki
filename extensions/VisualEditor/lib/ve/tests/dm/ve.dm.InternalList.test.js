@@ -1,21 +1,21 @@
 /*!
  * VisualEditor DataModel InternalList tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.dm.InternalList' );
 
 /* Tests */
 
-QUnit.test( 'getDocument', ( assert ) => {
-	const doc = ve.dm.example.createExampleDocument(),
+QUnit.test( 'getDocument', function ( assert ) {
+	var doc = ve.dm.example.createExampleDocument(),
 		internalList = doc.getInternalList();
 	assert.deepEqual( internalList.getDocument(), doc, 'Returns original document' );
 } );
 
-QUnit.test( 'queueItemHtml/getItemHtmlQueue', ( assert ) => {
-	const doc = ve.dm.example.createExampleDocument(),
+QUnit.test( 'queueItemHtml/getItemHtmlQueue', function ( assert ) {
+	var doc = ve.dm.example.createExampleDocument(),
 		internalList = doc.getInternalList();
 	assert.deepEqual(
 		internalList.queueItemHtml( 'reference', 'foo', 'Bar' ),
@@ -44,20 +44,20 @@ QUnit.test( 'queueItemHtml/getItemHtmlQueue', ( assert ) => {
 	assert.deepEqual( internalList.getItemHtmlQueue(), [ 'Bar', 'Baz', 'Quux' ], 'getItemHtmlQueue returns stored HTML items' );
 } );
 
-QUnit.test( 'convertToData', ( assert ) => {
-	const doc = ve.dm.example.createExampleDocument(),
+QUnit.test( 'convertToData', function ( assert ) {
+	var doc = ve.dm.example.createExampleDocument(),
 		htmlDoc = doc.getHtmlDocument(),
 		internalList = doc.getInternalList(),
 		expectedData = [
 			{ type: 'internalList' },
 			{ type: 'internalItem', attributes: { originalHtml: 'Bar' } },
 			{ type: 'paragraph', internal: { generated: 'wrapper', metaItems: [] } },
-			...'Bar',
+			'B', 'a', 'r',
 			{ type: '/paragraph' },
 			{ type: '/internalItem' },
 			{ type: 'internalItem', attributes: { originalHtml: 'Baz' } },
 			{ type: 'paragraph', internal: { generated: 'wrapper', metaItems: [] } },
-			...'Baz',
+			'B', 'a', 'z',
 			{ type: '/paragraph' },
 			{ type: '/internalItem' },
 			{ type: '/internalList' }
@@ -76,15 +76,15 @@ QUnit.test( 'convertToData', ( assert ) => {
 	assert.deepEqual( internalList.getItemHtmlQueue(), [], 'Items html is emptied after conversion' );
 } );
 
-QUnit.test( 'clone', ( assert ) => {
-	const doc = ve.dm.example.createExampleDocument(),
+QUnit.test( 'clone', function ( assert ) {
+	var doc = ve.dm.example.createExampleDocument(),
 		doc2 = ve.dm.example.createExampleDocument(),
 		internalList = doc.getInternalList();
 
 	internalList.getNextUniqueNumber(); // =0
-	const internalListClone = internalList.clone();
+	var internalListClone = internalList.clone();
 	internalList.getNextUniqueNumber(); // =1
-	const internalListClone2 = internalList.clone( doc2 );
+	var internalListClone2 = internalList.clone( doc2 );
 	internalList.getNextUniqueNumber(); // =2
 
 	assert.strictEqual( internalListClone.getDocument(), internalList.getDocument(), 'Documents match' );

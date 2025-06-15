@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Extension\AbuseFilter\Filter;
 
-use LogicException;
+use BadMethodCallException;
 
 /**
  * Value object representing a filter that can be mutated (i.e. provides setters); this representation can
@@ -27,7 +27,7 @@ class MutableFilter extends Filter {
 			new Flags(
 				true,
 				false,
-				Flags::FILTER_PUBLIC,
+				false,
 				false
 			),
 			[],
@@ -78,12 +78,12 @@ class MutableFilter extends Filter {
 	}
 
 	/**
-	 * @throws LogicException if $actions are already set; use $this->setActions to update names
+	 * @throws BadMethodCallException if $actions are already set; use $this->setActions to update names
 	 * @param string[] $actionsNames
 	 */
 	public function setActionsNames( array $actionsNames ): void {
 		if ( $this->actions !== null ) {
-			throw new LogicException( 'Cannot set actions names with actions already set' );
+			throw new BadMethodCallException( 'Cannot set actions names with actions already set' );
 		}
 		$this->specs->setActionsNames( $actionsNames );
 	}
@@ -114,13 +114,6 @@ class MutableFilter extends Filter {
 	 */
 	public function setHidden( bool $hidden ): void {
 		$this->flags->setHidden( $hidden );
-	}
-
-	/**
-	 * @param bool $protected
-	 */
-	public function setProtected( bool $protected ): void {
-		$this->flags->setProtected( $protected );
 	}
 
 	/**

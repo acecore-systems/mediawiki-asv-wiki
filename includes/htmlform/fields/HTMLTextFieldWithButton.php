@@ -1,9 +1,4 @@
 <?php
-
-namespace MediaWiki\HTMLForm\Field;
-
-use MediaWiki\HTMLForm\HTMLFormActionFieldLayout;
-
 /**
  * Creates a text input field with a button assigned to the input field.
  *
@@ -31,6 +26,3 @@ class HTMLTextFieldWithButton extends HTMLTextField {
 		return new HTMLFormActionFieldLayout( $inputField, $buttonWidget, $config );
 	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( HTMLTextFieldWithButton::class, 'HTMLTextFieldWithButton' );

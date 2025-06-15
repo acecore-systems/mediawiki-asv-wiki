@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\Context\IContextSource;
+use IContextSource;
 use stdClass;
 
 // phpcs:disable Squiz.Classes.ValidClassName.NotCamelCaps

@@ -1,26 +1,13 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
-use AllowDynamicProperties;
-use Exception;
-use InvalidArgumentException;
-use MediaWiki\Api\ApiErrorFormatter;
-use MediaWiki\Api\ApiResult;
-use MediaWiki\Title\Title;
-use MediaWikiIntegrationTestCase;
-use RuntimeException;
-use Stringable;
-use UnexpectedValueException;
-
 /**
- * @covers \MediaWiki\Api\ApiResult
+ * @covers ApiResult
  * @group API
  */
 class ApiResultTest extends MediaWikiIntegrationTestCase {
 
 	/**
-	 * @covers \MediaWiki\Api\ApiResult
+	 * @covers ApiResult
 	 */
 	public function testStaticDataMethods() {
 		$arr = [];
@@ -100,7 +87,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 		}
 
 		$arr = [];
-		$title = Title::makeTitle( NS_MEDIAWIKI, "Foobar" );
+		$title = Title::newFromText( "MediaWiki:Foobar" );
 		$obj = (object)[ 'foo' => 1, 'bar' => 2 ];
 		ApiResult::setValue( $arr, 'title', $title );
 		ApiResult::setValue( $arr, 'obj', $obj );
@@ -115,7 +102,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 			$this->fail( 'Expected exception not thrown' );
 		} catch ( InvalidArgumentException $ex ) {
 			$this->assertSame(
-				'Cannot add resource (stream) to ApiResult',
+				'Cannot add resource(stream) to ApiResult',
 				$ex->getMessage(),
 				'Expected exception'
 			);
@@ -125,7 +112,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 			$this->fail( 'Expected exception not thrown' );
 		} catch ( InvalidArgumentException $ex ) {
 			$this->assertSame(
-				'Cannot add resource (stream) to ApiResult',
+				'Cannot add resource(stream) to ApiResult',
 				$ex->getMessage(),
 				'Expected exception'
 			);
@@ -136,7 +123,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 			$this->fail( 'Expected exception not thrown' );
 		} catch ( InvalidArgumentException $ex ) {
 			$this->assertSame(
-				'Cannot add resource (stream) to ApiResult',
+				'Cannot add resource(stream) to ApiResult',
 				$ex->getMessage(),
 				'Expected exception'
 			);
@@ -147,7 +134,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 			$this->fail( 'Expected exception not thrown' );
 		} catch ( InvalidArgumentException $ex ) {
 			$this->assertSame(
-				'Cannot add resource (stream) to ApiResult',
+				'Cannot add resource(stream) to ApiResult',
 				$ex->getMessage(),
 				'Expected exception'
 			);
@@ -209,7 +196,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 		}
 
 		$arr = [];
-		$result2 = new ApiResult( 8_388_608 );
+		$result2 = new ApiResult( 8388608 );
 		$result2->addValue( null, 'foo', 'bar' );
 		ApiResult::setValue( $arr, 'baz', $result2 );
 		$this->assertSame( [
@@ -245,10 +232,10 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Api\ApiResult
+	 * @covers ApiResult
 	 */
 	public function testInstanceDataMethods() {
-		$result = new ApiResult( 8_388_608 );
+		$result = new ApiResult( 8388608 );
 
 		$result->addValue( null, 'setValue', '1' );
 
@@ -347,7 +334,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 		}
 
 		$result->reset();
-		$title = Title::makeTitle( NS_MEDIAWIKI, "Foobar" );
+		$title = Title::newFromText( "MediaWiki:Foobar" );
 		$obj = (object)[ 'foo' => 1, 'bar' => 2 ];
 		$result->addValue( null, 'title', $title );
 		$result->addValue( null, 'obj', $obj );
@@ -363,7 +350,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 			$this->fail( 'Expected exception not thrown' );
 		} catch ( InvalidArgumentException $ex ) {
 			$this->assertSame(
-				'Cannot add resource (stream) to ApiResult',
+				'Cannot add resource(stream) to ApiResult',
 				$ex->getMessage(),
 				'Expected exception'
 			);
@@ -373,7 +360,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 			$this->fail( 'Expected exception not thrown' );
 		} catch ( InvalidArgumentException $ex ) {
 			$this->assertSame(
-				'Cannot add resource (stream) to ApiResult',
+				'Cannot add resource(stream) to ApiResult',
 				$ex->getMessage(),
 				'Expected exception'
 			);
@@ -384,7 +371,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 			$this->fail( 'Expected exception not thrown' );
 		} catch ( InvalidArgumentException $ex ) {
 			$this->assertSame(
-				'Cannot add resource (stream) to ApiResult',
+				'Cannot add resource(stream) to ApiResult',
 				$ex->getMessage(),
 				'Expected exception'
 			);
@@ -395,7 +382,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 			$this->fail( 'Expected exception not thrown' );
 		} catch ( InvalidArgumentException $ex ) {
 			$this->assertSame(
-				'Cannot add resource (stream) to ApiResult',
+				'Cannot add resource(stream) to ApiResult',
 				$ex->getMessage(),
 				'Expected exception'
 			);
@@ -507,8 +494,8 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 		$this->assertTrue( $result->addValue( null, 'foo', $obj ) );
 		$this->assertSame( 2, $result->getSize() );
 
-		$result = new ApiResult( 8_388_608 );
-		$result2 = new ApiResult( 8_388_608 );
+		$result = new ApiResult( 8388608 );
+		$result2 = new ApiResult( 8388608 );
 		$result2->addValue( null, 'foo', 'bar' );
 		$result->addValue( null, 'baz', $result2 );
 		$this->assertSame( [
@@ -519,7 +506,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 			ApiResult::META_TYPE => 'assoc',
 		], $result->getResultData() );
 
-		$result = new ApiResult( 8_388_608 );
+		$result = new ApiResult( 8388608 );
 		$result->addValue( null, 'foo', "foo\x80bar" );
 		$result->addValue( null, 'bar', "a\xcc\x81" );
 		$result->addValue( null, 'baz', 74 );
@@ -534,7 +521,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 			ApiResult::META_TYPE => 'assoc',
 		], $result->getResultData() );
 
-		$result = new ApiResult( 8_388_608 );
+		$result = new ApiResult( 8388608 );
 		$obj = (object)[ 1 => 'one' ];
 		$arr = [];
 		$result->addValue( $arr, 'foo', $obj );
@@ -548,11 +535,11 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Api\ApiResult
+	 * @covers ApiResult
 	 */
 	public function testMetadata() {
 		$arr = [ 'foo' => [ 'bar' => [] ] ];
-		$result = new ApiResult( 8_388_608 );
+		$result = new ApiResult( 8388608 );
 		$result->addValue( null, 'foo', [ 'bar' => [] ] );
 
 		$expect = [
@@ -613,7 +600,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Api\ApiResult
+	 * @covers ApiResult
 	 */
 	public function testUtilityFunctions() {
 		$arr = [
@@ -702,7 +689,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Api\ApiResult
+	 * @covers ApiResult
 	 * @dataProvider provideTransformations
 	 * @param string $label
 	 * @param array $input
@@ -1293,7 +1280,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Api\ApiResult
+	 * @covers ApiResult
 	 */
 	public function testAddMetadataToResultVars() {
 		$arr = [
@@ -1387,8 +1374,8 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 			$this->fail( 'Expected exception not thrown' );
 		} catch ( UnexpectedValueException $ex ) {
 			$this->assertSame(
-				'MediaWiki\Tests\Api\ApiResultTestSerializableObject::serializeForApiResult() ' .
-					'returned an object of class MediaWiki\Tests\Api\ApiResultTestStringifiableObject',
+				'ApiResultTestSerializableObject::serializeForApiResult() ' .
+					'returned an object of class ApiResultTestStringifiableObject',
 				$ex->getMessage(),
 				'Expected exception'
 			);
@@ -1400,7 +1387,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 			$this->fail( 'Expected exception not thrown' );
 		} catch ( UnexpectedValueException $ex ) {
 			$this->assertSame(
-				'MediaWiki\Tests\Api\ApiResultTestSerializableObject::serializeForApiResult() ' .
+				'ApiResultTestSerializableObject::serializeForApiResult() ' .
 					'returned an invalid value: Cannot add non-finite floats to ApiResult',
 				$ex->getMessage(),
 				'Expected exception'
@@ -1421,8 +1408,7 @@ class ApiResultTest extends MediaWikiIntegrationTestCase {
 	}
 }
 
-class ApiResultTestStringifiableObject implements Stringable {
-	/** @var string */
+class ApiResultTestStringifiableObject {
 	private $ret;
 
 	public function __construct( $ret = 'Ok' ) {
@@ -1434,9 +1420,8 @@ class ApiResultTestStringifiableObject implements Stringable {
 	}
 }
 
-#[AllowDynamicProperties]
-class ApiResultTestSerializableObject implements Stringable {
-	/** @var string */
+#[\AllowDynamicProperties]
+class ApiResultTestSerializableObject {
 	private $ret;
 
 	public function __construct( $ret ) {

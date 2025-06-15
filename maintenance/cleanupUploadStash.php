@@ -26,10 +26,9 @@
  */
 
 use MediaWiki\MainConfigNames;
+use MediaWiki\MediaWikiServices;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script to remove old or broken uploads from temporary uploaded
@@ -46,7 +45,7 @@ class CleanupUploadStash extends Maintenance {
 	}
 
 	public function execute() {
-		$repo = $this->getServiceContainer()->getRepoGroup()->getLocalRepo();
+		$repo = MediaWikiServices::getInstance()->getRepoGroup()->getLocalRepo();
 		$tempRepo = $repo->getTempRepo();
 
 		$dbr = $repo->getReplicaDB();
@@ -58,7 +57,7 @@ class CleanupUploadStash extends Maintenance {
 		$res = $dbr->newSelectQueryBuilder()
 			->select( 'us_key' )
 			->from( 'uploadstash' )
-			->where( $dbr->expr( 'us_timestamp', '<', $dbr->timestamp( $cutoff ) ) )
+			->where( 'us_timestamp < ' . $dbr->addQuotes( $dbr->timestamp( $cutoff ) ) )
 			->caller( __METHOD__ )
 			->fetchResultSet();
 
@@ -69,7 +68,7 @@ class CleanupUploadStash extends Maintenance {
 			// finish the read before starting writes.
 			$keys = [];
 			foreach ( $res as $row ) {
-				$keys[] = $row->us_key;
+				array_push( $keys, $row->us_key );
 			}
 
 			$this->output( 'Removing ' . count( $keys ) . " file(s)...\n" );
@@ -77,6 +76,8 @@ class CleanupUploadStash extends Maintenance {
 			// UploadStash's own methods means it's less likely to fall accidentally
 			// out-of-date someday
 			$stash = new UploadStash( $repo );
+
+			$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
 
 			$i = 0;
 			foreach ( $keys as $key ) {
@@ -89,7 +90,7 @@ class CleanupUploadStash extends Maintenance {
 					$this->output( "Failed removing stashed upload with key: $key ($type)\n" );
 				}
 				if ( $i % 100 == 0 ) {
-					$this->waitForReplication();
+					$lbFactory->waitForReplication();
 					$this->output( "$i\n" );
 				}
 			}
@@ -130,7 +131,7 @@ class CleanupUploadStash extends Maintenance {
 		}
 		$this->output( "Deleting orphaned temp files...\n" );
 		if ( strpos( $dir, '/local-temp' ) === false ) {
-			$this->output( "Temp repo might be misconfigured. It points to directory: '$dir' \n" );
+			$this->fatalError( "Temp repo is not using the temp container." );
 		}
 
 		$i = 0;
@@ -156,12 +157,10 @@ class CleanupUploadStash extends Maintenance {
 	protected function doOperations( FileRepo $tempRepo, array $ops ) {
 		$status = $tempRepo->getBackend()->doQuickOperations( $ops );
 		if ( !$status->isOK() ) {
-			$this->error( $status );
+			$this->error( print_r( Status::wrap( $status )->getErrorsArray(), true ) );
 		}
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = CleanupUploadStash::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

@@ -5,13 +5,11 @@ namespace MediaWiki\Debug;
 use ArrayAccess;
 
 /**
- * ArrayAccess with support for deprecating access to certain offsets.
- *
+ * ArrayAccess implementation that supports deprecating access to certain properties.
  * It behaves mostly as a normal array, however in order to avoid instantiating
  * deprecated properties by default, a callable initializer can be set to the property.
  * It will be executed upon 'get'.
- * @note Setting properties does not emit deprecation warnings.
- *
+ * @note setting properties does not emit deprecation warnings.
  * @newable
  * @since 1.35
  */
@@ -40,7 +38,7 @@ class DeprecatablePropertyArray implements ArrayAccess {
 		array $initializer,
 		array $deprecatedProperties,
 		string $name,
-		?string $component = null
+		string $component = null
 	) {
 		$this->container = $initializer;
 		$this->deprecatedProperties = $deprecatedProperties;

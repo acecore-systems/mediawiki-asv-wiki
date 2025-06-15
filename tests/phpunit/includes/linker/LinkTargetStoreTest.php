@@ -1,14 +1,18 @@
 <?php
 
-use MediaWiki\Title\TitleValue;
+use MediaWiki\MediaWikiServices;
 
 /**
  * @group Database
- * @covers \MediaWiki\Linker\LinkTargetStore
+ * @covers MediaWiki\Linker\LinkTargetStore
  */
 class LinkTargetStoreTest extends MediaWikiIntegrationTestCase {
+	protected function setUp(): void {
+		parent::setUp();
+		$this->tablesUsed[] = 'linktarget';
+	}
 
-	public static function provideLinkTargets() {
+	public function provideLinkTargets() {
 		yield [ new TitleValue( NS_SPECIAL, 'BlankPage' ) ];
 		yield [ new TitleValue( NS_MAIN, 'Foobar' ) ];
 		yield [ new TitleValue( NS_USER, 'Someuser' ) ];
@@ -20,13 +24,16 @@ class LinkTargetStoreTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testAcquireLinkTargetId( $target ) {
 		$linkTargetStore = $this->getServiceContainer()->getLinkTargetLookup();
-		$db = $this->getDb();
+		$db = $this->getServiceContainer()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 		$id = $linkTargetStore->acquireLinkTargetId( $target, $db );
-		$row = $db->newSelectQueryBuilder()
-			->select( [ 'lt_id', 'lt_namespace', 'lt_title' ] )
-			->from( 'linktarget' )
-			->where( [ 'lt_namespace' => $target->getNamespace(), 'lt_title' => $target->getDBkey() ] )
-			->fetchRow();
+		$row = $db->selectRow(
+			'linktarget',
+			[ 'lt_id', 'lt_namespace', 'lt_title' ],
+			[
+				'lt_namespace' => $target->getNamespace(),
+				'lt_title' => $target->getDBkey()
+			]
+		);
 		$this->assertSame( (int)$row->lt_id, $id );
 	}
 
@@ -36,8 +43,8 @@ class LinkTargetStoreTest extends MediaWikiIntegrationTestCase {
 	 * @covers \MediaWiki\Linker\LinkTargetStore::getLinkTargetById
 	 */
 	public function testGetLinkTargetById( $target ) {
-		$linkTargetStore = $this->getServiceContainer()->getLinkTargetLookup();
-		$db = $this->getDb();
+		$linkTargetStore = MediaWikiServices::getInstance()->getLinkTargetLookup();
+		$db = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 		$id = $linkTargetStore->acquireLinkTargetId( $target, $db );
 		$actualLinkTarget = $linkTargetStore->getLinkTargetById( $id, $db );
 		$this->assertEquals( $target, $actualLinkTarget );
@@ -49,8 +56,8 @@ class LinkTargetStoreTest extends MediaWikiIntegrationTestCase {
 	 * @covers \MediaWiki\Linker\LinkTargetStore::getLinkTargetById
 	 */
 	public function testGetLinkTargetByIdWithoutCache( $target ) {
-		$linkTargetStore = $this->getServiceContainer()->getLinkTargetLookup();
-		$db = $this->getDb();
+		$linkTargetStore = MediaWikiServices::getInstance()->getLinkTargetLookup();
+		$db = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_PRIMARY );
 		$id = $linkTargetStore->acquireLinkTargetId( $target, $db );
 		$linkTargetStore->clearClassCache();
 		$actualLinkTarget = $linkTargetStore->getLinkTargetById( $id, $db );

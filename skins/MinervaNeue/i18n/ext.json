@@ -2,8 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"Crucifunked",
-			"HackerPunki",
-			"Julio Nepote"
+			"Julio Nepote",
+			"HackerPunki"
 		]
 	},
 	"mobile-frontend-editor-edit": "Eital",
@@ -13,5 +13,6 @@
 	"mobile-frontend-main-menu-nearby": "Cercanus",
 	"mobile-frontend-main-menu-settings": "Ajustis",
 	"mobile-frontend-placeholder": "Precural {{SITENAME}}",
-	"mobile-frontend-random-button": "Aleatóriu"
+	"mobile-frontend-random-button": "Aleatóriu",
+	"minerva-page-actions-info": "Informacionis dela página"
 }

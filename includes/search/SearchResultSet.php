@@ -21,16 +21,12 @@
  * @ingroup Search
  */
 
-use MediaWiki\Title\Title;
-
 /**
  * @ingroup Search
  */
 class SearchResultSet extends BaseSearchResultSet {
-
 	use SearchResultSetTrait;
 
-	/** @var bool */
 	protected $containedSyntax = false;
 
 	/**
@@ -214,7 +210,7 @@ class SearchResultSet extends BaseSearchResultSet {
 				return $this->results;
 			}
 			$this->rewind();
-			foreach ( $this as $result ) {
+			while ( $result = $this->next() ) {
 				$this->results[] = $result;
 			}
 			$this->rewind();

@@ -23,9 +23,9 @@
  * @ingroup Maintenance
  */
 
-// @codeCoverageIgnoreStart
+use MediaWiki\MediaWikiServices;
+
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script to delete archived (non-current) files from the database.
@@ -47,9 +47,9 @@ class DeleteArchivedFiles extends Maintenance {
 		}
 
 		# Data should come off the master, wrapped in a transaction
-		$dbw = $this->getPrimaryDB();
+		$dbw = $this->getDB( DB_PRIMARY );
 		$this->beginTransaction( $dbw, __METHOD__ );
-		$repo = $this->getServiceContainer()->getRepoGroup()->getLocalRepo();
+		$repo = MediaWikiServices::getInstance()->getRepoGroup()->getLocalRepo();
 
 		# Get "active" revisions from the filearchive table
 		$this->output( "Searching for and deleting archived files...\n" );
@@ -122,10 +122,7 @@ class DeleteArchivedFiles extends Maintenance {
 			}
 
 			$count++;
-			$dbw->newDeleteQueryBuilder()
-				->deleteFrom( 'filearchive' )
-				->where( [ 'fa_id' => $id ] )
-				->caller( __METHOD__ )->execute();
+			$dbw->delete( 'filearchive', [ 'fa_id' => $id ], __METHOD__ );
 			$file->releaseFileLock();
 		}
 
@@ -134,7 +131,5 @@ class DeleteArchivedFiles extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = DeleteArchivedFiles::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

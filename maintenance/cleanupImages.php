@@ -2,7 +2,7 @@
 /**
  * Clean up broken, unparseable upload filenames.
  *
- * Copyright © 2005-2006 Brooke Vibber <bvibber@wikimedia.org>
+ * Copyright © 2005-2006 Brion Vibber <brion@pobox.com>
  * https://www.mediawiki.org/
  *
  * This program is free software; you can redistribute it and/or modify
@@ -21,16 +21,13 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- * @author Brooke Vibber <bvibber@wikimedia.org>
+ * @author Brion Vibber <brion at pobox.com>
  * @ingroup Maintenance
  */
 
-use MediaWiki\Parser\Sanitizer;
-use MediaWiki\Title\Title;
+use MediaWiki\MediaWikiServices;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/TableCleanup.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script to clean up broken, unparseable upload filenames.
@@ -38,7 +35,6 @@ require_once __DIR__ . '/TableCleanup.php';
  * @ingroup Maintenance
  */
 class CleanupImages extends TableCleanup {
-	/** @inheritDoc */
 	protected $defaultParams = [
 		'table' => 'image',
 		'conds' => [],
@@ -60,8 +56,7 @@ class CleanupImages extends TableCleanup {
 			// Ye olde empty rows. Just kill them.
 			$this->killRow( $source );
 
-			$this->progress( 1 );
-			return;
+			return $this->progress( 1 );
 		}
 
 		$cleaned = $source;
@@ -72,7 +67,7 @@ class CleanupImages extends TableCleanup {
 		// We also have some HTML entities there
 		$cleaned = Sanitizer::decodeCharReferences( $cleaned );
 
-		$contLang = $this->getServiceContainer()->getContentLanguage();
+		$contLang = MediaWikiServices::getInstance()->getContentLanguage();
 
 		// Some are old latin-1
 		$cleaned = $contLang->checkTitleEncoding( $cleaned );
@@ -86,13 +81,11 @@ class CleanupImages extends TableCleanup {
 			$this->output( "page $source ($cleaned) is illegal.\n" );
 			$safe = $this->buildSafeTitle( $cleaned );
 			if ( $safe === false ) {
-				$this->progress( 0 );
-				return;
+				return $this->progress( 0 );
 			}
 			$this->pokeFile( $source, $safe );
 
-			$this->progress( 1 );
-			return;
+			return $this->progress( 1 );
 		}
 
 		if ( $title->getDBkey() !== $source ) {
@@ -100,11 +93,10 @@ class CleanupImages extends TableCleanup {
 			$this->output( "page $source ($munged) doesn't match self.\n" );
 			$this->pokeFile( $source, $munged );
 
-			$this->progress( 1 );
-			return;
+			return $this->progress( 1 );
 		}
 
-		$this->progress( 0 );
+		return $this->progress( 0 );
 	}
 
 	/**
@@ -115,12 +107,10 @@ class CleanupImages extends TableCleanup {
 			$this->output( "DRY RUN: would delete bogus row '$name'\n" );
 		} else {
 			$this->output( "deleting bogus row '$name'\n" );
-			$db = $this->getPrimaryDB();
-			$db->newDeleteQueryBuilder()
-				->deleteFrom( 'image' )
-				->where( [ 'img_name' => $name ] )
-				->caller( __METHOD__ )
-				->execute();
+			$db = $this->getDB( DB_PRIMARY );
+			$db->delete( 'image',
+				[ 'img_name' => $name ],
+				__METHOD__ );
 		}
 	}
 
@@ -130,7 +120,7 @@ class CleanupImages extends TableCleanup {
 	 */
 	private function filePath( $name ) {
 		if ( $this->repo === null ) {
-			$this->repo = $this->getServiceContainer()->getRepoGroup()->getLocalRepo();
+			$this->repo = MediaWikiServices::getInstance()->getRepoGroup()->getLocalRepo();
 		}
 
 		return $this->repo->getRootDirectory() . '/' . $this->repo->getHashPath( $name ) . $name;
@@ -166,7 +156,7 @@ class CleanupImages extends TableCleanup {
 			return;
 		}
 
-		$db = $this->getPrimaryDB();
+		$db = $this->getDB( DB_PRIMARY );
 
 		/*
 		 * To prevent key collisions in the update() statements below,
@@ -195,24 +185,18 @@ class CleanupImages extends TableCleanup {
 			$this->output( "renaming $path to $finalPath\n" );
 			// @todo FIXME: Should this use File::move()?
 			$this->beginTransaction( $db, __METHOD__ );
-			$db->newUpdateQueryBuilder()
-				->update( 'image' )
-				->set( [ 'img_name' => $final ] )
-				->where( [ 'img_name' => $orig ] )
-				->caller( __METHOD__ )
-				->execute();
-			$db->newUpdateQueryBuilder()
-				->update( 'oldimage' )
-				->set( [ 'oi_name' => $final ] )
-				->where( [ 'oi_name' => $orig ] )
-				->caller( __METHOD__ )
-				->execute();
-			$db->newUpdateQueryBuilder()
-				->update( 'page' )
-				->set( [ 'page_title' => $final ] )
-				->where( [ 'page_title' => $orig, 'page_namespace' => NS_FILE ] )
-				->caller( __METHOD__ )
-				->execute();
+			$db->update( 'image',
+				[ 'img_name' => $final ],
+				[ 'img_name' => $orig ],
+				__METHOD__ );
+			$db->update( 'oldimage',
+				[ 'oi_name' => $final ],
+				[ 'oi_name' => $orig ],
+				__METHOD__ );
+			$db->update( 'page',
+				[ 'page_title' => $final ],
+				[ 'page_title' => $orig, 'page_namespace' => NS_FILE ],
+				__METHOD__ );
 			$dir = dirname( $finalPath );
 			if ( !file_exists( $dir ) ) {
 				if ( !wfMkdirParents( $dir, null, __METHOD__ ) ) {
@@ -253,7 +237,5 @@ class CleanupImages extends TableCleanup {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = CleanupImages::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

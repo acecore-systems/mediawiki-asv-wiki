@@ -1,5 +1,12 @@
 <?php
 /**
+ * Created on Mar 29, 2009
+ *
+ * AbuseFilter extension
+ *
+ * Copyright © 2008 Alex Z. mrzmanwiki AT gmail DOT com
+ * Based mostly on code by Bryan Tong Minh and Roan Kattouw
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -18,21 +25,16 @@
 
 namespace MediaWiki\Extension\AbuseFilter\Api;
 
-use MediaWiki\Api\ApiBase;
-use MediaWiki\Api\ApiQuery;
-use MediaWiki\Api\ApiQueryBase;
+use ApiBase;
+use ApiQuery;
+use ApiQueryBase;
 use MediaWiki\Extension\AbuseFilter\AbuseFilterPermissionManager;
-use MediaWiki\Extension\AbuseFilter\Filter\Flags;
-use MediaWiki\Extension\AbuseFilter\FilterUtils;
-use MediaWiki\Utils\MWTimestamp;
+use MWTimestamp;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\TypeDef\IntegerDef;
 
 /**
  * Query module to list abuse filter details.
- *
- * @copyright 2009 Alex Z. <mrzmanwiki AT gmail DOT com>
- * Based mostly on code by Bryan Tong Minh and Roan Kattouw
  *
  * @ingroup API
  * @ingroup Extensions
@@ -75,7 +77,6 @@ class QueryAbuseFilters extends ApiQueryBase {
 		$fld_time = isset( $prop['lastedittime'] );
 		$fld_status = isset( $prop['status'] );
 		$fld_private = isset( $prop['private'] );
-		$fld_protected = isset( $prop['protected'] );
 
 		$result = $this->getResult();
 
@@ -90,11 +91,7 @@ class QueryAbuseFilters extends ApiQueryBase {
 		$this->addFieldsIf( 'af_pattern', $fld_pattern );
 		$this->addFieldsIf( 'af_actions', $fld_actions );
 		$this->addFieldsIf( 'af_comments', $fld_comments );
-		if ( $fld_user ) {
-			$this->addTables( 'actor' );
-			$this->addFields( [ 'af_user_text' => 'actor_name' ] );
-			$this->addJoinConds( [ 'actor' => [ 'JOIN', 'actor_id = af_actor' ] ] );
-		}
+		$this->addFieldsIf( 'af_user_text', $fld_user );
 		$this->addFieldsIf( 'af_timestamp', $fld_time );
 
 		$this->addOption( 'LIMIT', $params['limit'] + 1 );
@@ -112,33 +109,17 @@ class QueryAbuseFilters extends ApiQueryBase {
 				$this->dieWithError( 'apierror-show' );
 			}
 
-			$dbr = $this->getDb();
-			$this->addWhereIf( $dbr->expr( 'af_enabled', '=', 0 ), isset( $show['!enabled'] ) );
-			$this->addWhereIf( $dbr->expr( 'af_enabled', '!=', 0 ), isset( $show['enabled'] ) );
-			$this->addWhereIf( $dbr->expr( 'af_deleted', '=', 0 ), isset( $show['!deleted'] ) );
-			$this->addWhereIf( $dbr->expr( 'af_deleted', '!=', 0 ), isset( $show['deleted'] ) );
-			$this->addWhereIf(
-				$dbr->bitAnd( 'af_hidden', Flags::FILTER_HIDDEN ) . ' = 0',
-				isset( $show['!private'] )
-			);
-			$this->addWhereIf(
-				$dbr->bitAnd( 'af_hidden', Flags::FILTER_HIDDEN ) . ' != 0',
-				isset( $show['private'] )
-			);
-			$this->addWhereIf(
-				$dbr->bitAnd( 'af_hidden', Flags::FILTER_USES_PROTECTED_VARS ) . ' != 0',
-				isset( $show['!protected'] )
-			);
-			$this->addWhereIf(
-				$dbr->bitAnd( 'af_hidden', Flags::FILTER_USES_PROTECTED_VARS ) . ' = 0',
-				isset( $show['!protected'] )
-			);
+			$this->addWhereIf( 'af_enabled = 0', isset( $show['!enabled'] ) );
+			$this->addWhereIf( 'af_enabled != 0', isset( $show['enabled'] ) );
+			$this->addWhereIf( 'af_deleted = 0', isset( $show['!deleted'] ) );
+			$this->addWhereIf( 'af_deleted != 0', isset( $show['deleted'] ) );
+			$this->addWhereIf( 'af_hidden = 0', isset( $show['!private'] ) );
+			$this->addWhereIf( 'af_hidden != 0', isset( $show['private'] ) );
 		}
 
 		$res = $this->select( __METHOD__ );
 
 		$showhidden = $this->afPermManager->canViewPrivateFilters( $this->getAuthority() );
-		$showProtected = $this->afPermManager->canViewProtectedVariables( $this->getAuthority() );
 
 		$count = 0;
 		foreach ( $res as $row ) {
@@ -155,11 +136,7 @@ class QueryAbuseFilters extends ApiQueryBase {
 			if ( $fld_desc ) {
 				$entry['description'] = $row->af_public_comments;
 			}
-			if (
-				$fld_pattern &&
-				( !FilterUtils::isHidden( $row->af_hidden ) || $showhidden ) &&
-				( !FilterUtils::isProtected( $row->af_hidden ) || $showProtected )
-			) {
+			if ( $fld_pattern && ( !$row->af_hidden || $showhidden ) ) {
 				$entry['pattern'] = $row->af_pattern;
 			}
 			if ( $fld_actions ) {
@@ -168,11 +145,7 @@ class QueryAbuseFilters extends ApiQueryBase {
 			if ( $fld_hits ) {
 				$entry['hits'] = intval( $row->af_hit_count );
 			}
-			if (
-				$fld_comments &&
-				( !FilterUtils::isHidden( $row->af_hidden ) || $showhidden ) &&
-				( !FilterUtils::isProtected( $row->af_hidden ) || $showProtected )
-			) {
+			if ( $fld_comments && ( !$row->af_hidden || $showhidden ) ) {
 				$entry['comments'] = $row->af_comments;
 			}
 			if ( $fld_user ) {
@@ -182,11 +155,8 @@ class QueryAbuseFilters extends ApiQueryBase {
 				$ts = new MWTimestamp( $row->af_timestamp );
 				$entry['lastedittime'] = $ts->getTimestamp( TS_ISO_8601 );
 			}
-			if ( $fld_private && FilterUtils::isHidden( $row->af_hidden ) ) {
+			if ( $fld_private && $row->af_hidden ) {
 				$entry['private'] = '';
-			}
-			if ( $fld_protected && FilterUtils::isProtected( $row->af_hidden ) ) {
-				$entry['protected'] = '';
 			}
 			if ( $fld_status ) {
 				if ( $row->af_enabled ) {
@@ -236,8 +206,6 @@ class QueryAbuseFilters extends ApiQueryBase {
 					'!deleted',
 					'private',
 					'!private',
-					'protected',
-					'!protected',
 				],
 			],
 			'limit' => [
@@ -260,7 +228,6 @@ class QueryAbuseFilters extends ApiQueryBase {
 					'lastedittime',
 					'status',
 					'private',
-					'protected',
 				],
 				ParamValidator::PARAM_ISMULTI => true
 			]

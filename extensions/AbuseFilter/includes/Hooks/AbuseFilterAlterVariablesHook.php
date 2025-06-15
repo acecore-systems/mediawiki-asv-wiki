@@ -3,8 +3,8 @@
 namespace MediaWiki\Extension\AbuseFilter\Hooks;
 
 use MediaWiki\Extension\AbuseFilter\Variables\VariableHolder;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
+use Title;
+use User;
 
 interface AbuseFilterAlterVariablesHook {
 	/**

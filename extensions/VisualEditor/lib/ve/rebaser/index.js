@@ -1,6 +1,6 @@
-$( () => {
-	new ve.init.sa.Platform( ve.messagePaths ).initialize().done( () => {
-		const documentNameInput = new OO.ui.TextInputWidget( {
+$( function () {
+	new ve.init.sa.Platform( ve.messagePaths ).initialize().done( function () {
+		var documentNameInput = new OO.ui.TextInputWidget( {
 				placeholder: OO.ui.msg( 'visualeditor-rebase-client-document-name' )
 			} ),
 			submitButton = new OO.ui.ButtonWidget( {
@@ -12,7 +12,7 @@ $( () => {
 			} );
 
 		function onSubmit() {
-			const docName = documentNameInput.getValue().trim().replace( / /g, '_' ) || Math.random().toString( 36 ).slice( 2 );
+			var docName = documentNameInput.getValue().trim().replace( / /g, '_' ) || Math.random().toString( 36 ).slice( 2 );
 			if ( docName ) {
 				window.location.href = '/doc/edit/' + encodeURIComponent( docName );
 			} else {

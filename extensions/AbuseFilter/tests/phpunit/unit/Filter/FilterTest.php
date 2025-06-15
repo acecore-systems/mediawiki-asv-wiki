@@ -11,9 +11,18 @@ use MediaWikiUnitTestCase;
 /**
  * @group Test
  * @group AbuseFilter
- * @covers \MediaWiki\Extension\AbuseFilter\Filter\Filter
+ * @coversDefaultClass \MediaWiki\Extension\AbuseFilter\Filter\Filter
  */
 class FilterTest extends MediaWikiUnitTestCase {
+	/**
+	 * @covers ::__construct
+	 * @covers ::getUserID
+	 * @covers ::getUserName
+	 * @covers ::getTimestamp
+	 * @covers ::getID
+	 * @covers ::getHitCount
+	 * @covers ::isThrottled
+	 */
 	public function testValueGetters() {
 		$userID = 42;
 		$userName = 'Admin';
@@ -39,6 +48,9 @@ class FilterTest extends MediaWikiUnitTestCase {
 		$this->assertSame( $throttled, $filter->isThrottled(), 'throttled' );
 	}
 
+	/**
+	 * @covers ::getLastEditInfo
+	 */
 	public function testGetObjects() {
 		$specs = $this->createMock( Specs::class );
 		$flags = $this->createMock( Flags::class );
@@ -49,6 +61,10 @@ class FilterTest extends MediaWikiUnitTestCase {
 		$this->assertNotSame( $lastEditInfo, $filter->getLastEditInfo(), 'not identical' );
 	}
 
+	/**
+	 * @covers ::__construct
+	 * @covers ::__clone
+	 */
 	public function testNoWriteableReferences() {
 		$oldUsername = 'User1';
 		$lastEditInfo = new LastEditInfo( 1, $oldUsername, '123' );

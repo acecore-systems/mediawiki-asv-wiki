@@ -1,10 +1,5 @@
 <?php
-
-namespace MediaWiki\HTMLForm\Field;
-
-use MediaWiki\HTMLForm\HTMLFormField;
-
-/**
+/*
  * @stable to extend
  */
 class HTMLApiField extends HTMLFormField {
@@ -28,6 +23,3 @@ class HTMLApiField extends HTMLFormField {
 		return false;
 	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( HTMLApiField::class, 'HTMLApiField' );

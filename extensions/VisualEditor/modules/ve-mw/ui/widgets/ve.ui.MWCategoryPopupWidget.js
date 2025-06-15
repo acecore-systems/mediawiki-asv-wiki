@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface MWCategoryPopupWidget class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -72,12 +72,12 @@ OO.inheritClass( ve.ui.MWCategoryPopupWidget, OO.ui.PopupWidget );
 /* Events */
 
 /**
- * @event ve.ui.MWCategoryPopupWidget#removeCategory
+ * @event removeCategory
  * @param {string} category Category name
  */
 
 /**
- * @event ve.ui.MWCategoryPopupWidget#updateSortkey
+ * @event updateSortkey
  * @param {string} category Category name
  * @param {string} sortkey New sortkey
  */
@@ -87,7 +87,7 @@ OO.inheritClass( ve.ui.MWCategoryPopupWidget, OO.ui.PopupWidget );
 /**
  * Handle category remove events.
  *
- * @fires ve.ui.MWCategoryPopupWidget#removeCategory
+ * @fires removeCategory
  */
 ve.ui.MWCategoryPopupWidget.prototype.onRemoveCategory = function () {
 	this.removed = true;
@@ -100,7 +100,7 @@ ve.ui.MWCategoryPopupWidget.prototype.onRemoveCategory = function () {
  *
  * @param {jQuery.Event} e Form submit event
  * @return {boolean}
- * @fires ve.ui.MWCategoryPopupWidget#updateSortkey
+ * @fires updateSortkey
  */
 ve.ui.MWCategoryPopupWidget.prototype.onSortKeySubmit = function () {
 	this.closePopup();
@@ -124,13 +124,13 @@ ve.ui.MWCategoryPopupWidget.prototype.openPopup = function ( item ) {
  * Handle popup toggle events.
  *
  * @param {boolean} show Widget is being made visible
- * @fires ve.ui.MWCategoryPopupWidget#updateSortkey
+ * @fires updateSortkey
  */
 ve.ui.MWCategoryPopupWidget.prototype.onToggle = function ( show ) {
 	if ( show ) {
 		return;
 	}
-	const newSortkey = this.sortKeyInput.$input.val();
+	var newSortkey = this.sortKeyInput.$input.val();
 	if ( !this.removed && newSortkey !== ( this.origSortkey || '' ) ) {
 		if ( newSortkey === this.fallbackSortKey ) {
 			this.emit( 'updateSortkey', this.category, '' );

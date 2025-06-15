@@ -1,17 +1,21 @@
 /*!
  * VisualEditor DataModel Document store tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.dm.DocumentStore' );
 
-QUnit.test( 'Create', ( assert ) => {
-	const done = assert.async(),
+QUnit.test( 'Create', function ( assert ) {
+	var done = assert.async(),
 		fakeMongo = new ve.dm.FakeMongo(),
 		documentStore = new ve.dm.DocumentStore( fakeMongo, 'test', fakeMongo );
 
-	documentStore.connect().then( () => documentStore.dropDatabase() ).then( () => documentStore.load( 'Foo' ) ).then( ( change ) => {
+	documentStore.connect().then( function () {
+		return documentStore.dropDatabase();
+	} ).then( function () {
+		return documentStore.load( 'Foo' );
+	} ).then( function ( change ) {
 		assert.deepEqual(
 			change.toJSON(),
 			{ start: 0, transactions: [] },
@@ -21,10 +25,14 @@ QUnit.test( 'Create', ( assert ) => {
 			start: 0,
 			transactions: [ [ [ '', 'W' ] ], 'o', 'rld' ]
 		}, true ) );
-	} ).then( () => documentStore.onNewChange( 'Foo', ve.dm.Change.static.deserialize( {
-		start: 3,
-		transactions: [ [ [ '', 'H' ], 5 ], 'e', 'l', 'l', 'o', ' ' ]
-	}, true ) ) ).then( () => documentStore.load( 'Bar' ) ).then( ( change ) => {
+	} ).then( function () {
+		return documentStore.onNewChange( 'Foo', ve.dm.Change.static.deserialize( {
+			start: 3,
+			transactions: [ [ [ '', 'H' ], 5 ], 'e', 'l', 'l', 'o', ' ' ]
+		}, true ) );
+	} ).then( function () {
+		return documentStore.load( 'Bar' );
+	} ).then( function ( change ) {
 		assert.deepEqual(
 			change.toJSON(),
 			{ start: 0, transactions: [] },
@@ -33,25 +41,31 @@ QUnit.test( 'Create', ( assert ) => {
 		return documentStore.onNewChange( 'Bar', ve.dm.Change.static.deserialize( {
 			start: 44,
 			transactions: [ [ [ '', 'X' ] ] ]
-		}, true ) ).then( () => {
+		}, true ) ).then( function () {
 			assert.true( false, 'Throw on unmached start' );
-		} ).catch( () => {
+		} ).catch( function () {
 			assert.true( true, 'Throw on unmatched start' );
 		} );
-	} ).then( () => documentStore.load( 'Foo' ) ).then( ( change ) => {
+	} ).then( function () {
+		return documentStore.load( 'Foo' );
+	} ).then( function ( change ) {
 		assert.deepEqual(
 			change.toJSON(),
 			{ start: 0, transactions: [ [ [ '', 'W' ] ], 'o', 'rld', [ [ '', 'H' ], 5 ], 'e', 'l', 'l', 'o', ' ' ] },
 			'Transactions were saved'
 		);
 		return documentStore.dropDatabase();
-	} ).then( () => documentStore.load( 'Foo' ) ).then( ( change ) => {
+	} ).then( function () {
+		return documentStore.load( 'Foo' );
+	} ).then( function ( change ) {
 		assert.deepEqual(
 			change.toJSON(),
 			{ start: 0, transactions: [] },
 			'Reload new empty document after dropDatabase'
 		);
-	} ).then( () => documentStore.onClose() ).then( () => {
+	} ).then( function () {
+		return documentStore.onClose();
+	} ).then( function () {
 		assert.deepEqual(
 			fakeMongo.log,
 			[
@@ -68,7 +82,7 @@ QUnit.test( 'Create', ( assert ) => {
 			],
 			'Log is correct'
 		);
-	} ).catch( ( error ) => {
+	} ).catch( function ( error ) {
 		assert.true( false, 'Test failure: ' + error );
 	} ).then( () => done() );
 } );

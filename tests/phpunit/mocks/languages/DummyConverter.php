@@ -1,8 +1,5 @@
 <?php
 
-use MediaWiki\Language\LanguageConverter;
-use MediaWiki\Language\ReplacementArray;
-
 /**
  * Test converter (from Tajiki to latin orthography)
  */
@@ -44,8 +41,8 @@ class DummyConverter extends LanguageConverter {
 		return [];
 	}
 
-	public function loadDefaultTables(): array {
-		return [
+	public function loadDefaultTables() {
+		$this->mTables = [
 			'sgs' => new ReplacementArray(),
 			'simple' => new ReplacementArray(),
 			'tg-latn' => new ReplacementArray( $this->table ),

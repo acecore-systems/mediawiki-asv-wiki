@@ -1,18 +1,20 @@
 <?php
 
-namespace Wikimedia\Tests\Composer;
+class ComposerJsonTest extends PHPUnit\Framework\TestCase {
 
-use PHPUnit\Framework\TestCase;
-use Wikimedia\Composer\ComposerJson;
+	private $json;
 
-/**
- * @covers \Wikimedia\Composer\ComposerJson
- */
-class ComposerJsonTest extends TestCase {
-	private const JSON_FILE = __DIR__ . '/../../../../data/composer/composer.json';
+	protected function setUp(): void {
+		parent::setUp();
+		$this->json = __DIR__ . "/../../../../data/composer/composer.json";
+	}
 
+	/**
+	 * @covers ComposerJson::__construct
+	 * @covers ComposerJson::getRequiredDependencies
+	 */
 	public function testGetRequiredDependencies() {
-		$json = new ComposerJson( self::JSON_FILE );
+		$json = new ComposerJson( $this->json );
 		$this->assertEquals( [
 			'cdb/cdb' => '1.0.0',
 			'cssjanus/cssjanus' => '1.1.1',
@@ -30,6 +32,7 @@ class ComposerJsonTest extends TestCase {
 
 	/**
 	 * @dataProvider provideNormalizeVersion
+	 * @covers ComposerJson::normalizeVersion
 	 */
 	public function testNormalizeVersion( $input, $expected ) {
 		$this->assertEquals( $expected, ComposerJson::normalizeVersion( $input ) );

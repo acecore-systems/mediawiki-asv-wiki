@@ -5,28 +5,21 @@
  */
 
 /**
- * Configuration options.
- *
- * @typedef {Object} mw.widgets.TableWidgetModel~Config
- * @property {Array} [rows] An array of objects containing `key` and `label` properties for every row
- * @property {Array} [cols] An array of objects containing `key` and `label` properties for every column
- * @property {Array} [data] An array containing all values of the table
- * @property {RegExp|Function|string} [validate] Validation pattern to apply on every cell
- * @property {boolean} [showHeaders=true] Show table header row. Defaults to true.
- * @property {boolean} [showRowLabels=true] Show row labels. Defaults to true.
- * @property {boolean} [allowRowInsertion=true] Allow row insertion. Defaults to true.
- * @property {boolean} [allowRowDeletion=true] Allow row deletion. Defaults to true.
- */
-
-/**
- * @classdesc TableWidget model.
+ * TableWidget model.
  *
  * @class
- * @mixes OO.EventEmitter
+ * @mixins OO.EventEmitter
  *
  * @constructor
- * @description Create an instance of `mw.widgets.TableWidgetModel`.
- * @param {mw.widgets.TableWidgetModel~Config} [config] Configuration options
+ * @param {Object} [config] Configuration options
+ * @cfg {Array} [rows] An array of objects containing `key` and `label` properties for every row
+ * @cfg {Array} [cols] An array of objects containing `key` and `label` properties for every column
+ * @cfg {Array} [data] An array containing all values of the table
+ * @cfg {RegExp|Function|string} [validate] Validation pattern to apply on every cell
+ * @cfg {boolean} [showHeaders=true] Show table header row. Defaults to true.
+ * @cfg {boolean} [showRowLabels=true] Show row labels. Defaults to true.
+ * @cfg {boolean} [allowRowInsertion=true] Allow row insertion. Defaults to true.
+ * @cfg {boolean} [allowRowDeletion=true] Allow row deletion. Defaults to true.
  */
 mw.widgets.TableWidgetModel = function MwWidgetsTableWidgetModel( config ) {
 	config = config || {};
@@ -63,7 +56,7 @@ OO.mixinClass( mw.widgets.TableWidgetModel, OO.EventEmitter );
  * properties of the row/column. Returns `null` if the row/column can't be found.
  */
 mw.widgets.TableWidgetModel.static.getEntryFromPropsTable = function ( handle, table ) {
-	let row = null,
+	var row = null,
 		i, len;
 
 	if ( typeof handle === 'string' ) {
@@ -85,18 +78,20 @@ mw.widgets.TableWidgetModel.static.getEntryFromPropsTable = function ( handle, t
 /* Events */
 
 /**
+ * @event valueChange
+ *
  * Fired when a value inside the table has changed.
  *
- * @event mw.widgets.TableWidgetModel.valueChange
  * @param {number} row The row index of the updated cell
  * @param {number} column The column index of the updated cell
- * @param {any} value The new value
+ * @param {Mixed} value The new value
  */
 
 /**
+ * @event insertRow
+ *
  * Fired when a new row is inserted into the table.
  *
- * @event mw.widgets.TableWidgetModel.insertRow
  * @param {Array} data The initial data
  * @param {number} index The index in which to insert the new row
  * @param {string} key The row key
@@ -104,9 +99,10 @@ mw.widgets.TableWidgetModel.static.getEntryFromPropsTable = function ( handle, t
  */
 
 /**
+ * @event insertColumn
+ *
  * Fired when a new row is inserted into the table.
  *
- * @event mw.widgets.TableWidgetModel.insertColumn
  * @param {Array} data The initial data
  * @param {number} index The index in which to insert the new column
  * @param {string} key The column key
@@ -114,25 +110,28 @@ mw.widgets.TableWidgetModel.static.getEntryFromPropsTable = function ( handle, t
  */
 
 /**
+ * @event removeRow
+ *
  * Fired when a row is removed from the table.
  *
- * @event mw.widgets.TableWidgetModel.removeRow
  * @param {number} index The removed row index
  * @param {string} key The removed row key
  */
 
 /**
+ * @event removeColumn
+ *
  * Fired when a column is removed from the table.
  *
- * @event mw.widgets.TableWidgetModel.removeColumn
  * @param {number} index The removed column index
  * @param {string} key The removed column key
  */
 
 /**
+ * @event clear
+ *
  * Fired when the table data is wiped.
  *
- * @event mw.widgets.TableWidgetModel.clear
  * @param {boolean} clear Clear row/column properties
  */
 
@@ -149,7 +148,7 @@ mw.widgets.TableWidgetModel.static.getEntryFromPropsTable = function ( handle, t
 mw.widgets.TableWidgetModel.prototype.initializeProps = function ( rowProps, colProps ) {
 	// FIXME: Account for extra data with missing row/col metadata
 
-	let i, len;
+	var i, len;
 
 	this.rows = [];
 	this.cols = [];
@@ -178,7 +177,7 @@ mw.widgets.TableWidgetModel.prototype.initializeProps = function ( rowProps, col
 /**
  * Triggers the initialization process and builds the initial table.
  *
- * @fires mw.widgets.TableWidgetModel.insertRow
+ * @fires insertRow
  */
 mw.widgets.TableWidgetModel.prototype.setupTable = function () {
 	this.verifyData();
@@ -193,7 +192,7 @@ mw.widgets.TableWidgetModel.prototype.setupTable = function () {
  * @private
  */
 mw.widgets.TableWidgetModel.prototype.verifyData = function () {
-	let i, j, rowLen, colLen;
+	var i, j, rowLen, colLen;
 
 	for ( i = 0, rowLen = this.rows.length; i < rowLen; i++ ) {
 		if ( this.data[ i ] === undefined ) {
@@ -212,10 +211,10 @@ mw.widgets.TableWidgetModel.prototype.verifyData = function () {
  * Build initial table
  *
  * @private
- * @fires mw.widgets.TableWidgetModel.insertRow
+ * @fires insertRow
  */
 mw.widgets.TableWidgetModel.prototype.buildTable = function () {
-	let i, len;
+	var i, len;
 
 	for ( i = 0, len = this.rows.length; i < len; i++ ) {
 		this.emit( 'insertRow', this.data[ i ], i, this.rows[ i ].key, this.rows[ i ].label );
@@ -226,7 +225,7 @@ mw.widgets.TableWidgetModel.prototype.buildTable = function () {
  * Refresh the entire table with new data
  *
  * @private
- * @fires mw.widgets.TableWidgetModel.insertRow
+ * @fires insertRow
  */
 mw.widgets.TableWidgetModel.prototype.refreshTable = function () {
 	// TODO: Clear existing table
@@ -235,15 +234,15 @@ mw.widgets.TableWidgetModel.prototype.refreshTable = function () {
 };
 
 /**
- * Set the value of a particular cell.
+ * Set the value of a particular cell
  *
  * @param {number|string} row The index or key of the row
  * @param {number|string} col The index or key of the column
- * @param {any} value The new value
- * @fires mw.widgets.TableWidgetModel.valueChange
+ * @param {Mixed} value The new value
+ * @fires valueChange
  */
 mw.widgets.TableWidgetModel.prototype.setValue = function ( row, col, value ) {
-	let rowIndex, colIndex;
+	var rowIndex, colIndex;
 
 	if ( typeof row === 'number' ) {
 		rowIndex = row;
@@ -267,7 +266,7 @@ mw.widgets.TableWidgetModel.prototype.setValue = function ( row, col, value ) {
 };
 
 /**
- * Set the table data.
+ * Set the table data
  *
  * @param {Array} data The new table data
  */
@@ -291,10 +290,12 @@ mw.widgets.TableWidgetModel.prototype.setData = function ( data ) {
  * If unset or set to null, no key will be set.
  * @param {string} [label] A label to display next to the row.
  * If unset or set to null, the key will be used if there is one.
- * @fires mw.widgets.TableWidgetModel.insertRow
+ * @fires insertRow
  */
 mw.widgets.TableWidgetModel.prototype.insertRow = function ( data, index, key, label ) {
-	const insertIndex = ( typeof index === 'number' ) ? index : this.rows.length;
+	var insertIndex = ( typeof index === 'number' ) ? index : this.rows.length,
+		newRowData = [],
+		insertData, insertDataCell, i, len;
 
 	// Add the new row metadata
 	this.rows.splice( insertIndex, 0, {
@@ -303,15 +304,11 @@ mw.widgets.TableWidgetModel.prototype.insertRow = function ( data, index, key, l
 		label: label || undefined
 	} );
 
-	const newRowData = [];
-	let insertDataCell;
-
 	// Add the new row data
-	const insertData = ( Array.isArray( data ) ) ? data : [];
+	insertData = ( Array.isArray( data ) ) ? data : [];
 	// Ensure that all columns of data for this row have been supplied,
 	// otherwise fill the remaining data with empty strings
-
-	for ( let i = 0, len = this.cols.length; i < len; i++ ) {
+	for ( i = 0, len = this.cols.length; i < len; i++ ) {
 		insertDataCell = '';
 		if ( typeof insertData[ i ] === 'string' || typeof insertData[ i ] === 'number' ) {
 			insertDataCell = insertData[ i ];
@@ -322,7 +319,7 @@ mw.widgets.TableWidgetModel.prototype.insertRow = function ( data, index, key, l
 	this.data.splice( insertIndex, 0, newRowData );
 
 	// Update all indexes in following rows
-	for ( let i = insertIndex + 1, len = this.rows.length; i < len; i++ ) {
+	for ( i = insertIndex + 1, len = this.rows.length; i < len; i++ ) {
 		this.rows[ i ].index++;
 	}
 
@@ -340,10 +337,11 @@ mw.widgets.TableWidgetModel.prototype.insertRow = function ( data, index, key, l
  * If unset or set to null, no key will be set.
  * @param {string} [label] A label to display next to the column.
  * If unset or set to null, the key will be used if there is one.
- * @fires mw.widgets.TableWidgetModel.insertColumn
+ * @fires insertColumn
  */
 mw.widgets.TableWidgetModel.prototype.insertColumn = function ( data, index, key, label ) {
-	const insertIndex = ( typeof index === 'number' ) ? index : this.cols.length;
+	var insertIndex = ( typeof index === 'number' ) ? index : this.cols.length,
+		insertDataCell, insertData, i, len;
 
 	// Add the new column metadata
 	this.cols.splice( insertIndex, 0, {
@@ -353,13 +351,10 @@ mw.widgets.TableWidgetModel.prototype.insertColumn = function ( data, index, key
 	} );
 
 	// Add the new column data
-	const insertData = ( Array.isArray( data ) ) ? data : [];
+	insertData = ( Array.isArray( data ) ) ? data : [];
 	// Ensure that all rows of data for this column have been supplied,
 	// otherwise fill the remaining data with empty strings
-
-	let insertDataCell;
-
-	for ( let i = 0, len = this.rows.length; i < len; i++ ) {
+	for ( i = 0, len = this.rows.length; i < len; i++ ) {
 		insertDataCell = '';
 		if ( typeof insertData[ i ] === 'string' || typeof insertData[ i ] === 'number' ) {
 			insertDataCell = insertData[ i ];
@@ -369,7 +364,7 @@ mw.widgets.TableWidgetModel.prototype.insertColumn = function ( data, index, key
 	}
 
 	// Update all indexes in following cols
-	for ( let i = insertIndex + 1, len = this.cols.length; i < len; i++ ) {
+	for ( i = insertIndex + 1, len = this.cols.length; i < len; i++ ) {
 		this.cols[ i ].index++;
 	}
 
@@ -381,10 +376,11 @@ mw.widgets.TableWidgetModel.prototype.insertColumn = function ( data, index, key
  * all the following rows will be shifted back one row.
  *
  * @param {number|string} handle The key or numerical index of the row to remove
- * @fires mw.widgets.TableWidgetModel.removeRow
+ * @fires removeRow
  */
 mw.widgets.TableWidgetModel.prototype.removeRow = function ( handle ) {
-	const rowProps = this.getRowProperties( handle );
+	var rowProps = this.getRowProperties( handle ),
+		i, len;
 
 	// Exit early if the row couldn't be found
 	if ( rowProps === null ) {
@@ -395,7 +391,7 @@ mw.widgets.TableWidgetModel.prototype.removeRow = function ( handle ) {
 	this.data.splice( rowProps.index, 1 );
 
 	// Update all indexes in following rows
-	for ( let i = rowProps.index, len = this.rows.length; i < len; i++ ) {
+	for ( i = rowProps.index, len = this.rows.length; i < len; i++ ) {
 		this.rows[ i ].index--;
 	}
 
@@ -407,10 +403,11 @@ mw.widgets.TableWidgetModel.prototype.removeRow = function ( handle ) {
  * all the following columns will be shifted back one column.
  *
  * @param {number|string} handle The key or numerical index of the column to remove
- * @fires mw.widgets.TableWidgetModel.removeColumn
+ * @fires removeColumn
  */
 mw.widgets.TableWidgetModel.prototype.removeColumn = function ( handle ) {
-	const colProps = this.getColumnProperties( handle );
+	var colProps = this.getColumnProperties( handle ),
+		i, len;
 
 	// Exit early if the column couldn't be found
 	if ( colProps === null ) {
@@ -419,12 +416,12 @@ mw.widgets.TableWidgetModel.prototype.removeColumn = function ( handle ) {
 
 	this.cols.splice( colProps.index, 1 );
 
-	for ( let i = 0, len = this.data.length; i < len; i++ ) {
+	for ( i = 0, len = this.data.length; i < len; i++ ) {
 		this.data[ i ].splice( colProps.index, 1 );
 	}
 
 	// Update all indexes in following columns
-	for ( let i = colProps.index, len = this.cols.length; i < len; i++ ) {
+	for ( i = colProps.index, len = this.cols.length; i < len; i++ ) {
 		this.cols[ i ].index--;
 	}
 
@@ -432,9 +429,9 @@ mw.widgets.TableWidgetModel.prototype.removeColumn = function ( handle ) {
 };
 
 /**
- * Clears the table data.
+ * Clears the table data
  *
- * @fires mw.widgets.TableWidgetModel.clear
+ * @fires clear
  */
 mw.widgets.TableWidgetModel.prototype.clear = function () {
 	this.data = [];
@@ -444,9 +441,9 @@ mw.widgets.TableWidgetModel.prototype.clear = function () {
 };
 
 /**
- * Clears the table data, as well as all row and column properties.
+ * Clears the table data, as well as all row and column properties
  *
- * @fires mw.widgets.TableWidgetModel.clear
+ * @fires clear
  */
 mw.widgets.TableWidgetModel.prototype.clearWithProperties = function () {
 	this.data = [];
@@ -457,7 +454,7 @@ mw.widgets.TableWidgetModel.prototype.clearWithProperties = function () {
 };
 
 /**
- * Get all table properties.
+ * Get all table properties
  *
  * @return {Object}
  */
@@ -471,7 +468,7 @@ mw.widgets.TableWidgetModel.prototype.getTableProperties = function () {
 };
 
 /**
- * Get the validation pattern to test cells against.
+ * Get the validation pattern to test cells against
  *
  * @return {RegExp|Function|string}
  */
@@ -480,7 +477,7 @@ mw.widgets.TableWidgetModel.prototype.getValidationPattern = function () {
 };
 
 /**
- * Get properties of a given row.
+ * Get properties of a given row
  *
  * @param {string|number} handle The key (or numeric index) of the row
  * @return {Object|null} An object containing the `key`, `index` and `label` properties of the row.
@@ -491,7 +488,7 @@ mw.widgets.TableWidgetModel.prototype.getRowProperties = function ( handle ) {
 };
 
 /**
- * Get properties of all rows.
+ * Get properties of all rows
  *
  * @return {Array} An array of objects containing `key`, `index` and `label` properties for each row
  */
@@ -500,7 +497,7 @@ mw.widgets.TableWidgetModel.prototype.getAllRowProperties = function () {
 };
 
 /**
- * Get properties of a given column.
+ * Get properties of a given column
  *
  * @param {string|number} handle The key (or numeric index) of the column
  * @return {Object|null} An object containing the `key`, `index` and
@@ -512,7 +509,7 @@ mw.widgets.TableWidgetModel.prototype.getColumnProperties = function ( handle ) 
 };
 
 /**
- * Get properties of all columns.
+ * Get properties of all columns
  *
  * @return {Array} An array of objects containing `key`, `index` and
  *  `label` properties for each column

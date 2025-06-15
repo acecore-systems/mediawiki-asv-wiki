@@ -4,7 +4,6 @@ namespace Wikimedia\Rdbms;
 
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
-use InvalidArgumentException;
 
 /**
  * Custom handling for ENUM datatype
@@ -62,7 +61,7 @@ class EnumType extends Type {
 	 */
 	public function makeEnumTypeSql( $column, $platform ) {
 		if ( $platform->getName() !== 'postgresql' ) {
-			throw new InvalidArgumentException(
+			throw new \InvalidArgumentException(
 				__METHOD__ . ' can only be called on Postgres platform'
 			);
 		}

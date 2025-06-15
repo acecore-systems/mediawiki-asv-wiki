@@ -1,10 +1,10 @@
 /* global extDependencyMap */
 ( function () {
-	$( () => {
-		let $label = null, labelText = null;
+	$( function () {
+		var $label, labelText;
 
 		function syncText() {
-			let value = $( this ).val()
+			var value = $( this ).val()
 				.replace( /[\[\]{}|#<>%+? ]/g, '_' ) // eslint-disable-line no-useless-escape
 				.replace( /&/, '&amp;' )
 				.replace( /__+/g, '_' )
@@ -20,8 +20,8 @@
 			$( document.getElementById( $( this ).attr( 'rel' ) ) ).hide();
 		} );
 		$( document.getElementById( $( '.dbRadio:checked' ).attr( 'rel' ) ) ).show();
-		$( '.dbRadio' ).on( 'click', () => {
-			const $checked = $( '.dbRadio:checked' ),
+		$( '.dbRadio' ).on( 'click', function () {
+			var $checked = $( '.dbRadio:checked' ),
 				$wrapper = $( document.getElementById( $checked.attr( 'rel' ) ) );
 			// eslint-disable-next-line no-jquery/no-sizzle
 			if ( $wrapper.is( ':hidden' ) ) {
@@ -38,9 +38,22 @@
 			this.scrollTop = this.scrollHeight;
 		} );
 
+		// Show/hide Creative Commons thingy
+		$( '.licenseRadio' ).on( 'click', function () {
+			var $wrapper = $( '#config-cc-wrapper' );
+			if ( $( '#config__LicenseCode_cc-choose' ).is( ':checked' ) ) {
+				// FIXME: Use CSS transition
+				// eslint-disable-next-line no-jquery/no-animate-toggle
+				$wrapper.show( 'slow' );
+			} else {
+				// eslint-disable-next-line no-jquery/no-animate-toggle
+				$wrapper.hide( 'slow' );
+			}
+		} );
+
 		// Show/hide random stuff (email, upload)
 		$( '.showHideRadio' ).on( 'click', function () {
-			const $wrapper = $( '#' + $( this ).attr( 'rel' ) );
+			var $wrapper = $( '#' + $( this ).attr( 'rel' ) );
 			if ( $( this ).is( ':checked' ) ) {
 				// FIXME: Use CSS transition
 				// eslint-disable-next-line no-jquery/no-animate-toggle
@@ -51,7 +64,7 @@
 			}
 		} );
 		$( '.hideShowRadio' ).on( 'click', function () {
-			const $wrapper = $( '#' + $( this ).attr( 'rel' ) );
+			var $wrapper = $( '#' + $( this ).attr( 'rel' ) );
 			if ( $( this ).is( ':checked' ) ) {
 				// FIXME: Use CSS transition
 				// eslint-disable-next-line no-jquery/no-animate-toggle
@@ -70,7 +83,7 @@
 
 		// Enable/disable "other" textboxes
 		$( '.enableForOther' ).on( 'click', function () {
-			const $textbox = $( document.getElementById( $( this ).attr( 'rel' ) ) );
+			var $textbox = $( document.getElementById( $( this ).attr( 'rel' ) ) );
 			// FIXME: Ugh, this is ugly
 			if ( $( this ).val() === 'other' ) {
 				// FIXME: Use CSS transition
@@ -89,8 +102,8 @@
 		$( '#config_wgSitename' ).on( 'keyup change', syncText ).each( syncText );
 
 		// Show/Hide memcached servers when needed
-		$( 'input[name$="config__MainCacheType"]' ).on( 'change', () => {
-			const $memc = $( '#config-memcachewrapper' );
+		$( 'input[name$="config__MainCacheType"]' ).on( 'change', function () {
+			var $memc = $( '#config-memcachewrapper' );
 			if ( $( 'input[name$="config__MainCacheType"]:checked' ).val() === 'memcached' ) {
 				// FIXME: Use CSS transition
 				// eslint-disable-next-line no-jquery/no-animate-toggle
@@ -102,7 +115,7 @@
 		} );
 
 		function areReqsSatisfied( name ) {
-			let i, ext, skin, node;
+			var i, ext, skin, node;
 			if ( !extDependencyMap[ name ] ) {
 				return true;
 			}
@@ -131,9 +144,9 @@
 
 		// Disable checkboxes if the extension has dependencies
 		$( '.mw-ext-with-dependencies input' ).prop( 'disabled', true );
-		$( '.config-ext-input[data-name]' ).on( 'change', () => {
+		$( '.config-ext-input[data-name]' ).on( 'change', function () {
 			$( '.mw-ext-with-dependencies input' ).each( function () {
-				const name = this.getAttribute( 'data-name' );
+				var name = this.getAttribute( 'data-name' );
 				if ( areReqsSatisfied( name ) ) {
 					// Re-enable it!
 					this.disabled = false;
@@ -145,12 +158,12 @@
 			} );
 		} );
 
-		const base = window.location.pathname.split( '/mw-config' )[ 0 ];
+		var base = window.location.pathname.split( '/mw-config' )[ 0 ];
 		function getLogoPath( src ) {
 			return src.replace( '$wgResourceBasePath', base );
 		}
 
-		const nodes = {
+		var nodes = {
 			sidebar: 'config__Logo1x',
 			icon: 'config__LogoIcon',
 			wordmark: 'config__LogoWordmark',
@@ -159,9 +172,9 @@
 
 		// setup live preview of logos
 		function getLogoData() {
-			const data = {};
-			Object.keys( nodes ).forEach( ( key ) => {
-				const input = document.getElementById( nodes[ key ] );
+			var data = {};
+			Object.keys( nodes ).forEach( function ( key ) {
+				var input = document.getElementById( nodes[ key ] );
 				if ( input ) {
 					data[ key ] = getLogoPath( input.value );
 				}
@@ -175,38 +188,37 @@
 		 * @param {jQuery} $preview
 		 */
 		function renderLogo( $preview ) {
-			const data = getLogoData();
-			const $sidebar = $( '<div>' );
+			var data = getLogoData();
+			var $sidebar = $( '<div>' );
 			$sidebar.addClass( 'sidebar' );
-			const sidebarLogo = data.sidebar || data.icon;
+			var sidebarLogo = data.sidebar || data.icon;
 			if ( sidebarLogo ) {
-				const $sidebarCard = $( '<span>' ).addClass( 'cdx-card' ).css( 'display', 'inline-block' ).append(
-					$( '<span>' ).addClass( 'cdx-card__thumbnail cdx-thumbnail' ).html(
-						$( '<img>' ).attr( 'src', sidebarLogo ).addClass( 'logo-sidebar' )
-					)
-				).appendTo( $sidebar );
+				$( '<img>' ).attr( 'src', sidebarLogo )
+					.addClass( 'logo-sidebar' ).appendTo( $sidebar );
 
-				const $menu = $( '<span>' ).addClass( 'cdx-card__text' ).append(
-					$( '<span>' ).addClass( 'cdx-card__text__title' ).append(
-						$( '<a>' ).attr( 'href', '#' ).text( $preview.data( 'main-page' ) )
+				var $menu = $( '<ul>' ).append(
+					$( '<li>' ).append(
+						$( '<a>' ).attr( 'href', '#' )
+							.text( $preview.data( 'main-page' ) )
 					)
 				);
-				$menu.appendTo( $sidebarCard );
+				var $nav = $( '<nav>' );
+				$nav.append( $menu );
+				$nav.appendTo( $sidebar );
 			}
-			const $main = $( '<span>' ).addClass( 'logo-main' ).addClass( 'cdx-card' );
+			var $main = $( '<div>' ).addClass( 'logo-main' );
 			if ( data.icon ) {
-				$( '<span>' ).addClass( 'cdx-card__thumbnail cdx-thumbnail' ).html(
-					$( '<img>' ).attr( 'src', data.icon ).addClass( 'logo-icon' )
-				).appendTo( $main );
+				$( '<img>' ).attr( 'src', data.icon )
+					.addClass( 'logo-icon' ).appendTo( $main );
 			}
-			const $container = $( '<span>' ).addClass( 'cdx-card__text' ).appendTo( $main );
+			var $container = $( '<div>' ).appendTo( $main );
 
-			const fallback = {
+			var fallback = {
 				wordmark: $( '[name=config_LogoSiteName]' ).val()
 			};
-			[ 'wordmark', 'tagline' ].forEach( ( key ) => {
-				const src = data[ key ];
-				const $el = src ?
+			[ 'wordmark', 'tagline' ].forEach( function ( key ) {
+				var src = data[ key ];
+				var $el = src ?
 					$( '<img>' ).attr( 'src', src ) :
 					$( '<div>' ).text( fallback[ key ] );
 
@@ -215,7 +227,9 @@
 				// * logo-tagline
 				$el.addClass( 'logo-' + key ).appendTo( $container );
 			} );
-			$preview.empty().append( $sidebar, $main );
+			$preview.empty();
+			$preview.append( $sidebar );
+			$preview.append( $main );
 		}
 
 		/**
@@ -225,27 +239,27 @@
 		 * @param {string} tooltip
 		 */
 		function addDroppers( $preview, tooltip ) {
-			Object.keys( nodes ).forEach( ( key ) => {
-				const dropper = document.createElement( 'div' );
-				const input = document.getElementById( nodes[ key ] );
+			Object.keys( nodes ).forEach( function ( key ) {
+				var dropper = document.createElement( 'div' );
+				var input = document.getElementById( nodes[ key ] );
 				dropper.textContent = tooltip;
 				input.parentNode.insertBefore( dropper, input.nextSibling );
 				dropper.classList.add( 'logo-dropper' );
-				dropper.addEventListener( 'dragover', ( ev ) => {
+				dropper.addEventListener( 'dragover', function ( ev ) {
 					ev.preventDefault();
 				} );
 				dropper.addEventListener( 'drop', function ( ev ) {
 					// Prevent default behavior (Prevent file from being opened)
 					ev.preventDefault();
-					const d = this;
-					const item = ev.dataTransfer.items[ 0 ];
+					var d = this;
+					var item = ev.dataTransfer.items[ 0 ];
 					// Only allow images.
 					if ( item && item.type.indexOf( 'image/' ) === 0 ) {
-						const blob = item.getAsFile();
-						const reader = new FileReader();
+						var blob = item.getAsFile();
+						var reader = new FileReader();
 						reader.readAsDataURL( blob );
 						reader.onloadend = function () {
-							const base64data = reader.result;
+							var base64data = reader.result;
 							d.previousSibling.value = base64data;
 							renderLogo( $preview );
 						};
@@ -255,21 +269,14 @@
 		}
 
 		// setup preview area to respond to changes.
-		const $pOptions = $( '.config-personalization-options' );
+		var $pOptions = $( '.config-personalization-options' );
 		if ( $pOptions.length ) {
-			const $previewArea = $pOptions.find( '.logo-preview-area' );
-			$pOptions.find( ' input' ).on( 'input', () => {
+			var $previewArea = $pOptions.find( '.logo-preview-area' );
+			$pOptions.find( ' input' ).on( 'input', function () {
 				renderLogo( $previewArea );
 			} );
 			addDroppers( $previewArea, $previewArea.data( 'filedrop' ) );
 			renderLogo( $previewArea );
 		}
-
-		$( 'a.config-help-field-hint' ).on( 'click', function () {
-			// eslint-disable-next-line no-jquery/no-class-state
-			$( this )
-				.siblings( 'div.config-help-field-content' )
-				.toggleClass( 'config-help-field-content-hidden' );
-		} );
 	} );
 }() );

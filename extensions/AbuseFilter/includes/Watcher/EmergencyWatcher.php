@@ -2,15 +2,15 @@
 
 namespace MediaWiki\Extension\AbuseFilter\Watcher;
 
+use AutoCommitUpdate;
+use DeferredUpdates;
 use InvalidArgumentException;
 use MediaWiki\Config\ServiceOptions;
-use MediaWiki\Deferred\AutoCommitUpdate;
-use MediaWiki\Deferred\DeferredUpdates;
 use MediaWiki\Extension\AbuseFilter\EchoNotifier;
 use MediaWiki\Extension\AbuseFilter\EmergencyCache;
 use MediaWiki\Extension\AbuseFilter\FilterLookup;
 use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\LBFactory;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * Service for monitoring filters with restricted actions and preventing them
@@ -30,8 +30,8 @@ class EmergencyWatcher implements Watcher {
 	/** @var EmergencyCache */
 	private $cache;
 
-	/** @var LBFactory */
-	private $lbFactory;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
 
 	/** @var FilterLookup */
 	private $filterLookup;
@@ -44,21 +44,21 @@ class EmergencyWatcher implements Watcher {
 
 	/**
 	 * @param EmergencyCache $cache
-	 * @param LBFactory $lbFactory
+	 * @param ILoadBalancer $loadBalancer
 	 * @param FilterLookup $filterLookup
 	 * @param EchoNotifier $notifier
 	 * @param ServiceOptions $options
 	 */
 	public function __construct(
 		EmergencyCache $cache,
-		LBFactory $lbFactory,
+		ILoadBalancer $loadBalancer,
 		FilterLookup $filterLookup,
 		EchoNotifier $notifier,
 		ServiceOptions $options
 	) {
 		$options->assertRequiredOptions( self::CONSTRUCTOR_OPTIONS );
 		$this->cache = $cache;
-		$this->lbFactory = $lbFactory;
+		$this->loadBalancer = $loadBalancer;
 		$this->filterLookup = $filterLookup;
 		$this->notifier = $notifier;
 		$this->options = $options;
@@ -139,15 +139,15 @@ class EmergencyWatcher implements Watcher {
 
 		DeferredUpdates::addUpdate(
 			new AutoCommitUpdate(
-				$this->lbFactory->getPrimaryDatabase(),
+				$this->loadBalancer->getConnection( DB_PRIMARY ),
 				__METHOD__,
 				static function ( IDatabase $dbw, $fname ) use ( $throttleFilters ) {
-					$dbw->newUpdateQueryBuilder()
-						->update( 'abuse_filter' )
-						->set( [ 'af_throttled' => 1 ] )
-						->where( [ 'af_id' => $throttleFilters ] )
-						->caller( $fname )
-						->execute();
+					$dbw->update(
+						'abuse_filter',
+						[ 'af_throttled' => 1 ],
+						[ 'af_id' => $throttleFilters ],
+						$fname
+					);
 				}
 			)
 		);

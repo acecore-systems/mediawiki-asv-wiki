@@ -2,15 +2,14 @@
 
 namespace MediaWiki\Deferred\LinksUpdate;
 
-use InvalidArgumentException;
 use MediaWiki\Collation\CollationFactory;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\Linker\LinkTargetLookup;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\PageIdentity;
 use MediaWiki\Page\PageReference;
-use MediaWiki\Parser\ParserOutput;
 use MediaWiki\Revision\RevisionRecord;
+use ParserOutput;
 use Wikimedia\ObjectFactory\ObjectFactory;
 use Wikimedia\Rdbms\LBFactory;
 
@@ -39,7 +38,7 @@ class LinksTableGroup {
 			'needCollation' => true,
 		],
 		'externallinks' => [
-			'class' => ExternalLinksTable::class,
+			'class' => ExternalLinksTable::class
 		],
 		'imagelinks' => [
 			'class' => ImageLinksTable::class
@@ -51,10 +50,7 @@ class LinksTableGroup {
 			'class' => LangLinksTable::class
 		],
 		'pagelinks' => [
-			'class' => PageLinksTable::class,
-			'services' => [
-				'MainConfig'
-			],
+			'class' => PageLinksTable::class
 		],
 		'page_props' => [
 			'class' => PagePropsTable::class,
@@ -65,6 +61,9 @@ class LinksTableGroup {
 		],
 		'templatelinks' => [
 			'class' => TemplateLinksTable::class,
+			'services' => [
+				'MainConfig'
+			],
 		]
 	];
 
@@ -92,6 +91,9 @@ class LinksTableGroup {
 	/** @var int */
 	private $batchSize;
 
+	/** @var callable|null */
+	private $afterUpdateHook;
+
 	/** @var mixed */
 	private $ticket;
 
@@ -111,6 +113,7 @@ class LinksTableGroup {
 	 * @param PageIdentity $page
 	 * @param LinkTargetLookup $linkTargetLookup
 	 * @param int $batchSize
+	 * @param callable|null $afterUpdateHook
 	 * @param array $tempCollations
 	 */
 	public function __construct(
@@ -120,6 +123,7 @@ class LinksTableGroup {
 		PageIdentity $page,
 		LinkTargetLookup $linkTargetLookup,
 		$batchSize,
+		$afterUpdateHook,
 		array $tempCollations
 	) {
 		$this->objectFactory = $objectFactory;
@@ -127,6 +131,7 @@ class LinksTableGroup {
 		$this->collationFactory = $collationFactory;
 		$this->page = $page;
 		$this->batchSize = $batchSize;
+		$this->afterUpdateHook = $afterUpdateHook;
 		$this->linkTargetLookup = $linkTargetLookup;
 		$this->tempCollations = [];
 		foreach ( $tempCollations as $info ) {
@@ -209,7 +214,7 @@ class LinksTableGroup {
 			$spec = self::CORE_LIST['categorylinks'];
 			return $this->addCollationArgs( $spec, $tableName, true, $info );
 		}
-		throw new InvalidArgumentException(
+		throw new \InvalidArgumentException(
 			__CLASS__ . ": unknown table name \"$tableName\"" );
 	}
 
@@ -264,7 +269,8 @@ class LinksTableGroup {
 				$this->lbFactory,
 				$this->linkTargetLookup,
 				$this->page,
-				$this->batchSize
+				$this->batchSize,
+				$this->afterUpdateHook
 			);
 			if ( $this->parserOutput ) {
 				$table->setParserOutput( $this->parserOutput );

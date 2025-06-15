@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Lonelypages
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,45 +18,45 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
-
-namespace MediaWiki\Specials;
 
 use MediaWiki\Cache\LinkBatchFactory;
 use MediaWiki\Languages\LanguageConverterFactory;
 use MediaWiki\Linker\LinksMigration;
-use MediaWiki\SpecialPage\PageQueryPage;
-use MediaWiki\Title\NamespaceInfo;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
- * List of articles with no article linking to them,
+ * A special page looking for articles with no article linking to them,
  * thus being lonely.
  *
  * @ingroup SpecialPage
  */
 class SpecialLonelyPages extends PageQueryPage {
 
-	private NamespaceInfo $namespaceInfo;
-	private LinksMigration $linksMigration;
+	/** @var NamespaceInfo */
+	private $namespaceInfo;
+
+	/** @var LinksMigration */
+	private $linksMigration;
 
 	/**
 	 * @param NamespaceInfo $namespaceInfo
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param LinkBatchFactory $linkBatchFactory
 	 * @param LanguageConverterFactory $languageConverterFactory
 	 * @param LinksMigration $linksMigration
 	 */
 	public function __construct(
 		NamespaceInfo $namespaceInfo,
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		LinkBatchFactory $linkBatchFactory,
 		LanguageConverterFactory $languageConverterFactory,
 		LinksMigration $linksMigration
 	) {
 		parent::__construct( 'Lonelypages' );
 		$this->namespaceInfo = $namespaceInfo;
-		$this->setDatabaseProvider( $dbProvider );
+		$this->setDBLoadBalancer( $loadBalancer );
 		$this->setLinkBatchFactory( $linkBatchFactory );
 		$this->setLanguageConverter( $languageConverterFactory->getLanguageConverter( $this->getContentLanguage() ) );
 		$this->linksMigration = $linksMigration;
@@ -77,31 +79,37 @@ class SpecialLonelyPages extends PageQueryPage {
 	}
 
 	public function getQueryInfo() {
-		$queryInfo = $this->linksMigration->getQueryInfo( 'pagelinks', 'pagelinks', 'LEFT JOIN' );
-		$tables = [ 'page', 'linktarget', 'templatelinks', 'pagelinks' ];
+		$queryInfo = $this->linksMigration->getQueryInfo(
+			'templatelinks',
+			'templatelinks',
+			'LEFT JOIN'
+		);
+		list( $ns, $title ) = $this->linksMigration->getTitleFields( 'templatelinks' );
+		$tables = array_merge( [ 'page', 'pagelinks' ], $queryInfo['tables'] );
 		$conds = [
-			'pl_from' => null,
+			'pl_namespace IS NULL',
 			'page_namespace' => $this->namespaceInfo->getContentNamespaces(),
 			'page_is_redirect' => 0,
-			'tl_from' => null,
+			'tl_from IS NULL'
 		];
 		$joinConds = [
-			'templatelinks' => [ 'LEFT JOIN', [ 'tl_target_id=lt_id' ] ],
-			'linktarget' => [
+			'pagelinks' => [
 				'LEFT JOIN', [
-					"lt_namespace = page_namespace",
-					"lt_title = page_title"
+					'pl_namespace = page_namespace',
+					'pl_title = page_title'
 				]
+			],
+		];
+		$templatelinksJoin = [
+			'LEFT JOIN', [
+				"$ns = page_namespace",
+				"$title = page_title"
 			]
 		];
-
-		if ( !in_array( 'linktarget', $queryInfo['tables'] ) ) {
-			$joinConds['pagelinks'] = [
-				'LEFT JOIN', [
-					"pl_namespace = page_namespace",
-					"pl_title = page_title"
-				]
-			];
+		if ( in_array( 'linktarget', $tables ) ) {
+			$joinConds['linktarget'] = $templatelinksJoin;
+		} else {
+			$joinConds['templatelinks'] = $templatelinksJoin;
 		}
 
 		// Allow extensions to modify the query
@@ -132,6 +140,3 @@ class SpecialLonelyPages extends PageQueryPage {
 		return 'maintenance';
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialLonelyPages::class, 'SpecialLonelyPages' );

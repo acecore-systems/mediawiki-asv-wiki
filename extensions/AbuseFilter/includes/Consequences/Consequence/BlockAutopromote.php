@@ -6,7 +6,6 @@ use MediaWiki\Extension\AbuseFilter\BlockAutopromoteStore;
 use MediaWiki\Extension\AbuseFilter\Consequences\Parameters;
 use MediaWiki\Extension\AbuseFilter\GlobalNameUtils;
 use MediaWiki\User\UserIdentity;
-use MediaWiki\User\UserIdentityUtils;
 use MessageLocalizer;
 
 /**
@@ -19,28 +18,23 @@ class BlockAutopromote extends Consequence implements HookAborterConsequence, Re
 	private $blockAutopromoteStore;
 	/** @var MessageLocalizer */
 	private $messageLocalizer;
-	/** @var UserIdentityUtils */
-	private $userIdentityUtils;
 
 	/**
 	 * @param Parameters $params
 	 * @param int $duration
 	 * @param BlockAutopromoteStore $blockAutopromoteStore
 	 * @param MessageLocalizer $messageLocalizer
-	 * @param UserIdentityUtils $userIdentityUtils
 	 */
 	public function __construct(
 		Parameters $params,
 		int $duration,
 		BlockAutopromoteStore $blockAutopromoteStore,
-		MessageLocalizer $messageLocalizer,
-		UserIdentityUtils $userIdentityUtils
+		MessageLocalizer $messageLocalizer
 	) {
 		parent::__construct( $params );
 		$this->duration = $duration;
 		$this->blockAutopromoteStore = $blockAutopromoteStore;
 		$this->messageLocalizer = $messageLocalizer;
-		$this->userIdentityUtils = $userIdentityUtils;
 	}
 
 	/**
@@ -48,7 +42,7 @@ class BlockAutopromote extends Consequence implements HookAborterConsequence, Re
 	 */
 	public function execute(): bool {
 		$target = $this->parameters->getUser();
-		if ( !$this->userIdentityUtils->isNamed( $target ) ) {
+		if ( !$target->isRegistered() ) {
 			return false;
 		}
 

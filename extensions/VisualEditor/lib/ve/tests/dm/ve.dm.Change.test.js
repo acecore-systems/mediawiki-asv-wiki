@@ -1,18 +1,18 @@
 /*!
  * VisualEditor DataModel Change tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.dm.Change' );
 
-QUnit.test( 'rebaseTransactions', ( assert ) => {
-	const doc = ve.dm.example.createExampleDocument(),
+QUnit.test( 'rebaseTransactions', function ( assert ) {
+	var doc = ve.dm.example.createExampleDocument(),
 		bold = ve.dm.example.createAnnotation( ve.dm.example.bold ),
-		replace12 = ve.dm.TransactionBuilder.static.newFromReplacement( doc, new ve.Range( 1, 2 ), [ ...'Foo' ] ),
-		replace23 = ve.dm.TransactionBuilder.static.newFromReplacement( doc, new ve.Range( 2, 3 ), [ ...'Bar' ] ),
-		replace13 = ve.dm.TransactionBuilder.static.newFromReplacement( doc, new ve.Range( 1, 3 ), [ ...'Baz' ] ),
-		replace24 = ve.dm.TransactionBuilder.static.newFromReplacement( doc, new ve.Range( 2, 4 ), [ ...'qux' ] ),
+		replace12 = ve.dm.TransactionBuilder.static.newFromReplacement( doc, new ve.Range( 1, 2 ), [ 'f', 'o', 'o' ] ),
+		replace23 = ve.dm.TransactionBuilder.static.newFromReplacement( doc, new ve.Range( 2, 3 ), [ 'b', 'a', 'r' ] ),
+		replace13 = ve.dm.TransactionBuilder.static.newFromReplacement( doc, new ve.Range( 1, 3 ), [ 'b', 'a', 'z' ] ),
+		replace24 = ve.dm.TransactionBuilder.static.newFromReplacement( doc, new ve.Range( 2, 4 ), [ 'q', 'u', 'x' ] ),
 		insert1X = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 1, [ 'x' ] ),
 		insert1Y = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 1, [ 'y' ] ),
 		annotate12 = ve.dm.TransactionBuilder.static.newFromAnnotation( doc, new ve.Range( 1, 2 ), 'set', bold ),
@@ -27,7 +27,7 @@ QUnit.test( 'rebaseTransactions', ( assert ) => {
 		{
 			type: 'replace',
 			remove: [ [ 'b', [ ve.dm.example.boldHash ] ] ],
-			insert: [ ...'Bar' ]
+			insert: [ 'b', 'a', 'r' ]
 		},
 		{
 			type: 'retain',
@@ -43,7 +43,7 @@ QUnit.test( 'rebaseTransactions', ( assert ) => {
 		{
 			type: 'replace',
 			remove: [ 'a' ],
-			insert: [ ...'Foo' ]
+			insert: [ 'f', 'o', 'o' ]
 		},
 		{
 			type: 'retain',
@@ -59,7 +59,7 @@ QUnit.test( 'rebaseTransactions', ( assert ) => {
 		{
 			type: 'replace',
 			remove: [ 'a' ],
-			insert: [ ...'Foo' ]
+			insert: [ 'f', 'o', 'o' ]
 		},
 		{
 			type: 'retain',
@@ -81,7 +81,7 @@ QUnit.test( 'rebaseTransactions', ( assert ) => {
 		'Inverse rebase'
 	);
 
-	const rebased = ve.dm.Change.static.rebaseTransactions( insert1X, insert1Y );
+	var rebased = ve.dm.Change.static.rebaseTransactions( insert1X, insert1Y );
 	assert.deepEqual( rebased[ 0 ].operations, [
 		{
 			type: 'retain',
@@ -115,15 +115,15 @@ QUnit.test( 'rebaseTransactions', ( assert ) => {
 	], 'Rebase-endmost insert onto parallel insert at the same offset' );
 } );
 
-QUnit.test( 'Change operations', ( assert ) => {
-	const origData = [ { type: 'paragraph' }, ...'three', { type: '/paragraph' } ],
+QUnit.test( 'Change operations', function ( assert ) {
+	var origData = [ { type: 'paragraph' }, 't', 'h', 'r', 'e', 'e', { type: '/paragraph' } ],
 		newSurface = function () {
 			return new ve.dm.Surface(
 				ve.dm.example.createExampleDocumentFromData( origData )
 			);
-		};
-	let surface = newSurface();
-	const emptyStore = new ve.dm.HashValueStore(),
+		},
+		emptyStore = new ve.dm.HashValueStore(),
+		surface = newSurface(),
 		doc = surface.documentModel,
 		b = ve.dm.example.bold,
 		i = ve.dm.example.italic,
@@ -158,19 +158,19 @@ QUnit.test( 'Change operations', ( assert ) => {
 	insert2.applyTo( surface );
 	assert.deepEqual(
 		doc.data.data.slice( 1, -1 ),
-		[ [ 't', iHash ], [ 'w', iHash ], [ 'o', iHash ], ...' three' ],
+		[ [ 't', iHash ], [ 'w', iHash ], [ 'o', iHash ], ' ', 't', 'h', 'r', 'e', 'e' ],
 		'Apply insert2'
 	);
 
-	const replace2 = new ve.dm.Change( 4, [
-		TxReplace( doc, new ve.Range( 1, 4 ), [ ...'TWO' ] )
+	var replace2 = new ve.dm.Change( 4, [
+		TxReplace( doc, new ve.Range( 1, 4 ), [ 'T', 'W', 'O' ] )
 	], [ emptyStore ], {} );
 
-	const remove2 = new ve.dm.Change( 4, [
+	var remove2 = new ve.dm.Change( 4, [
 		TxRemove( doc, new ve.Range( 1, 4 ) )
 	], [ emptyStore ], {} );
 
-	let change = insert2.reversed();
+	var change = insert2.reversed();
 	assert.strictEqual( change.start, 4, 'start for insert2.reversed()' );
 	change.applyTo( surface );
 	assert.deepEqual( doc.data.data, origData, 'Apply insert2.reversed()' );
@@ -188,7 +188,12 @@ QUnit.test( 'Change operations', ( assert ) => {
 			[ 't', iHash ],
 			[ 'w', iHash ],
 			[ 'o', iHash ],
-			...' three'
+			' ',
+			't',
+			'h',
+			'r',
+			'e',
+			'e'
 		],
 		'Apply insert1 then insert2'
 	);
@@ -208,7 +213,11 @@ QUnit.test( 'Change operations', ( assert ) => {
 			[ 'o', bHash ],
 			[ 'n', bHash ],
 			[ 'e', bHash ],
-			...' TWO ',
+			' ',
+			'T',
+			'W',
+			'O',
+			' ',
 			[ 't', uHash ],
 			[ 'h', uHash ],
 			[ 'r', uHash ],
@@ -255,8 +264,8 @@ QUnit.test( 'Change operations', ( assert ) => {
 	);
 } );
 
-QUnit.test( 'Rebase with conflicting annotations', ( assert ) => {
-	const origData = [ { type: 'paragraph' }, 'A', { type: '/paragraph' } ],
+QUnit.test( 'Rebase with conflicting annotations', function ( assert ) {
+	var origData = [ { type: 'paragraph' }, 'A', { type: '/paragraph' } ],
 		newSurface = function () {
 			return new ve.dm.Surface(
 				ve.dm.example.createExampleDocumentFromData( origData )
@@ -271,10 +280,10 @@ QUnit.test( 'Rebase with conflicting annotations', ( assert ) => {
 		bStore = new ve.dm.HashValueStore( [ b ] );
 
 	// Canonical history: text gets removed
-	const remove = new ve.dm.Change( 1, [ TxRemove( doc, new ve.Range( 1, 2 ) ) ], [ emptyStore ], {} );
+	var remove = new ve.dm.Change( 1, [ TxRemove( doc, new ve.Range( 1, 2 ) ) ], [ emptyStore ], {} );
 	// Doomed conflicting history: text gets bolded
-	const setBold = new ve.dm.Change( 1, [ TxAnnotate( doc, new ve.Range( 1, 2 ), 'set', b ) ], [ bStore ], {} );
-	const result = ve.dm.Change.static.rebaseUncommittedChange( remove, setBold );
+	var setBold = new ve.dm.Change( 1, [ TxAnnotate( doc, new ve.Range( 1, 2 ), 'set', b ) ], [ bStore ], {} );
+	var result = ve.dm.Change.static.rebaseUncommittedChange( remove, setBold );
 	assert.deepEqual(
 		result.rebased.toJSON(),
 		new ve.dm.Change( 2, [], [], {} ).toJSON(),
@@ -292,8 +301,8 @@ QUnit.test( 'Rebase with conflicting annotations', ( assert ) => {
 	);
 } );
 
-QUnit.test( 'toJSON/deserialize/unsafeDeserialize', ( assert ) => {
-	const origData = [ { type: 'paragraph' }, ...'Bar', { type: '/paragraph' } ],
+QUnit.test( 'toJSON/deserialize/unsafeDeserialize', function ( assert ) {
+	var origData = [ { type: 'paragraph' }, 'b', 'a', 'r', { type: '/paragraph' } ],
 		newSurface = function () {
 			return new ve.dm.Surface(
 				ve.dm.example.createExampleDocumentFromData( origData )
@@ -371,14 +380,22 @@ QUnit.test( 'toJSON/deserialize/unsafeDeserialize', ( assert ) => {
 	);
 
 	assert.deepEqual(
-		ve.dm.Change.static.deserialize( serialized, true ).getStores().map( ( store ) => store.hashStore ),
-		serialized.stores.map( ( store ) => store ? store.hashStore : {} ),
+		ve.dm.Change.static.deserialize( serialized, true ).getStores().map( function ( store ) {
+			return store.hashStore;
+		} ),
+		serialized.stores.map( function ( store ) {
+			return store ? store.hashStore : {};
+		} ),
 		'Deserialize, preserving store values'
 	);
 
 	assert.notDeepEqual(
-		ve.dm.Change.static.deserialize( serialized ).getStores().map( ( store ) => store.hashStore ),
-		serialized.stores.map( ( store ) => store ? store.hashStore : {} ),
+		ve.dm.Change.static.deserialize( serialized ).getStores().map( function ( store ) {
+			return store.hashStore;
+		} ),
+		serialized.stores.map( function ( store ) {
+			return store ? store.hashStore : {};
+		} ),
 		'Deserialize, not preserving store values'
 	);
 
@@ -409,15 +426,17 @@ QUnit.test( 'toJSON/deserialize/unsafeDeserialize', ( assert ) => {
 	);
 
 	assert.deepEqual(
-		ve.dm.Change.static.deserialize( simpleSerialized, true ).getStores().map( ( store ) => store.hashStore ),
+		ve.dm.Change.static.deserialize( simpleSerialized, true ).getStores().map( function ( store ) {
+			return store.hashStore;
+		} ),
 		[ {} ],
 		'Deserialize, preserving store values (simple)'
 	);
 
 } );
 
-QUnit.test( 'Minified serialization', ( assert ) => {
-	const serialized = {
+QUnit.test( 'Minified serialization', function ( assert ) {
+	var serialized = {
 		start: 0,
 		transactions: [
 			// Type some individual code units
@@ -531,7 +550,7 @@ QUnit.test( 'Minified serialization', ( assert ) => {
 		]
 	};
 
-	const deserialized = ve.dm.Change.static.deserialize( serialized );
+	var deserialized = ve.dm.Change.static.deserialize( serialized );
 	assert.deepEqual(
 		deserialized.toJSON(),
 		serialized,
@@ -539,8 +558,8 @@ QUnit.test( 'Minified serialization', ( assert ) => {
 	);
 } );
 
-QUnit.test( 'Same-offset typing', ( assert ) => {
-	const surface = new ve.dm.Surface( ve.dm.example.createExampleDocumentFromData( [
+QUnit.test( 'Same-offset typing', function ( assert ) {
+	var surface = new ve.dm.Surface( ve.dm.example.createExampleDocumentFromData( [
 			{ type: 'paragraph' },
 			{ type: '/paragraph' },
 			{ type: 'internalList' }, { type: '/internalList' }
@@ -556,20 +575,20 @@ QUnit.test( 'Same-offset typing', ( assert ) => {
 		TxInsert = ve.dm.TransactionBuilder.static.newFromInsertion;
 
 	// 'ab' and 'cd' typed at the same offset
-	const a = new ve.dm.Change( 0, [ TxInsert( doc, 1, [ 'a' ] ) ], [ emptyStore ], {} );
+	var a = new ve.dm.Change( 0, [ TxInsert( doc, 1, [ 'a' ] ) ], [ emptyStore ], {} );
 	a.transactions[ 0 ].authorId = 1;
 	a.applyTo( surface );
-	const b = new ve.dm.Change( 1, [ TxInsert( doc, 2, [ 'b' ] ) ], [ emptyStore ], {} );
+	var b = new ve.dm.Change( 1, [ TxInsert( doc, 2, [ 'b' ] ) ], [ emptyStore ], {} );
 	b.transactions[ 0 ].authorId = 1;
 	clear();
-	const c = new ve.dm.Change( 0, [ TxInsert( doc, 1, [ 'c' ] ) ], [ emptyStore ], {} );
+	var c = new ve.dm.Change( 0, [ TxInsert( doc, 1, [ 'c' ] ) ], [ emptyStore ], {} );
 	c.transactions[ 0 ].authorId = 2;
 	c.applyTo( surface );
-	const d = new ve.dm.Change( 1, [ TxInsert( doc, 2, [ 'd' ] ) ], [ emptyStore ], {} );
+	var d = new ve.dm.Change( 1, [ TxInsert( doc, 2, [ 'd' ] ) ], [ emptyStore ], {} );
 	d.transactions[ 0 ].authorId = 2;
 	c.reversed().applyTo( surface );
 
-	const cases = [
+	var cases = [
 		{
 			message: 'a on c',
 			change: a.rebasedOnto( c ),
@@ -602,8 +621,8 @@ QUnit.test( 'Same-offset typing', ( assert ) => {
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
-		const operations = caseItem.change.transactions[ 0 ].operations;
+	cases.forEach( function ( caseItem ) {
+		var operations = caseItem.change.transactions[ 0 ].operations;
 		assert.deepEqual( {
 			before: operations[ 0 ].length,
 			insert: operations[ 1 ].insert[ 0 ],
@@ -612,7 +631,7 @@ QUnit.test( 'Same-offset typing', ( assert ) => {
 	} );
 
 	// Check that the order of application doesn't matter
-	const expected = [ { type: 'paragraph' }, ...'abcd', { type: '/paragraph' }, { type: 'internalList' }, { type: '/internalList' } ];
+	var expected = [ { type: 'paragraph' }, 'a', 'b', 'c', 'd', { type: '/paragraph' }, { type: 'internalList' }, { type: '/internalList' } ];
 
 	clear();
 	surface.setSelection( new ve.dm.LinearSelection( new ve.Range( 1 ) ) );

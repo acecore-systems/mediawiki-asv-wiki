@@ -1,7 +1,6 @@
 {
 	"@metadata": {
 		"authors": [
-			"Amire80",
 			"Anakmalaysia",
 			"Encikmelur",
 			"Jeluang Terluang"
@@ -17,7 +16,7 @@
 	"visualeditor-mwlanguagevariantcontextitem-flag-hidden": "Ini ialah peraturan tersembunyi.",
 	"visualeditor-mwlanguagevariantcontextitem-flag-title": "Peraturan ini akan mempengaruhi tajuk halaman.",
 	"visualeditor-mwlanguagevariantcontextitem-rule-code-label": "Kod&nbsp;bahasa",
-	"visualeditor-mwlanguagevariantcontextitem-rule-invalid-language-label": "<em>Tidak sah</em>",
+	"visualeditor-mwlanguagevariantcontextitem-rule-invalid-language-label": "<Tidak sah>",
 	"visualeditor-mwlanguagevariantcontextitem-rule-name-label": "Bahasa",
 	"visualeditor-mwlanguagevariantcontextitem-rule-text-from-label": "Sumber",
 	"visualeditor-mwlanguagevariantcontextitem-rule-text-to-label": "Destinasi",

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable CommentNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -9,7 +9,7 @@
  *
  * @class
  * @extends ve.ce.LeafNode
- * @mixes ve.ce.FocusableNode
+ * @mixins ve.ce.FocusableNode
  *
  * @constructor
  * @param {ve.dm.CommentNode} model Model to observe
@@ -40,7 +40,7 @@ ve.ce.CommentNode.static.name = 'comment';
 
 ve.ce.CommentNode.static.primaryCommandName = 'comment';
 
-ve.ce.CommentNode.static.iconWhenInvisible = 'speechBubbleNotice';
+ve.ce.CommentNode.static.iconWhenInvisible = 'notice';
 
 /* Static Methods */
 
@@ -67,9 +67,8 @@ ve.ce.CommentNode.prototype.onAttributeChange = function ( key ) {
 
 /* Method */
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.ce.FocusableNode
+ * @inheritdoc ve.ce.FocusableNode
  */
 ve.ce.CommentNode.prototype.hasRendering = function () {
 	// Comment nodes never have a rendering, don't bother with expensive DOM inspection

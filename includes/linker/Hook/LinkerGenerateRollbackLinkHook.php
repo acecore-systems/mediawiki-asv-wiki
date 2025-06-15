@@ -2,8 +2,7 @@
 
 namespace MediaWiki\Linker\Hook;
 
-use MediaWiki\Context\IContextSource;
-use MediaWiki\Linker\Linker;
+use IContextSource;
 use MediaWiki\Revision\RevisionRecord;
 
 /**

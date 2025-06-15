@@ -4,7 +4,6 @@
 			"ClarFonThey"
 		]
 	},
-	"content-model-scribunto": "nanpa Scribunto",
 	"scribunto-line": "lon linja $1",
 	"scribunto-parser-dialog-title": "pakala nanpa",
 	"scribunto-error-short": "pakala nanpa: $1",

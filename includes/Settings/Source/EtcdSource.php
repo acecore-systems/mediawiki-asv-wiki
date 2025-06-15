@@ -11,7 +11,6 @@ use GuzzleHttp\Psr7\Uri;
 use MediaWiki\Settings\Cache\CacheableSource;
 use MediaWiki\Settings\SettingsBuilderException;
 use MediaWiki\Settings\Source\Format\JsonFormat;
-use Stringable;
 use UnexpectedValueException;
 
 /**
@@ -19,7 +18,7 @@ use UnexpectedValueException;
  *
  * @since 1.38
  */
-class EtcdSource implements Stringable, CacheableSource {
+class EtcdSource implements CacheableSource {
 	/**
 	 * Default HTTP client connection and request timeout (2 seconds).
 	 */
@@ -160,7 +159,9 @@ class EtcdSource implements Stringable, CacheableSource {
 	public function load(): array {
 		$lastException = false;
 
-		foreach ( ( $this->resolver )() as [ $host, $port ] ) {
+		foreach ( ( $this->resolver )() as $server ) {
+			list( $host, $port ) = $server;
+
 			try {
 				return $this->loadFromEtcdServer( $host, $port );
 			} catch ( ConnectException | ServerException $e ) {
@@ -239,7 +240,7 @@ class EtcdSource implements Stringable, CacheableSource {
 		$settings = [];
 
 		try {
-			$resp = $this->format->decode( $response->getBody()->getContents() );
+			$resp = $this->format->decode( $response->getBody() );
 
 			if (
 				!isset( $resp['node'] ) || !is_array( $resp['node'] )

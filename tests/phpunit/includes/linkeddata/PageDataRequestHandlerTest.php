@@ -1,16 +1,9 @@
 <?php
 
-use MediaWiki\Context\DerivativeContext;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\LinkedData\PageDataRequestHandler;
-use MediaWiki\Output\OutputPage;
-use MediaWiki\Request\FauxRequest;
-use MediaWiki\Request\FauxResponse;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleFactory;
+use MediaWiki\MainConfigNames;
 
 /**
- * @covers \MediaWiki\LinkedData\PageDataRequestHandler
+ * @covers PageDataRequestHandler
  * @group PageData
  */
 class PageDataRequestHandlerTest extends \MediaWikiLangTestCase {
@@ -29,9 +22,9 @@ class PageDataRequestHandlerTest extends \MediaWikiLangTestCase {
 		parent::setUp();
 
 		$this->interfaceTitle = Title::newFromText( __CLASS__ );
-		// Force the content model to avoid DB queries.
-		$this->interfaceTitle->setContentModel( CONTENT_MODEL_WIKITEXT );
 		$this->obLevel = ob_get_level();
+
+		$this->overrideConfigValue( MainConfigNames::ArticlePath, '/wiki/$1' );
 	}
 
 	protected function tearDown(): void {
@@ -83,7 +76,7 @@ class PageDataRequestHandlerTest extends \MediaWikiLangTestCase {
 		return $output;
 	}
 
-	public static function handleRequestProvider() {
+	public function handleRequestProvider() {
 		$cases = [];
 
 		$cases[] = [ '', [], [], 'Invalid title', 400 ];
@@ -223,14 +216,6 @@ class PageDataRequestHandlerTest extends \MediaWikiLangTestCase {
 		$expectedStatusCode = 200,
 		array $expectedHeaders = []
 	) {
-		$titleFactory = $this->createMock( TitleFactory::class );
-		$titleFactory->method( 'newFromTextThrow' )->willReturnCallback( static function ( $text, $ns ) {
-			// Force the content model to avoid DB queries.
-			$ret = Title::newFromTextThrow( $text, $ns );
-			$ret->setContentModel( CONTENT_MODEL_WIKITEXT );
-			return $ret;
-		} );
-		$this->setService( 'TitleFactory', $titleFactory );
 		$output = $this->makeOutputPage( $params, $headers );
 		$request = $output->getRequest();
 
@@ -270,10 +255,8 @@ class PageDataRequestHandlerTest extends \MediaWikiLangTestCase {
 		$this->assertSame( '*', $response->getHeader( 'Access-Control-Allow-Origin' ) );
 	}
 
-	public static function provideHttpContentNegotiation() {
+	public function provideHttpContentNegotiation() {
 		$helsinki = Title::makeTitle( NS_MAIN, 'Helsinki' );
-		// Force the content model to avoid DB queries.
-		$helsinki->setContentModel( CONTENT_MODEL_WIKITEXT );
 		return [
 			'Accept Header of HTML' => [
 				$helsinki,

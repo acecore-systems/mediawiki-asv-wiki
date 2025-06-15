@@ -33,11 +33,13 @@
 		"installer-name": "Vector"
 	},
 	"require-dev": {
-		"mediawiki/mediawiki-codesniffer": "45.0.0",
-		"mediawiki/mediawiki-phan-config": "0.14.0",
-		"mediawiki/minus-x": "1.1.3",
+		"johnkary/phpunit-speedtrap": "^3.1",
+		"mediawiki/mediawiki-codesniffer": "39.0.0",
+		"mediawiki/mediawiki-phan-config": "0.11.1",
+		"mediawiki/minus-x": "1.1.1",
 		"php-parallel-lint/php-console-highlighter": "1.0.0",
-		"php-parallel-lint/php-parallel-lint": "1.4.0"
+		"php-parallel-lint/php-parallel-lint": "1.3.2",
+		"phpunit/phpunit": "^8.5"
 	},
 	"scripts": {
 		"fix": [
@@ -49,14 +51,13 @@
 			"@phpcs",
 			"minus-x check ."
 		],
-		"test:size": "php ../../vendor/phpunit/phpunit/phpunit -c ../../phpunit.xml.dist tests/phpunit/structure/BundleSizeTest.php",
+		"test:size": "phpunit -c ../../phpunit.xml.dist tests/phpunit/structure/BundleSizeTest.php --verbose",
 		"phan": "phan -d . --long-progress-bar",
 		"phpcs": "phpcs -sp --cache"
 	},
 	"config": {
 		"allow-plugins": {
-			"composer/installers": true,
-			"dealerdirect/phpcodesniffer-composer-installer": true
+			"composer/installers": true
 		}
 	}
 }

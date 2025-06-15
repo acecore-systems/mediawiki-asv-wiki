@@ -2,29 +2,31 @@
 
 namespace MediaWiki\Tests\ResourceLoader;
 
+use Exception;
+use HashConfig;
 use LogicException;
-use MediaWiki\Config\HashConfig;
-use MediaWiki\MainConfigNames;
-use MediaWiki\MediaWikiServices;
 use MediaWiki\ResourceLoader\FileModule;
 use MediaWiki\ResourceLoader\FilePath;
 use MediaWiki\ResourceLoader\ResourceLoader;
-use MediaWiki\Tests\Unit\DummyServicesTrait;
+use Psr\Container\ContainerInterface;
+use ResourceLoaderFileTestModule;
+use ResourceLoaderTestCase;
 use RuntimeException;
 use SkinFactory;
-use Wikimedia\TestingAccessWrapper;
+use Wikimedia\ObjectFactory\ObjectFactory;
 
 /**
  * @group ResourceLoader
  * @covers \MediaWiki\ResourceLoader\FileModule
  */
 class FileModuleTest extends ResourceLoaderTestCase {
-	use DummyServicesTrait;
 
 	protected function setUp(): void {
 		parent::setUp();
 
-		$skinFactory = new SkinFactory( $this->getDummyObjectFactory(), [] );
+		$skinFactory = new SkinFactory(
+			new ObjectFactory( $this->createMock( ContainerInterface::class ) ), []
+		);
 		// The empty spec shouldn't matter since this test should never call it
 		$skinFactory->register(
 			'fakeskin',
@@ -34,7 +36,7 @@ class FileModuleTest extends ResourceLoaderTestCase {
 		$this->setService( 'SkinFactory', $skinFactory );
 
 		// This test is not expected to query any database
-		$this->getServiceContainer()->disableStorage();
+		\MediaWiki\MediaWikiServices::disableStorageBackend();
 	}
 
 	private static function getModules() {
@@ -44,6 +46,13 @@ class FileModuleTest extends ResourceLoaderTestCase {
 
 		return [
 			'noTemplateModule' => [],
+
+			'deprecatedModule' => $base + [
+				'deprecated' => true,
+			],
+			'deprecatedTomorrow' => $base + [
+				'deprecated' => 'Will be removed tomorrow.'
+			],
 
 			'htmlTemplateModule' => $base + [
 				'templates' => [
@@ -119,42 +128,60 @@ class FileModuleTest extends ResourceLoaderTestCase {
 		$this->assertEquals( $expected, $rl->getDependencies() );
 	}
 
+	public static function providerDeprecatedModules() {
+		return [
+			[
+				'deprecatedModule',
+				'mw.log.warn("This page is using the deprecated ResourceLoader module \"deprecatedModule\".");',
+			],
+			[
+				'deprecatedTomorrow',
+				'mw.log.warn(' .
+					'"This page is using the deprecated ResourceLoader module \"deprecatedTomorrow\".\\n' .
+					"Will be removed tomorrow." .
+					'");'
+			]
+		];
+	}
+
+	/**
+	 * @dataProvider providerDeprecatedModules
+	 */
+	public function testDeprecatedModules( $name, $expected ) {
+		$modules = self::getModules();
+		$module = new FileModule( $modules[$name] );
+		$module->setName( $name );
+		$ctx = $this->getResourceLoaderContext();
+		$this->assertEquals( $expected, $module->getScript( $ctx ) );
+	}
+
 	public function testGetScript() {
-		$localBasePath = __DIR__ . '/../../data/resourceloader';
-		$remoteBasePath = '/w';
 		$module = new FileModule( [
-			'localBasePath' => $localBasePath,
-			'remoteBasePath' => $remoteBasePath,
+			'localBasePath' => __DIR__ . '/../../data/resourceloader',
 			'scripts' => [ 'script-nosemi.js', 'script-comment.js' ],
 		] );
 		$module->setName( 'testing' );
 		$ctx = $this->getResourceLoaderContext();
 		$this->assertEquals(
-			[
-				'plainScripts' => [
-					'script-nosemi.js' => [
-						'name' => 'script-nosemi.js',
-						'content' => "/* eslint-disable */\nmw.foo()\n",
-						'type' => 'script',
-						'filePath' => new FilePath(
-							'script-nosemi.js',
-							$localBasePath,
-							$remoteBasePath
-						)
-					],
-					'script-comment.js' => [
-						'name' => 'script-comment.js',
-						'content' => "/* eslint-disable */\nmw.foo()\n// mw.bar();\n",
-						'type' => 'script',
-						'filePath' => new FilePath(
-							'script-comment.js',
-							$localBasePath,
-							$remoteBasePath
-						)
-					]
-				]
-			],
-			$module->getScript( $ctx )
+			"/* eslint-disable */\nmw.foo()\n" .
+			"/* eslint-disable */\nmw.foo()\n// mw.bar();\n",
+			$module->getScript( $ctx ),
+			'scripts with newline at the end are concatenated without a newline'
+		);
+
+		$module = new FileModule( [
+			'localBasePath' => __DIR__ . '/../../data/resourceloader',
+			'scripts' => [ 'script-nosemi-nonl.js', 'script-comment-nonl.js' ],
+		] );
+		$module->setName( 'testing' );
+		$ctx = $this->getResourceLoaderContext();
+		$this->assertEquals(
+			"/* eslint-disable */\nmw.foo()" .
+			"\n" .
+			"/* eslint-disable */\nmw.foo()\n// mw.bar();" .
+			"\n",
+			$module->getScript( $ctx ),
+			'scripts without newline at the end are concatenated with a newline'
 		);
 	}
 
@@ -348,11 +375,11 @@ class FileModuleTest extends ResourceLoaderTestCase {
 	}
 
 	/**
-	 * Test reading files from elsewhere than localBasePath using FilePath.
+	 * Test reading files from elsewhere than localBasePath using ResourceLoaderFilePath.
 	 *
-	 * The use of FilePath objects resembles the way that ResourceLoader::getModule()
-	 * injects additional files when 'ResourceModuleSkinStyles' or 'OOUIThemePaths'
-	 * skin attributes apply to a given module.
+	 * The use of ResourceLoaderFilePath objects resembles the way that ResourceLoader::getModule()
+	 * injects additional files when 'ResourceModuleSkinStyles' or 'OOUIThemePaths' skin attributes
+	 * apply to a given module.
 	 */
 	public function testResourceLoaderFilePath() {
 		$basePath = __DIR__ . '/../../data/blahblah';
@@ -468,12 +495,11 @@ class FileModuleTest extends ResourceLoaderTestCase {
 			'lessVars' => [ 'foo' => '2px', 'Foo' => '#eeeeee' ]
 		] );
 		$module->setName( 'test.less' );
-		$module->setConfig( $context->getResourceLoader()->getConfig() );
 		$styles = $module->getStyles( $context );
 		$this->assertStringEqualsFile( $basePath . '/styles.css', $styles['all'] );
 	}
 
-	public static function provideGetVersionHash() {
+	public function provideGetVersionHash() {
 		$a = [];
 		$b = [
 			'lessVars' => [ 'key' => 'value' ],
@@ -521,14 +547,14 @@ class FileModuleTest extends ResourceLoaderTestCase {
 			'packageFiles' => [ [ 'name' => 'data.json', 'versionCallback' => static function () {
 				return [ 'A-version' ];
 			}, 'callback' => static function () {
-				throw new LogicException( 'Unexpected computation' );
+				throw new Exception( 'Unexpected computation' );
 			} ] ]
 		];
 		$b = [
 			'packageFiles' => [ [ 'name' => 'data.json', 'versionCallback' => static function () {
 				return [ 'B-version' ];
 			}, 'callback' => static function () {
-				throw new LogicException( 'Unexpected computation' );
+				throw new Exception( 'Unexpected computation' );
 			} ] ]
 		];
 		yield 'packageFiles with different versionCallback' => [ $a, $b, false ];
@@ -539,7 +565,7 @@ class FileModuleTest extends ResourceLoaderTestCase {
 					return [ 'X-version' ];
 				},
 				'callback' => static function () {
-					throw new LogicException( 'Unexpected computation' );
+					throw new Exception( 'Unexpected computation' );
 				}
 			] ]
 		];
@@ -549,7 +575,7 @@ class FileModuleTest extends ResourceLoaderTestCase {
 					return [ 'X-version' ];
 				},
 				'callback' => static function () {
-					throw new LogicException( 'Unexpected computation' );
+					throw new Exception( 'Unexpected computation' );
 				}
 			] ]
 		];
@@ -576,7 +602,7 @@ class FileModuleTest extends ResourceLoaderTestCase {
 		);
 	}
 
-	public static function provideGetScriptPackageFiles() {
+	public function provideGetScriptPackageFiles() {
 		$basePath = __DIR__ . '/../../data/resourceloader';
 		$basePathB = __DIR__ . '/../../data/resourceloader-b';
 		$base = [ 'localBasePath' => $basePath ];
@@ -585,9 +611,9 @@ class FileModuleTest extends ResourceLoaderTestCase {
 		$nosemiBScript = file_get_contents( "$basePathB/script-nosemi.js" );
 		$vueComponentDebug = trim( file_get_contents( "$basePath/vue-component-output-debug.js.txt" ) );
 		$vueComponentNonDebug = trim( file_get_contents( "$basePath/vue-component-output-nondebug.js.txt" ) );
-		$config = MediaWikiServices::getInstance()->getMainConfig();
+		$config = \MediaWiki\MediaWikiServices::getInstance()->getMainConfig();
 		return [
-			'plain package' => [
+			[
 				$base + [
 					'packageFiles' => [
 						'script-comment.js',
@@ -599,18 +625,43 @@ class FileModuleTest extends ResourceLoaderTestCase {
 						'script-comment.js' => [
 							'type' => 'script',
 							'content' => $commentScript,
-							'filePath' => 'script-comment.js'
 						],
 						'script-nosemi.js' => [
 							'type' => 'script',
-							'content' => $nosemiScript,
-							'filePath' => 'script-nosemi.js'
+							'content' => $nosemiScript
 						]
 					],
 					'main' => 'script-comment.js'
 				]
 			],
-			'explicit main file' => [
+			[
+				$base + [
+					'packageFiles' => [
+						'script-comment.js',
+						[ 'name' => 'script-nosemi.js', 'main' => true ]
+					],
+					'deprecated' => 'Deprecation test',
+					'name' => 'test-deprecated'
+				],
+				[
+					'files' => [
+						'script-comment.js' => [
+							'type' => 'script',
+							'content' => $commentScript,
+						],
+						'script-nosemi.js' => [
+							'type' => 'script',
+							'content' => 'mw.log.warn(' .
+								'"This page is using the deprecated ResourceLoader module \"test-deprecated\".\\n' .
+								"Deprecation test" .
+								'");' .
+								$nosemiScript
+						]
+					],
+					'main' => 'script-nosemi.js'
+				]
+			],
+			[
 				$base + [
 					'packageFiles' => [
 						[ 'name' => 'init.js', 'file' => 'script-comment.js', 'main' => true ],
@@ -622,12 +673,10 @@ class FileModuleTest extends ResourceLoaderTestCase {
 						'init.js' => [
 							'type' => 'script',
 							'content' => $commentScript,
-							'filePath' => 'script-comment.js',
 						],
 						'nosemi.js' => [
 							'type' => 'script',
-							'content' => $nosemiScript,
-							'filePath' => 'script-nosemi.js',
+							'content' => $nosemiScript
 						]
 					],
 					'main' => 'init.js'
@@ -657,30 +706,25 @@ class FileModuleTest extends ResourceLoaderTestCase {
 						'foo.json' => [
 							'type' => 'data',
 							'content' => [ 'Hello' => 'world' ],
-							'virtualFilePath' => 'foo.json',
 						],
 						'sample.json' => [
 							'type' => 'data',
 							'content' => (object)[ 'foo' => 'bar', 'answer' => 42 ],
-							'filePath' => 'sample.json',
 						],
 						'bar.js' => [
 							'type' => 'script',
 							'content' => "console.log('Hello');",
-							'virtualFilePath' => 'bar.js',
 						],
 						'data.json' => [
 							'type' => 'data',
 							'content' => [ 'langCode' => 'fy', 'extra' => [ 'a' => 'b' ] ],
-							'virtualFilePath' => 'data.json',
 						],
 						'config.json' => [
 							'type' => 'data',
 							'content' => [
-								'Sitename' => $config->get( MainConfigNames::Sitename ),
-								'server' => $config->get( MainConfigNames::ServerName ),
-							],
-							'virtualFilePath' => 'config.json',
+								'Sitename' => $config->get( 'Sitename' ),
+								'server' => $config->get( 'ServerName' ),
+							]
 						]
 					],
 					'main' => 'bar.js'
@@ -710,12 +754,10 @@ class FileModuleTest extends ResourceLoaderTestCase {
 						'bar.js' => [
 							'type' => 'script',
 							'content' => "console.log('Hello');",
-							'virtualFilePath' => 'bar.js',
 						],
 						'data.json' => [
 							'type' => 'data',
 							'content' => [ 'langCode' => 'fy', 'extra' => [ 'A', 'B' ] ],
-							'virtualFilePath' => 'data.json',
 						],
 					],
 					'main' => 'bar.js'
@@ -738,7 +780,6 @@ class FileModuleTest extends ResourceLoaderTestCase {
 						'dynamic.js' => [
 							'type' => 'script',
 							'content' => $commentScript,
-							'filePath' => 'script-comment.js',
 						]
 					],
 					'main' => 'dynamic.js'
@@ -761,7 +802,6 @@ class FileModuleTest extends ResourceLoaderTestCase {
 						'dynamic.js' => [
 							'type' => 'script',
 							'content' => $nosemiScript,
-							'filePath' => 'script-nosemi.js'
 						]
 					],
 					'main' => 'dynamic.js'
@@ -783,7 +823,6 @@ class FileModuleTest extends ResourceLoaderTestCase {
 						'dynamic.js' => [
 							'type' => 'script',
 							'content' => $nosemiBScript,
-							'filePath' => 'script-nosemi.js',
 						]
 					],
 					'main' => 'dynamic.js'
@@ -799,8 +838,7 @@ class FileModuleTest extends ResourceLoaderTestCase {
 					'files' => [
 						'vue-component.vue' => [
 							'type' => 'script',
-							'content' => $vueComponentDebug,
-							'filePath' => 'vue-component.vue',
+							'content' => $vueComponentDebug
 						]
 					],
 					'main' => 'vue-component.vue',
@@ -820,8 +858,7 @@ class FileModuleTest extends ResourceLoaderTestCase {
 					'files' => [
 						'vue-component.vue' => [
 							'type' => 'script',
-							'content' => $vueComponentNonDebug,
-							'filePath' => 'vue-component.vue',
+							'content' => $vueComponentNonDebug
 						]
 					],
 					'main' => 'vue-component.vue'
@@ -830,7 +867,7 @@ class FileModuleTest extends ResourceLoaderTestCase {
 					'debug' => 'false'
 				]
 			],
-			'missing name' => [
+			[
 				$base + [
 					'packageFiles' => [
 						[ 'file' => 'script-comment.js' ]
@@ -846,7 +883,8 @@ class FileModuleTest extends ResourceLoaderTestCase {
 				],
 				LogicException::class
 			],
-			'config not valid for script type' => [
+			[
+				// 'config' not valid for 'script' type
 				$base + [
 					'packageFiles' => [
 						'foo.json' => [ 'type' => 'script', 'config' => [ 'Sitename' ] ]
@@ -854,7 +892,8 @@ class FileModuleTest extends ResourceLoaderTestCase {
 				],
 				LogicException::class
 			],
-			'config not valid for *.js file' => [
+			[
+				// 'config' not valid for '*.js' file
 				$base + [
 					'packageFiles' => [
 						[ 'name' => 'foo.js', 'config' => 'Sitename' ]
@@ -862,7 +901,8 @@ class FileModuleTest extends ResourceLoaderTestCase {
 				],
 				LogicException::class
 			],
-			'missing type/name/file' => [
+			[
+				// missing type/name/file.
 				$base + [
 					'packageFiles' => [
 						'foo.js' => [ 'garbage' => 'data' ]
@@ -870,7 +910,7 @@ class FileModuleTest extends ResourceLoaderTestCase {
 				],
 				LogicException::class
 			],
-			'nonexistent file' => [
+			[
 				$base + [
 					'packageFiles' => [
 						'filethatdoesnotexist142857.js'
@@ -878,7 +918,8 @@ class FileModuleTest extends ResourceLoaderTestCase {
 				],
 				RuntimeException::class
 			],
-			'JSON can\'t be a main file' => [
+			[
+				// JSON can't be a main file
 				$base + [
 					'packageFiles' => [
 						'script-nosemi.js',
@@ -901,110 +942,21 @@ class FileModuleTest extends ResourceLoaderTestCase {
 			$module->setName( $moduleDefinition['name'] );
 		}
 		if ( is_string( $expected ) ) {
-			// $expected is the class name of the expected exception
+			// Class name of expected exception
 			$this->expectException( $expected );
 			$module->getScript( $context );
-			$this->fail( "$expected exception expected" );
+		} else {
+			// Array of expected return value
+			$this->assertEquals( $expected, $module->getScript( $context ) );
 		}
-
-		// Check name property and convert filePath to plain data
-		$result = $module->getScript( $context );
-		foreach ( $result['files'] as $name => &$file ) {
-			$this->assertSame( $name, $file['name'] );
-			unset( $file['name'] );
-			if ( isset( $file['filePath'] ) ) {
-				$this->assertInstanceOf( FilePath::class, $file['filePath'] );
-				$file['filePath'] = $file['filePath']->getPath();
-			}
-			if ( isset( $file['virtualFilePath'] ) ) {
-				$this->assertInstanceOf( FilePath::class, $file['virtualFilePath'] );
-				$file['virtualFilePath'] = $file['virtualFilePath']->getPath();
-			}
-		}
-		// Check the rest of the result
-		$this->assertEquals( $expected, $result );
 	}
 
 	public function testRequiresES6() {
 		$module = new FileModule();
-		$this->assertTrue( $module->requiresES6(), 'requiresES6 defaults to true' );
+		$this->assertFalse( $module->requiresES6(), 'requiresES6 defaults to false' );
 		$module = new FileModule( [ 'es6' => false ] );
-		$this->assertTrue( $module->requiresES6(), 'requiresES6 is true even when set to false' );
+		$this->assertFalse( $module->requiresES6(), 'requiresES6 is false when set to false' );
 		$module = new FileModule( [ 'es6' => true ] );
 		$this->assertTrue( $module->requiresES6(), 'requiresES6 is true when set to true' );
-	}
-
-	/**
-	 * @covers \Wikimedia\DependencyStore\DependencyStore
-	 * @covers \Wikimedia\DependencyStore\KeyValueDependencyStore
-	 */
-	public function testIndirectDependencies() {
-		$context = $this->getResourceLoaderContext();
-		$moduleInfo = [ 'dir' => __DIR__ . '/../../data/less/module',
-		'lessVars' => [ 'foo' => '2px', 'Foo' => '#eeeeee' ], 'name' => 'styles-dependencies' ];
-
-		$module = $this->newModuleRequest( $moduleInfo, $context );
-		$module->getStyles( $context );
-
-		$module = $this->newModuleRequest( $moduleInfo, $context );
-		$dependencies = $module->getFileDependencies( $context );
-
-		$expectedDependencies = [ realpath( __DIR__ . '/../../data/less/common/test.common.mixins.less' ),
-		realpath( __DIR__ . '/../../data/less/module/dependency.less' ) ];
-
-		$this->assertEquals( $expectedDependencies, $dependencies );
-	}
-
-	/**
-	 * @covers \Wikimedia\DependencyStore\DependencyStore
-	 * @covers \Wikimedia\DependencyStore\KeyValueDependencyStore
-	 */
-	public function testIndirectDependenciesUpdate() {
-		$context = $this->getResourceLoaderContext();
-		$tempDir = $this->getNewTempDirectory();
-		$moduleInfo = [ 'dir' => $tempDir, 'name' => 'new-dependencies' ];
-
-		file_put_contents( "$tempDir/styles.less", "@import './test.less';" );
-		file_put_contents( "$tempDir/test.less", "div { color: red; } " );
-
-		$module = $this->newModuleRequest( $moduleInfo, $context );
-		$module->getStyles( $context );
-
-		$module = $this->newModuleRequest( $moduleInfo, $context );
-		$dependencies = $module->getFileDependencies( $context );
-
-		$expectedDependencies = [ realpath( $tempDir . '/test.less' ) ];
-
-		$this->assertEquals( $expectedDependencies, $dependencies );
-
-		file_put_contents( "$tempDir/styles.less", "@import './pink.less';" );
-		file_put_contents( "$tempDir/pink.less", "div { color: pink; } " );
-
-		$module = $this->newModuleRequest( $moduleInfo, $context );
-		$module->getStyles( $context );
-
-		$module = $this->newModuleRequest( $moduleInfo, $context );
-		$dependencies = $module->getFileDependencies( $context );
-
-		$expectedDependencies = [ realpath( $tempDir . '/pink.less' ) ];
-
-		$this->assertEquals( $expectedDependencies, $dependencies );
-	}
-
-	public function newModuleRequest( $moduleInfo, $context ) {
-		$module = new ResourceLoaderFileTestModule( [
-			'localBasePath' => $moduleInfo['dir'],
-			'styles' => [ 'styles.less' ],
-			'lessVars' => $moduleInfo['lessVars'] ?? null
-		] );
-
-		$module->setName( $moduleInfo['name'] );
-		$module->setConfig( $context->getResourceLoader()->getConfig() );
-		$module->setDependencyAccessCallbacks(
-			[ $context->getResourceLoader(), 'loadModuleDependenciesInternal' ],
-			[ $context->getResourceLoader(), 'saveModuleDependenciesInternal' ]
-		);
-		$wrapper = TestingAccessWrapper::newFromObject( $module );
-		return $wrapper;
 	}
 }

@@ -3,7 +3,7 @@
 namespace MediaWiki\Hook;
 
 use LocalFile;
-use MediaWiki\User\User;
+use User;
 use WikiFilePage;
 
 /**

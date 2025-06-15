@@ -20,15 +20,10 @@
  * @file
  */
 
-use MediaWiki\Password\MWOldPassword;
-use MediaWiki\Password\Password;
-use MediaWiki\Password\PasswordError;
-use MediaWiki\Password\PasswordFactory;
-
 /**
- * @covers \MediaWiki\Password\Password
+ * @covers Password
  */
-class PasswordTest extends MediaWikiUnitTestCase {
+class PasswordTest extends \MediaWikiUnitTestCase {
 	public function testNoTypeThrows() {
 		$factory = new PasswordFactory();
 		$this->expectException( Exception::class );

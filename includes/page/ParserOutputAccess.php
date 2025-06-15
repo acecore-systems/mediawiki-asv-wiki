@@ -19,33 +19,24 @@
  */
 namespace MediaWiki\Page;
 
+use IBufferingStatsdDataFactory;
 use InvalidArgumentException;
-use MapCacheLRU;
 use MediaWiki\Logger\Spi as LoggerSpi;
-use MediaWiki\MainConfigNames;
-use MediaWiki\MediaWikiServices;
-use MediaWiki\Parser\ParserCache;
-use MediaWiki\Parser\ParserCacheFactory;
-use MediaWiki\Parser\ParserOptions;
-use MediaWiki\Parser\ParserOutput;
-use MediaWiki\Parser\Parsoid\PageBundleParserOutputConverter;
 use MediaWiki\Parser\RevisionOutputCache;
-use MediaWiki\PoolCounter\PoolCounterWork;
-use MediaWiki\PoolCounter\PoolWorkArticleView;
-use MediaWiki\PoolCounter\PoolWorkArticleViewCurrent;
-use MediaWiki\PoolCounter\PoolWorkArticleViewOld;
 use MediaWiki\Revision\RevisionLookup;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\RevisionRenderer;
-use MediaWiki\Revision\SlotRecord;
-use MediaWiki\Status\Status;
-use MediaWiki\Title\TitleFormatter;
-use MediaWiki\WikiMap\WikiMap;
+use ParserCache;
+use ParserOptions;
+use ParserOutput;
+use PoolCounterWork;
+use PoolWorkArticleView;
+use PoolWorkArticleViewCurrent;
+use PoolWorkArticleViewOld;
+use Status;
+use TitleFormatter;
 use Wikimedia\Assert\Assert;
-use Wikimedia\Parsoid\Parsoid;
-use Wikimedia\Rdbms\ChronologyProtector;
 use Wikimedia\Rdbms\ILBFactory;
-use Wikimedia\Stats\StatsFactory;
 
 /**
  * Service for getting rendered output of a given page.
@@ -57,12 +48,6 @@ use Wikimedia\Stats\StatsFactory;
  * @ingroup Page
  */
 class ParserOutputAccess {
-
-	/** @internal */
-	public const PARSOID_PCACHE_NAME = 'parsoid-' . ParserCacheFactory::DEFAULT_NAME;
-
-	/** @internal */
-	public const PARSOID_RCACHE_NAME = 'parsoid-' . ParserCacheFactory::DEFAULT_RCACHE_NAME;
 
 	/**
 	 * @var int Do not check the cache before parsing (force parse)
@@ -90,32 +75,6 @@ class ParserOutputAccess {
 	 */
 	public const OPT_NO_CACHE = self::OPT_NO_UPDATE_CACHE | self::OPT_NO_CHECK_CACHE;
 
-	/**
-	 * @var int Do perform an opportunistic LinksUpdate on cache miss
-	 * @since 1.41
-	 */
-	public const OPT_LINKS_UPDATE = 8;
-
-	/**
-	 * Apply page view semantics. This relaxes some guarantees, specifically:
-	 * - Use PoolCounter for stampede protection, causing the request to
-	 *   block until another process has finished rendering the content.
-	 * - Allow stale parser output to be returned to prevent long waits for
-	 *   slow renders.
-	 * - Allow cacheable placeholder output to be returned when PoolCounter
-	 *   fails to obtain a lock. See the PoolCounterConf setting for details.
-	 *
-	 * @see Bug T352837
-	 * @since 1.42
-	 */
-	public const OPT_FOR_ARTICLE_VIEW = 16;
-
-	/**
-	 * @var int Ignore the profile version of the result from the cache.
-	 *      Otherwise, if it's not Parsoid's default, it will be invalidated.
-	 */
-	public const OPT_IGNORE_PROFILE_VERSION = 128;
-
 	/** @var string Do not read or write any cache */
 	private const CACHE_NONE = 'none';
 
@@ -125,45 +84,73 @@ class ParserOutputAccess {
 	/** @var string Use secondary cache */
 	private const CACHE_SECONDARY = 'secondary';
 
+	/** @var ParserCache */
+	private $primaryCache;
+
+	/**
+	 * @var RevisionOutputCache
+	 */
+	private $secondaryCache;
+
 	/**
 	 * In cases that an extension tries to get the same ParserOutput of
 	 * the page right after it was parsed (T301310).
-	 * @var MapCacheLRU<string,ParserOutput>
+	 * @var ParserOutput[]
 	 */
-	private MapCacheLRU $localCache;
+	private $localCache = [];
 
-	private ParserCacheFactory $parserCacheFactory;
-	private RevisionLookup $revisionLookup;
-	private RevisionRenderer $revisionRenderer;
-	private StatsFactory $statsFactory;
-	private ILBFactory $lbFactory;
-	private ChronologyProtector $chronologyProtector;
-	private LoggerSpi $loggerSpi;
-	private WikiPageFactory $wikiPageFactory;
-	private TitleFormatter $titleFormatter;
+	/** @var RevisionLookup */
+	private $revisionLookup;
 
+	/** @var RevisionRenderer */
+	private $revisionRenderer;
+
+	/** @var IBufferingStatsdDataFactory */
+	private $statsDataFactory;
+
+	/** @var ILBFactory */
+	private $lbFactory;
+
+	/** @var LoggerSpi */
+	private $loggerSpi;
+
+	/** @var WikiPageFactory */
+	private $wikiPageFactory;
+
+	/** @var TitleFormatter */
+	private $titleFormatter;
+
+	/**
+	 * @param ParserCache $primaryCache
+	 * @param RevisionOutputCache $secondaryCache
+	 * @param RevisionLookup $revisionLookup
+	 * @param RevisionRenderer $revisionRenderer
+	 * @param IBufferingStatsdDataFactory $statsDataFactory
+	 * @param ILBFactory $lbFactory
+	 * @param LoggerSpi $loggerSpi
+	 * @param WikiPageFactory $wikiPageFactory
+	 * @param TitleFormatter $titleFormatter
+	 */
 	public function __construct(
-		ParserCacheFactory $parserCacheFactory,
+		ParserCache $primaryCache,
+		RevisionOutputCache $secondaryCache,
 		RevisionLookup $revisionLookup,
 		RevisionRenderer $revisionRenderer,
-		StatsFactory $statsFactory,
+		IBufferingStatsdDataFactory $statsDataFactory,
 		ILBFactory $lbFactory,
-		ChronologyProtector $chronologyProtector,
 		LoggerSpi $loggerSpi,
 		WikiPageFactory $wikiPageFactory,
 		TitleFormatter $titleFormatter
 	) {
-		$this->parserCacheFactory = $parserCacheFactory;
+		$this->primaryCache = $primaryCache;
+		$this->secondaryCache = $secondaryCache;
 		$this->revisionLookup = $revisionLookup;
 		$this->revisionRenderer = $revisionRenderer;
-		$this->statsFactory = $statsFactory;
+		$this->statsDataFactory = $statsDataFactory;
 		$this->lbFactory = $lbFactory;
-		$this->chronologyProtector = $chronologyProtector;
 		$this->loggerSpi = $loggerSpi;
 		$this->wikiPageFactory = $wikiPageFactory;
 		$this->titleFormatter = $titleFormatter;
-
-		$this->localCache = new MapCacheLRU( 10 );
 	}
 
 	/**
@@ -223,60 +210,27 @@ class ParserOutputAccess {
 	): ?ParserOutput {
 		$isOld = $revision && $revision->getId() !== $page->getLatest();
 		$useCache = $this->shouldUseCache( $page, $revision );
-		$primaryCache = $this->getPrimaryCache( $parserOptions );
-		$classCacheKey = $primaryCache->makeParserOutputKey( $page, $parserOptions );
+		$classCacheKey = $this->primaryCache->makeParserOutputKey( $page, $parserOptions );
 
 		if ( $useCache === self::CACHE_PRIMARY ) {
-			if ( $this->localCache->hasField( $classCacheKey, $page->getLatest() ) && !$isOld ) {
-				return $this->localCache->getField( $classCacheKey, $page->getLatest() );
+			if ( isset( $this->localCache[$classCacheKey] ) && !$isOld ) {
+				return $this->localCache[$classCacheKey];
 			}
-			$output = $primaryCache->get( $page, $parserOptions );
+			$output = $this->primaryCache->get( $page, $parserOptions );
 		} elseif ( $useCache === self::CACHE_SECONDARY && $revision ) {
-			$secondaryCache = $this->getSecondaryCache( $parserOptions );
-			$output = $secondaryCache->get( $revision, $parserOptions );
+			$output = $this->secondaryCache->get( $revision, $parserOptions );
 		} else {
 			$output = null;
 		}
 
-		$notHitReason = 'miss';
-		if (
-			$output && !( $options & self::OPT_IGNORE_PROFILE_VERSION ) &&
-			$parserOptions->getUseParsoid()
-		) {
-			$pageBundleData = $output->getExtensionData(
-				PageBundleParserOutputConverter::PARSOID_PAGE_BUNDLE_KEY
-			);
-			// T333606: Force a reparse if the version coming from cache is not the default
-			$cachedVersion = $pageBundleData['version'] ?? null;
-			if (
-				$cachedVersion !== null && // T325137: BadContentModel, no sense in reparsing
-				$cachedVersion !== Parsoid::defaultHTMLVersion()
-			) {
-				$notHitReason = 'obsolete';
-				$output = null;
-			}
-		}
-
 		if ( $output && !$isOld ) {
-			$this->localCache->setField( $classCacheKey, $page->getLatest(), $output );
+			$this->localCache[$classCacheKey] = $output;
 		}
 
 		if ( $output ) {
-			$this->statsFactory
-				->getCounter( 'parseroutputaccess_cache' )
-				->setLabel( 'cache', $useCache )
-				->setLabel( 'reason', 'hit' )
-				->setLabel( 'type', 'hit' )
-				->copyToStatsdAt( "ParserOutputAccess.Cache.$useCache.hit" )
-				->increment();
+			$this->statsDataFactory->increment( "ParserOutputAccess.Cache.$useCache.hit" );
 		} else {
-			$this->statsFactory
-				->getCounter( 'parseroutputaccess_cache' )
-				->setLabel( 'reason', $notHitReason )
-				->setLabel( 'cache', $useCache )
-				->setLabel( 'type', 'miss' )
-				->copyToStatsdAt( "ParserOutputAccess.Cache.$useCache.$notHitReason" )
-				->increment();
+			$this->statsDataFactory->increment( "ParserOutputAccess.Cache.$useCache.miss" );
 		}
 
 		return $output ?: null; // convert false to null
@@ -312,27 +266,15 @@ class ParserOutputAccess {
 	): Status {
 		$error = $this->checkPreconditions( $page, $revision, $options );
 		if ( $error ) {
-			$this->statsFactory
-				->getCounter( 'parseroutputaccess_case' )
-				->setLabel( 'case', 'error' )
-				->copyToStatsdAt( 'ParserOutputAccess.Case.error' )
-				->increment();
+			$this->statsDataFactory->increment( "ParserOutputAccess.Case.error" );
 			return $error;
 		}
 
 		$isOld = $revision && $revision->getId() !== $page->getLatest();
 		if ( $isOld ) {
-			$this->statsFactory
-				->getCounter( 'parseroutputaccess_case' )
-				->setLabel( 'case', 'old' )
-				->copyToStatsdAt( 'ParserOutputAccess.Case.old' )
-				->increment();
+			$this->statsDataFactory->increment( 'ParserOutputAccess.Case.old' );
 		} else {
-			$this->statsFactory
-				->getCounter( 'parseroutputaccess_case' )
-				->setLabel( 'case', 'current' )
-				->copyToStatsdAt( 'ParserOutputAccess.Case.current' )
-				->increment();
+			$this->statsDataFactory->increment( 'ParserOutputAccess.Case.current' );
 		}
 
 		if ( !( $options & self::OPT_NO_CHECK_CACHE ) ) {
@@ -347,149 +289,31 @@ class ParserOutputAccess {
 			$revision = $revId ? $this->revisionLookup->getRevisionById( $revId ) : null;
 
 			if ( !$revision ) {
-				$this->statsFactory
-					->getCounter( 'parseroutputaccess_status' )
-					->setLabel( 'status', 'norev' )
-					->copyToStatsdAt( "ParserOutputAccess.Status.norev" )
-					->increment();
+				$this->statsDataFactory->increment( "ParserOutputAccess.Status.norev" );
 				return Status::newFatal( 'missing-revision', $revId );
 			}
 		}
 
-		if ( $options & self::OPT_FOR_ARTICLE_VIEW ) {
-			$work = $this->newPoolWorkArticleView( $page, $parserOptions, $revision, $options );
-			/** @var Status $status */
-			$status = $work->execute();
-		} else {
-			// XXX: we could try harder to reuse a cache lookup above to
-			// provide the $previous argument here
-			$status = $this->renderRevision( $page, $parserOptions, $revision, $options, null );
-		}
-
+		$work = $this->newPoolWorkArticleView( $page, $parserOptions, $revision, $options );
+		/** @var Status $status */
+		$status = $work->execute();
 		$output = $status->getValue();
-		Assert::postcondition( $output || !$status->isOK(), 'Inconsistent status' );
+		Assert::postcondition( $output || !$status->isOK(), 'Worker returned invalid status' );
 
 		if ( $output && !$isOld ) {
-			$primaryCache = $this->getPrimaryCache( $parserOptions );
-			$classCacheKey = $primaryCache->makeParserOutputKey( $page, $parserOptions );
-			$this->localCache->setField( $classCacheKey, $page->getLatest(), $output );
+			$classCacheKey = $this->primaryCache->makeParserOutputKey( $page, $parserOptions );
+			$this->localCache[$classCacheKey] = $output;
 		}
 
 		if ( $status->isGood() ) {
-			$this->statsFactory->getCounter( 'parseroutputaccess_status' )
-				->setLabel( 'status', 'good' )
-				->copyToStatsdAt( 'ParserOutputAccess.Status.good' )
-				->increment();
+			$this->statsDataFactory->increment( 'ParserOutputAccess.Status.good' );
 		} elseif ( $status->isOK() ) {
-			$this->statsFactory->getCounter( 'parseroutputaccess_status' )
-				->setLabel( 'status', 'ok' )
-				->copyToStatsdAt( 'ParserOutputAccess.Status.ok' )
-				->increment();
+			$this->statsDataFactory->increment( 'ParserOutputAccess.Status.ok' );
 		} else {
-			$this->statsFactory->getCounter( 'parseroutputaccess_status' )
-				->setLabel( 'status', 'error' )
-				->copyToStatsdAt( 'ParserOutputAccess.Status.error' )
-				->increment();
+			$this->statsDataFactory->increment( 'ParserOutputAccess.Status.error' );
 		}
 
 		return $status;
-	}
-
-	/**
-	 * Render the given revision.
-	 *
-	 * This method will update the parser cache if appropriate, and will
-	 * trigger a links update if OPT_LINKS_UPDATE is set.
-	 *
-	 * This method does not perform access checks, and will not load content
-	 * from caches. The caller is assumed to have taken care of that.
-	 *
-	 * Where possible, pass in a $previousOutput, which will prevent an
-	 * unnecessary double-lookup in the cache.
-	 *
-	 * @see PoolWorkArticleView::renderRevision
-	 */
-	private function renderRevision(
-		PageRecord $page,
-		ParserOptions $parserOptions,
-		RevisionRecord $revision,
-		int $options,
-		?ParserOutput $previousOutput = null
-	): Status {
-		$this->statsFactory->getCounter( 'parseroutputaccess_poolwork' )
-			->copyToStatsdAt( 'ParserOutputAccess.PoolWork.None' )
-			->setLabel( 'cache', self::CACHE_NONE )
-			->increment();
-
-		$useCache = $this->shouldUseCache( $page, $revision );
-
-		// T371713: Temporary statistics collection code to determine
-		// feasibility of Parsoid selective update
-		$sampleRate = MediaWikiServices::getInstance()->getMainConfig()->get(
-			MainConfigNames::ParsoidSelectiveUpdateSampleRate
-		);
-		$doSample = ( $sampleRate && mt_rand( 1, $sampleRate ) === 1 );
-
-		if ( $previousOutput === null && ( $doSample || $parserOptions->getUseParsoid() ) ) {
-			// If $useCache === self::CACHE_SECONDARY we could potentially
-			// try to reuse the parse of $revision-1 from the secondary cache,
-			// but it is likely those template transclusions are out of date.
-			// Try to reuse the template transclusions from the most recent
-			// parse, which are more likely to reflect the current template.
-			if ( !( $options & self::OPT_NO_CHECK_CACHE ) ) {
-				$previousOutput = $this->getPrimaryCache( $parserOptions )->getDirty( $page, $parserOptions ) ?: null;
-			}
-		}
-
-		$renderedRev = $this->revisionRenderer->getRenderedRevision(
-			$revision,
-			$parserOptions,
-			null,
-			[
-				'audience' => RevisionRecord::RAW,
-				'previous-output' => $previousOutput,
-			]
-		);
-
-		$output = $renderedRev->getRevisionParserOutput();
-
-		if ( $doSample ) {
-			$content = $revision->getContent( SlotRecord::MAIN );
-			$labels = [
-				'source' => 'ParserOutputAccess',
-				'type' => $previousOutput === null ? 'full' : 'selective',
-				'reason' => $parserOptions->getRenderReason(),
-				'parser' => $parserOptions->getUseParsoid() ? 'parsoid' : 'legacy',
-				'opportunistic' => 'false',
-				'wiki' => WikiMap::getCurrentWikiId(),
-				'model' => $content ? $content->getModel() : 'unknown',
-			];
-			$this->statsFactory
-				->getCounter( 'ParserCache_selective_total' )
-				->setLabels( $labels )
-				->increment();
-			$this->statsFactory
-				->getCounter( 'ParserCache_selective_cpu_seconds' )
-				->setLabels( $labels )
-				->incrementBy( $output->getTimeProfile( 'cpu' ) );
-		}
-
-		if ( !( $options & self::OPT_NO_UPDATE_CACHE ) && $output->isCacheable() ) {
-			if ( $useCache === self::CACHE_PRIMARY ) {
-				$primaryCache = $this->getPrimaryCache( $parserOptions );
-				$primaryCache->save( $output, $page, $parserOptions );
-			} elseif ( $useCache === self::CACHE_SECONDARY ) {
-				$secondaryCache = $this->getSecondaryCache( $parserOptions );
-				$secondaryCache->save( $output, $revision, $parserOptions );
-			}
-		}
-
-		if ( $options & self::OPT_LINKS_UPDATE ) {
-			$this->wikiPageFactory->newFromTitle( $page )
-				->triggerOpportunisticLinksUpdate( $output );
-		}
-
-		return Status::newGood( $output );
 	}
 
 	/**
@@ -510,7 +334,7 @@ class ParserOutputAccess {
 
 		if ( !( $options & self::OPT_NO_UPDATE_CACHE ) && $revision && !$revision->getId() ) {
 			throw new InvalidArgumentException(
-				'The revision does not have a known ID. Use OPT_NO_CACHE.'
+				'The revision does not have a known ID. Use NO_CACHE.'
 			);
 		}
 
@@ -544,7 +368,7 @@ class ParserOutputAccess {
 	 *
 	 * @return PoolCounterWork
 	 */
-	protected function newPoolWorkArticleView(
+	private function newPoolWorkArticleView(
 		PageRecord $page,
 		ParserOptions $parserOptions,
 		RevisionRecord $revision,
@@ -554,13 +378,9 @@ class ParserOutputAccess {
 
 		switch ( $useCache ) {
 			case self::CACHE_PRIMARY:
-				$this->statsFactory->getCounter( 'parseroutputaccess_poolwork' )
-					->setLabel( 'cache', self::CACHE_PRIMARY )
-					->copyToStatsdAt( 'ParserOutputAccess.PoolWork.Current' )
-					->increment();
-				$primaryCache = $this->getPrimaryCache( $parserOptions );
-				$parserCacheMetadata = $primaryCache->getMetadata( $page );
-				$cacheKey = $primaryCache->makeParserOutputKey( $page, $parserOptions,
+				$this->statsDataFactory->increment( 'ParserOutputAccess.PoolWork.Current' );
+				$parserCacheMetadata = $this->primaryCache->getMetadata( $page );
+				$cacheKey = $this->primaryCache->makeParserOutputKey( $page, $parserOptions,
 					$parserCacheMetadata ? $parserCacheMetadata->getUsedOptions() : null
 				);
 
@@ -572,25 +392,19 @@ class ParserOutputAccess {
 					$revision,
 					$parserOptions,
 					$this->revisionRenderer,
-					$primaryCache,
+					$this->primaryCache,
 					$this->lbFactory,
-					$this->chronologyProtector,
 					$this->loggerSpi,
 					$this->wikiPageFactory,
-					!( $options & self::OPT_NO_UPDATE_CACHE ),
-					(bool)( $options & self::OPT_LINKS_UPDATE )
+					!( $options & self::OPT_NO_UPDATE_CACHE )
 				);
 
 			case self::CACHE_SECONDARY:
-				$this->statsFactory->getCounter( 'parseroutputaccess_poolwork' )
-					->setLabel( 'cache', self::CACHE_SECONDARY )
-					->copyToStatsdAt( 'ParserOutputAccess.PoolWork.Old' )
-					->increment();
-				$secondaryCache = $this->getSecondaryCache( $parserOptions );
-				$workKey = $secondaryCache->makeParserOutputKey( $revision, $parserOptions );
+				$this->statsDataFactory->increment( 'ParserOutputAccess.PoolWork.Old' );
+				$workKey = $this->secondaryCache->makeParserOutputKey( $revision, $parserOptions );
 				return new PoolWorkArticleViewOld(
 					$workKey,
-					$secondaryCache,
+					$this->secondaryCache,
 					$revision,
 					$parserOptions,
 					$this->revisionRenderer,
@@ -598,12 +412,8 @@ class ParserOutputAccess {
 				);
 
 			default:
-				$this->statsFactory->getCounter( 'parseroutputaccess_poolwork' )
-					->setLabel( 'cache', self::CACHE_NONE )
-					->copyToStatsdAt( 'ParserOutputAccess.PoolWork.Uncached' )
-					->increment();
-				$secondaryCache = $this->getSecondaryCache( $parserOptions );
-				$workKey = $secondaryCache->makeParserOutputKeyOptionalRevId( $revision, $parserOptions );
+				$this->statsDataFactory->increment( 'ParserOutputAccess.PoolWork.Uncached' );
+				$workKey = $this->secondaryCache->makeParserOutputKeyOptionalRevId( $revision, $parserOptions );
 				return new PoolWorkArticleView(
 					$workKey,
 					$revision,
@@ -614,30 +424,6 @@ class ParserOutputAccess {
 		}
 
 		// unreachable
-	}
-
-	private function getPrimaryCache( ParserOptions $pOpts ): ParserCache {
-		if ( $pOpts->getUseParsoid() ) {
-			return $this->parserCacheFactory->getParserCache(
-				self::PARSOID_PCACHE_NAME
-			);
-		}
-
-		return $this->parserCacheFactory->getParserCache(
-			ParserCacheFactory::DEFAULT_NAME
-		);
-	}
-
-	private function getSecondaryCache( ParserOptions $pOpts ): RevisionOutputCache {
-		if ( $pOpts->getUseParsoid() ) {
-			return $this->parserCacheFactory->getRevisionOutputCache(
-				self::PARSOID_RCACHE_NAME
-			);
-		}
-
-		return $this->parserCacheFactory->getRevisionOutputCache(
-			ParserCacheFactory::DEFAULT_RCACHE_NAME
-		);
 	}
 
 }

@@ -4,9 +4,9 @@ namespace MediaWiki\Search\SearchWidgets;
 
 use ISearchResultSet;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Message\Message;
-use MediaWiki\Specials\SpecialSearch;
-use MediaWiki\Status\Status;
+use Message;
+use SpecialSearch;
+use Status;
 
 /**
  * Renders the search result area. Handles Title and Full-Text search results,
@@ -40,23 +40,23 @@ class BasicSearchResultSetWidget {
 	public function render(
 		$term,
 		$offset,
-		?ISearchResultSet $titleResultSet = null,
-		?ISearchResultSet $textResultSet = null
+		ISearchResultSet $titleResultSet = null,
+		ISearchResultSet $textResultSet = null
 	) {
-		$hasTitle = $titleResultSet && $titleResultSet->numRows() > 0;
-		$hasText = $textResultSet && $textResultSet->numRows() > 0;
-		$hasSecondary =
-			$textResultSet &&
-			$textResultSet->hasInterwikiResults( ISearchResultSet::SECONDARY_RESULTS );
-		$hasSecondaryInline =
-			$textResultSet &&
-			$textResultSet->hasInterwikiResults( ISearchResultSet::INLINE_RESULTS );
+		$hasTitle = $titleResultSet ? $titleResultSet->numRows() > 0 : false;
+		$hasText = $textResultSet ? $textResultSet->numRows() > 0 : false;
+		$hasSecondary = $textResultSet
+			? $textResultSet->hasInterwikiResults( ISearchResultSet::SECONDARY_RESULTS )
+			: false;
+		$hasSecondaryInline = $textResultSet
+			? $textResultSet->hasInterwikiResults( ISearchResultSet::INLINE_RESULTS )
+			: false;
 
 		if ( !$hasTitle && !$hasText && !$hasSecondary && !$hasSecondaryInline ) {
 			return '';
 		}
 
-		$out = '<div class="mw-search-results-container">';
+		$out = '';
 
 		if ( $hasTitle ) {
 			$out .= $this->header( $this->specialPage->msg( 'titlematches' ) )
@@ -84,15 +84,9 @@ class BasicSearchResultSetWidget {
 					"<h2 class='mw-search-interwiki-header mw-search-visualclear'>" .
 						$this->specialPage->msg( "search-interwiki-results-{$interwiki}" )->parse() .
 					"</h2>";
-				$out .=
-					"<div class='mw-search-interwiki-results'>" .
-						$this->renderResultSet( $results, $offset ) .
-					"</div>";
+				$out .= $this->renderResultSet( $results, $offset );
 			}
 		}
-
-		// Close <div class='mw-search-results-container'>
-		$out .= '</div>';
 
 		if ( $hasSecondary ) {
 			$out .= $this->sidebarWidget->render(
@@ -117,7 +111,9 @@ class BasicSearchResultSetWidget {
 	 * @return string HTML
 	 */
 	protected function header( Message $msg ) {
-		return "<h2>" . $msg->escaped() . "</h2>";
+		return "<h2>" .
+			"<span class='mw-headline'>" . $msg->escaped() . "</span>" .
+		"</h2>";
 	}
 
 	/**

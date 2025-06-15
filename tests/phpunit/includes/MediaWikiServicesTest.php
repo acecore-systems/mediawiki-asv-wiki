@@ -1,30 +1,19 @@
 <?php
 
-use MediaWiki\Config\Config;
-use MediaWiki\Config\GlobalVarConfig;
-use MediaWiki\Config\HashConfig;
 use MediaWiki\Hook\MediaWikiServicesHook;
 use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\HookContainer\StaticHookRegistry;
-use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
 use Wikimedia\Services\DestructibleService;
 use Wikimedia\Services\SalvageableService;
+use Wikimedia\Services\ServiceDisabledException;
 
 /**
- * @covers \MediaWiki\MediaWikiServices
- * @group Database
- * This test doesn't really make queries, but needs to be in the Database test to make sure
- * that storage isn't disabled on the original instance.
+ * @covers MediaWiki\MediaWikiServices
  */
 class MediaWikiServicesTest extends MediaWikiIntegrationTestCase {
-	private const DEPRECATED_SERVICES = [
-		'BlockErrorFormatter',
-		'ConfigRepository',
-		'ConfiguredReadOnlyMode',
-	];
+	private $deprecatedServices = [];
 
-	/** @var array */
 	public static $mockServiceWiring = [];
 
 	/**
@@ -34,9 +23,8 @@ class MediaWikiServicesTest extends MediaWikiIntegrationTestCase {
 		$globalConfig = new GlobalVarConfig();
 
 		$testConfig = new HashConfig();
-		$testConfig->set( MainConfigNames::ServiceWiringFiles, $globalConfig->get( MainConfigNames::ServiceWiringFiles ) );
-		$testConfig->set( MainConfigNames::ConfigRegistry, $globalConfig->get( MainConfigNames::ConfigRegistry ) );
-		$testConfig->set( MainConfigNames::Hooks, [] );
+		$testConfig->set( 'ServiceWiringFiles', $globalConfig->get( 'ServiceWiringFiles' ) );
+		$testConfig->set( 'ConfigRegistry', $globalConfig->get( 'ConfigRegistry' ) );
 
 		return $testConfig;
 	}
@@ -49,7 +37,7 @@ class MediaWikiServicesTest extends MediaWikiIntegrationTestCase {
 		$instance = new MediaWikiServices( $config );
 
 		// Load the default wiring from the specified files.
-		$wiringFiles = $config->get( MainConfigNames::ServiceWiringFiles );
+		$wiringFiles = $config->get( 'ServiceWiringFiles' );
 		$instance->loadWiringFiles( $wiringFiles );
 
 		return $instance;
@@ -57,7 +45,7 @@ class MediaWikiServicesTest extends MediaWikiIntegrationTestCase {
 
 	private function newConfigWithMockWiring() {
 		$config = new HashConfig;
-		$config->set( MainConfigNames::ServiceWiringFiles, [ __DIR__ . '/MockServiceWiring.php' ] );
+		$config->set( 'ServiceWiringFiles', [ __DIR__ . '/MockServiceWiring.php' ] );
 		return $config;
 	}
 
@@ -197,7 +185,7 @@ class MediaWikiServicesTest extends MediaWikiIntegrationTestCase {
 		MediaWikiServices::forceGlobalInstance( $oldServices );
 	}
 
-	public function testDisableStorage() {
+	public function testDisableStorageBackend() {
 		$newServices = $this->newMediaWikiServices();
 		$oldServices = MediaWikiServices::forceGlobalInstance( $newServices );
 
@@ -210,23 +198,22 @@ class MediaWikiServicesTest extends MediaWikiIntegrationTestCase {
 			}
 		);
 
-		$this->assertFalse( $newServices->isStorageDisabled() );
+		// force the service to become active, so we can check that it does get destroyed
+		$newServices->getService( 'DBLoadBalancerFactory' );
 
-		$newServices->disableStorage(); // should destroy DBLoadBalancerFactory
-
-		$this->assertTrue( $newServices->isStorageDisabled() );
+		MediaWikiServices::disableStorageBackend(); // should destroy DBLoadBalancerFactory
 
 		try {
-			$newServices->getDBLoadBalancer()->getConnection( DB_REPLICA );
-		} catch ( RuntimeException $ex ) {
+			MediaWikiServices::getInstance()->getService( 'DBLoadBalancerFactory' );
+			$this->fail( 'DBLoadBalancerFactory should have been disabled' );
+		} catch ( ServiceDisabledException $ex ) {
 			// ok, as expected
+		} catch ( Throwable $ex ) {
+			$this->fail( 'ServiceDisabledException expected, caught ' . get_class( $ex ) );
 		}
 
 		MediaWikiServices::forceGlobalInstance( $oldServices );
 		$newServices->destroy();
-
-		// This should work now.
-		MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_REPLICA );
 
 		// No exception was thrown, avoid being risky
 		$this->assertTrue( true );
@@ -322,7 +309,7 @@ class MediaWikiServicesTest extends MediaWikiIntegrationTestCase {
 	}
 
 	public function provideGetters() {
-		$getServiceCases = self::provideGetService();
+		$getServiceCases = $this->provideGetService();
 		$getterCases = [];
 
 		// All getters should be named just like the service, with "get" added.
@@ -331,11 +318,11 @@ class MediaWikiServicesTest extends MediaWikiIntegrationTestCase {
 				// Internal service, no getter
 				continue;
 			}
-			[ $service, $class ] = $case;
+			list( $service, $class ) = $case;
 			$getterCases[$name] = [
 				'get' . $service,
 				$class,
-				in_array( $service, self::DEPRECATED_SERVICES )
+				in_array( $service, $this->deprecatedServices )
 			];
 		}
 
@@ -356,14 +343,14 @@ class MediaWikiServicesTest extends MediaWikiIntegrationTestCase {
 		$this->assertInstanceOf( $type, $service );
 	}
 
-	public static function provideGetService() {
+	public function provideGetService() {
 		global $IP;
 		$serviceList = require "$IP/includes/ServiceWiring.php";
 		$ret = [];
 		foreach ( $serviceList as $name => $callback ) {
 			$fun = new ReflectionFunction( $callback );
 			if ( !$fun->hasReturnType() ) {
-				throw new LogicException( 'All service callbacks must have a return type defined, ' .
+				throw new MWException( 'All service callbacks must have a return type defined, ' .
 					"none found for $name" );
 			}
 
@@ -400,7 +387,7 @@ class MediaWikiServicesTest extends MediaWikiIntegrationTestCase {
 
 	public function testDefaultServiceWiringServicesHaveTests() {
 		global $IP;
-		$testedServices = array_keys( self::provideGetService() );
+		$testedServices = array_keys( $this->provideGetService() );
 		$allServices = array_keys( require "$IP/includes/ServiceWiring.php" );
 		$this->assertEquals(
 			[],
@@ -418,7 +405,7 @@ class MediaWikiServicesTest extends MediaWikiIntegrationTestCase {
 		}, $methods );
 		$serviceNames = array_map( static function ( $name ) {
 			return "get$name";
-		}, array_keys( self::provideGetService() ) );
+		}, array_keys( $this->provideGetService() ) );
 		$names = array_values( array_filter( $names, static function ( $name ) use ( $serviceNames ) {
 			return in_array( $name, $serviceNames );
 		} ) );

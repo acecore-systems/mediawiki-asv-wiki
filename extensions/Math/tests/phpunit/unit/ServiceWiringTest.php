@@ -19,7 +19,7 @@ class ServiceWiringTest extends MediaWikiUnitTestCase {
 		$this->assertIsCallable( $definition );
 	}
 
-	public static function provideWiring(): Generator {
+	public function provideWiring(): Generator {
 		$wiring = require __DIR__ . '/../../../ServiceWiring.php';
 
 		foreach ( $wiring as $name => $definition ) {

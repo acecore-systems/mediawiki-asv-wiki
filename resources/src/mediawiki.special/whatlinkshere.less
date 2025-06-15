@@ -2,7 +2,11 @@
  * Styling for Special:WhatLinksHere
  */
 
-@import 'mediawiki.skin.variables.less';
+// OOUIHTMLForm styles
+@ooui-font-size-browser: 16; // assumed browser default of `16px`
+@ooui-font-size-base: 0.875 / 1em; // equals `14px` at browser default of `16px`
+
+@ooui-spacing-large: 16 / @ooui-font-size-browser / @ooui-font-size-base; // Equals `1.1428571em`≈`16px`.
 
 .mw-special-Whatlinkshere {
 	.oo-ui-fieldsetLayout-group {
@@ -24,21 +28,21 @@
 		justify-content: space-between;
 		align-items: end;
 		flex-wrap: wrap;
-		// To remove the left padding when its child checkbox is wrapped.
-		margin-left: -@spacing-100;
+		// To remove the left padding when its child checkbox is wrapped
+		margin-left: -@ooui-spacing-large;
 	}
 
 	#mw-htmlform-whatlinkshere-ns > .mw-htmlform-field-HTMLSelectNamespace {
 		flex-grow: 1;
-		padding-left: @spacing-100;
+		padding-left: @ooui-spacing-large;
 	}
 
 	#mw-htmlform-whatlinkshere-ns > .mw-htmlform-field-HTMLCheckField {
-		padding-left: @spacing-100;
+		padding-left: @ooui-spacing-large;
 	}
 
 	#mw-htmlform-whatlinkshere-filter > .mw-htmlform-field-HTMLCheckField {
 		display: inline-block;
-		padding-right: @spacing-100;
+		padding-right: @ooui-spacing-large;
 	}
 }

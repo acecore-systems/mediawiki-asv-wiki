@@ -20,21 +20,9 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
-use File;
-use FormatMetadata;
-use MediaTransformError;
-use MediaWiki\Language\Language;
-use MediaWiki\Linker\Linker;
+use MediaWiki\BadFileLookup;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Page\File\BadFileLookup;
-use MediaWiki\Specials\SpecialUpload;
-use MediaWiki\Title\Title;
-use OldLocalFile;
-use RepoGroup;
-use UploadBase;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\TypeDef\IntegerDef;
 
@@ -45,12 +33,16 @@ use Wikimedia\ParamValidator\TypeDef\IntegerDef;
  */
 class ApiQueryImageInfo extends ApiQueryBase {
 	public const TRANSFORM_LIMIT = 50;
-	/** @var int */
 	private static $transformCount = 0;
 
-	private RepoGroup $repoGroup;
-	private Language $contentLanguage;
-	private BadFileLookup $badFileLookup;
+	/** @var RepoGroup */
+	private $repoGroup;
+
+	/** @var Language */
+	private $contentLanguage;
+
+	/** @var BadFileLookup */
+	private $badFileLookup;
 
 	/**
 	 * @param ApiQuery $query
@@ -62,7 +54,7 @@ class ApiQueryImageInfo extends ApiQueryBase {
 	 */
 	public function __construct(
 		ApiQuery $query,
-		string $moduleName,
+		$moduleName,
 		$prefixOrRepoGroup = null,
 		$repoGroupOrContentLanguage = null,
 		$contentLanguageOrBadFileLookup = null,
@@ -122,8 +114,9 @@ class ApiQueryImageInfo extends ApiQueryBase {
 
 			$fromTitle = null;
 			if ( $params['continue'] !== null ) {
-				$cont = $this->parseContinueParamOrDie( $params['continue'], [ 'string', 'string' ] );
-				$fromTitle = $cont[0];
+				$cont = explode( '|', $params['continue'] );
+				$this->dieContinueUsageIf( count( $cont ) != 2 );
+				$fromTitle = strval( $cont[0] );
 				$fromTimestamp = $cont[1];
 				// Filter out any titles before $fromTitle
 				foreach ( $titles as $key => $title ) {
@@ -432,12 +425,10 @@ class ApiQueryImageInfo extends ApiQueryBase {
 	public static function getInfo( $file, $prop, $result, $thumbParams = null, $opts = false ) {
 		$anyHidden = false;
 
-		$services = MediaWikiServices::getInstance();
-
 		if ( !$opts || is_string( $opts ) ) {
 			$opts = [
 				'version' => $opts ?: 'latest',
-				'language' => $services->getContentLanguage(),
+				'language' => MediaWikiServices::getInstance()->getContentLanguage(),
 				'multilang' => false,
 				'extmetadatafilter' => [],
 				'revdelUser' => null,
@@ -486,9 +477,6 @@ class ApiQueryImageInfo extends ApiQueryBase {
 				if ( $userid ) {
 					$vals['userid'] = $uploader ? $uploader->getId() : 0;
 				}
-				if ( $uploader && $services->getUserNameUtils()->isTemp( $uploader->getName() ) ) {
-					$vals['temp'] = true;
-				}
 				if ( $uploader && !$uploader->isRegistered() ) {
 					$vals['anon'] = true;
 				}
@@ -525,7 +513,7 @@ class ApiQueryImageInfo extends ApiQueryBase {
 			}
 			if ( $canShowField( File::DELETED_COMMENT ) ) {
 				if ( $pcomment ) {
-					$vals['parsedcomment'] = $services->getCommentFormatter()->format(
+					$vals['parsedcomment'] = Linker::formatComment(
 						$file->getDescription( File::RAW ), $file->getTitle() );
 				}
 				if ( $comment ) {
@@ -573,14 +561,12 @@ class ApiQueryImageInfo extends ApiQueryBase {
 		}
 
 		if ( $url ) {
-			$urlUtils = $services->getUrlUtils();
-
 			if ( $exists ) {
 				if ( $thumbParams !== null ) {
 					$mto = $file->transform( $thumbParams );
 					self::$transformCount++;
 					if ( $mto && !$mto->isError() ) {
-						$vals['thumburl'] = (string)$urlUtils->expand( $mto->getUrl(), PROTO_CURRENT );
+						$vals['thumburl'] = wfExpandUrl( $mto->getUrl(), PROTO_CURRENT );
 
 						// T25834 - If the URLs are the same, we haven't resized it, so shouldn't give the wanted
 						// thumbnail sizes for the thumbnail actual size
@@ -593,7 +579,7 @@ class ApiQueryImageInfo extends ApiQueryBase {
 						}
 
 						if ( isset( $prop['thumbmime'] ) && $file->getHandler() ) {
-							[ , $mime ] = $file->getHandler()->getThumbType(
+							list( , $mime ) = $file->getHandler()->getThumbType(
 								$mto->getExtension(), $file->getMimeType(), $thumbParams );
 							$vals['thumbmime'] = $mime;
 						}
@@ -603,7 +589,7 @@ class ApiQueryImageInfo extends ApiQueryBase {
 							'height' => $vals['thumbheight']
 						] + $thumbParams );
 						foreach ( $mto->responsiveUrls as $density => $url ) {
-							$vals['responsiveUrls'][$density] = (string)$urlUtils->expand( $url, PROTO_CURRENT );
+							$vals['responsiveUrls'][$density] = wfExpandUrl( $url, PROTO_CURRENT );
 						}
 					} elseif ( $mto && $mto->isError() ) {
 						/** @var MediaTransformError $mto */
@@ -611,13 +597,13 @@ class ApiQueryImageInfo extends ApiQueryBase {
 						$vals['thumberror'] = $mto->toText();
 					}
 				}
-				$vals['url'] = (string)$urlUtils->expand( $file->getFullUrl(), PROTO_CURRENT );
+				$vals['url'] = wfExpandUrl( $file->getFullUrl(), PROTO_CURRENT );
 			}
-			$vals['descriptionurl'] = (string)$urlUtils->expand( $file->getDescriptionUrl(), PROTO_CURRENT );
+			$vals['descriptionurl'] = wfExpandUrl( $file->getDescriptionUrl(), PROTO_CURRENT );
 
 			$shortDescriptionUrl = $file->getDescriptionShortUrl();
 			if ( $shortDescriptionUrl !== null ) {
-				$vals['descriptionshorturl'] = (string)$urlUtils->expand( $shortDescriptionUrl, PROTO_CURRENT );
+				$vals['descriptionshorturl'] = wfExpandUrl( $shortDescriptionUrl, PROTO_CURRENT );
 			}
 		}
 
@@ -626,7 +612,7 @@ class ApiQueryImageInfo extends ApiQueryBase {
 		}
 
 		if ( $sha1 && $exists ) {
-			$vals['sha1'] = \Wikimedia\base_convert( $file->getSha1(), 36, 16, 40 );
+			$vals['sha1'] = Wikimedia\base_convert( $file->getSha1(), 36, 16, 40 );
 		}
 
 		if ( $meta && $exists ) {
@@ -730,7 +716,11 @@ class ApiQueryImageInfo extends ApiQueryBase {
 	 * @return string
 	 */
 	protected function getContinueStr( $img, $start = null ) {
-		return $img->getOriginalTitle()->getDBkey() . '|' . ( $start ?? $img->getTimestamp() );
+		if ( $start === null ) {
+			$start = $img->getTimestamp();
+		}
+
+		return $img->getOriginalTitle()->getDBkey() . '|' . $start;
 	}
 
 	public function getAllowedParams() {
@@ -858,6 +848,3 @@ class ApiQueryImageInfo extends ApiQueryBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Imageinfo';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiQueryImageInfo::class, 'ApiQueryImageInfo' );

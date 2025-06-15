@@ -1,33 +1,27 @@
 <?php
 
-namespace MediaWiki\Tests\Api\Query;
-
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\Permissions\Authority;
-use MediaWiki\Tests\Api\ApiTestCase;
-use MediaWiki\Tests\Unit\Permissions\MockAuthorityTrait;
-use MediaWiki\Tests\User\TempUser\TempUserTestTrait;
-use MediaWiki\Title\TitleValue;
-use MediaWiki\User\User;
-use MediaWiki\Watchlist\WatchedItemQueryService;
-use RecentChange;
 
 /**
  * @group API
  * @group Database
  * @group medium
  *
- * @covers MediaWiki\Api\ApiQueryRecentChanges
+ * @covers ApiQueryRecentChanges
  */
 class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
-	use MockAuthorityTrait;
-	use TempUserTestTrait;
+
+	protected $tablesUsed = [
+		'recentchanges',
+		'page',
+	];
 
 	private function getLoggedInTestUser() {
 		return $this->getTestUser()->getUser();
 	}
 
-	private function doPageEdit( Authority $performer, $target, $summary ) {
+	private function doPageEdit( Authority $performer, LinkTarget $target, $summary ) {
 		static $i = 0;
 
 		$this->editPage(
@@ -40,9 +34,10 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	private function doMinorPageEdit( User $user, LinkTarget $target, $summary ) {
-		$page = $this->getServiceContainer()->getWikiPageFactory()->newFromLinkTarget( $target );
+		$title = Title::newFromLinkTarget( $target );
+		$page = WikiPage::factory( $title );
 		$page->doUserEditContent(
-			$page->getContentHandler()->unserializeContent( __CLASS__ ),
+			ContentHandler::makeContent( __CLASS__, $title ),
 			$user,
 			$summary,
 			EDIT_MINOR
@@ -50,9 +45,10 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	private function doBotPageEdit( User $user, LinkTarget $target, $summary ) {
-		$page = $this->getServiceContainer()->getWikiPageFactory()->newFromLinkTarget( $target );
+		$title = Title::newFromLinkTarget( $target );
+		$page = WikiPage::factory( $title );
 		$page->doUserEditContent(
-			$page->getContentHandler()->unserializeContent( __CLASS__ ),
+			ContentHandler::makeContent( __CLASS__, $title ),
 			$user,
 			$summary,
 			EDIT_FORCE_BOT
@@ -60,22 +56,11 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	private function doAnonPageEdit( LinkTarget $target, $summary ) {
-		$this->disableAutoCreateTempUser();
-		$page = $this->getServiceContainer()->getWikiPageFactory()->newFromLinkTarget( $target );
+		$title = Title::newFromLinkTarget( $target );
+		$page = WikiPage::factory( $title );
 		$page->doUserEditContent(
-			$page->getContentHandler()->unserializeContent( __CLASS__ ),
-			$this->getServiceContainer()->getUserFactory()->newAnonymous(),
-			$summary
-		);
-	}
-
-	private function doTempPageEdit( LinkTarget $target, $summary ) {
-		// Set up temp user config
-		$this->enableAutoCreateTempUser();
-		$page = $this->getServiceContainer()->getWikiPageFactory()->newFromLinkTarget( $target );
-		$page->doUserEditContent(
-			$page->getContentHandler()->unserializeContent( __CLASS__ ),
-			$this->mockTempUltimateAuthority(),
+			ContentHandler::makeContent( __CLASS__, $title ),
+			User::newFromId( 0 ),
 			$summary
 		);
 	}
@@ -144,7 +129,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	public function testListRecentChanges_returnsRCInfo() {
-		$target = new TitleValue( NS_MAIN, 'ApiQueryRecentChangesIntegrationTestPage' );
+		$target = new TitleValue( 0, 'ApiQueryRecentChangesIntegrationTestPage' );
 		$this->doPageEdit( $this->getLoggedInTestUser(), $target, 'Create the page' );
 
 		$result = $this->doListRecentChangesRequest();
@@ -169,7 +154,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 		$this->assertEquals(
 			[
 				'type' => 'new',
-				'ns' => NS_MAIN,
+				'ns' => 0,
 				'title' => 'ApiQueryRecentChangesIntegrationTestPage',
 			],
 			$item
@@ -177,7 +162,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	public function testIdsPropParameter() {
-		$target = new TitleValue( NS_MAIN, 'ApiQueryRecentChangesIntegrationTestPage' );
+		$target = new TitleValue( 0, 'ApiQueryRecentChangesIntegrationTestPage' );
 		$this->doPageEdit( $this->getLoggedInTestUser(), $target, 'Create the page' );
 		$result = $this->doListRecentChangesRequest( [ 'rcprop' => 'ids' ] );
 		$items = $this->getItemsFromRecentChangesResult( $result );
@@ -208,11 +193,11 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			$this->getLoggedInTestUser(),
 			[
 				[
-					'target' => new TitleValue( NS_MAIN, 'Thing' ),
+					'target' => new TitleValue( 0, 'Thing' ),
 					'summary' => 'Create the page',
 				],
 				[
-					'target' => new TitleValue( NS_TALK, 'Thing' ),
+					'target' => new TitleValue( 1, 'Thing' ),
 					'summary' => 'Create Talk page',
 				],
 			]
@@ -224,12 +209,12 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'type' => 'new',
-					'ns' => NS_TALK,
+					'ns' => 1,
 					'title' => 'Talk:Thing',
 				],
 				[
 					'type' => 'new',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Thing',
 				],
 			],
@@ -243,20 +228,20 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'summary' => 'Create the page',
-					'target' => new TitleValue( NS_MAIN, 'Regularpage' ),
+					'target' => new TitleValue( 0, 'Regularpage' ),
 				],
 				[
 					'summary' => 'Create the page for minor change',
-					'target' => new TitleValue( NS_MAIN, 'Minorpage' ),
+					'target' => new TitleValue( 0, 'Minorpage' ),
 				],
 				[
 					'summary' => 'Make minor content',
-					'target' => new TitleValue( NS_MAIN, 'Minorpage' ),
+					'target' => new TitleValue( 0, 'Minorpage' ),
 					'minorEdit' => true,
 				],
 				[
 					'summary' => 'Create the page as a bot',
-					'target' => new TitleValue( NS_MAIN, 'Botpage' ),
+					'target' => new TitleValue( 0, 'Botpage' ),
 					'botEdit' => true,
 				],
 			]
@@ -296,38 +281,15 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	public function testUserPropParameter() {
-		$userEditTarget = new TitleValue( NS_MAIN, 'Foo' );
-		$anonEditTarget = new TitleValue( NS_MAIN, 'Bar' );
-		$tempEditTarget = new TitleValue( NS_MAIN, 'Baz' );
+		$userEditTarget = new TitleValue( 0, 'Foo' );
+		$anonEditTarget = new TitleValue( 0, 'Bar' );
 		$this->doPageEdit( $this->getLoggedInTestUser(), $userEditTarget, 'Create the page' );
 		$this->doAnonPageEdit( $anonEditTarget, 'Create the page' );
 
-		// Test that querying for anonymous edits works even if temporary accounts are disabled
-		$this->disableAutoCreateTempUser();
-		$result = $this->doListRecentChangesRequest( [
-			'rcprop' => 'user',
-			'rcshow' => WatchedItemQueryService::FILTER_NOT_ANON,
-		] );
-		$this->assertEquals(
-			[
-				[
-					'type' => 'new',
-					'user' => $this->getLoggedInTestUser()->getName(),
-				],
-			],
-			$this->getItemsFromRecentChangesResult( $result )
-		);
-
-		// Test that temporary accounts are treated as anonymous
-		$this->doTempPageEdit( $tempEditTarget, 'Create the page' );
 		$result = $this->doListRecentChangesRequest( [ 'rcprop' => 'user' ] );
+
 		$this->assertEquals(
 			[
-				[
-					'type' => 'new',
-					'temp' => true,
-					'user' => '~2024-1',
-				],
 				[
 					'type' => 'new',
 					'anon' => true,
@@ -344,8 +306,8 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 
 	public function testUserIdPropParameter() {
 		$user = $this->getLoggedInTestUser();
-		$userEditTarget = new TitleValue( NS_MAIN, 'Foo' );
-		$anonEditTarget = new TitleValue( NS_MAIN, 'Bar' );
+		$userEditTarget = new TitleValue( 0, 'Foo' );
+		$anonEditTarget = new TitleValue( 0, 'Bar' );
 		$this->doPageEdit( $user, $userEditTarget, 'Create the page' );
 		$this->doAnonPageEdit( $anonEditTarget, 'Create the page' );
 
@@ -368,7 +330,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	public function testCommentPropParameter() {
-		$target = new TitleValue( NS_MAIN, 'Thing' );
+		$target = new TitleValue( 0, 'Thing' );
 		$this->doPageEdit( $this->getLoggedInTestUser(), $target, 'Create the <b>page</b>' );
 
 		$result = $this->doListRecentChangesRequest( [ 'rcprop' => 'comment' ] );
@@ -385,7 +347,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	public function testParsedCommentPropParameter() {
-		$target = new TitleValue( NS_MAIN, 'Thing' );
+		$target = new TitleValue( 0, 'Thing' );
 		$this->doPageEdit( $this->getLoggedInTestUser(), $target, 'Create the <b>page</b>' );
 
 		$result = $this->doListRecentChangesRequest( [ 'rcprop' => 'parsedcomment' ] );
@@ -402,7 +364,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	public function testTimestampPropParameter() {
-		$target = new TitleValue( NS_MAIN, 'Thing' );
+		$target = new TitleValue( 0, 'Thing' );
 		$this->doPageEdit( $this->getLoggedInTestUser(), $target, 'Create the page' );
 
 		$result = $this->doListRecentChangesRequest( [ 'rcprop' => 'timestamp' ] );
@@ -413,7 +375,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	public function testSizesPropParameter() {
-		$target = new TitleValue( NS_MAIN, 'Thing' );
+		$target = new TitleValue( 0, 'Thing' );
 		$this->doPageEdit( $this->getLoggedInTestUser(), $target, 'Create the page' );
 
 		$result = $this->doListRecentChangesRequest( [ 'rcprop' => 'sizes' ] );
@@ -423,8 +385,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 				[
 					'type' => 'new',
 					'oldlen' => 0,
-					// strlen( __CLASS__ ) - 2 = 64
-					'newlen' => 64,
+					'newlen' => 38,
 				],
 			],
 			$this->getItemsFromRecentChangesResult( $result )
@@ -432,16 +393,16 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	private function createPageAndDeleteIt( LinkTarget $target ) {
-		$wikiPage = $this->getServiceContainer()->getWikiPageFactory()->newFromLinkTarget( $target );
 		$this->doPageEdit( $this->getLoggedInTestUser(),
-			$wikiPage,
+			$target,
 			'Create the page that will be deleted'
 		);
+		$wikiPage = $this->getServiceContainer()->getWikiPageFactory()->newFromLinkTarget( $target );
 		$this->deletePage( $wikiPage, 'Important Reason' );
 	}
 
 	public function testLoginfoPropParameter() {
-		$target = new TitleValue( NS_MAIN, 'Thing' );
+		$target = new TitleValue( 0, 'Thing' );
 		$this->createPageAndDeleteIt( $target );
 
 		$result = $this->doListRecentChangesRequest( [ 'rcprop' => 'loginfo' ] );
@@ -468,7 +429,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 
 	public function testEmptyPropParameter() {
 		$user = $this->getLoggedInTestUser();
-		$target = new TitleValue( NS_MAIN, 'Thing' );
+		$target = new TitleValue( 0, 'Thing' );
 		$this->doPageEdit( $user, $target, 'Create the page' );
 
 		$result = $this->doListRecentChangesRequest( [ 'rcprop' => '' ] );
@@ -484,8 +445,8 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	public function testNamespaceParam() {
-		$subjectTarget = new TitleValue( NS_MAIN, 'Foo' );
-		$talkTarget = new TitleValue( NS_TALK, 'Foo' );
+		$subjectTarget = new TitleValue( 0, 'Foo' );
+		$talkTarget = new TitleValue( 1, 'Foo' );
 		$this->doPageEdits(
 			$this->getLoggedInTestUser(),
 			[
@@ -507,7 +468,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 		$this->assertEquals(
 			[
 				'type' => 'new',
-				'ns' => NS_MAIN,
+				'ns' => 0,
 				'title' => 'Foo',
 			],
 			$items[0]
@@ -515,11 +476,8 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	public function testShowAnonParams() {
-		$target = new TitleValue( NS_MAIN, 'Thing' );
+		$target = new TitleValue( 0, 'Thing' );
 		$this->doAnonPageEdit( $target, 'Create the page' );
-
-		$tempEditTarget = new TitleValue( NS_MAIN, 'Baz' );
-		$this->doTempPageEdit( $tempEditTarget, 'Create the page' );
 
 		$resultAnon = $this->doListRecentChangesRequest( [
 			'rcprop' => 'user',
@@ -531,28 +489,14 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 		] );
 
 		$items = $this->getItemsFromRecentChangesResult( $resultAnon );
-		$this->assertCount( 2, $items );
-		$this->assertEquals(
-			[
-				[
-					'type' => 'new',
-					'temp' => true,
-					'user' => '~2024-1',
-				],
-				[
-					'type' => 'new',
-					'anon' => true,
-					'user' => '127.0.0.1',
-				],
-			],
-			$items
-		);
+		$this->assertCount( 1, $items );
+		$this->assertSame( true, $items[0]['anon'], 'anon' );
 		$this->assertSame( [], $this->getItemsFromRecentChangesResult( $resultNotAnon ) );
 	}
 
 	public function testNewAndEditTypeParameters() {
-		$subjectTarget = new TitleValue( NS_MAIN, 'Foo' );
-		$talkTarget = new TitleValue( NS_TALK, 'Foo' );
+		$subjectTarget = new TitleValue( 0, 'Foo' );
+		$talkTarget = new TitleValue( 1, 'Foo' );
 		$this->doPageEdits(
 			$this->getLoggedInTestUser(),
 			[
@@ -578,12 +522,12 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'type' => 'new',
-					'ns' => NS_TALK,
+					'ns' => 1,
 					'title' => 'Talk:Foo',
 				],
 				[
 					'type' => 'new',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Foo',
 				],
 			],
@@ -593,7 +537,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'type' => 'edit',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Foo',
 				],
 			],
@@ -602,8 +546,8 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	public function testLogTypeParameters() {
-		$subjectTarget = new TitleValue( NS_MAIN, 'Foo' );
-		$talkTarget = new TitleValue( NS_TALK, 'Foo' );
+		$subjectTarget = new TitleValue( 0, 'Foo' );
+		$talkTarget = new TitleValue( 1, 'Foo' );
 		$this->createPageAndDeleteIt( $subjectTarget );
 		$this->doPageEdit( $this->getLoggedInTestUser(), $talkTarget, 'Create Talk page' );
 
@@ -613,7 +557,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'type' => 'log',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Foo',
 				],
 			],
@@ -622,7 +566,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	private function getExternalRC( LinkTarget $target ) {
-		$title = $this->getServiceContainer()->getTitleFactory()->newFromLinkTarget( $target );
+		$title = Title::newFromLinkTarget( $target );
 
 		$rc = new RecentChange;
 		$rc->mAttribs = [
@@ -665,8 +609,8 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 
 	public function testExternalTypeParameters() {
 		$user = $this->getLoggedInTestUser();
-		$subjectTarget = new TitleValue( NS_MAIN, 'Foo' );
-		$talkTarget = new TitleValue( NS_TALK, 'Foo' );
+		$subjectTarget = new TitleValue( 0, 'Foo' );
+		$talkTarget = new TitleValue( 1, 'Foo' );
 		$this->doPageEdit( $user, $subjectTarget, 'Create the page' );
 		$this->doPageEdit( $user, $talkTarget, 'Create Talk page' );
 		$rc = $this->getExternalRC( $subjectTarget );
@@ -678,7 +622,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'type' => 'external',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Foo',
 				],
 			],
@@ -688,7 +632,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 
 	public function testCategorizeTypeParameter() {
 		$user = $this->getLoggedInTestUser();
-		$subjectTarget = new TitleValue( NS_MAIN, 'Foo' );
+		$subjectTarget = new TitleValue( 0, 'Foo' );
 		$categoryTarget = new TitleValue( NS_CATEGORY, 'Bar' );
 		$this->doPageEdits(
 			$user,
@@ -703,8 +647,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 				],
 			]
 		);
-		$titleFactory = $this->getServiceContainer()->getTitleFactory();
-		$title = $titleFactory->newFromLinkTarget( $subjectTarget );
+		$title = Title::newFromLinkTarget( $subjectTarget );
 		$revision = $this->getServiceContainer()
 			->getRevisionLookup()
 			->getRevisionByTitle( $title );
@@ -712,7 +655,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 		$comment = $revision->getComment();
 		$rc = RecentChange::newForCategorization(
 			$revision->getTimestamp(),
-			$titleFactory->newFromLinkTarget( $categoryTarget ),
+			Title::newFromLinkTarget( $categoryTarget ),
 			$user,
 			$comment ? $comment->text : '',
 			$title,
@@ -742,15 +685,15 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			$this->getLoggedInTestUser(),
 			[
 				[
-					'target' => new TitleValue( NS_MAIN, 'Foo' ),
+					'target' => new TitleValue( 0, 'Foo' ),
 					'summary' => 'Create the page',
 				],
 				[
-					'target' => new TitleValue( NS_TALK, 'Foo' ),
+					'target' => new TitleValue( 1, 'Foo' ),
 					'summary' => 'Create Talk page',
 				],
 				[
-					'target' => new TitleValue( NS_MAIN, 'Bar' ),
+					'target' => new TitleValue( 0, 'Bar' ),
 					'summary' => 'Create another page',
 				],
 			]
@@ -763,17 +706,17 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'type' => 'new',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Bar'
 				],
 				[
 					'type' => 'new',
-					'ns' => NS_TALK,
+					'ns' => 1,
 					'title' => 'Talk:Foo'
 				],
 				[
 					'type' => 'new',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Foo'
 				],
 			],
@@ -783,12 +726,12 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'type' => 'new',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Bar'
 				],
 				[
 					'type' => 'new',
-					'ns' => NS_TALK,
+					'ns' => 1,
 					'title' => 'Talk:Foo'
 				],
 			],
@@ -798,7 +741,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	public function testAllRevParam() {
-		$target = new TitleValue( NS_MAIN, 'Thing' );
+		$target = new TitleValue( 0, 'Thing' );
 		$this->doPageEdits(
 			$this->getLoggedInTestUser(),
 			[
@@ -820,12 +763,12 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'type' => 'edit',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Thing',
 				],
 				[
 					'type' => 'new',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Thing',
 				],
 			],
@@ -835,12 +778,12 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'type' => 'edit',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Thing',
 				],
 				[
 					'type' => 'new',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Thing',
 				],
 			],
@@ -849,8 +792,8 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	public function testDirParams() {
-		$subjectTarget = new TitleValue( NS_MAIN, 'Foo' );
-		$talkTarget = new TitleValue( NS_TALK, 'Foo' );
+		$subjectTarget = new TitleValue( 0, 'Foo' );
+		$talkTarget = new TitleValue( 1, 'Foo' );
 		$this->doPageEdits(
 			$this->getLoggedInTestUser(),
 			[
@@ -876,12 +819,12 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'type' => 'new',
-					'ns' => NS_TALK,
+					'ns' => 1,
 					'title' => 'Talk:Foo'
 				],
 				[
 					'type' => 'new',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Foo'
 				],
 			],
@@ -891,12 +834,12 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'type' => 'new',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Foo'
 				],
 				[
 					'type' => 'new',
-					'ns' => NS_TALK,
+					'ns' => 1,
 					'title' => 'Talk:Foo'
 				],
 			],
@@ -909,15 +852,15 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			$this->getLoggedInTestUser(),
 			[
 				[
-					'target' => new TitleValue( NS_MAIN, 'Foo' ),
+					'target' => new TitleValue( 0, 'Foo' ),
 					'summary' => 'Create the page',
 				],
 				[
-					'target' => new TitleValue( NS_TALK, 'Bar' ),
+					'target' => new TitleValue( 1, 'Bar' ),
 					'summary' => 'Create the page',
 				],
 				[
-					'target' => new TitleValue( NS_MAIN, 'Quux' ),
+					'target' => new TitleValue( 0, 'Quux' ),
 					'summary' => 'Create the page',
 				],
 			]
@@ -940,7 +883,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'type' => 'new',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Foo'
 				],
 			],
@@ -950,7 +893,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'type' => 'new',
-					'ns' => NS_TALK,
+					'ns' => 1,
 					'title' => 'Talk:Bar'
 				],
 			],
@@ -959,7 +902,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	public function testStartEndParams() {
-		$target = new TitleValue( NS_MAIN, 'Thing' );
+		$target = new TitleValue( 0, 'Thing' );
 		$this->doPageEdit( $this->getLoggedInTestUser(), $target, 'Create the page' );
 
 		$resultStart = $this->doListRecentChangesRequest( [
@@ -977,7 +920,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'type' => 'new',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Thing',
 				]
 			],
@@ -991,15 +934,15 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			$this->getLoggedInTestUser(),
 			[
 				[
-					'target' => new TitleValue( NS_MAIN, 'Foo' ),
+					'target' => new TitleValue( 0, 'Foo' ),
 					'summary' => 'Create the page',
 				],
 				[
-					'target' => new TitleValue( NS_TALK, 'Foo' ),
+					'target' => new TitleValue( 1, 'Foo' ),
 					'summary' => 'Create Talk page',
 				],
 				[
-					'target' => new TitleValue( NS_MAIN, 'Bar' ),
+					'target' => new TitleValue( 0, 'Bar' ),
 					'summary' => 'Create the page',
 				],
 			]
@@ -1017,12 +960,12 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'type' => 'new',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Bar',
 				],
 				[
 					'type' => 'new',
-					'ns' => NS_TALK,
+					'ns' => 1,
 					'title' => 'Talk:Foo',
 				],
 			],
@@ -1032,7 +975,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 			[
 				[
 					'type' => 'new',
-					'ns' => NS_MAIN,
+					'ns' => 0,
 					'title' => 'Foo',
 				]
 			],
@@ -1041,7 +984,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 	}
 
 	public function testGeneratorRecentChangesPropInfo_returnsRCPages() {
-		$target = new TitleValue( NS_MAIN, 'Thing' );
+		$target = new TitleValue( 0, 'Thing' );
 		$this->doPageEdit( $this->getLoggedInTestUser(), $target, 'Create the page' );
 
 		$result = $this->doGeneratorRecentChangesRequest( [ 'prop' => 'info' ] );
@@ -1064,7 +1007,7 @@ class ApiQueryRecentChangesIntegrationTest extends ApiTestCase {
 
 		$this->assertEquals(
 			[
-				'ns' => NS_MAIN,
+				'ns' => 0,
 				'title' => 'Thing',
 				'new' => true,
 				'contentmodel' => 'wikitext',

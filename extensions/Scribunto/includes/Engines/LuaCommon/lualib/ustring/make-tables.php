@@ -106,7 +106,9 @@ foreach ( $pats as $k => $pp ) {
 	$rstart = null;
 	foreach ( $chars as $i => $c ) {
 		if ( preg_match( "/^$re$/u", $c ) && !preg_match( "/^$re2$/u", $c ) ) {
-			$rstart ??= $i;
+			if ( $rstart === null ) {
+				$rstart = $i;
+			}
 		} elseif ( $rstart !== null ) {
 			addRange( $k, $rstart, $i );
 			$rstart = null;

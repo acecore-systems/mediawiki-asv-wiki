@@ -20,15 +20,10 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
-use ChangeTags;
 use MediaWiki\Languages\LanguageNameUtils;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Specials\SpecialPageLanguage;
-use MediaWiki\Title\Title;
 use Wikimedia\ParamValidator\ParamValidator;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * API module that facilitates changing the language of a page.
@@ -39,17 +34,26 @@ use Wikimedia\Rdbms\IConnectionProvider;
  */
 class ApiSetPageLanguage extends ApiBase {
 
-	private IConnectionProvider $dbProvider;
-	private LanguageNameUtils $languageNameUtils;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
 
+	/** @var LanguageNameUtils */
+	private $languageNameUtils;
+
+	/**
+	 * @param ApiMain $mainModule
+	 * @param string $moduleName
+	 * @param ILoadBalancer $loadBalancer
+	 * @param LanguageNameUtils $languageNameUtils
+	 */
 	public function __construct(
 		ApiMain $mainModule,
-		string $moduleName,
-		IConnectionProvider $dbProvider,
+		$moduleName,
+		ILoadBalancer $loadBalancer,
 		LanguageNameUtils $languageNameUtils
 	) {
 		parent::__construct( $mainModule, $moduleName );
-		$this->dbProvider = $dbProvider;
+		$this->loadBalancer = $loadBalancer;
 		$this->languageNameUtils = $languageNameUtils;
 	}
 
@@ -106,7 +110,7 @@ class ApiSetPageLanguage extends ApiBase {
 			$params['lang'],
 			$params['reason'] ?? '',
 			$params['tags'] ?: [],
-			$this->dbProvider->getPrimaryDatabase()
+			$this->loadBalancer->getConnectionRef( ILoadBalancer::DB_PRIMARY )
 		);
 
 		if ( !$status->isOK() ) {
@@ -174,6 +178,3 @@ class ApiSetPageLanguage extends ApiBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:SetPageLanguage';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiSetPageLanguage::class, 'ApiSetPageLanguage' );

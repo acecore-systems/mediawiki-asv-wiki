@@ -38,9 +38,7 @@
 			textSelectionFn,
 			hasErrorsOnSave = false,
 			selectedLine = 0,
-			returnFalse = function () {
-				return false;
-			},
+			returnFalse = function () { return false; },
 			api = new mw.Api();
 
 		// Initialize state
@@ -58,7 +56,7 @@
 		 *
 		 * This is also where we can attach some extra information to the events.
 		 */
-		context.evt = Object.assign( context.evt, {
+		context.evt = $.extend( context.evt, {
 			keydown: returnFalse,
 			change: returnFalse,
 			delayedChange: returnFalse,
@@ -99,7 +97,7 @@
 		/**
 		 * Internally used functions
 		 */
-		context.fn = Object.assign( context.fn, {
+		context.fn = $.extend( context.fn, {
 			isCodeEditorActive: function () {
 				return context.codeEditorActive;
 			},
@@ -203,7 +201,7 @@
 						'codeeditor-main': {
 							tools: {
 								codeEditor: {
-									label: mw.msg( 'codeeditor-toolbar-toggle' ),
+									labelMsg: 'codeeditor-toolbar-toggle',
 									type: 'toggle',
 									oouiIcon: 'markup',
 									action: {
@@ -216,7 +214,7 @@
 						'codeeditor-format': {
 							tools: {
 								indent: {
-									label: mw.msg( 'codeeditor-indent' ),
+									labelMsg: 'codeeditor-indent',
 									type: 'button',
 									oouiIcon: 'indent',
 									action: {
@@ -225,7 +223,7 @@
 									}
 								},
 								outdent: {
-									label: mw.msg( 'codeeditor-outdent' ),
+									labelMsg: 'codeeditor-outdent',
 									type: 'button',
 									oouiIcon: 'outdent',
 									action: {
@@ -239,7 +237,7 @@
 						'codeeditor-style': {
 							tools: {
 								invisibleChars: {
-									label: mw.msg( 'codeeditor-invisibleChars-toggle' ),
+									labelMsg: 'codeeditor-invisibleChars-toggle',
 									type: 'toggle',
 									oouiIcon: 'pilcrow',
 									action: {
@@ -248,7 +246,7 @@
 									}
 								},
 								lineWrapping: {
-									label: mw.msg( 'codeeditor-lineWrapping-toggle' ),
+									labelMsg: 'codeeditor-lineWrapping-toggle',
 									type: 'toggle',
 									oouiIcon: 'wrapping',
 									action: {
@@ -257,7 +255,7 @@
 									}
 								},
 								gotoLine: {
-									label: mw.msg( 'codeeditor-gotoline' ),
+									labelMsg: 'codeeditor-gotoline',
 									type: 'button',
 									oouiIcon: 'gotoLine',
 									action: {
@@ -266,7 +264,7 @@
 									}
 								},
 								toggleSearchReplace: {
-									label: mw.msg( 'codeeditor-searchReplace-toggle' ),
+									labelMsg: 'codeeditor-searchReplace-toggle',
 									type: 'button',
 									oouiIcon: 'articleSearch',
 									action: {
@@ -301,6 +299,11 @@
 				context.fn.updateButtonIcon( 'lineWrapping', context.fn.isLineWrappingActive );
 			},
 			setCodeEditorPreference: function ( prefValue ) {
+				// Do not try to save options for anonymous user
+				if ( mw.user.isAnon() ) {
+					return;
+				}
+
 				// Abort any previous request
 				api.abort();
 
@@ -308,10 +311,6 @@
 					.fail( function ( code, result ) {
 						if ( code === 'http' && result.textStatus === 'abort' ) {
 							// Request was aborted. Ignore error
-							return;
-						}
-						if ( code === 'notloggedin' ) {
-							// Expected for non-registered users
 							return;
 						}
 
@@ -335,7 +334,7 @@
 					// Protocol relative
 					basePath = window.location.protocol + basePath;
 				}
-				ace.config.set( 'basePath', basePath + '/CodeEditor/modules/lib/ace' );
+				ace.config.set( 'basePath', basePath + '/CodeEditor/modules/ace' );
 
 				if ( lang ) {
 					// Ace doesn't like replacing a textarea directly.
@@ -366,17 +365,10 @@
 					context.codeEditor.setReadOnly( $box.prop( 'readonly' ) );
 					context.codeEditor.setShowInvisibles( context.showInvisibleChars );
 
-					var htmlClasses = document.documentElement.classList;
-					var inDarkMode = htmlClasses.contains( 'skin-theme-clientpref-night' ) || (
-						htmlClasses.contains( 'skin-theme-clientpref-os' ) &&
-						window.matchMedia && window.matchMedia( '(prefers-color-scheme: dark)' ).matches
-					);
-
 					// The options to enable
 					context.codeEditor.setOptions( {
 						enableBasicAutocompletion: true,
-						enableSnippets: true,
-						theme: inDarkMode ? 'ace/theme/monokai' : 'ace/theme/textmate'
+						enableSnippets: true
 					} );
 
 					context.codeEditor.commands.addCommand( {
@@ -401,19 +393,13 @@
 						// eslint-disable-next-line no-jquery/variable-pattern
 						var mode = session2.getMode().$id;
 						if ( mode === 'ace/mode/javascript' ) {
-							session2.$worker.send( 'changeOptions', [ {
-								maxerr: 1000,
-								globals: { mw: true, mediaWiki: true, $: true, jQuery: true, OO: true }
+							session2.$worker.send( 'setOptions', [ {
+								maxerr: 1000
 							} ] );
 						}
 					} );
 
 					mw.hook( 'codeEditor.configure' ).fire( session );
-
-					// Add an Ace change handler to pass changes to Edit Recovery.
-					mw.hook( 'editRecovery.loadEnd' ).add( function ( data ) {
-						session.on( 'change', data.fieldChangeHandler );
-					} );
 
 					ace.config.loadModule( 'ace/ext/modelist', function ( modelist ) {
 						if ( !modelist || !modelist.modesByName[ lang ] ) {
@@ -423,12 +409,10 @@
 					} );
 
 					// Use jQuery UI resizable() so that users can make the box taller
-
 					container.resizable( {
 						handles: 's',
 						minHeight: $box.height(),
 						resize: function () {
-
 							context.codeEditor.resize();
 						}
 					} );
@@ -442,8 +426,6 @@
 					}
 
 					context.fn.setupStatusBar();
-
-					document.body.classList.remove( 'codeeditor-loading' );
 
 					// Let modules know we're ready to start working with the content
 					context.fn.trigger( 'ready' );
@@ -753,16 +735,6 @@
 			},
 
 			/**
-			 * Replace the current selection with the given text.
-			 * DO NOT CALL THIS DIRECTLY, use $.textSelection( 'functionname', options ) instead
-			 *
-			 * @param {string} text
-			 */
-			replaceSelection: function ( text ) {
-				context.codeEditor.insert( text );
-			},
-
-			/**
 			 * Inserts text at the begining and end of a text selection, optionally inserting text at the caret when
 			 * selection is empty.
 			 * DO NOT CALL THIS DIRECTLY, use $.textSelection( 'functionname', options ) instead
@@ -800,24 +772,9 @@
 			/**
 			 * Gets the position (in resolution of bytes not nessecarily characters) in a textarea
 			 * DO NOT CALL THIS DIRECTLY, use $.textSelection( 'functionname', options ) instead
-			 *
-			 * @param {Object} options
-			 * @param {Object} [options.startAndEnd=false] Return range of the selection rather than just start
-			 * @return {number|number[]} If options.startAndEnd is true, returns an array holding the start and
-			 * end of the selection, else returns only the start of the selection as a single number.
 			 */
-			getCaretPosition: function ( options ) {
-				var selection = context.codeEditor.getSelection(),
-					range = selection.getRange(),
-					doc = context.codeEditor.getSession().getDocument(),
-					startOffset = doc.positionToIndex( range.start );
-
-				if ( options.startAndEnd ) {
-					var endOffset = doc.positionToIndex( range.end );
-					return [ startOffset, endOffset ];
-				}
-
-				return startOffset;
+			getCaretPosition: function () {
+				mw.log( 'codeEditor stub function getCaretPosition called' );
 			},
 
 			/**

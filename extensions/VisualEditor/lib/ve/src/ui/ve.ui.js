@@ -1,13 +1,14 @@
 /*!
  * VisualEditor UserInterface namespace.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
  * Namespace for all VisualEditor UserInterface classes, static methods and static properties.
  *
- * @namespace
+ * @class
+ * @singleton
  */
 ve.ui = {
 	// 'actionFactory' instantiated in ve.ui.ActionFactory.js

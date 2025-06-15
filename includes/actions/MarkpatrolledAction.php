@@ -20,11 +20,7 @@
  * @ingroup Actions
  */
 
-use MediaWiki\Context\IContextSource;
-use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\Linker\LinkRenderer;
-use MediaWiki\Message\Message;
-use MediaWiki\SpecialPage\SpecialPage;
 
 /**
  * Mark a revision as patrolled on a page
@@ -33,19 +29,20 @@ use MediaWiki\SpecialPage\SpecialPage;
  */
 class MarkpatrolledAction extends FormAction {
 
-	private LinkRenderer $linkRenderer;
+	/** @var LinkRenderer */
+	private $linkRenderer;
 
 	/**
-	 * @param Article $article
+	 * @param Page $page
 	 * @param IContextSource $context
 	 * @param LinkRenderer $linkRenderer
 	 */
 	public function __construct(
-		Article $article,
+		Page $page,
 		IContextSource $context,
 		LinkRenderer $linkRenderer
 	) {
-		parent::__construct( $article, $context );
+		parent::__construct( $page, $context );
 		$this->linkRenderer = $linkRenderer;
 	}
 
@@ -109,13 +106,13 @@ class MarkpatrolledAction extends FormAction {
 
 	/**
 	 * @param array $data
-	 * @return bool|StatusValue True for success, false for didn't-try, StatusValue on failure
+	 * @return bool|array True for success, false for didn't-try, array of errors on failure
 	 */
 	public function onSubmit( $data ) {
 		$rc = $this->getRecentChange( $data );
-		$status = $rc->markPatrolled( $this->getAuthority() );
+		$errors = $rc->doMarkPatrolled( $this->getAuthority() );
 
-		if ( $status->hasMessage( 'rcpatroldisabled' ) ) {
+		if ( in_array( [ 'rcpatroldisabled' ], $errors ) ) {
 			throw new ErrorPageError( 'rcpatroldisabled', 'rcpatroldisabledtext' );
 		}
 
@@ -130,22 +127,22 @@ class MarkpatrolledAction extends FormAction {
 		}
 		$return = SpecialPage::getTitleFor( $returnTo );
 
-		if ( $status->hasMessage( 'markedaspatrollederror-noautopatrol' ) ) {
-			$this->getOutput()->setPageTitleMsg( $this->msg( 'markedaspatrollederror' ) );
+		if ( in_array( [ 'markedaspatrollederror-noautopatrol' ], $errors ) ) {
+			$this->getOutput()->setPageTitle( $this->msg( 'markedaspatrollederror' ) );
 			$this->getOutput()->addWikiMsg( 'markedaspatrollederror-noautopatrol' );
 			$this->getOutput()->returnToMain( null, $return );
 			return true;
 		}
 
-		if ( !$status->isGood() ) {
-			if ( !$status->hasMessage( 'hookaborted' ) ) {
-				throw new PermissionsError( 'patrol', $status );
+		if ( $errors ) {
+			if ( !in_array( [ 'hookaborted' ], $errors ) ) {
+				throw new PermissionsError( 'patrol', $errors );
 			}
-			// The MarkPatrolled hook itself has handled any output
-			return $status;
+			// The hook itself has handled any output
+			return $errors;
 		}
 
-		$this->getOutput()->setPageTitleMsg( $this->msg( 'markedaspatrolled' ) );
+		$this->getOutput()->setPageTitle( $this->msg( 'markedaspatrolled' ) );
 		$this->getOutput()->addWikiMsg( 'markedaspatrolledtext', $rc->getTitle()->getPrefixedText() );
 		$this->getOutput()->returnToMain( null, $return );
 		return true;

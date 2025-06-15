@@ -1,5 +1,4 @@
 @import 'variables.less';
-@import 'mediawiki.mixins.less';
 
 // remove duplicates we're not using here
 #p-search-mobilejs,
@@ -22,15 +21,16 @@
 #p-lang,
 #sidebar-mobilejs {
 	// keep present for screen readers
-	&:not( .mobile-menu-active ) {
-		.mixin-screen-reader-text();
+	.hidden();
+
+	&.mobile-menu-active {
+		top: 2em;
+		left: 0;
 	}
 }
 
 .mobile-menu-active {
 	position: absolute;
-	top: 2em;
-	left: 0;
 	z-index: 10000;
 	background: @content-background;
 	border: solid 1px @orange-border;
@@ -42,7 +42,7 @@
 	*[ id^='ca-nstab-' ],
 	#ca-talk,
 	#ca-edit {
-		.mixin-screen-reader-text();
+		.hidden();
 	}
 
 	ul {
@@ -66,7 +66,6 @@
 		margin-right: 2em;
 	}
 
-	.mw-portlet > div,
 	.pBody {
 		margin-bottom: 2em;
 	}

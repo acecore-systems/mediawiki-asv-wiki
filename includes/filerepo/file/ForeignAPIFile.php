@@ -20,7 +20,6 @@
 
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Permissions\Authority;
-use MediaWiki\Title\Title;
 use MediaWiki\User\UserIdentity;
 use MediaWiki\User\UserIdentityValue;
 
@@ -35,11 +34,10 @@ class ForeignAPIFile extends File {
 	/** @var array */
 	private $mInfo;
 
-	/** @inheritDoc */
 	protected $repoClass = ForeignAPIRepo::class;
 
 	/**
-	 * @param Title|string|false $title
+	 * @param Title|string|bool $title
 	 * @param ForeignApiRepo $repo
 	 * @param array $info
 	 * @param bool $exists
@@ -97,7 +95,7 @@ class ForeignAPIFile extends File {
 	}
 
 	/**
-	 * @return ForeignAPIRepo|false
+	 * @return ForeignAPIRepo|bool
 	 */
 	public function getRepo() {
 		return $this->repo;
@@ -122,7 +120,7 @@ class ForeignAPIFile extends File {
 	/**
 	 * @param array $params
 	 * @param int $flags
-	 * @return MediaTransformOutput|false
+	 * @return bool|MediaTransformOutput
 	 */
 	public function transform( $params, $flags = 0 ) {
 		if ( !$this->canRender() ) {
@@ -247,7 +245,7 @@ class ForeignAPIFile extends File {
 	}
 
 	/**
-	 * @return int|null|false
+	 * @return bool|int|null
 	 */
 	public function getSize() {
 		return isset( $this->mInfo['size'] ) ? intval( $this->mInfo['size'] ) : null;
@@ -279,8 +277,10 @@ class ForeignAPIFile extends File {
 		return null;
 	}
 
-	public function getUploader( int $audience = self::FOR_PUBLIC, ?Authority $performer = null ): ?UserIdentity {
+	public function getUploader( int $audience = self::FOR_PUBLIC, Authority $performer = null ): ?UserIdentity {
 		if ( isset( $this->mInfo['user'] ) ) {
+			// We don't know if the foreign repo will have a real interwiki prefix,
+			// treat this user as a foreign imported user. Maybe we can do better?
 			return UserIdentityValue::newExternal( $this->getRepoName(), $this->mInfo['user'] );
 		}
 		return null;
@@ -291,7 +291,7 @@ class ForeignAPIFile extends File {
 	 * @param Authority|null $performer
 	 * @return null|string
 	 */
-	public function getDescription( $audience = self::FOR_PUBLIC, ?Authority $performer = null ) {
+	public function getDescription( $audience = self::FOR_PUBLIC, Authority $performer = null ) {
 		return isset( $this->mInfo['comment'] ) ? strval( $this->mInfo['comment'] ) : null;
 	}
 
@@ -305,7 +305,7 @@ class ForeignAPIFile extends File {
 	}
 
 	/**
-	 * @return string|false
+	 * @return bool|string
 	 */
 	public function getTimestamp() {
 		return wfTimestamp( TS_MW,
@@ -340,7 +340,7 @@ class ForeignAPIFile extends File {
 	}
 
 	/**
-	 * @return string|false
+	 * @return bool|string
 	 */
 	public function getDescriptionUrl() {
 		return $this->mInfo['descriptionurl'] ?? false;

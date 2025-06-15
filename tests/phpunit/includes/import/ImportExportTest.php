@@ -1,19 +1,14 @@
 <?php
 
-use MediaWiki\Config\HashConfig;
-use MediaWiki\MainConfigNames;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Tests\Maintenance\DumpAsserter;
-use MediaWiki\Title\Title;
-use Wikimedia\Rdbms\IDBAccessObject;
-use Wikimedia\Rdbms\SelectQueryBuilder;
 
 /**
  * Import/export round trip test.
  *
  * @group Database
- * @covers \WikiExporter
- * @covers \WikiImporter
+ * @covers WikiExporter
+ * @covers WikiImporter
  */
 class ImportExportTest extends MediaWikiLangTestCase {
 
@@ -35,7 +30,7 @@ class ImportExportTest extends MediaWikiLangTestCase {
 	private function getExporter( string $schemaVersion ) {
 		$exporter = $this->getServiceContainer()
 			->getWikiExporterFactory()
-			->getWikiExporter( $this->getDb(), WikiExporter::FULL );
+			->getWikiExporter( $this->db, WikiExporter::FULL );
 		$exporter->setSchemaVersion( $schemaVersion );
 		return $exporter;
 	}
@@ -47,12 +42,11 @@ class ImportExportTest extends MediaWikiLangTestCase {
 	 */
 	private function getImporter( ImportSource $source ) {
 		$config = new HashConfig( [
-			MainConfigNames::MaxArticleSize => 2048,
+			'CommandLineMode' => true,
 		] );
 		$services = $this->getServiceContainer();
 		$importer = new WikiImporter(
 			$source,
-			$this->getTestSysop()->getAuthority(),
 			$config,
 			$services->getHookContainer(),
 			$services->getContentLanguage(),
@@ -60,6 +54,7 @@ class ImportExportTest extends MediaWikiLangTestCase {
 			$services->getTitleFactory(),
 			$services->getWikiPageFactory(),
 			$services->getWikiRevisionUploadImporter(),
+			$services->getPermissionManager(),
 			$services->getContentHandlerFactory(),
 			$services->getSlotRoleRegistry()
 		);
@@ -126,12 +121,19 @@ class ImportExportTest extends MediaWikiLangTestCase {
 	 */
 	private function getRevisions( Title $title ) {
 		$store = $this->getServiceContainer()->getRevisionStore();
-		$queryBuilder = $store->newSelectQueryBuilder( $this->getDb() )
-			->joinComment()
-			->where( [ 'rev_page' => $title->getArticleID() ] )
-			->orderBy( 'rev_id', SelectQueryBuilder::SORT_ASC );
+		$qi = $store->getQueryInfo();
 
-		$rows = $queryBuilder->caller( __METHOD__ )->fetchResultSet();
+		$conds = [ 'rev_page' => $title->getArticleID() ];
+		$opt = [ 'ORDER BY' => 'rev_id ASC' ];
+
+		$rows = $this->db->select(
+			$qi['tables'],
+			$qi['fields'],
+			$conds,
+			__METHOD__,
+			$opt,
+			$qi['joins']
+		);
 
 		$status = $store->newRevisionsFromBatch( $rows );
 		return $status->getValue();
@@ -147,7 +149,7 @@ class ImportExportTest extends MediaWikiLangTestCase {
 		foreach ( $pageTitles as $name => $page ) {
 			$title = Title::newFromText( $page );
 
-			if ( !$title->exists( IDBAccessObject::READ_LATEST ) ) {
+			if ( !$title->exists( Title::READ_LATEST ) ) {
 				// map only existing pages, since only they can appear in a dump
 				continue;
 			}
@@ -158,7 +160,7 @@ class ImportExportTest extends MediaWikiLangTestCase {
 
 			$n = 1;
 			$revisions = $this->getRevisions( $title );
-			foreach ( $revisions as $rev ) {
+			foreach ( $revisions as $i => $rev ) {
 				$revkey = "{$name}_rev" . $n++;
 
 				$vars[ $revkey . '_id' ] = $rev->getId();
@@ -174,10 +176,10 @@ class ImportExportTest extends MediaWikiLangTestCase {
 	 * @return string[]
 	 */
 	private function getSiteVars( $schemaVersion ) {
-		global $wgSitename, $wgDBname, $wgCapitalLinks;
+		global $wgSitename, $wgDBname, $wgVersion, $wgCapitalLinks;
 
 		$vars = [];
-		$vars['mw_version'] = MW_VERSION;
+		$vars['mw_version'] = $wgVersion;
 		$vars['schema_version'] = $schemaVersion;
 
 		$vars['site_name'] = $wgSitename;
@@ -194,7 +196,7 @@ class ImportExportTest extends MediaWikiLangTestCase {
 		return $vars;
 	}
 
-	public static function provideImportExport() {
+	public function provideImportExport() {
 		foreach ( XmlDumpWriter::$supportedSchemas as $schemaVersion ) {
 			yield [ 'Basic', $schemaVersion ];
 			yield [ 'Dupes', $schemaVersion ];

@@ -11,22 +11,23 @@ use Wikimedia\TestingAccessWrapper;
 
 /**
  * @covers \MediaWiki\DAO\WikiAwareEntityTrait
+ * @package MediaWiki\Tests\Unit\DAO
  */
 class WikiAwareEntityTraitTest extends MediaWikiUnitTestCase {
 
 	/**
-	 * @param string|false $wikiId
+	 * @param string|bool $wikiId
 	 * @return WikiAwareEntity
 	 */
 	public function getEntityInstance( $wikiId ) {
 		$entity = new class( $wikiId ) implements WikiAwareEntity {
 			use WikiAwareEntityTrait;
 
-			/** @var string|false */
+			/** @var string|bool */
 			private $wikiId;
 
 			/**
-			 * @param string|false $wikiId
+			 * @param string|bool $wikiId
 			 */
 			public function __construct( $wikiId ) {
 				$this->wikiId = $wikiId;
@@ -39,7 +40,7 @@ class WikiAwareEntityTraitTest extends MediaWikiUnitTestCase {
 		return $entity;
 	}
 
-	public static function provideMatchingWikis() {
+	public function provideMatchingWikis() {
 		yield 'acme' => [
 			'entityWiki' => 'acmewiki',
 			'assertWiki' => 'acmewiki',
@@ -50,7 +51,7 @@ class WikiAwareEntityTraitTest extends MediaWikiUnitTestCase {
 		];
 	}
 
-	public static function provideMismatchingWikis() {
+	public function provideMismatchingWikis() {
 		yield 'acme-noacme' => [
 			'entityWiki' => 'acmewiki',
 			'assertWiki' => 'noacmewiki',
@@ -94,12 +95,12 @@ class WikiAwareEntityTraitTest extends MediaWikiUnitTestCase {
 	 * @dataProvider provideMismatchingWikis
 	 */
 	public function testDeprecateInvalidCrossWikiMismatch( $entityWiki, $assertWiki ) {
-		$this->expectDeprecationAndContinue( '/Deprecated cross-wiki access/' );
+		$this->expectDeprecation();
 		TestingAccessWrapper::newFromObject( $this->getEntityInstance( $entityWiki ) )
 			->deprecateInvalidCrossWiki( $assertWiki, '1.99' );
 	}
 
-	public static function provideAssertWikiIdParamInvalid() {
+	public function provideAssertWikiIdParamInvalid() {
 		yield 'true' => [ true ];
 		yield 'null' => [ null ];
 		yield 'int' => [ 1 ];

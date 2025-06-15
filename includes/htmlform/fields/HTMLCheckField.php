@@ -1,14 +1,6 @@
 <?php
 
-namespace MediaWiki\HTMLForm\Field;
-
-use MediaWiki\Html\Html;
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\HTMLForm\HTMLFormField;
-use MediaWiki\HTMLForm\OOUIHTMLForm;
-use MediaWiki\HTMLForm\VFormHTMLForm;
-use MediaWiki\Request\WebRequest;
-use MediaWiki\Xml\Xml;
+use MediaWiki\MainConfigNames;
 
 /**
  * A checkbox field
@@ -22,6 +14,11 @@ class HTMLCheckField extends HTMLFormField {
 	 * @stable to override
 	 */
 	public function getInputHTML( $value ) {
+		$useMediaWikiUIEverywhere = false;
+		if ( $this->mParent ) {
+			$useMediaWikiUIEverywhere = $this->mParent->getConfig()->get( MainConfigNames::UseMediaWikiUIEverywhere );
+		}
+
 		if ( !empty( $this->mParams['invert'] ) ) {
 			$value = !$value;
 		}
@@ -41,18 +38,14 @@ class HTMLCheckField extends HTMLFormField {
 			$attrLabel['title'] = $attr['title'];
 		}
 
-		$isVForm = $this->mParent instanceof VFormHTMLForm;
-
-		$chkDivider = "\u{00A0}";
 		$chkLabel = Xml::check( $this->mName, $value, $attr ) .
-			$chkDivider .
+			"\u{00A0}" .
 			Html::rawElement( 'label', $attrLabel, $this->mLabel );
 
-		if ( $isVForm ) {
-			$chkLabelClass = 'mw-ui-checkbox';
+		if ( $useMediaWikiUIEverywhere || $this->mParent instanceof VFormHTMLForm ) {
 			$chkLabel = Html::rawElement(
 				'div',
-				[ 'class' => $chkLabelClass ],
+				[ 'class' => 'mw-ui-checkbox' ],
 				$chkLabel
 			);
 		}
@@ -65,7 +58,7 @@ class HTMLCheckField extends HTMLFormField {
 	 * @stable to override
 	 * @since 1.26
 	 * @param string $value
-	 * @return \OOUI\CheckboxInputWidget The checkbox widget.
+	 * @return OOUI\CheckboxInputWidget The checkbox widget.
 	 */
 	public function getInputOOUI( $value ) {
 		if ( !empty( $this->mParams['invert'] ) ) {
@@ -76,7 +69,7 @@ class HTMLCheckField extends HTMLFormField {
 		$attr['id'] = $this->mID;
 		$attr['name'] = $this->mName;
 
-		$attr += \OOUI\Element::configFromHtmlAttributes(
+		$attr += OOUI\Element::configFromHtmlAttributes(
 			$this->getAttributes( [ 'disabled', 'tabindex' ] )
 		);
 
@@ -87,47 +80,7 @@ class HTMLCheckField extends HTMLFormField {
 		$attr['selected'] = $value;
 		$attr['value'] = '1'; // Nasty hack, but needed to make this work
 
-		return new \OOUI\CheckboxInputWidget( $attr );
-	}
-
-	public function getInputCodex( $value, $hasErrors ) {
-		if ( !empty( $this->mParams['invert'] ) ) {
-			$value = !$value;
-		}
-
-		// Attributes for the <input> element.
-		$attribs = $this->getTooltipAndAccessKey();
-		$attribs['id'] = $this->mID;
-		$attribs += $this->getAttributes( [ 'disabled', 'tabindex' ] );
-
-		// The Xml class doesn't support an array of classes, so we have to provide a string.
-		$inputClass = $this->mClass ?? '';
-		$attribs['class'] = $inputClass . ' cdx-checkbox__input';
-
-		// Attributes for the <label> element.
-		$labelAttribs = [ 'for' => $this->mID ];
-		$labelAttribs['class'] = [ 'cdx-checkbox__label' ];
-
-		// Attributes for the wrapper <div>.
-		$wrapperAttribs = [ 'class' => [ 'cdx-checkbox' ] ];
-		if ( $hasErrors ) {
-			$wrapperAttribs['class'][] = 'cdx-checkbox--status-error';
-		}
-		if ( isset( $attribs['title'] ) ) {
-			// Propagate tooltip to the entire component (including the label).
-			$wrapperAttribs['title'] = $attribs['title'];
-		}
-
-		// Construct the component.
-		$checkIcon = "<span class=\"cdx-checkbox__icon\">\u{00A0}</span>";
-		$innerContent = Xml::check( $this->mName, $value, $attribs ) .
-			$checkIcon .
-			Html::rawElement( 'label', $labelAttribs, $this->mLabel );
-		return Html::rawElement(
-			'div',
-			$wrapperAttribs,
-			$innerContent
-		);
+		return new OOUI\CheckboxInputWidget( $attr );
 	}
 
 	/**
@@ -142,7 +95,7 @@ class HTMLCheckField extends HTMLFormField {
 	 */
 	public function getLabel() {
 		if ( $this->mParent instanceof OOUIHTMLForm ) {
-			return $this->mLabel ?? '';
+			return $this->mLabel;
 		} elseif (
 			$this->mParent instanceof HTMLForm &&
 			$this->mParent->getDisplayFormat() === 'div'
@@ -172,13 +125,6 @@ class HTMLCheckField extends HTMLFormField {
 	}
 
 	/**
-	 * @return bool
-	 */
-	public function getDefault() {
-		return (bool)$this->mDefault;
-	}
-
-	/**
 	 * @stable to override
 	 * @param WebRequest $request
 	 *
@@ -195,10 +141,7 @@ class HTMLCheckField extends HTMLFormField {
 				? !$request->getBool( $this->mName )
 				: $request->getBool( $this->mName );
 		} else {
-			return $this->getDefault();
+			return (bool)$this->getDefault();
 		}
 	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( HTMLCheckField::class, 'HTMLCheckField' );

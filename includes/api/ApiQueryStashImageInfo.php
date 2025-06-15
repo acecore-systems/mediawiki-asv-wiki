@@ -20,13 +20,7 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
-use MediaWiki\Language\Language;
-use MediaWiki\Page\File\BadFileLookup;
-use RepoGroup;
-use UploadStashBadPathException;
-use UploadStashFileNotFoundException;
+use MediaWiki\BadFileLookup;
 use Wikimedia\ParamValidator\ParamValidator;
 
 /**
@@ -36,11 +30,19 @@ use Wikimedia\ParamValidator\ParamValidator;
  */
 class ApiQueryStashImageInfo extends ApiQueryImageInfo {
 
-	private RepoGroup $repoGroup;
+	/** @var RepoGroup */
+	private $repoGroup;
 
+	/**
+	 * @param ApiQuery $query
+	 * @param string $moduleName
+	 * @param RepoGroup $repoGroup
+	 * @param Language $contentLanguage
+	 * @param BadFileLookup $badFileLookup
+	 */
 	public function __construct(
 		ApiQuery $query,
-		string $moduleName,
+		$moduleName,
 		RepoGroup $repoGroup,
 		Language $contentLanguage,
 		BadFileLookup $badFileLookup
@@ -95,7 +97,7 @@ class ApiQueryStashImageInfo extends ApiQueryImageInfo {
 		}
 	}
 
-	private const PROPERTY_FILTER = [
+	private static $propertyFilter = [
 		'user', 'userid', 'comment', 'parsedcomment',
 		'mediatype', 'archivename', 'uploadwarning',
 	];
@@ -107,7 +109,10 @@ class ApiQueryStashImageInfo extends ApiQueryImageInfo {
 	 * @return array
 	 */
 	public static function getPropertyNames( $filter = null ) {
-		return parent::getPropertyNames( $filter ?? self::PROPERTY_FILTER );
+		if ( $filter === null ) {
+			$filter = self::$propertyFilter;
+		}
+		return parent::getPropertyNames( $filter );
 	}
 
 	/**
@@ -117,7 +122,10 @@ class ApiQueryStashImageInfo extends ApiQueryImageInfo {
 	 * @return array
 	 */
 	public static function getPropertyMessages( $filter = null ) {
-		return parent::getPropertyMessages( $filter ?? self::PROPERTY_FILTER );
+		if ( $filter === null ) {
+			$filter = self::$propertyFilter;
+		}
+		return parent::getPropertyMessages( $filter );
 	}
 
 	public function getAllowedParams() {
@@ -171,6 +179,3 @@ class ApiQueryStashImageInfo extends ApiQueryImageInfo {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Stashimageinfo';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiQueryStashImageInfo::class, 'ApiQueryStashImageInfo' );

@@ -1,24 +1,15 @@
 <?php
 
-use MediaWiki\WikiMap\WikiMap;
-use PHPUnit\Framework\MockObject\MockObject;
-use Wikimedia\FileBackend\FSFile\TempFSFile;
-use Wikimedia\FileBackend\FSFileBackend;
 use Wikimedia\Rdbms\FakeResultWrapper;
-use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\SelectQueryBuilder;
 
 /**
- * @covers \MigrateFileRepoLayout
+ * @covers MigrateFileRepoLayout
  */
 class MigrateFileRepoLayoutTest extends MediaWikiIntegrationTestCase {
-	/** @var string */
 	protected $tmpPrefix;
-	/** @var MigrateFileRepoLayout&MockObject */
 	protected $migratorMock;
-	/** @var string */
 	protected $tmpFilepath;
-	private const TEXT = 'testing';
+	protected $text = 'testing';
 
 	protected function setUp(): void {
 		parent::setUp();
@@ -39,23 +30,22 @@ class MigrateFileRepoLayoutTest extends MediaWikiIntegrationTestCase {
 			]
 		] );
 
-		$dbMock = $this->createMock( IDatabase::class );
+		$dbMock = $this->createMock( Wikimedia\Rdbms\IDatabase::class );
 
 		$imageRow = (object)[
 			'img_name' => $filename,
-			'img_sha1' => sha1( self::TEXT ),
+			'img_sha1' => sha1( $this->text ),
 		];
 
 		$dbMock->method( 'select' )
-			->willReturnOnConsecutiveCalls(
+			->will( $this->onConsecutiveCalls(
 				new FakeResultWrapper( [ $imageRow ] ), // image
 				new FakeResultWrapper( [] ), // image
 				new FakeResultWrapper( [] ) // filearchive
-			);
-		$dbMock->method( 'newSelectQueryBuilder' )->willReturnCallback( fn () => new SelectQueryBuilder( $dbMock ) );
+			) );
 
 		$repoMock = $this->getMockBuilder( LocalRepo::class )
-			->onlyMethods( [ 'getPrimaryDB', 'getReplicaDB' ] )
+			->onlyMethods( [ 'getPrimaryDB' ] )
 			->setConstructorArgs( [ [
 					'name' => 'migratefilerepolayouttest',
 					'backend' => $backend
@@ -65,9 +55,6 @@ class MigrateFileRepoLayoutTest extends MediaWikiIntegrationTestCase {
 		$repoMock
 			->method( 'getPrimaryDB' )
 			->willReturn( $dbMock );
-		$replicaDB = $this->createMock( IDatabase::class );
-		$replicaDB->method( 'getSessionLagStatus' )->willReturn( [ 'lag' => 0, 'since' => time() ] );
-		$repoMock->method( 'getReplicaDB' )->willReturn( $replicaDB );
 
 		$this->migratorMock = $this->getMockBuilder( MigrateFileRepoLayout::class )
 			->onlyMethods( [ 'getRepo' ] )->getMock();
@@ -78,7 +65,7 @@ class MigrateFileRepoLayoutTest extends MediaWikiIntegrationTestCase {
 		$this->tmpFilepath = TempFSFile::factory(
 			'migratefilelayout-test-', 'png', wfTempDir() )->getPath();
 
-		file_put_contents( $this->tmpFilepath, self::TEXT );
+		file_put_contents( $this->tmpFilepath, $this->text );
 
 		$hashPath = $repoMock->getHashPath( $filename );
 
@@ -124,7 +111,7 @@ class MigrateFileRepoLayoutTest extends MediaWikiIntegrationTestCase {
 
 		ob_end_clean();
 
-		$sha1 = sha1( self::TEXT );
+		$sha1 = sha1( $this->text );
 
 		$expectedOriginalFilepath = $this->tmpPrefix
 			. '-original/'
@@ -137,16 +124,16 @@ class MigrateFileRepoLayoutTest extends MediaWikiIntegrationTestCase {
 			. $sha1;
 
 		$this->assertEquals(
-			self::TEXT,
 			file_get_contents( $expectedOriginalFilepath ),
+			$this->text,
 			'New sha1 file should be exist and have the right contents'
 		);
 
 		$expectedPublicFilepath = $this->tmpPrefix . '-public/f/f8/Foo.png';
 
 		$this->assertEquals(
-			self::TEXT,
 			file_get_contents( $expectedPublicFilepath ),
+			$this->text,
 			'Existing name file should still and have the right contents'
 		);
 	}

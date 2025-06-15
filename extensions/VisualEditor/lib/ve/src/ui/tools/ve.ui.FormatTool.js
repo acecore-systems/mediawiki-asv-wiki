@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface FormatTool classes.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -39,8 +39,6 @@ ve.ui.FormatTool.static.deactivateOnSelect = false;
  */
 ve.ui.FormatTool.static.format = null;
 
-ve.ui.FormatTool.static.fallbackIcon = 'textStyle';
-
 /* Methods */
 
 /**
@@ -59,8 +57,8 @@ ve.ui.FormatTool.prototype.onUpdateState = function ( fragment ) {
 
 	this.toggle( true );
 
-	const format = this.constructor.static.format;
-	const isMatching = fragment.hasMatchingAncestor( format.type, format.attributes );
+	var format = this.constructor.static.format;
+	var isMatching = fragment.hasMatchingAncestor( format.type, format.attributes );
 
 	this.setActive( isMatching );
 };

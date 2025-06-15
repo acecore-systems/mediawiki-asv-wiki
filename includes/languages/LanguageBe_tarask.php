@@ -21,8 +21,6 @@
  * @license GFDL-1.3-or-later
  */
 
-use MediaWiki\Language\Language;
-
 /**
  * Belarusian in Taraškievica orthography (Беларуская тарашкевіца)
  *
@@ -37,15 +35,19 @@ class LanguageBe_tarask extends Language {
 	 * This function unifies apostrophe sign in search index values
 	 * to enable search using both apostrophe signs.
 	 *
-	 * @inheritDoc
+	 * @param string $string
+	 *
+	 * @return string
 	 */
-	public function normalizeForSearch( $text ) {
+	public function normalizeForSearch( $string ) {
 		# MySQL fulltext index doesn't grok utf-8, so we
 		# need to fold cases and convert to hex
 
 		# Replacing apostrophe sign U+2019 with U+0027
-		$text = str_replace( "\u{2019}", '\'', $text );
+		$s = str_replace( "\u{2019}", '\'', $string );
 
-		return parent::normalizeForSearch( $text );
+		$s = parent::normalizeForSearch( $s );
+
+		return $s;
 	}
 }

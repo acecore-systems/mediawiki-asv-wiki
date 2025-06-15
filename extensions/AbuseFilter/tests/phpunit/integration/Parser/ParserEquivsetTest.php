@@ -22,14 +22,16 @@
 
 namespace MediaWiki\Extension\AbuseFilter\Tests\Integration\Parser;
 
+use EmptyBagOStuff;
+use Generator;
+use LanguageEn;
 use MediaWiki\Extension\AbuseFilter\AbuseFilterServices;
 use MediaWiki\Extension\AbuseFilter\Parser\FilterEvaluator;
 use MediaWiki\Extension\AbuseFilter\Variables\LazyVariableComputer;
 use MediaWiki\Extension\AbuseFilter\Variables\VariablesManager;
 use MediaWikiIntegrationTestCase;
+use NullStatsdDataFactory;
 use Wikimedia\Equivset\Equivset;
-use Wikimedia\ObjectCache\EmptyBagOStuff;
-use Wikimedia\Stats\NullStatsdDataFactory;
 
 /**
  * Tests that require Equivset, separated from the parser unit tests.
@@ -49,11 +51,13 @@ use Wikimedia\Stats\NullStatsdDataFactory;
  * @covers \MediaWiki\Extension\AbuseFilter\Parser\SyntaxChecker
  */
 class ParserEquivsetTest extends MediaWikiIntegrationTestCase {
-
-	private function getParser(): FilterEvaluator {
+	/**
+	 * @return FilterEvaluator
+	 */
+	protected function getParser() {
 		// We're not interested in caching or logging; tests should call respectively setCache
 		// and setLogger if they want to test any of those.
-		$contLang = $this->getServiceContainer()->getLanguageFactory()->getLanguage( 'en' );
+		$contLang = new LanguageEn();
 		$cache = new EmptyBagOStuff();
 		$logger = new \Psr\Log\NullLogger();
 		$keywordsManager = AbuseFilterServices::getKeywordsManager();
@@ -84,7 +88,10 @@ class ParserEquivsetTest extends MediaWikiIntegrationTestCase {
 		$this->assertTrue( $this->getParser()->parse( $rule ) );
 	}
 
-	public static function provideGenericTests() {
+	/**
+	 * @return Generator|array
+	 */
+	public function provideGenericTests() {
 		$testPath = __DIR__ . "/../../../parserTestsEquivset";
 		$testFiles = glob( $testPath . "/*.t" );
 

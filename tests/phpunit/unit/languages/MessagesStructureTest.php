@@ -1,15 +1,11 @@
 <?php
 
-use MediaWiki\Language\Language;
-
 /**
  * Validate the Messages*.php files
  * @coversNothing -- no way to cover non-class files
  */
-class MessagesStructureTest extends MediaWikiUnitTestCase {
-	/** @var string */
+class MessagesStructureTest extends \PHPUnit\Framework\TestCase {
 	private $langCode;
-	/** @var array */
 	private static $enData;
 
 	public static function provideMessagesFiles() {
@@ -20,7 +16,7 @@ class MessagesStructureTest extends MediaWikiUnitTestCase {
 			$n++;
 		}
 		if ( $n === 0 ) {
-			throw new \UnderflowException( 'Not enough files' );
+			throw new \Exception( 'Not enough files' );
 		}
 	}
 
@@ -32,14 +28,14 @@ class MessagesStructureTest extends MediaWikiUnitTestCase {
 		$this->langCode = Language::getCodeFromFileName( $fileName, 'Messages' );
 
 		// Like isValidBuiltInCode()
-		$this->assertMatchesRegularExpression( '/^[a-z0-9-]{2,}$/', $this->langCode );
+		$this->assertRegExp( '/^[a-z0-9-]{2,}$/', $this->langCode );
 
 		// Check for unrecognised variable names
 		$path = MW_INSTALL_PATH . '/languages/messages/' . $fileName;
 		$vars = $this->readFile( $path );
 		$unknownVars = array_diff(
 			array_keys( $vars ),
-			LocalisationCache::ALL_KEYS
+			LocalisationCache::$allKeys
 		);
 		$this->assertSame( [], $unknownVars, 'unknown variables' );
 
@@ -78,7 +74,7 @@ class MessagesStructureTest extends MediaWikiUnitTestCase {
 		);
 		foreach ( $fallbacks as $code ) {
 			// Like isValidBuiltInCode()
-			$this->assertMatchesRegularExpression( '/^[a-z0-9-]{2,}$/', $code );
+			$this->assertRegExp( '/^[a-z0-9-]{2,}$/', $code );
 		}
 	}
 
@@ -94,15 +90,6 @@ class MessagesStructureTest extends MediaWikiUnitTestCase {
 			if ( $id !== NS_MAIN ) {
 				$this->assertNotSame( '', $name );
 			}
-			$this->assertStringNotContainsString( ' ', $name, 'Use underscores in namespace names' );
-		}
-	}
-
-	private function validateNamespaceAliases( $aliases ) {
-		foreach ( $aliases as $alias => $id ) {
-			$this->assertIsString( $alias );
-			$this->assertNotSame( '', $alias );
-			$this->assertStringNotContainsString( ' ', $alias, 'Use underscores in namespace aliases' );
 		}
 	}
 
@@ -144,7 +131,6 @@ class MessagesStructureTest extends MediaWikiUnitTestCase {
 				$this->assertIsString( $alias, "$pageName alias $i should be string" );
 				$this->assertNotSame( '', $alias,
 					"$pageName alias $i should not be empty" );
-				$this->assertStringNotContainsString( ' ', $alias, 'Use underscores in specialpage alias' );
 			}
 		}
 	}

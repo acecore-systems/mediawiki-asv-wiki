@@ -1,7 +1,7 @@
 /*!
  * VisualEditor plugin for QUnit.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /* global difflib,diffview */
@@ -26,7 +26,7 @@
 	 * @return {Object} Summary of node tree
 	 */
 	function getNodeTreeSummary( node, shallow ) {
-		const summary = {
+		var summary = {
 			getType: node.getType(),
 			getLength: node.getLength(),
 			getOuterLength: node.getOuterLength(),
@@ -34,10 +34,10 @@
 		};
 
 		if ( node.children !== undefined ) {
-			const numChildren = node.children.length;
+			var numChildren = node.children.length;
 			if ( !shallow ) {
 				summary.children = [];
-				for ( let i = 0; i < numChildren; i++ ) {
+				for ( var i = 0; i < numChildren; i++ ) {
 					summary.children.push( getNodeTreeSummary( node.children[ i ] ) );
 				}
 			}
@@ -56,13 +56,13 @@
 	 * @return {Object} Summary of selection
 	 */
 	function getNodeSelectionSummary( selection ) {
-		const summary = {
+		var summary = {
 			length: selection.length
 		};
 
 		if ( selection.length ) {
 			summary.results = [];
-			for ( let i = 0; i < selection.length; i++ ) {
+			for ( var i = 0; i < selection.length; i++ ) {
 				summary.results.push( {
 					node: getNodeTreeSummary( selection[ i ].node, true ),
 					range: selection[ i ].range,
@@ -98,7 +98,7 @@
 	 * @return {string}
 	 */
 	function unescapeText( s ) {
-		return s.replace( /&(#039|quot|lt|gt|amp);/g, ( match, seq ) => {
+		return s.replace( /&(#039|quot|lt|gt|amp);/g, function ( match, seq ) {
 			switch ( seq ) {
 				case '#039':
 					return '\'';
@@ -134,8 +134,8 @@
 			message = shallow;
 			shallow = undefined;
 		}
-		const actualSummary = getNodeTreeSummary( actual, shallow );
-		const expectedSummary = getNodeTreeSummary( expected, shallow );
+		var actualSummary = getNodeTreeSummary( actual, shallow );
+		var expectedSummary = getNodeTreeSummary( expected, shallow );
 		this.pushResult( {
 			result: QUnit.equiv( actualSummary, expectedSummary ),
 			actual: actualSummary,
@@ -151,10 +151,10 @@
 	 * @param {string} message
 	 */
 	QUnit.assert.equalNodeSelection = function ( actual, expected, message ) {
-		const actualSummary = getNodeSelectionSummary( actual ),
+		var actualSummary = getNodeSelectionSummary( actual ),
 			expectedSummary = getNodeSelectionSummary( expected );
 
-		for ( let i = 0; i < actual.length; i++ ) {
+		for ( var i = 0; i < actual.length; i++ ) {
 			if ( expected[ i ] && expected[ i ].node !== actual[ i ].node ) {
 				this.pushResult( {
 					result: false,
@@ -180,7 +180,7 @@
 	 * @param {string} message
 	 */
 	QUnit.assert.equalDomElement = function ( actual, expected, message ) {
-		const actualSummary = ve.getDomElementSummary( actual ),
+		var actualSummary = ve.getDomElementSummary( actual ),
 			expectedSummary = ve.getDomElementSummary( expected ),
 			actualSummaryHtml = ve.getDomElementSummary( actual, true ),
 			expectedSummaryHtml = ve.getDomElementSummary( expected, true );
@@ -200,7 +200,7 @@
 	 * @param {string} message
 	 */
 	QUnit.assert.notEqualDomElement = function ( actual, expected, message ) {
-		const actualSummary = ve.getDomElementSummary( actual ),
+		var actualSummary = ve.getDomElementSummary( actual ),
 			expectedSummary = ve.getDomElementSummary( expected ),
 			actualSummaryHtml = ve.getDomElementSummary( actual, true ),
 			expectedSummaryHtml = ve.getDomElementSummary( expected, true );
@@ -224,11 +224,6 @@
 				ve.deleteProp( val, 'originalDomElementsHash' );
 				ve.deleteProp( val, 'originalDomElements' );
 				removeInternalState( val );
-			}
-			if ( val && val.origTitle ) {
-				// HACK: This property is no longer used, ignore it for
-				// compatibility with existing tests in other extensions
-				delete val.origTitle;
 			}
 		}
 
@@ -356,8 +351,8 @@
 	 * @param {string} message
 	 */
 	QUnit.assert.isLinearDataFrozen = function ( linearData, message ) {
-		const notFrozen = [];
-		linearData.data.forEach( ( item, i ) => {
+		var notFrozen = [];
+		linearData.data.forEach( function ( item, i ) {
 			if ( !Object.isFrozen( item ) ) {
 				notFrozen.push( i );
 			}
@@ -373,7 +368,7 @@
 	QUnit.diff = function ( o, n ) {
 		// o and n are partially HTML escaped by QUnit. As difflib does
 		// its own escaping we should unescape them first.
-		const oLines = difflib.stringAsLines( unescapeText( o ) ),
+		var oLines = difflib.stringAsLines( unescapeText( o ) ),
 			nLines = difflib.stringAsLines( unescapeText( n ) ),
 			sm = new difflib.SequenceMatcher( oLines, nLines ),
 			opcodes = sm.get_opcodes(),

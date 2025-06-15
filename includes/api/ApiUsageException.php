@@ -18,17 +18,6 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
-use ILocalizedException;
-use InvalidArgumentException;
-use MediaWiki\Status\Status;
-use MWException;
-use StatusValue;
-use Stringable;
-use Throwable;
-use Wikimedia\Message\MessageSpecifier;
-
 /**
  * Exception used to abort API execution with an error
  *
@@ -37,11 +26,9 @@ use Wikimedia\Message\MessageSpecifier;
  * @newable
  * @ingroup API
  */
-class ApiUsageException extends MWException implements Stringable, ILocalizedException {
+class ApiUsageException extends MWException implements ILocalizedException {
 
-	/** @var string|null */
 	protected $modulePath;
-	/** @var StatusValue */
 	protected $status;
 
 	/**
@@ -53,7 +40,7 @@ class ApiUsageException extends MWException implements Stringable, ILocalizedExc
 	 * @param Throwable|null $previous Previous exception
 	 */
 	public function __construct(
-		?ApiBase $module, StatusValue $status, $httpCode = 0, ?Throwable $previous = null
+		?ApiBase $module, StatusValue $status, $httpCode = 0, Throwable $previous = null
 	) {
 		if ( $status->isOK() ) {
 			throw new InvalidArgumentException( __METHOD__ . ' requires a fatal Status' );
@@ -71,7 +58,7 @@ class ApiUsageException extends MWException implements Stringable, ILocalizedExc
 
 	/**
 	 * @param ApiBase|null $module API module responsible for the error, if known
-	 * @param string|array|MessageSpecifier $msg See ApiMessage::create()
+	 * @param string|array|Message $msg See ApiMessage::create()
 	 * @param string|null $code See ApiMessage::create()
 	 * @param array|null $data See ApiMessage::create()
 	 * @param int $httpCode HTTP error code to use
@@ -79,7 +66,7 @@ class ApiUsageException extends MWException implements Stringable, ILocalizedExc
 	 * @return static
 	 */
 	public static function newWithMessage(
-		?ApiBase $module, $msg, $code = null, $data = null, $httpCode = 0, ?Throwable $previous = null
+		?ApiBase $module, $msg, $code = null, $data = null, $httpCode = 0, Throwable $previous = null
 	) {
 		return new static(
 			$module,
@@ -93,16 +80,16 @@ class ApiUsageException extends MWException implements Stringable, ILocalizedExc
 	 * @return ApiMessage
 	 */
 	private function getApiMessage() {
-		// Return the first error message, if any; or the first warning message, if any; or a generic message
-		foreach ( $this->status->getMessages( 'error' ) as $msg ) {
-			// @phan-suppress-next-line PhanTypeMismatchReturnSuperType
-			return ApiMessage::create( $msg );
+		$errors = $this->status->getErrorsByType( 'error' );
+		if ( !$errors ) {
+			$errors = $this->status->getErrors();
 		}
-		foreach ( $this->status->getMessages( 'warning' ) as $msg ) {
-			// @phan-suppress-next-line PhanTypeMismatchReturnSuperType
-			return ApiMessage::create( $msg );
+		if ( !$errors ) {
+			$msg = new ApiMessage( 'apierror-unknownerror-nocode', 'unknownerror' );
+		} else {
+			$msg = ApiMessage::create( $errors[0] );
 		}
-		return new ApiMessage( 'apierror-unknownerror-nocode', 'unknownerror' );
+		return $msg;
 	}
 
 	/**
@@ -143,6 +130,3 @@ class ApiUsageException extends MWException implements Stringable, ILocalizedExc
 	}
 
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiUsageException::class, 'ApiUsageException' );

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor MWInternalLinkContextItem class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -11,9 +11,9 @@
  * @extends ve.ui.LinkContextItem
  *
  * @constructor
- * @param {ve.ui.LinearContext} context Context the item is in
- * @param {ve.dm.Model} model Model the item is related to
- * @param {Object} [config]
+ * @param {ve.ui.Context} context Context item is in
+ * @param {ve.dm.Model} model Model item is related to
+ * @param {Object} config Configuration options
  */
 ve.ui.MWInternalLinkContextItem = function VeUiMWInternalLinkContextItem() {
 	// Parent constructor
@@ -41,14 +41,14 @@ ve.ui.MWInternalLinkContextItem.static.modelClasses = [ ve.dm.MWInternalLinkAnno
  * @param {ve.init.mw.LinkCache} linkCache The link cache to use
  * @param {ve.dm.MWInternalLinkAnnotation} model The annotation model
  * @param {HTMLDocument} htmlDoc The HTML document (for URL resolution)
- * @param {ve.ui.LinearContext} context Context (for resizing)
+ * @param {ve.ui.Context} context Context (for resizing)
  * @return {jQuery} The jQuery object of the link context item
  */
 ve.ui.MWInternalLinkContextItem.static.generateBody = function ( linkCache, model, htmlDoc, context ) {
-	const lookupTitle = model.getAttribute( 'lookupTitle' ),
+	var title = model.getAttribute( 'lookupTitle' ),
 		normalizedTitle = model.getAttribute( 'normalizedTitle' ),
 		href = model.getHref(),
-		title = mw.Title.newFromText( mw.libs.ve.normalizeParsoidResourceName( href ) ),
+		titleObj = mw.Title.newFromText( mw.libs.ve.normalizeParsoidResourceName( href ) ),
 		fragment = model.getFragment(),
 		usePageImages = mw.config.get( 'wgVisualEditorConfig' ).usePageImages,
 		usePageDescriptions = mw.config.get( 'wgVisualEditorConfig' ).usePageDescriptions,
@@ -57,19 +57,17 @@ ve.ui.MWInternalLinkContextItem.static.generateBody = function ( linkCache, mode
 			.addClass( 've-ui-linkContextItem-link' )
 			.text( normalizedTitle )
 			.attr( {
+				href: titleObj.getUrl(),
 				target: '_blank',
 				rel: 'noopener'
 			} );
 
-	// T322704
-	ve.setAttributeSafe( $link[ 0 ], 'href', title.getUrl(), '#' );
-
 	// Style based on link cache information
-	ve.init.platform.linkCache.styleElement( lookupTitle, $link, fragment );
+	ve.init.platform.linkCache.styleElement( title, $link, fragment );
 	// Don't style as a self-link in the context menu (but do elsewhere)
 	$link.removeClass( 'mw-selflink' );
 
-	let icon;
+	var icon;
 	if ( usePageImages ) {
 		icon = new OO.ui.IconWidget( { icon: 'page-existing' } );
 		$wrapper
@@ -84,18 +82,18 @@ ve.ui.MWInternalLinkContextItem.static.generateBody = function ( linkCache, mode
 	}
 
 	if ( usePageImages || usePageDescriptions ) {
-		linkCache.get( lookupTitle ).then( ( linkData ) => {
+		linkCache.get( title ).then( function ( linkData ) {
 			if ( usePageImages ) {
 				if ( linkData.imageUrl ) {
 					icon.$element
-						.addClass( 've-ui-mwInternalLinkContextItem-hasImage mw-no-invert' )
+						.addClass( 've-ui-mwInternalLinkContextItem-hasImage' )
 						.css( 'background-image', 'url(' + linkData.imageUrl + ')' );
 				} else {
 					icon.setIcon( ve.init.platform.linkCache.constructor.static.getIconForLink( linkData ) );
 				}
 			}
 			if ( usePageDescriptions && linkData.description ) {
-				const $description = $( '<span>' )
+				var $description = $( '<span>' )
 					.addClass( 've-ui-mwInternalLinkContextItem-description' )
 					.text( linkData.description );
 				$wrapper.append( $description );
@@ -120,7 +118,7 @@ ve.ui.MWInternalLinkContextItem.prototype.getDescription = function () {
  * @inheritdoc
  */
 ve.ui.MWInternalLinkContextItem.prototype.renderBody = function () {
-	const $body = this.constructor.static.generateBody(
+	var $body = this.constructor.static.generateBody(
 		ve.init.platform.linkCache,
 		this.model,
 		this.context.getSurface().getModel().getDocument().getHtmlDocument(),

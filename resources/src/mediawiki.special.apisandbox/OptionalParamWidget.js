@@ -8,7 +8,7 @@
  * @param {Object} [config] Configuration options
  */
 function OptionalParamWidget( widget, config ) {
-	let k;
+	var k;
 
 	config = config || {};
 
@@ -81,14 +81,14 @@ OptionalParamWidget.prototype.setDisabled = function ( disabled ) {
 };
 
 /**
- * @return {any|undefined}
+ * @return {Mixed|undefined}
  */
 OptionalParamWidget.prototype.getApiValue = function () {
 	return this.isDisabled() ? undefined : this.widget.getApiValue();
 };
 
 /**
- * @param {any|undefined} newValue
+ * @param {Mixed|undefined} newValue
  */
 OptionalParamWidget.prototype.setApiValue = function ( newValue ) {
 	this.setDisabled( newValue === undefined );

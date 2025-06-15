@@ -1,20 +1,11 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
-use MediaWiki\Api\ApiMain;
-use MediaWiki\Api\ApiOpenSearch;
-use MediaWiki\Context\RequestContext;
-use MediaWikiIntegrationTestCase;
-use SearchEngine;
-use SearchEngineConfig;
-use SearchEngineFactory;
 use Wikimedia\ParamValidator\ParamValidator;
 
 /**
  * TODO convert to unit test, no integration is needed
  *
- * @covers \MediaWiki\Api\ApiOpenSearch
+ * @covers ApiOpenSearch
  */
 class ApiOpenSearchTest extends MediaWikiIntegrationTestCase {
 	public function testGetAllowedParams() {
@@ -22,7 +13,7 @@ class ApiOpenSearchTest extends MediaWikiIntegrationTestCase {
 		$config->method( 'getSearchTypes' )
 			->willReturn( [ 'the one ring' ] );
 
-		[ $engine, $engineFactory ] = $this->replaceSearchEngine();
+		list( $engine, $engineFactory ) = $this->replaceSearchEngine();
 
 		$ctx = new RequestContext();
 		$apiMain = new ApiMain( $ctx );
@@ -31,8 +22,7 @@ class ApiOpenSearchTest extends MediaWikiIntegrationTestCase {
 			'opensearch',
 			$this->getServiceContainer()->getLinkBatchFactory(),
 			$config,
-			$engineFactory,
-			$this->getServiceContainer()->getUrlUtils()
+			$engineFactory
 		);
 
 		$engine->method( 'getProfiles' )

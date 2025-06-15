@@ -1,35 +1,20 @@
 <?php
 
-namespace MediaWiki\Tests\Auth;
+namespace MediaWiki\Auth;
 
 use DynamicPropertyTestHelper;
-use MediaWiki\Auth\AuthenticationRequest;
-use MediaWiki\Auth\AuthenticationResponse;
-use MediaWiki\Auth\AuthManager;
-use MediaWiki\Auth\ButtonAuthenticationRequest;
-use MediaWiki\Auth\PasswordAuthenticationRequest;
-use MediaWiki\Auth\ResetPasswordSecondaryAuthenticationProvider;
-use MediaWiki\Config\HashConfig;
-use MediaWiki\MainConfigNames;
-use MediaWiki\Request\FauxRequest;
 use MediaWiki\Tests\Unit\Auth\AuthenticationProviderTestTrait;
-use MediaWiki\Tests\Unit\DummyServicesTrait;
-use MediaWiki\User\BotPasswordStore;
-use MediaWiki\User\User;
 use MediaWiki\User\UserNameUtils;
-use MediaWikiIntegrationTestCase;
-use StatusValue;
-use stdClass;
-use UnexpectedValueException;
+use Psr\Container\ContainerInterface;
+use Wikimedia\ObjectFactory\ObjectFactory;
 use Wikimedia\TestingAccessWrapper;
 
 /**
  * @group AuthManager
  * @covers \MediaWiki\Auth\ResetPasswordSecondaryAuthenticationProvider
  */
-class ResetPasswordSecondaryAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
+class ResetPasswordSecondaryAuthenticationProviderTest extends \MediaWikiIntegrationTestCase {
 	use AuthenticationProviderTestTrait;
-	use DummyServicesTrait;
 
 	/**
 	 * @dataProvider provideGetAuthenticationRequests
@@ -53,10 +38,10 @@ class ResetPasswordSecondaryAuthenticationProviderTest extends MediaWikiIntegrat
 	}
 
 	public function testBasics() {
-		$user = $this->createMock( User::class );
-		$user2 = new User;
-		$obj = new stdClass;
-		$reqs = [ new stdClass ];
+		$user = \User::newFromName( 'UTSysop' );
+		$user2 = new \User;
+		$obj = new \stdClass;
+		$reqs = [ new \stdClass ];
 
 		$mb = $this->getMockBuilder( ResetPasswordSecondaryAuthenticationProvider::class )
 			->onlyMethods( [ 'tryReset' ] );
@@ -77,8 +62,7 @@ class ResetPasswordSecondaryAuthenticationProviderTest extends MediaWikiIntegrat
 	}
 
 	public function testTryReset() {
-		$username = 'TestTryReset';
-		$user = User::newFromName( $username );
+		$user = \User::newFromName( 'UTSysop' );
 
 		$provider = $this->getMockBuilder(
 			ResetPasswordSecondaryAuthenticationProvider::class
@@ -88,17 +72,17 @@ class ResetPasswordSecondaryAuthenticationProviderTest extends MediaWikiIntegrat
 			] )
 			->getMock();
 		$provider->method( 'providerAllowsAuthenticationDataChange' )
-			->willReturnCallback( function ( $req ) use ( $username ) {
-				$this->assertSame( $username, $req->username );
+			->willReturnCallback( function ( $req ) {
+				$this->assertSame( 'UTSysop', $req->username );
 				return DynamicPropertyTestHelper::getDynamicProperty( $req, 'allow' );
 			} );
 		$provider->method( 'providerChangeAuthenticationData' )
-			->willReturnCallback( function ( $req ) use ( $username ) {
-				$this->assertSame( $username, $req->username );
+			->willReturnCallback( function ( $req ) {
+				$this->assertSame( 'UTSysop', $req->username );
 				DynamicPropertyTestHelper::setDynamicProperty( $req, 'done', true );
 			} );
-		$config = new HashConfig( [
-			MainConfigNames::AuthManagerConfig => [
+		$config = new \HashConfig( [
+			'AuthManagerConfig' => [
 				'preauth' => [],
 				'primaryauth' => [],
 				'secondaryauth' => [
@@ -110,9 +94,9 @@ class ResetPasswordSecondaryAuthenticationProviderTest extends MediaWikiIntegrat
 		] );
 		$mwServices = $this->getServiceContainer();
 		$manager = new AuthManager(
-			new FauxRequest,
+			new \FauxRequest,
 			$config,
-			$this->getDummyObjectFactory(),
+			new ObjectFactory( $this->createNoOpAbstractMock( ContainerInterface::class ) ),
 			$this->createHookContainer(),
 			$mwServices->getReadOnlyMode(),
 			$this->createNoOpMock( UserNameUtils::class ),
@@ -121,7 +105,7 @@ class ResetPasswordSecondaryAuthenticationProviderTest extends MediaWikiIntegrat
 			$mwServices->getDBLoadBalancer(),
 			$mwServices->getContentLanguage(),
 			$mwServices->getLanguageConverterFactory(),
-			$this->createMock( BotPasswordStore::class ),
+			$mwServices->getBotPasswordStore(),
 			$mwServices->getUserFactory(),
 			$mwServices->getUserIdentityLookup(),
 			$mwServices->getUserOptionsManager()
@@ -139,7 +123,7 @@ class ResetPasswordSecondaryAuthenticationProviderTest extends MediaWikiIntegrat
 		$passReq->action = AuthManager::ACTION_CHANGE;
 		$passReq->password = 'Foo';
 		$passReq->retype = 'Bar';
-		DynamicPropertyTestHelper::setDynamicProperty( $passReq, 'allow', StatusValue::newGood() );
+		DynamicPropertyTestHelper::setDynamicProperty( $passReq, 'allow', \StatusValue::newGood() );
 		DynamicPropertyTestHelper::setDynamicProperty( $passReq, 'done', false );
 
 		$passReq2 = $this->getMockBuilder( PasswordAuthenticationRequest::class )
@@ -148,14 +132,14 @@ class ResetPasswordSecondaryAuthenticationProviderTest extends MediaWikiIntegrat
 		$passReq2->action = AuthManager::ACTION_CHANGE;
 		$passReq2->password = 'Foo';
 		$passReq2->retype = 'Foo';
-		DynamicPropertyTestHelper::setDynamicProperty( $passReq2, 'allow', StatusValue::newGood() );
+		DynamicPropertyTestHelper::setDynamicProperty( $passReq2, 'allow', \StatusValue::newGood() );
 		DynamicPropertyTestHelper::setDynamicProperty( $passReq2, 'done', false );
 
 		$passReq3 = new PasswordAuthenticationRequest();
 		$passReq3->action = AuthManager::ACTION_LOGIN;
 		$passReq3->password = 'Foo';
 		$passReq3->retype = 'Foo';
-		DynamicPropertyTestHelper::setDynamicProperty( $passReq3, 'allow', StatusValue::newGood() );
+		DynamicPropertyTestHelper::setDynamicProperty( $passReq3, 'allow', \StatusValue::newGood() );
 		DynamicPropertyTestHelper::setDynamicProperty( $passReq3, 'done', false );
 
 		$this->assertEquals(
@@ -167,7 +151,7 @@ class ResetPasswordSecondaryAuthenticationProviderTest extends MediaWikiIntegrat
 		try {
 			$provider->tryReset( $user, [] );
 			$this->fail( 'Expected exception not thrown' );
-		} catch ( UnexpectedValueException $ex ) {
+		} catch ( \UnexpectedValueException $ex ) {
 			$this->assertSame( 'reset-pass is not valid', $ex->getMessage() );
 		}
 
@@ -175,7 +159,7 @@ class ResetPasswordSecondaryAuthenticationProviderTest extends MediaWikiIntegrat
 		try {
 			$provider->tryReset( $user, [] );
 			$this->fail( 'Expected exception not thrown' );
-		} catch ( UnexpectedValueException $ex ) {
+		} catch ( \UnexpectedValueException $ex ) {
 			$this->assertSame( 'reset-pass msg is missing', $ex->getMessage() );
 		}
 
@@ -185,7 +169,7 @@ class ResetPasswordSecondaryAuthenticationProviderTest extends MediaWikiIntegrat
 		try {
 			$provider->tryReset( $user, [] );
 			$this->fail( 'Expected exception not thrown' );
-		} catch ( UnexpectedValueException $ex ) {
+		} catch ( \UnexpectedValueException $ex ) {
 			$this->assertSame( 'reset-pass msg is not valid', $ex->getMessage() );
 		}
 
@@ -195,7 +179,7 @@ class ResetPasswordSecondaryAuthenticationProviderTest extends MediaWikiIntegrat
 		try {
 			$provider->tryReset( $user, [] );
 			$this->fail( 'Expected exception not thrown' );
-		} catch ( UnexpectedValueException $ex ) {
+		} catch ( \UnexpectedValueException $ex ) {
 			$this->assertSame( 'reset-pass hard is missing', $ex->getMessage() );
 		}
 
@@ -207,7 +191,7 @@ class ResetPasswordSecondaryAuthenticationProviderTest extends MediaWikiIntegrat
 		try {
 			$provider->tryReset( $user, [] );
 			$this->fail( 'Expected exception not thrown' );
-		} catch ( UnexpectedValueException $ex ) {
+		} catch ( \UnexpectedValueException $ex ) {
 			$this->assertSame( 'reset-pass req is not valid', $ex->getMessage() );
 		}
 
@@ -219,7 +203,7 @@ class ResetPasswordSecondaryAuthenticationProviderTest extends MediaWikiIntegrat
 		try {
 			$provider->tryReset( $user, [ $passReq ] );
 			$this->fail( 'Expected exception not thrown' );
-		} catch ( UnexpectedValueException $ex ) {
+		} catch ( \UnexpectedValueException $ex ) {
 			$this->assertSame( 'reset-pass req is not valid', $ex->getMessage() );
 		}
 
@@ -299,7 +283,7 @@ class ResetPasswordSecondaryAuthenticationProviderTest extends MediaWikiIntegrat
 		$this->assertFalse( DynamicPropertyTestHelper::getDynamicProperty( $passReq, 'done' ) );
 
 		$passReq->retype = $passReq->password;
-		DynamicPropertyTestHelper::setDynamicProperty( $passReq, 'allow', StatusValue::newFatal( 'arbitrary-fail' ) );
+		DynamicPropertyTestHelper::setDynamicProperty( $passReq, 'allow', \StatusValue::newFatal( 'arbitrary-fail' ) );
 		$res = $provider->tryReset( $user, [ $skipReq, $passReq ] );
 		$this->assertSame( AuthenticationResponse::UI, $res->status );
 		$this->assertSame( 'arbitrary-fail', $res->message->getKey() );
@@ -311,7 +295,7 @@ class ResetPasswordSecondaryAuthenticationProviderTest extends MediaWikiIntegrat
 		$this->assertNotNull( $manager->getAuthenticationSessionData( 'reset-pass' ) );
 		$this->assertFalse( DynamicPropertyTestHelper::getDynamicProperty( $passReq, 'done' ) );
 
-		DynamicPropertyTestHelper::setDynamicProperty( $passReq, 'allow', StatusValue::newGood() );
+		DynamicPropertyTestHelper::setDynamicProperty( $passReq, 'allow', \StatusValue::newGood() );
 		$res = $provider->tryReset( $user, [ $skipReq, $passReq ] );
 		$this->assertEquals( AuthenticationResponse::newPass(), $res );
 		$this->assertNull( $manager->getAuthenticationSessionData( 'reset-pass' ) );

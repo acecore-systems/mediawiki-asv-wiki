@@ -1,7 +1,5 @@
 <?php
 
-namespace Wikimedia\Stats;
-
 use Liuggio\StatsdClient\Entity\StatsdData;
 use Liuggio\StatsdClient\Entity\StatsdDataInterface;
 
@@ -127,6 +125,3 @@ class NullStatsdDataFactory implements IBufferingStatsdDataFactory {
 		// Nothing to do, null factory is always disabled.
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( NullStatsdDataFactory::class, 'NullStatsdDataFactory' );

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor user interface MWPreDialog class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -35,14 +35,13 @@ ve.ui.MWPreDialog.static.title = OO.ui.deferMsg( 'visualeditor-mwpredialog-title
 
 ve.ui.MWPreDialog.static.modelClasses = [ ve.dm.MWPreNode ];
 
-ve.ui.MWPreDialog.static.actions = [
-	...ve.ui.MWPreDialog.super.static.actions,
+ve.ui.MWPreDialog.static.actions = ve.ui.MWPreDialog.super.static.actions.concat( [
 	{
 		action: 'convert',
 		label: OO.ui.deferMsg( 'visualeditor-mwpredialog-convert' ),
 		modes: [ 'edit' ]
 	}
-];
+] );
 
 /* Methods */
 
@@ -77,9 +76,9 @@ ve.ui.MWPreDialog.prototype.initialize = function () {
  */
 ve.ui.MWPreDialog.prototype.getReadyProcess = function ( data ) {
 	return ve.ui.MWPreDialog.super.prototype.getReadyProcess.call( this, data )
-		.next( () => {
+		.next( function () {
 			this.input.focus();
-		} );
+		}, this );
 };
 
 /**
@@ -87,8 +86,8 @@ ve.ui.MWPreDialog.prototype.getReadyProcess = function ( data ) {
  */
 ve.ui.MWPreDialog.prototype.getActionProcess = function ( action ) {
 	if ( action === 'convert' ) {
-		return new OO.ui.Process( () => {
-			const
+		return new OO.ui.Process( function () {
+			var
 				value = this.input.getValue(),
 				nodeRange = this.selectedNode.getOuterRange(),
 				surfaceModel = this.getFragment().getSurface(),
@@ -106,7 +105,7 @@ ve.ui.MWPreDialog.prototype.getActionProcess = function ( action ) {
 				ve.dm.TransactionBuilder.static.newFromReplacement( doc, nodeRange, content )
 			);
 			this.close();
-		} );
+		}, this );
 	}
 	// Parent method
 	return ve.ui.MWPreDialog.super.prototype.getActionProcess.call( this, action );

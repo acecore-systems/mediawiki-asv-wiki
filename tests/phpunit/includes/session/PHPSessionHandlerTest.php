@@ -1,22 +1,17 @@
 <?php
 
-namespace MediaWiki\Tests\Session;
+namespace MediaWiki\Session;
 
 use BadMethodCallException;
-use DummySessionProvider;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Session\PHPSessionHandler;
-use MediaWiki\Session\SessionManager;
 use MediaWikiIntegrationTestCase;
 use Psr\Log\LogLevel;
-use TestLogger;
 use UnexpectedValueException;
-use Wikimedia\ScopedCallback;
 use Wikimedia\TestingAccessWrapper;
 
 /**
  * @group Session
- * @covers \MediaWiki\Session\PHPSessionHandler
+ * @covers MediaWiki\Session\PHPSessionHandler
  */
 class PHPSessionHandlerTest extends MediaWikiIntegrationTestCase {
 
@@ -29,7 +24,7 @@ class PHPSessionHandlerTest extends MediaWikiIntegrationTestCase {
 			$oldManager = $old->manager;
 			$oldStore = $old->store;
 			$oldLogger = $old->logger;
-			$reset[] = new ScopedCallback(
+			$reset[] = new \Wikimedia\ScopedCallback(
 				[ PHPSessionHandler::class, 'install' ],
 				[ $oldManager, $oldStore, $oldLogger ]
 			);
@@ -45,7 +40,7 @@ class PHPSessionHandlerTest extends MediaWikiIntegrationTestCase {
 
 		$staticAccess = TestingAccessWrapper::newFromClass( PHPSessionHandler::class );
 		$oldValue = $staticAccess->instance;
-		$reset = new ScopedCallback( static function () use ( $staticAccess, $oldValue ) {
+		$reset = new \Wikimedia\ScopedCallback( static function () use ( $staticAccess, $oldValue ) {
 			$staticAccess->instance = $oldValue;
 		} );
 		$staticAccess->instance = $handler;
@@ -77,7 +72,7 @@ class PHPSessionHandlerTest extends MediaWikiIntegrationTestCase {
 
 		$store = new TestBagOStuff();
 		// Tolerate debug message, anything else is unexpected
-		$logger = new TestLogger( false, static function ( $m ) {
+		$logger = new \TestLogger( false, static function ( $m ) {
 			return preg_match( '/^SessionManager using store/', $m ) ? null : $m;
 		} );
 		$manager = new SessionManager( [
@@ -110,12 +105,12 @@ class PHPSessionHandlerTest extends MediaWikiIntegrationTestCase {
 		$reset = $this->getResetter( $staticAccess );
 
 		$this->overrideConfigValues( [
-			MainConfigNames::SessionProviders => [ [ 'class' => DummySessionProvider::class ] ],
+			MainConfigNames::SessionProviders => [ [ 'class' => \DummySessionProvider::class ] ],
 			MainConfigNames::ObjectCacheSessionExpiry => 2,
 		] );
 
 		$store = new TestBagOStuff();
-		$logger = new TestLogger( true, static function ( $m ) {
+		$logger = new \TestLogger( true, static function ( $m ) {
 			return (
 				// Discard all log events starting with expected prefix
 				preg_match( '/^SessionBackend "\{session\}" /', $m )
@@ -129,7 +124,7 @@ class PHPSessionHandlerTest extends MediaWikiIntegrationTestCase {
 		] );
 		PHPSessionHandler::install( $manager );
 		$wrap = TestingAccessWrapper::newFromObject( $staticAccess->instance );
-		$reset[] = new ScopedCallback(
+		$reset[] = new \Wikimedia\ScopedCallback(
 			[ $wrap, 'setEnableFlags' ],
 			[ $wrap->enable ? ( $wrap->warn ? 'warn' : 'enable' ) : 'disable' ]
 		);
@@ -159,7 +154,7 @@ class PHPSessionHandlerTest extends MediaWikiIntegrationTestCase {
 		$expect = [ 'AuthenticationSessionTest' => $rand ];
 		session_write_close();
 		$this->assertSame( [
-			[ LogLevel::DEBUG, 'SessionManager using store MediaWiki\Tests\Session\TestBagOStuff' ],
+			[ LogLevel::DEBUG, 'SessionManager using store MediaWiki\Session\TestBagOStuff' ],
 			[ LogLevel::WARNING, 'Something wrote to $_SESSION!' ],
 		], $logger->getBuffer() );
 
@@ -172,9 +167,11 @@ class PHPSessionHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expect, $_SESSION );
 
 		// Make sure session_reset() works too.
-		$_SESSION['AuthenticationSessionTest'] = 'bogus';
-		session_reset();
-		$this->assertSame( $expect, $_SESSION );
+		if ( function_exists( 'session_reset' ) ) {
+			$_SESSION['AuthenticationSessionTest'] = 'bogus';
+			session_reset();
+			$this->assertSame( $expect, $_SESSION );
+		}
 
 		// Re-fill the session, then test that session_destroy() works.
 		$_SESSION['AuthenticationSessionTest'] = $rand;
@@ -291,17 +288,18 @@ class PHPSessionHandlerTest extends MediaWikiIntegrationTestCase {
 		unset( $session );
 		session_id( $id );
 		session_start();
-		$this->setTemporaryHook(
-			'SessionCheckInfo',
-			static function ( &$reason ) {
+		$this->mergeMwGlobalArrayValue( 'wgHooks', [
+			'SessionCheckInfo' => [ static function ( &$reason ) {
 				$reason = 'Testing';
 				return false;
-			}
-		);
+			} ],
+		] );
 		$this->assertNull( $manager->getSessionById( $id, true ) );
 		session_write_close();
 
-		$this->clearHook( 'SessionCheckInfo' );
+		$this->mergeMwGlobalArrayValue( 'wgHooks', [
+			'SessionCheckInfo' => [],
+		] );
 		$this->assertNotNull( $manager->getSessionById( $id, true ) );
 	}
 
@@ -322,7 +320,7 @@ class PHPSessionHandlerTest extends MediaWikiIntegrationTestCase {
 		TestingAccessWrapper::newFromObject( $handler )->setEnableFlags( 'disable' );
 		$oldValue = $staticAccess->instance;
 		$staticAccess->instance = $handler;
-		$reset = new ScopedCallback( static function () use ( $staticAccess, $oldValue ) {
+		$reset = new \Wikimedia\ScopedCallback( static function () use ( $staticAccess, $oldValue ) {
 			$staticAccess->instance = $oldValue;
 		} );
 

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor MWLanuageVariantNodeContextItem class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -11,9 +11,9 @@
  * @extends ve.ui.LinearContextItem
  *
  * @constructor
- * @param {ve.ui.LinearContext} context Context the item is in
- * @param {ve.dm.MWLanguageVariantNode} model Model the item is related to
- * @param {Object} [config]
+ * @param {ve.ui.Context} context Context item is in
+ * @param {ve.dm.MWLanguageVariantNode} model Model item is related to
+ * @param {Object} config Configuration options
  */
 ve.ui.MWLanguageVariantNodeContextItem = function VeUiMWLanguageVariantNodeContextItem() {
 	// Parent constructor
@@ -50,7 +50,7 @@ ve.ui.MWLanguageVariantNodeContextItem.static.commandName = 'mwLanguageVariant';
  */
 ve.ui.MWLanguageVariantNodeContextItem.prototype.setup = function () {
 	// Set up label
-	const messageKey = 'visualeditor-mwlanguagevariantcontextitem-title-' +
+	var messageKey = 'visualeditor-mwlanguagevariantcontextitem-title-' +
 		this.model.getRuleType();
 
 	// The following messages are used here:
@@ -70,7 +70,7 @@ ve.ui.MWLanguageVariantNodeContextItem.prototype.setup = function () {
  * @inheritdoc
  */
 ve.ui.MWLanguageVariantNodeContextItem.prototype.renderBody = function () {
-	const $body = this.$body,
+	var $body = this.$body,
 		$table = $( '<table>' ),
 		$header = $( '<tr>' ),
 		variantInfo = this.model.getVariantInfo(),
@@ -82,17 +82,9 @@ ve.ui.MWLanguageVariantNodeContextItem.prototype.renderBody = function () {
 	);
 	$table.append( $header );
 
-	function languageNameIfKnown( code ) {
-		return ve.init.platform.hasLanguageCode( code ) ?
-			mw.html.escape( ve.init.platform.getLanguageName( code ) ) :
-			mw.message(
-				'visualeditor-mwlanguagevariantcontextitem-rule-invalid-language-label'
-			).parse();
-	}
-
 	switch ( type ) {
 		case 'filter':
-		case 'name': {
+		case 'name':
 			$header
 				.append( $( '<th>' ).text(
 					ve.msg( 'visualeditor-mwlanguagevariantcontextitem-rule-name-label' )
@@ -101,20 +93,20 @@ ve.ui.MWLanguageVariantNodeContextItem.prototype.renderBody = function () {
 					ve.msg( 'visualeditor-mwlanguagevariantcontextitem-rule-code-label' )
 				) );
 
-			const languageCodes = ( type === 'filter' ) ?
+			var languageCodes = ( type === 'filter' ) ?
 				variantInfo.filter.l : [ variantInfo.name.t ];
-			languageCodes.forEach( ( code ) => {
-				const name = languageNameIfKnown( code.toLowerCase() );
-
+			languageCodes.forEach( function ( code ) {
+				var name = ve.init.platform.getLanguageName( code.toLowerCase() );
+				if ( !name ) {
+					name = ve.msg( 'visualeditor-mwlanguagevariantcontextitem-rule-invalid-language-label' );
+				}
 				$table
 					.append( $( '<tr>' )
-						// eslint-disable-next-line no-jquery/no-html
-						.append( $( '<td>' ).html( name ).attr( 'lang', code ) )
+						.append( $( '<td>' ).text( name ).attr( 'lang', code ) )
 						.append( $( '<td>' ).text( code ) )
 					);
 			} );
 			break;
-		}
 
 		case 'oneway':
 			$header
@@ -131,18 +123,17 @@ ve.ui.MWLanguageVariantNodeContextItem.prototype.renderBody = function () {
 					ve.msg( 'visualeditor-mwlanguagevariantcontextitem-rule-text-to-label' )
 				) );
 
-			variantInfo.oneway.forEach( ( item ) => {
+			variantInfo.oneway.forEach( function ( item ) {
 				// Safe HTML from the parser
 				// eslint-disable-next-line no-jquery/no-html
-				const $fromText = $( '<td>' ).html( item.f ),
+				var $fromText = $( '<td>' ).html( item.f ),
 					// eslint-disable-next-line no-jquery/no-html
 					$toText = $( '<td>' ).html( item.t ),
 					code = item.l,
-					name = languageNameIfKnown( code.toLowerCase() );
+					name = ve.init.platform.getLanguageName( code.toLowerCase() );
 				$table
 					.append( $( '<tr>' )
-						// eslint-disable-next-line no-jquery/no-html
-						.append( $( '<td>' ).html( name ).attr( 'lang', code ) )
+						.append( $( '<td>' ).text( name ).attr( 'lang', code ) )
 						.append( $( '<td>' ).text( code ) )
 						.append( $fromText )
 						.append( $toText )
@@ -162,9 +153,9 @@ ve.ui.MWLanguageVariantNodeContextItem.prototype.renderBody = function () {
 					ve.msg( 'visualeditor-mwlanguagevariantcontextitem-rule-text-twoway-label' )
 				) );
 
-			variantInfo.twoway.forEach( ( item ) => {
-				const code = item.l,
-					name = languageNameIfKnown( code.toLowerCase() ),
+			variantInfo.twoway.forEach( function ( item ) {
+				var code = item.l,
+					name = ve.init.platform.getLanguageName( code.toLowerCase() ),
 					// eslint-disable-next-line no-jquery/no-html
 					$text = $( '<td>' ).html( item.t );
 				ve.dm.MWLanguageVariantNode.static.processVariants(
@@ -172,8 +163,7 @@ ve.ui.MWLanguageVariantNodeContextItem.prototype.renderBody = function () {
 				);
 				$table
 					.append( $( '<tr>' )
-						// eslint-disable-next-line no-jquery/no-html
-						.append( $( '<td>' ).html( name ).attr( 'lang', code ) )
+						.append( $( '<td>' ).text( name ).attr( 'lang', code ) )
 						.append( $( '<td>' ).text( code ) )
 						.append( $text )
 					);
@@ -192,8 +182,8 @@ ve.ui.MWLanguageVariantNodeContextItem.prototype.renderBody = function () {
 		$body.append( $table );
 	}
 	// Show "extra" properties, like describe, title, etc.
-	[ 'describe', 'title', 'hidden' ].forEach( ( flag ) => {
-		const f = ( flag === 'hidden' ) ? isHidden : variantInfo[ flag ];
+	[ 'describe', 'title', 'hidden' ].forEach( function ( flag ) {
+		var f = ( flag === 'hidden' ) ? isHidden : variantInfo[ flag ];
 		if ( f ) {
 			// The following messages can be used here:
 			// * visualeditor-mwlanguagevariantcontextitem-flag-describe
@@ -210,7 +200,7 @@ ve.ui.MWLanguageVariantNodeContextItem.prototype.renderBody = function () {
  * @inheritdoc
  */
 ve.ui.MWLanguageVariantNodeContextItem.prototype.getCommand = function () {
-	const type = this.model.getRuleType(),
+	var type = this.model.getRuleType(),
 		cmdName = this.constructor.static.commandName + '-' + type;
 	return this.context.getSurface().commandRegistry.lookup( cmdName );
 };
@@ -219,7 +209,7 @@ ve.ui.MWLanguageVariantNodeContextItem.prototype.getCommand = function () {
 
 ve.ui.contextItemFactory.register( ve.ui.MWLanguageVariantNodeContextItem );
 
-[ 'disabled', 'filter', 'name', 'twoway', 'oneway' ].forEach( ( type ) => {
+[ 'disabled', 'filter', 'name', 'twoway', 'oneway' ].forEach( function ( type ) {
 	ve.ui.commandRegistry.register(
 		new ve.ui.Command(
 			'mwLanguageVariant-' + type, 'window', 'open',

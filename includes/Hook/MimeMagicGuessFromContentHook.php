@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Hook;
 
-use Wikimedia\Mime\MimeAnalyzer;
+use MimeAnalyzer;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

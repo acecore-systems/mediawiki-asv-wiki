@@ -1,13 +1,9 @@
 <?php
 
-use MediaWiki\Password\EncryptedPassword;
-use MediaWiki\Password\PasswordError;
-use MediaWiki\Password\Pbkdf2PasswordUsingHashExtension;
-
 /**
- * @covers \Mediawiki\Password\EncryptedPassword
- * @covers \Mediawiki\Password\ParameterizedPassword
- * @covers \Mediawiki\Password\Password
+ * @covers EncryptedPassword
+ * @covers ParameterizedPassword
+ * @covers Password
  */
 class EncryptedPasswordTest extends PasswordTestCase {
 	protected function getTypeConfigs() {
@@ -38,7 +34,7 @@ class EncryptedPasswordTest extends PasswordTestCase {
 				'cipher' => 'aes-256-cbc',
 			],
 			'pbkdf2' => [
-				'class' => Pbkdf2PasswordUsingHashExtension::class,
+				'class' => Pbkdf2Password::class,
 				'algo' => 'sha256',
 				'cost' => '10',
 				'length' => '64',
@@ -77,7 +73,7 @@ class EncryptedPasswordTest extends PasswordTestCase {
 		$this->assertTrue( $fromHash->update() );
 
 		$serialized = $fromHash->toString();
-		$this->assertMatchesRegularExpression( '/^:both:aes-256-cbc:1:/', $serialized );
+		$this->assertRegExp( '/^:both:aes-256-cbc:1:/', $serialized );
 		$fromNewHash = $this->passwordFactory->newFromCiphertext( $serialized );
 		$fromPlaintext = $this->passwordFactory->newFromPlaintext( 'password', $fromNewHash );
 		$this->assertTrue( $fromPlaintext->verify( 'password' ) );

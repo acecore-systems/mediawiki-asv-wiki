@@ -4,6 +4,6 @@
  * @newable
  * @ingroup ExternalStorage
  */
-class ExternalStoreException extends Exception {
+class ExternalStoreException extends MWException {
 
 }

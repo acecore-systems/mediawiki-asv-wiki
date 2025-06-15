@@ -3,7 +3,7 @@
 namespace MediaWiki\Hook;
 
 use MediaWiki\Block\DatabaseBlock;
-use MediaWiki\User\User;
+use User;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

@@ -2,9 +2,9 @@
 	"@metadata": {
 		"authors": [
 			"Har-wradim",
-			"Pacha Tchernof",
 			"פוילישער",
-			"පසිඳු කාවින්ද"
+			"පසිඳු කාවින්ද",
+			"Pacha Tchernof"
 		]
 	},
 	"config-desc": "דער אינסטאלירער פאר מעדיעוויקי",
@@ -39,6 +39,7 @@
 	"config-env-bad": "מ'האט קאנטראלירט די סביבה.\nאיר קענט נישט אינסטאלירן מעדיעוויקי.",
 	"config-env-php": "PHP $1 איז אינצטאלירט.",
 	"config-apc": "[https://www.php.net/apc APC] איז אינסטאַלירט",
+	"config-wincache": "[https://www.iis.net/downloads/microsoft/wincache-extension WinCache] איז אינסטאַלירט",
 	"config-diff3-bad": "GNU diff3 נישט געטראפן.",
 	"config-using-server": "באניצן סארווער־נאמען \"<nowiki>$1</nowiki>\".",
 	"config-using-uri": "באניצן סארווער־אדרעס \"<nowiki>$1$2</nowiki>\".",

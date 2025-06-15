@@ -19,8 +19,6 @@
  * @ingroup Installer
  */
 
-namespace MediaWiki\Installer;
-
 class WebInstallerUpgrade extends WebInstallerPage {
 
 	/**
@@ -50,16 +48,29 @@ class WebInstallerUpgrade extends WebInstallerPage {
 			return 'output';
 		}
 
-		if ( !$this->parent->needsUpgrade() ) {
+		// wgDBtype is generally valid here because otherwise the previous page
+		// (connect) wouldn't have declared its happiness
+		$type = $this->getVar( 'wgDBtype' );
+		$installer = $this->parent->getDBInstaller( $type );
+
+		if ( !$installer->needsUpgrade() ) {
 			return 'skip';
 		}
 
 		if ( $this->parent->request->wasPosted() ) {
+			$installer->preUpgrade();
+
 			$this->startLiveBox();
-			$result = $this->parent->doUpgrade();
+			$result = $installer->doUpgrade();
 			$this->endLiveBox();
 
 			if ( $result ) {
+				// If they're going to possibly regenerate LocalSettings, we
+				// need to create the upgrade/secret keys. T28481
+				if ( !$this->getVar( '_ExistingDBSettings' ) ) {
+					$this->parent->generateKeys();
+				}
+				$this->setVar( '_UpgradeDone', true );
 				$this->showDoneMessage();
 			} else {
 				$this->startForm();
@@ -87,9 +98,13 @@ class WebInstallerUpgrade extends WebInstallerPage {
 			$msg = 'config-upgrade-done-no-regenerate';
 		}
 		$this->parent->disableLinkPopups();
-		$this->parent->showSuccess(
-			$msg,
-			$this->getVar( 'wgServer' ) . $this->getVar( 'wgScriptPath' ) . '/index.php'
+		$this->addHTML(
+			$this->parent->getInfoBox(
+				wfMessage( $msg,
+					$this->getVar( 'wgServer' ) .
+					$this->getVar( 'wgScriptPath' ) . '/index.php'
+				)->plain(), 'tick-32.png'
+			)
 		);
 		$this->parent->restoreLinkPopups();
 		$this->endForm( $regenerate ? 'regenerate' : false, false );

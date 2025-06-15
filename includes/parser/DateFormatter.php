@@ -21,10 +21,6 @@
  * @ingroup Parser
  */
 
-namespace MediaWiki\Parser;
-
-use MediaWiki\Html\Html;
-use MediaWiki\Language\Language;
 use MediaWiki\MediaWikiServices;
 
 /**
@@ -65,12 +61,12 @@ class DateFormatter {
 	];
 
 	/**
-	 * @var array<string,int> Month numbers by lowercase name
+	 * @var int[] Month numbers by lowercase name
 	 */
 	private $xMonths = [];
 
 	/**
-	 * @var array<int,string> Month names by number
+	 * @var string[] Month names by number
 	 */
 	private $monthNames = [];
 
@@ -87,13 +83,13 @@ class DateFormatter {
 
 	/** @var string[] Format strings similar to those used by date(), indexed by ID */
 	private const TARGET_FORMATS = [
-		self::MDY => 'F j, Y',
 		self::DMY => 'j F Y',
-		self::YMD => 'Y F j',
-		self::ISO => 'y-m-d',
 		self::YDM => 'Y, j F',
+		self::MDY => 'F j, Y',
+		self::YMD => 'Y F j',
 		self::DM => 'j F',
 		self::MD => 'F j',
+		self::ISO => 'y-m-d',
 	];
 
 	/** Used as a preference ID for rules that apply regardless of preference */
@@ -122,6 +118,9 @@ class DateFormatter {
 
 	/** e.g. January 15 */
 	private const MD = 7;
+
+	/** The highest ID that is a valid target format */
+	private const LAST = 7;
 
 	/**
 	 * @param Language $lang In which language to format the date
@@ -165,8 +164,8 @@ class DateFormatter {
 	 *     Defaults to the site content language
 	 * @return DateFormatter
 	 */
-	public static function getInstance( ?Language $lang = null ) {
-		$lang ??= MediaWikiServices::getInstance()->getContentLanguage();
+	public static function getInstance( Language $lang = null ) {
+		$lang = $lang ?? MediaWikiServices::getInstance()->getContentLanguage();
 		return MediaWikiServices::getInstance()->getDateFormatterFactory()->get( $lang );
 	}
 
@@ -180,13 +179,19 @@ class DateFormatter {
 	 * @return string
 	 */
 	public function reformat( $preference, $text, $options = [] ) {
-		$userFormatId = self::PREFERENCE_IDS[$preference] ?? self::NONE;
-		foreach ( self::TARGET_FORMATS as $source => $_ ) {
+		if ( isset( self::PREFERENCE_IDS[$preference] ) ) {
+			$userFormatId = self::PREFERENCE_IDS[$preference];
+		} else {
+			$userFormatId = self::NONE;
+		}
+		for ( $source = 1; $source <= self::LAST; $source++ ) {
 			if ( isset( self::RULES[$userFormatId][$source] ) ) {
 				# Specific rules
+				// @phan-suppress-next-line PhanTypeInvalidDimOffset
 				$target = self::RULES[$userFormatId][$source];
 			} elseif ( isset( self::RULES[self::ALL][$source] ) ) {
 				# General rules
+				// @phan-suppress-next-line PhanTypeInvalidDimOffset
 				$target = self::RULES[self::ALL][$source];
 			} elseif ( $userFormatId ) {
 				# User preference
@@ -195,6 +200,7 @@ class DateFormatter {
 				# Default
 				$target = $source;
 			}
+			// @phan-suppress-next-line PhanTypeMismatchDimFetchNullable
 			$format = self::TARGET_FORMATS[$target];
 			$regex = $this->regexes[$source];
 
@@ -212,11 +218,12 @@ class DateFormatter {
 
 					if ( !isset( $match['isoMonth'] ) ) {
 						$m = $this->makeIsoMonth( $match['monthName'] );
-						if ( $m === null ) {
+						if ( $m === false ) {
 							// Fail
 							return $match[0];
+						} else {
+							$match['isoMonth'] = $m;
 						}
-						$match['isoMonth'] = $m;
 					}
 
 					if ( !isset( $match['isoDay'] ) ) {
@@ -249,8 +256,9 @@ class DateFormatter {
 								if ( $m > 12 || $m < 1 ) {
 									// Fail
 									return $match[0];
+								} else {
+									$text .= $this->monthNames[$m];
 								}
-								$text .= $this->monthNames[$m];
 								break;
 							case 'Y': // ordinary (optional BC) year
 								// @phan-suppress-next-line PhanTypePossiblyInvalidDimOffset False positive
@@ -279,12 +287,16 @@ class DateFormatter {
 	}
 
 	/**
+	 * Makes an ISO month, e.g. 02, from a month name
 	 * @param string $monthName
-	 * @return string|null 2-digit month number, e.g. "02", or null if the input was invalid
+	 * @return string|false ISO month name, or false if the input was invalid
 	 */
 	private function makeIsoMonth( $monthName ) {
-		$number = $this->xMonths[mb_strtolower( $monthName )] ?? null;
-		return $number !== null ? sprintf( '%02d', $number ) : null;
+		$isoMonth = $this->xMonths[mb_strtolower( $monthName )] ?? false;
+		if ( $isoMonth === false ) {
+			return false;
+		}
+		return sprintf( '%02d', $isoMonth );
 	}
 
 	/**
@@ -311,7 +323,7 @@ class DateFormatter {
 	 *   year number and 'BC' at the end otherwise.
 	 */
 	private function makeNormalYear( $iso ) {
-		if ( $iso <= 0 ) {
+		if ( $iso[0] == '-' ) {
 			$text = ( intval( substr( $iso, 1 ) ) + 1 ) . ' BC';
 		} else {
 			$text = intval( $iso );
@@ -319,6 +331,3 @@ class DateFormatter {
 		return $text;
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( DateFormatter::class, 'DateFormatter' );

@@ -2,7 +2,7 @@
 
 const { action, assert, utils, wiki } = require( 'api-testing' );
 
-describe( 'Recent Changes', () => {
+describe( 'Recent Changes', function () {
 	const title = utils.title( 'Recent_Changes_' );
 	let alice;
 

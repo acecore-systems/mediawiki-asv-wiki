@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface FragmentDialog class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -10,7 +10,7 @@
  * @class
  * @abstract
  * @extends OO.ui.ProcessDialog
- * @mixes ve.ui.FragmentWindow
+ * @mixins ve.ui.FragmentWindow
  *
  * @constructor
  * @param {Object} [config] Configuration options
@@ -49,8 +49,6 @@ ve.ui.FragmentDialog.static.actions = [
 		flags: [ 'progressive', 'primary' ],
 		modes: 'insert'
 	}
-	// The message visualeditor-dialog-action-goback is also available
-	// but currently only used in ve-mw.
 ];
 
 /* Methods */
@@ -68,7 +66,7 @@ ve.ui.FragmentDialog.prototype.initialize = function ( data ) {
 };
 
 /**
- * @inheritdoc
+ * @inheritdoc OO.ui.Dialog
  */
 ve.ui.FragmentDialog.prototype.getActionWidgetConfig = function ( config ) {
 	// Mixin method
@@ -82,7 +80,7 @@ ve.ui.FragmentDialog.prototype.getActionWidgetConfig = function ( config ) {
  */
 ve.ui.FragmentDialog.prototype.getSetupProcess = function ( data ) {
 	// Parent method
-	const process = ve.ui.FragmentDialog.super.prototype.getSetupProcess.call( this, data );
+	var process = ve.ui.FragmentDialog.super.prototype.getSetupProcess.call( this, data );
 	// Mixin method
 	return ve.ui.FragmentWindow.prototype.getSetupProcess.call( this, data, process );
 };
@@ -92,12 +90,10 @@ ve.ui.FragmentDialog.prototype.getSetupProcess = function ( data ) {
  */
 ve.ui.FragmentDialog.prototype.getTeardownProcess = function ( data ) {
 	// Parent method
-	const process = ve.ui.FragmentDialog.super.prototype.getTeardownProcess.call( this, data )
-		.first( () => {
-			if ( this.selectFragmentOnClose ) {
-				this.fragment.select();
-			}
-		} );
+	var process = ve.ui.FragmentDialog.super.prototype.getTeardownProcess.call( this, data )
+		.first( function () {
+			this.fragment.select();
+		}, this );
 	// Mixin method
 	return ve.ui.FragmentWindow.prototype.getTeardownProcess.call( this, data, process );
 };

@@ -27,16 +27,11 @@
  * @ingroup Maintenance
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
-use MediaWiki\FileRepo\File\FileSelectQueryBuilder;
-use Wikimedia\Rdbms\IExpression;
+use MediaWiki\MediaWikiServices;
+use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IMaintainableDatabase;
-use Wikimedia\Rdbms\IReadableDatabase;
-use Wikimedia\Rdbms\LikeValue;
-use Wikimedia\Rdbms\SelectQueryBuilder;
 
 /**
  * Maintenance script to refresh image metadata fields.
@@ -124,38 +119,50 @@ class RefreshImageMetadata extends Maintenance {
 		$sleep = (int)$this->getOption( 'sleep', 0 );
 		$reserialize = $this->hasOption( 'convert-to-json' );
 		$oldimage = $this->hasOption( 'oldimage' );
-
-		$dbw = $this->getPrimaryDB();
 		if ( $oldimage ) {
 			$fieldPrefix = 'oi_';
-			$queryBuilderTemplate  = FileSelectQueryBuilder::newForOldFile( $dbw );
+			$fileQuery = OldLocalFile::getQueryInfo();
 		} else {
 			$fieldPrefix = 'img_';
-			$queryBuilderTemplate  = FileSelectQueryBuilder::newForFile( $dbw );
+			$fileQuery = LocalFile::getQueryInfo();
 		}
 
 		$upgraded = 0;
 		$leftAlone = 0;
 		$error = 0;
-		$batchSize = intval( $this->getBatchSize() );
+
+		$dbw = $this->getDB( DB_PRIMARY );
+		$batchSize = $this->getBatchSize();
 		if ( $batchSize <= 0 ) {
 			$this->fatalError( "Batch size is too low...", 12 );
 		}
-		$repo = $this->newLocalRepo( $force, $brokenOnly, $reserialize, $split );
-		$this->setConditions( $dbw, $queryBuilderTemplate, $fieldPrefix );
-		$queryBuilderTemplate
-			->orderBy( $fieldPrefix . 'name', SelectQueryBuilder::SORT_ASC )
-			->limit( $batchSize );
 
-		$batchCondition = [];
+		$repo = $this->newLocalRepo( $force, $brokenOnly, $reserialize, $split );
+		$conds = $this->getConditions( $dbw, $fieldPrefix );
+
 		// For the WHERE img_name > 'foo' condition that comes after doing a batch
+		$conds2 = [];
 		if ( $start !== false ) {
-			$batchCondition[] = $dbw->expr( $fieldPrefix . 'name', '>=', $start );
+			$conds2[] = $fieldPrefix . 'name >= ' . $dbw->addQuotes( $start );
 		}
+
+		$options = [
+			'LIMIT' => $batchSize,
+			'ORDER BY' => $fieldPrefix . 'name ASC',
+		];
+
+		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
+
 		do {
-			$queryBuilder = clone $queryBuilderTemplate;
-			$res = $queryBuilder->andWhere( $batchCondition )
-				->caller( __METHOD__ )->fetchResultSet();
+			$res = $dbw->select(
+				$fileQuery['tables'],
+				$fileQuery['fields'],
+				array_merge( $conds, $conds2 ),
+				__METHOD__,
+				$options,
+				$fileQuery['joins']
+			);
+
 			$nameField = $fieldPrefix . 'name';
 			if ( $res->numRows() > 0 ) {
 				$row1 = $res->current();
@@ -191,9 +198,9 @@ class RefreshImageMetadata extends Maintenance {
 			}
 			if ( $res->numRows() > 0 ) {
 				// @phan-suppress-next-line PhanPossiblyUndeclaredVariable rows contains at least one item
-				$batchCondition = [ $dbw->expr( $fieldPrefix . 'name', '>', $row->$nameField ) ];
+				$conds2 = [ $fieldPrefix . 'name > ' . $dbw->addQuotes( $row->$nameField ) ];
 			}
-			$this->waitForReplication();
+			$lbFactory->waitForReplication();
 			if ( $sleep ) {
 				sleep( $sleep );
 			}
@@ -212,36 +219,36 @@ class RefreshImageMetadata extends Maintenance {
 	}
 
 	/**
-	 * @param IReadableDatabase $dbw
-	 * @param SelectQueryBuilder $queryBuilder
+	 * @param IDatabase $dbw
 	 * @param string $fieldPrefix like img_ or oi_
-	 * @return void
+	 * @return array
 	 */
-	private function setConditions( IReadableDatabase $dbw, SelectQueryBuilder $queryBuilder, $fieldPrefix ) {
+	private function getConditions( $dbw, $fieldPrefix ) {
+		$conds = [];
+
 		$end = $this->getOption( 'end', false );
 		$mime = $this->getOption( 'mime', false );
 		$mediatype = $this->getOption( 'mediatype', false );
 		$like = $this->getOption( 'metadata-contains', false );
 
 		if ( $end !== false ) {
-			$queryBuilder->andWhere( $dbw->expr( $fieldPrefix . 'name', '<=', $end ) );
+			$conds[] = $fieldPrefix . 'name <= ' . $dbw->addQuotes( $end );
 		}
 		if ( $mime !== false ) {
-			[ $major, $minor ] = File::splitMime( $mime );
-			$queryBuilder->andWhere( [ $fieldPrefix . 'major_mime' => $major ] );
+			list( $major, $minor ) = File::splitMime( $mime );
+			$conds[$fieldPrefix . 'major_mime'] = $major;
 			if ( $minor !== '*' ) {
-				$queryBuilder->andWhere( [ $fieldPrefix . 'minor_mime' => $minor ] );
+				$conds[$fieldPrefix . 'minor_mime'] = $minor;
 			}
 		}
 		if ( $mediatype !== false ) {
-			$queryBuilder->andWhere( [ $fieldPrefix . 'media_type' => $mediatype ] );
+			$conds[$fieldPrefix . 'media_type'] = $mediatype;
 		}
 		if ( $like ) {
-			$queryBuilder->andWhere(
-				$dbw->expr( $fieldPrefix . 'metadata', IExpression::LIKE,
-					new LikeValue( $dbw->anyString(), $like, $dbw->anyString() ) )
-			);
+			$conds[] = $fieldPrefix . 'metadata ' . $dbw->buildLike( $dbw->anyString(), $like, $dbw->anyString() );
 		}
+
+		return $conds;
 	}
 
 	/**
@@ -273,12 +280,10 @@ class RefreshImageMetadata extends Maintenance {
 			$overrides['useSplitMetadata'] = true;
 		}
 
-		return $this->getServiceContainer()->getRepoGroup()
+		return MediaWikiServices::getInstance()->getRepoGroup()
 			->newCustomLocalRepo( $overrides );
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = RefreshImageMetadata::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

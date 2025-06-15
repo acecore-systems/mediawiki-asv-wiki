@@ -1,31 +1,50 @@
 <?php
 
 use MediaWiki\Cache\CacheKeyHelper;
-use MediaWiki\Cache\GenderCache;
-use MediaWiki\Cache\LinkBatch;
-use MediaWiki\Cache\LinkCache;
-use MediaWiki\Language\Language;
 use MediaWiki\Linker\LinksMigration;
 use MediaWiki\Linker\LinkTarget;
-use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\Page\PageReference;
 use MediaWiki\Page\PageReferenceValue;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleFormatter;
-use MediaWiki\Title\TitleValue;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * @group Database
  * @group Cache
- * @covers \MediaWiki\Cache\LinkBatch
+ * @covers LinkBatch
  */
 class LinkBatchTest extends MediaWikiIntegrationTestCase {
 
 	/**
-	 * @covers \MediaWiki\Cache\LinkBatch::__construct()
-	 * @covers \MediaWiki\Cache\LinkBatch::getSize()
-	 * @covers \MediaWiki\Cache\LinkBatch::isEmpty()
+	 * @covers LinkBatch::__construct()
+	 * @covers LinkBatch::getSize()
+	 * @covers LinkBatch::isEmpty()
+	 */
+	public function testConstructEmpty() {
+		$batch = new LinkBatch();
+
+		$this->assertTrue( $batch->isEmpty() );
+		$this->assertSame( 0, $batch->getSize() );
+	}
+
+	/**
+	 * @covers LinkBatch::__construct()
+	 * @covers LinkBatch::getSize()
+	 * @covers LinkBatch::isEmpty()
+	 */
+	public function testConstruct() {
+		$batch = new LinkBatch( [
+			new TitleValue( NS_MAIN, 'Foo' ),
+			new TitleValue( NS_TALK, 'Bar' ),
+		] );
+
+		$this->assertFalse( $batch->isEmpty() );
+		$this->assertSame( 2, $batch->getSize() );
+	}
+
+	/**
+	 * @covers LinkBatch::__construct()
+	 * @covers LinkBatch::getSize()
+	 * @covers LinkBatch::isEmpty()
 	 */
 	public function testConstructEmptyWithServices() {
 		$batch = new LinkBatch(
@@ -34,9 +53,8 @@ class LinkBatchTest extends MediaWikiIntegrationTestCase {
 			$this->createMock( TitleFormatter::class ),
 			$this->createMock( Language::class ),
 			$this->createMock( GenderCache::class ),
-			$this->createMock( IConnectionProvider::class ),
-			$this->createMock( LinksMigration::class ),
-			LoggerFactory::getInstance( 'LinkBatch' )
+			$this->createMock( ILoadBalancer::class ),
+			$this->createMock( LinksMigration::class )
 		);
 
 		$this->assertTrue( $batch->isEmpty() );
@@ -44,9 +62,9 @@ class LinkBatchTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Cache\LinkBatch::__construct()
-	 * @covers \MediaWiki\Cache\LinkBatch::getSize()
-	 * @covers \MediaWiki\Cache\LinkBatch::isEmpty()
+	 * @covers LinkBatch::__construct()
+	 * @covers LinkBatch::getSize()
+	 * @covers LinkBatch::isEmpty()
 	 */
 	public function testConstructWithServices() {
 		$batch = new LinkBatch(
@@ -58,9 +76,8 @@ class LinkBatchTest extends MediaWikiIntegrationTestCase {
 			$this->createMock( TitleFormatter::class ),
 			$this->createMock( Language::class ),
 			$this->createMock( GenderCache::class ),
-			$this->createMock( IConnectionProvider::class ),
-			$this->createMock( LinksMigration::class ),
-			LoggerFactory::getInstance( 'LinkBatch' )
+			$this->createMock( ILoadBalancer::class ),
+			$this->createMock( LinksMigration::class )
 		);
 
 		$this->assertFalse( $batch->isEmpty() );
@@ -80,15 +97,14 @@ class LinkBatchTest extends MediaWikiIntegrationTestCase {
 			$this->createMock( TitleFormatter::class ),
 			$this->createMock( Language::class ),
 			$this->createMock( GenderCache::class ),
-			$this->getServiceContainer()->getConnectionProvider(),
-			$this->getServiceContainer()->getLinksMigration(),
-			LoggerFactory::getInstance( 'LinkBatch' )
+			$this->getServiceContainer()->getDBLoadBalancer(),
+			$this->getServiceContainer()->getLinksMigration()
 		);
 	}
 
 	/**
-	 * @covers \MediaWiki\Cache\LinkBatch::addObj()
-	 * @covers \MediaWiki\Cache\LinkBatch::getSize()
+	 * @covers LinkBatch::addObj()
+	 * @covers LinkBatch::getSize()
 	 */
 	public function testAddObj() {
 		$batch = $this->newLinkBatch(
@@ -106,8 +122,8 @@ class LinkBatchTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Cache\LinkBatch::add()
-	 * @covers \MediaWiki\Cache\LinkBatch::getSize()
+	 * @covers LinkBatch::add()
+	 * @covers LinkBatch::getSize()
 	 */
 	public function testAdd() {
 		$batch = $this->newLinkBatch(
@@ -155,9 +171,7 @@ class LinkBatchTest extends MediaWikiIntegrationTestCase {
 			$services->getTitleFormatter(),
 			$services->getContentLanguage(),
 			$services->getGenderCache(),
-			$services->getConnectionProvider(),
-			$services->getLinksMigration(),
-			LoggerFactory::getInstance( 'LinkBatch' )
+			$services->getDBLoadBalancer()
 		);
 
 		$batch->addObj( $existing1 );
@@ -201,9 +215,7 @@ class LinkBatchTest extends MediaWikiIntegrationTestCase {
 			$this->createMock( TitleFormatter::class ),
 			$this->createNoOpMock( Language::class ),
 			$this->createNoOpMock( GenderCache::class ),
-			$this->createMock( IConnectionProvider::class ),
-			$this->createMock( LinksMigration::class ),
-			LoggerFactory::getInstance( 'LinkBatch' )
+			$this->createMock( ILoadBalancer::class )
 		);
 
 		$this->assertFalse( $batch->doGenderQuery() );
@@ -219,9 +231,7 @@ class LinkBatchTest extends MediaWikiIntegrationTestCase {
 			$this->createMock( TitleFormatter::class ),
 			$language,
 			$this->createNoOpMock( GenderCache::class ),
-			$this->createMock( IConnectionProvider::class ),
-			$this->createMock( LinksMigration::class ),
-			LoggerFactory::getInstance( 'LinkBatch' )
+			$this->createMock( ILoadBalancer::class )
 		);
 		$batch->addObj(
 			new TitleValue( NS_MAIN, 'Foo' )
@@ -243,9 +253,8 @@ class LinkBatchTest extends MediaWikiIntegrationTestCase {
 			$this->createMock( TitleFormatter::class ),
 			$language,
 			$genderCache,
-			$this->createMock( IConnectionProvider::class ),
-			$this->createMock( LinksMigration::class ),
-			LoggerFactory::getInstance( 'LinkBatch' )
+			$this->createMock( ILoadBalancer::class ),
+			$this->createMock( LinksMigration::class )
 		);
 		$batch->addObj(
 			new TitleValue( NS_MAIN, 'Foo' )
@@ -254,7 +263,7 @@ class LinkBatchTest extends MediaWikiIntegrationTestCase {
 		$this->assertTrue( $batch->doGenderQuery() );
 	}
 
-	public static function provideBadObjects() {
+	public function provideBadObjects() {
 		yield 'null' => [ null ];
 		yield 'empty' => [ Title::makeTitle( NS_MAIN, '' ) ];
 		yield 'bad user' => [ Title::makeTitle( NS_USER, '#12345' ) ];
@@ -272,7 +281,7 @@ class LinkBatchTest extends MediaWikiIntegrationTestCase {
 		$this->addToAssertionCount( 1 );
 	}
 
-	public static function provideBadDBKeys() {
+	public function provideBadDBKeys() {
 		yield 'empty' => [ '' ];
 		yield 'section' => [ '#See_also' ];
 		yield 'pipe' => [ 'foo|bar' ];

@@ -2,17 +2,20 @@
 
 namespace MediaWiki\Extension\TemplateData;
 
-use MediaWiki\Language\Language;
+use Language;
 use MessageLocalizer;
 
 /**
- * @license GPL-2.0-or-later
  * @codeCoverageIgnore Trivial facade
  */
 class TemplateDataMessageLocalizer implements MessageLocalizer {
 
-	private Language $language;
+	/** @var Language */
+	private $language;
 
+	/**
+	 * @param Language $language
+	 */
 	public function __construct( Language $language ) {
 		$this->language = $language;
 	}

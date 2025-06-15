@@ -10,7 +10,7 @@ use WikiImporter;
 use WikiImporterFactory;
 
 /**
- * @covers \WikiImporterFactory
+ * @covers WikiImporterFactory
  */
 class WikiImporterFactoryTest extends MediaWikiUnitTestCase {
 	use FactoryArgTestTrait;
@@ -24,7 +24,7 @@ class WikiImporterFactoryTest extends MediaWikiUnitTestCase {
 	}
 
 	protected static function getExtraClassArgCount() {
-		return 2;
+		return 1;
 	}
 
 	protected function getFactoryMethodName() {

@@ -17,23 +17,42 @@
 
 namespace MediaWiki\Minerva\Menu\Entries;
 
-use MediaWiki\Title\Title;
+use MediaWiki\Minerva\MinervaUI;
 use MessageLocalizer;
+use SpecialPage;
+use Title;
 
 /**
  * Model for a menu entry that represents a language selector for current title
  */
 class LanguageSelectorEntry implements IMenuEntry {
 
-	private MessageLocalizer $messageLocalizer;
-	private Title $title;
-	private bool $doesPageHaveLanguages;
-	/** @var string Associated icon name */
-	private string $icon;
-	/** @var string A translatable label used as text and title */
-	private string $label;
-	/** @var string additional classes */
-	private string $classes;
+	/**
+	 * @var MessageLocalizer
+	 */
+	private $messageLocalizer;
+	/**
+	 * @var Title
+	 */
+	private $title;
+	/**
+	 * @var bool
+	 */
+	private $doesPageHaveLanguages;
+	/**
+	 * @var string Associated icon name
+	 */
+	private $icon;
+
+	/**
+	 * @var string A translatable label used as text and title
+	 */
+	private $label;
+
+	/**
+	 * @var string additional classes
+	 */
+	private $classes;
 
 	/**
 	 * LanguageSelectorEntry constructor.
@@ -56,15 +75,20 @@ class LanguageSelectorEntry implements IMenuEntry {
 		$this->title = $title;
 		$this->doesPageHaveLanguages = $doesPageHaveLanguages;
 		$this->messageLocalizer = $messageLocalizer;
-		$this->icon = 'language';
+		$this->icon = 'wikimedia-language-base20';
 		$this->label = $label;
 		$this->classes = $classes;
+		if ( $isButton ) {
+			$this->classes .= MinervaUI::iconClass(
+				'language-base20', 'element', 'mw-ui-button mw-ui-quiet mw-ui-icon-with-label-desktop', 'wikimedia'
+			);
+		}
 	}
 
 	/**
 	 * @inheritDoc
 	 */
-	public function getName(): string {
+	public function getName() {
 		return 'language-selector';
 	}
 
@@ -83,7 +107,10 @@ class LanguageSelectorEntry implements IMenuEntry {
 		$switcherClasses = ' language-selector';
 
 		if ( $this->doesPageHaveLanguages ) {
-			$switcherLink = '#p-lang';
+			$switcherLink = SpecialPage::getTitleFor(
+				'MobileLanguages',
+				$this->title
+			)->getLocalURL();
 		} else {
 			$switcherClasses .= ' disabled';
 		}
@@ -91,31 +118,14 @@ class LanguageSelectorEntry implements IMenuEntry {
 
 		return [
 			[
-				'tag-name' => 'a',
-				'classes' => $this->classes . ' ' . $switcherClasses,
-				'label' => $msg,
-				'data-icon' => [
-					'icon' => $this->icon,
-				],
-				'array-attributes' => [
-					[
-						'key' => 'href',
-						'value' => $switcherLink,
-					],
-					[
-						'key' => 'data-mw',
-						'value' => 'interface',
-					],
-					[
-						'key' => 'data-event-name',
-						'value' => 'menu.languages',
-					],
-					[
-						'key' => 'title',
-						'value' => $msg,
-					],
-				],
-			],
+				'href' => $switcherLink,
+				'icon' => $this->icon,
+				'class' => $this->classes . ' ' . $switcherClasses,
+				'text' => $msg,
+				'title' => $msg,
+				'data-event-name' => 'menu.languages'
+			]
+
 		];
 	}
 }

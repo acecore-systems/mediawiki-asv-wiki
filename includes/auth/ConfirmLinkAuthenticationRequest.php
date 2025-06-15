@@ -21,8 +21,6 @@
 
 namespace MediaWiki\Auth;
 
-use InvalidArgumentException;
-
 /**
  * @stable to extend
  */
@@ -40,7 +38,7 @@ class ConfirmLinkAuthenticationRequest extends AuthenticationRequest {
 	 */
 	public function __construct( array $linkRequests ) {
 		if ( !$linkRequests ) {
-			throw new InvalidArgumentException( '$linkRequests must not be empty' );
+			throw new \InvalidArgumentException( '$linkRequests must not be empty' );
 		}
 		$this->linkRequests = $linkRequests;
 	}

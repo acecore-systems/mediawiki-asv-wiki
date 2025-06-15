@@ -21,18 +21,8 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
-use ILocalizedException;
-use MediaWiki\Language\Language;
-use MediaWiki\Language\RawMessage;
-use MediaWiki\Message\Message;
 use MediaWiki\Page\PageReference;
 use MediaWiki\Page\PageReferenceValue;
-use MediaWiki\Parser\Sanitizer;
-use StatusValue;
-use Throwable;
-use Wikimedia\Message\MessageSpecifier;
 
 /**
  * Formats errors and warnings for the API, and add them to the associated
@@ -52,9 +42,7 @@ class ApiErrorFormatter {
 	protected $lang;
 	/** @var PageReference|null page used for rendering error messages, or null to use the dummy title */
 	private $title = null;
-	/** @var bool */
 	protected $useDB = false;
-	/** @var string */
 	protected $format = 'none';
 
 	/**
@@ -160,7 +148,7 @@ class ApiErrorFormatter {
 	/**
 	 * Add a warning to the result
 	 * @param string|null $modulePath
-	 * @param MessageSpecifier|array|string $msg Warning message. See ApiMessage::create().
+	 * @param Message|array|string $msg Warning message. See ApiMessage::create().
 	 * @param string|null $code See ApiMessage::create().
 	 * @param array|null $data See ApiMessage::create().
 	 */
@@ -175,7 +163,7 @@ class ApiErrorFormatter {
 	/**
 	 * Add an error to the result
 	 * @param string|null $modulePath
-	 * @param MessageSpecifier|array|string $msg Warning message. See ApiMessage::create().
+	 * @param Message|array|string $msg Warning message. See ApiMessage::create().
 	 * @param string|null $code See ApiMessage::create().
 	 * @param array|null $data See ApiMessage::create().
 	 */
@@ -197,20 +185,29 @@ class ApiErrorFormatter {
 	public function addMessagesFromStatus(
 		$modulePath, StatusValue $status, $types = [ 'warning', 'error' ], array $filter = []
 	) {
-		if ( $status->isGood() ) {
+		if ( $status->isGood() || !$status->getErrors() ) {
 			return;
 		}
 
-		$types = array_unique( (array)$types );
-		foreach ( $types as $type ) {
-			foreach ( $status->getMessages( $type ) as $msg ) {
-				$msg = ApiMessage::create( $msg )
-					->inLanguage( $this->lang )
-					->page( $this->getContextTitle() )
-					->useDatabase( $this->useDB );
-				if ( !in_array( $msg->getKey(), $filter, true ) ) {
-					$this->addWarningOrError( $type, $modulePath, $msg );
-				}
+		$types = (array)$types;
+		foreach ( $status->getErrors() as $error ) {
+			if ( !in_array( $error['type'], $types, true ) ) {
+				continue;
+			}
+
+			if ( $error['type'] === 'error' ) {
+				$tag = 'error';
+			} else {
+				// Assume any unknown type is a warning
+				$tag = 'warning';
+			}
+
+			$msg = ApiMessage::create( $error )
+				->inLanguage( $this->lang )
+				->page( $this->getContextTitle() )
+				->useDatabase( $this->useDB );
+			if ( !in_array( $msg->getKey(), $filter, true ) ) {
+				$this->addWarningOrError( $tag, $modulePath, $msg );
 			}
 		}
 	}
@@ -242,7 +239,7 @@ class ApiErrorFormatter {
 			} else {
 				$msg = new RawMessage( '$1' );
 				if ( !isset( $options['code'] ) ) {
-					$class = preg_replace( '#^Wikimedia\\\\Rdbms\\\\#', '', get_class( $exception ) );
+					$class = preg_replace( '#^Wikimedia\\\Rdbms\\\#', '', get_class( $exception ) );
 					$options['code'] = 'internal_api_error_' . $class;
 					$options['data']['errorclass'] = get_class( $exception );
 				}
@@ -294,11 +291,11 @@ class ApiErrorFormatter {
 	 * @return array
 	 */
 	public function arrayFromStatus( StatusValue $status, $type = 'error', $format = null ) {
-		if ( $status->isGood() || !$status->getMessages() ) {
+		if ( $status->isGood() || !$status->getErrors() ) {
 			return [];
 		}
 
-		$result = new ApiResult( 1_000_000 );
+		$result = new ApiResult( 1000000 );
 		$formatter = new ApiErrorFormatter(
 			$result, $this->lang, $format ?: $this->format, $this->useDB
 		);
@@ -417,6 +414,3 @@ class ApiErrorFormatter {
 		}
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiErrorFormatter::class, 'ApiErrorFormatter' );

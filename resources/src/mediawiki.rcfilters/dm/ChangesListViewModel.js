@@ -1,13 +1,13 @@
 /**
- * View model for the changes list.
+ * View model for the changes list
  *
  * @class mw.rcfilters.dm.ChangesListViewModel
- * @ignore
- * @mixes OO.EventEmitter
+ * @mixins OO.EventEmitter
  *
  * @param {jQuery} $initialFieldset The initial server-generated legacy form content
+ * @constructor
  */
-const ChangesListViewModel = function MwRcfiltersDmChangesListViewModel( $initialFieldset ) {
+var ChangesListViewModel = function MwRcfiltersDmChangesListViewModel( $initialFieldset ) {
 	// Mixin constructor
 	OO.EventEmitter.call( this );
 
@@ -26,38 +26,34 @@ OO.mixinClass( ChangesListViewModel, OO.EventEmitter );
 /* Events */
 
 /**
- * The list of changes is now invalid (out of date).
- *
  * @event invalidate
- * @ignore
+ *
+ * The list of changes is now invalid (out of date)
  */
 
 /**
- * The list of changes has been updated.
- *
  * @event update
- * @ignore
  * @param {jQuery|string} $changesListContent List of changes
  * @param {jQuery} $fieldset Server-generated form
  * @param {string} noResultsDetails Type of no result error
  * @param {boolean} isInitialDOM Whether the previous dom variables are from the initial page load
  * @param {boolean} fromLiveUpdate These are new changes fetched via Live Update
+ *
+ * The list of changes has been updated
  */
 
 /**
- * The existence of changes newer than those currently displayed has changed.
- *
  * @event newChangesExist
  * @param {boolean} newChangesExist
- * @ignore
+ *
+ * The existence of changes newer than those currently displayed has changed.
  */
 
 /**
- * The state of the 'live update' feature has changed.
- *
  * @event liveUpdateChange
  * @param {boolean} enable
- * @ignore
+ *
+ * The state of the 'live update' feature has changed.
  */
 
 /* Methods */
@@ -66,7 +62,6 @@ OO.mixinClass( ChangesListViewModel, OO.EventEmitter );
  * Invalidate the list of changes
  *
  * @fires invalidate
- * @ignore
  */
 ChangesListViewModel.prototype.invalidate = function () {
 	if ( this.valid ) {
@@ -86,7 +81,7 @@ ChangesListViewModel.prototype.invalidate = function () {
  * @fires update
  */
 ChangesListViewModel.prototype.update = function ( changesListContent, $fieldset, noResultsDetails, isInitialDOM, separateOldAndNew ) {
-	const from = this.nextFrom;
+	var from = this.nextFrom;
 	this.valid = true;
 	this.extractNextFrom( $fieldset );
 	this.checkForUnseenWatchedChanges( changesListContent );
@@ -119,7 +114,7 @@ ChangesListViewModel.prototype.getNewChangesExist = function () {
  * @param {jQuery} $fieldset
  */
 ChangesListViewModel.prototype.extractNextFrom = function ( $fieldset ) {
-	const data = $fieldset.find( '.rclistfrom > a, .wlinfo' ).data( 'params' );
+	var data = $fieldset.find( '.rclistfrom > a, .wlinfo' ).data( 'params' );
 	if ( data && data.from ) {
 		this.nextFrom = data.from;
 		this.nextFromFormatted = data.fromFormatted;

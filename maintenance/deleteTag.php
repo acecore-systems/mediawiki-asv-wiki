@@ -5,11 +5,10 @@
  * @see bug T75181
  */
 
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Storage\NameTableAccessException;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 class DeleteTag extends Maintenance {
 	public function __construct() {
@@ -20,9 +19,11 @@ class DeleteTag extends Maintenance {
 	}
 
 	public function execute() {
-		$dbw = $this->getPrimaryDB();
-		$services = $this->getServiceContainer();
+		$dbw = $this->getDB( DB_PRIMARY );
+		$services = MediaWikiServices::getInstance();
 		$defStore = $services->getChangeTagDefStore();
+		$lbFactory = $services->getDBLoadBalancerFactory();
+		$options = [ 'domain' => $lbFactory->getLocalDomainID() ];
 
 		$tag = $this->getArg( 0 );
 		try {
@@ -33,22 +34,24 @@ class DeleteTag extends Maintenance {
 
 		$status = ChangeTags::canDeleteTag( $tag, null, ChangeTags::BYPASS_MAX_USAGE_CHECK );
 		if ( !$status->isOK() ) {
-			$this->fatalError( $status );
+			$message = $status->getHTML( false, false, 'en' );
+			$this->fatalError( Sanitizer::stripAllTags( $message ) );
 		}
 
 		$this->output( "Deleting tag '$tag'...\n" );
 
 		// Make the tag impossible to add by users while we're deleting it and drop the
 		// usage counter to zero
-		$dbw->newUpdateQueryBuilder()
-			->update( 'change_tag_def' )
-			->set( [
+		$dbw->update(
+			'change_tag_def',
+			[
 				'ctd_user_defined' => 0,
 				'ctd_count' => 0,
-			] )
-			->where( [ 'ctd_id' => $tagId ] )
-			->caller( __METHOD__ )->execute();
-		$this->getServiceContainer()->getChangeTagsStore()->purgeTagCacheAll();
+			],
+			[ 'ctd_id' => $tagId ],
+			__METHOD__
+		);
+		ChangeTags::purgeTagCacheAll();
 
 		// Iterate over change_tag, deleting rows in batches
 		$count = 0;
@@ -64,22 +67,17 @@ class DeleteTag extends Maintenance {
 			if ( !$ids ) {
 				break;
 			}
-			$dbw->newDeleteQueryBuilder()
-				->deleteFrom( 'change_tag' )
-				->where( [ 'ct_id' => $ids ] )
-				->caller( __METHOD__ )->execute();
+			$dbw->delete( 'change_tag', [ 'ct_id' => $ids ], __METHOD__ );
 			$count += $dbw->affectedRows();
 			$this->output( "$count\n" );
-			$this->waitForReplication();
+			$lbFactory->waitForReplication( $options );
 		} while ( true );
 		$this->output( "The tag has been removed from $count revisions, deleting the tag itself...\n" );
 
-		$this->getServiceContainer()->getChangeTagsStore()->deleteTagEverywhere( $tag );
+		ChangeTags::deleteTagEverywhere( $tag );
 		$this->output( "Done.\n" );
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = DeleteTag::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

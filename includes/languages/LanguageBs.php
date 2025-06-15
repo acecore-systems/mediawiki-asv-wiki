@@ -18,7 +18,6 @@
  * @file
  */
 
-use MediaWiki\Language\Language;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
 
@@ -29,9 +28,15 @@ use MediaWiki\MediaWikiServices;
  */
 class LanguageBs extends Language {
 	/**
+	 * Convert from the nominative form of a noun to some other case
+	 * Invoked with {{GRAMMAR:case|word}}
+	 *
 	 * Cases: genitiv, dativ, akuzativ, vokativ, instrumental, lokativ
 	 *
-	 * @inheritDoc
+	 * @param string $word
+	 * @param string $case
+	 *
+	 * @return string
 	 */
 	public function convertGrammar( $word, $case ) {
 		$grammarForms =

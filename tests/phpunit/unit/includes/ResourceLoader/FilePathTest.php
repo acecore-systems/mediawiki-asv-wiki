@@ -7,10 +7,15 @@ use MediaWikiUnitTestCase;
 use RuntimeException;
 
 /**
- * @group ResourceLoader
  * @covers \MediaWiki\ResourceLoader\FilePath
  */
 class FilePathTest extends MediaWikiUnitTestCase {
+
+	public function testConstructor() {
+		$path = new FilePath( 'dummy/path', '/local', '/remote' );
+
+		$this->assertInstanceOf( FilePath::class, $path );
+	}
 
 	public function testGetterSimple() {
 		$path = new FilePath( 'dummy/path', '/local', '/remote' );

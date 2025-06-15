@@ -6,22 +6,21 @@
 ( function () {
 
 	/**
-	 * @classdesc API results provider.
+	 * API Results Provider object.
 	 *
 	 * @class
-	 * @mixes OO.EventEmitter
+	 * @mixins OO.EventEmitter
 	 *
 	 * @constructor
-	 * @description Create an instance of `mw.widgets.APIResultsProvider`.
 	 * @param {string} apiurl The URL to the api
 	 * @param {Object} [config] Configuration options
-	 * @param {number} config.fetchLimit The default number of results to fetch
-	 * @param {string} config.lang The language of the API
-	 * @param {number} config.offset Initial offset, if relevant, to call results from
-	 * @param {Object} config.ajaxSettings The settings for the ajax call
-	 * @param {Object} config.staticParams The data parameters that are static and should
+	 * @cfg {number} fetchLimit The default number of results to fetch
+	 * @cfg {string} lang The language of the API
+	 * @cfg {number} offset Initial offset, if relevant, to call results from
+	 * @cfg {Object} ajaxSettings The settings for the ajax call
+	 * @cfg {Object} staticParams The data parameters that are static and should
 	 *  always be sent to the API request, as opposed to user parameters.
-	 * @param {Object} config.userParams Initial user parameters to be sent as data to
+	 * @cfg {Object} userParams Initial user parameters to be sent as data to
 	 *  the API request. These can change per request, like the search query term
 	 *  or sizing parameters for images, etc.
 	 */
@@ -49,18 +48,19 @@
 	/* Methods */
 
 	/**
-	 * Get results from the source.
+	 * Get results from the source
 	 *
 	 * @param {number} howMany Number of results to ask for
 	 * @return {jQuery.Promise} Promise that is resolved into an array
 	 * of available results, or is rejected if no results are available.
 	 */
 	mw.widgets.APIResultsProvider.prototype.getResults = function () {
-		const deferred = $.Deferred(),
-			allParams = Object.assign( {}, this.getStaticParams(), this.getUserParams() );
+		var xhr,
+			deferred = $.Deferred(),
+			allParams = $.extend( {}, this.getStaticParams(), this.getUserParams() );
 
-		const xhr = $.getJSON( this.getAPIurl(), allParams )
-			.done( ( data ) => {
+		xhr = $.getJSON( this.getAPIurl(), allParams )
+			.done( function ( data ) {
 				if ( Array.isArray( data ) && data.length ) {
 					deferred.resolve( data );
 				} else {
@@ -71,25 +71,25 @@
 	};
 
 	/**
-	 * Set API URL.
+	 * Set API url
 	 *
-	 * @param {string} apiurl API URL
+	 * @param {string} apiurl API url
 	 */
 	mw.widgets.APIResultsProvider.prototype.setAPIurl = function ( apiurl ) {
 		this.apiurl = apiurl;
 	};
 
 	/**
-	 * Get API URL.
+	 * Set api url
 	 *
-	 * @return {string} API URL
+	 * @return {string} API url
 	 */
 	mw.widgets.APIResultsProvider.prototype.getAPIurl = function () {
 		return this.apiurl;
 	};
 
 	/**
-	 * Get the static, non-changing data parameters sent to the API.
+	 * Get the static, non-changing data parameters sent to the API
 	 *
 	 * @return {Object} Data parameters
 	 */
@@ -98,7 +98,7 @@
 	};
 
 	/**
-	 * Get the user-inputted dynamic data parameters sent to the API.
+	 * Get the user-inputted dynamic data parameters sent to the API
 	 *
 	 * @return {Object} Data parameters
 	 */
@@ -107,20 +107,20 @@
 	};
 
 	/**
-	 * Set the data parameters sent to the API.
+	 * Set the data parameters sent to the API
 	 *
 	 * @param {Object} params User defined data parameters
 	 */
 	mw.widgets.APIResultsProvider.prototype.setUserParams = function ( params ) {
 		// Asymmetrically compare (params is subset of this.userParams)
 		if ( !OO.compare( params, this.userParams, true ) ) {
-			this.userParams = Object.assign( {}, this.userParams, params );
+			this.userParams = $.extend( {}, this.userParams, params );
 			this.reset();
 		}
 	};
 
 	/**
-	 * Reset the provider.
+	 * Reset the provider
 	 */
 	mw.widgets.APIResultsProvider.prototype.reset = function () {
 		// Reset offset
@@ -140,7 +140,7 @@
 	};
 
 	/**
-	 * Set limit.
+	 * Set limit
 	 *
 	 * @param {number} limit Default number of results to fetch from the API
 	 */
@@ -149,7 +149,7 @@
 	};
 
 	/**
-	 * Get provider API language.
+	 * Get provider API language
 	 *
 	 * @return {string} Provider API language
 	 */
@@ -158,7 +158,7 @@
 	};
 
 	/**
-	 * Set provider API language.
+	 * Set provider API language
 	 *
 	 * @param {string} lang Provider API language
 	 */
@@ -167,7 +167,7 @@
 	};
 
 	/**
-	 * Get result offset.
+	 * Get result offset
 	 *
 	 * @return {number} Offset Results offset for the upcoming request
 	 */
@@ -176,7 +176,7 @@
 	};
 
 	/**
-	 * Set result offset.
+	 * Set result offset
 	 *
 	 * @param {number} offset Results offset for the upcoming request
 	 */
@@ -195,7 +195,7 @@
 	};
 
 	/**
-	 * Toggle depleted state.
+	 * Toggle depleted state
 	 *
 	 * @param {boolean} isDepleted The provider is depleted
 	 */
@@ -204,7 +204,7 @@
 	};
 
 	/**
-	 * Get the default ajax settings.
+	 * Get the default ajax settings
 	 *
 	 * @return {Object} Ajax settings
 	 */
@@ -213,7 +213,7 @@
 	};
 
 	/**
-	 * Set the default ajax settings.
+	 * Get the default ajax settings
 	 *
 	 * @param {Object} settings Ajax settings
 	 */

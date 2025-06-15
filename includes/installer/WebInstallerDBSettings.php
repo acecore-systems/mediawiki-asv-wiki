@@ -19,8 +19,6 @@
  * @ingroup Installer
  */
 
-namespace MediaWiki\Installer;
-
 class WebInstallerDBSettings extends WebInstallerPage {
 
 	/**
@@ -28,11 +26,10 @@ class WebInstallerDBSettings extends WebInstallerPage {
 	 */
 	public function execute() {
 		$installer = $this->parent->getDBInstaller( $this->getVar( 'wgDBtype' ) );
-		$form = $installer->getSettingsForm( $this->parent );
 
 		$r = $this->parent->request;
 		if ( $r->wasPosted() ) {
-			$status = $form->submit();
+			$status = $installer->submitSettingsForm();
 			if ( $status === false ) {
 				return 'skip';
 			} elseif ( $status->isGood() ) {
@@ -42,13 +39,13 @@ class WebInstallerDBSettings extends WebInstallerPage {
 			}
 		}
 
-		$formHtml = $form->getHtml();
-		if ( $formHtml === false ) {
+		$form = $installer->getSettingsForm();
+		if ( $form === false ) {
 			return 'skip';
 		}
 
 		$this->startForm();
-		$this->addHTML( $formHtml );
+		$this->addHTML( $form );
 		$this->endForm();
 
 		return null;

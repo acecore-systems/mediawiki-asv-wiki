@@ -8,9 +8,14 @@ use MediaWikiUnitTestCase;
 /**
  * @group Test
  * @group AbuseFilter
- * @covers \MediaWiki\Extension\AbuseFilter\Variables\LazyLoadedVariable
+ * @coversDefaultClass \MediaWiki\Extension\AbuseFilter\Variables\LazyLoadedVariable
  */
 class LazyLoadedVariableTest extends MediaWikiUnitTestCase {
+	/**
+	 * @covers ::__construct
+	 * @covers ::getMethod
+	 * @covers ::getParameters
+	 */
 	public function testGetters() {
 		$method = 'magic';
 		$params = [ 'foo', true, 1, null ];

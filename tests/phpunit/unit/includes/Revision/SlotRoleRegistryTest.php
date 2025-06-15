@@ -7,13 +7,12 @@ use LogicException;
 use MediaWiki\Content\IContentHandlerFactory;
 use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\Revision\MainSlotRoleHandler;
-use MediaWiki\Revision\SlotRecord;
 use MediaWiki\Revision\SlotRoleHandler;
 use MediaWiki\Revision\SlotRoleRegistry;
 use MediaWiki\Storage\NameTableStore;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleFactory;
 use MediaWikiUnitTestCase;
+use Title;
+use TitleFactory;
 use Wikimedia\Assert\PostconditionException;
 
 /**
@@ -30,7 +29,7 @@ class SlotRoleRegistryTest extends MediaWikiUnitTestCase {
 		return $mock;
 	}
 
-	private function newSlotRoleRegistry( ?NameTableStore $roleNameStore = null ) {
+	private function newSlotRoleRegistry( NameTableStore $roleNameStore = null ) {
 		if ( !$roleNameStore ) {
 			$roleNameStore = $this->makeNameTableStore();
 		}
@@ -38,6 +37,12 @@ class SlotRoleRegistryTest extends MediaWikiUnitTestCase {
 		return new SlotRoleRegistry( $roleNameStore );
 	}
 
+	/**
+	 * @covers \MediaWiki\Revision\SlotRoleRegistry::defineRole()
+	 * @covers \MediaWiki\Revision\SlotRoleRegistry::getDefinedRoles()
+	 * @covers \MediaWiki\Revision\SlotRoleRegistry::getKnownRoles()
+	 * @covers \MediaWiki\Revision\SlotRoleRegistry::getRoleHandler()
+	 */
 	public function testDefineRole() {
 		$registry = $this->newSlotRoleRegistry();
 		$registry->defineRole( 'FOO', static function ( $role ) {
@@ -61,6 +66,9 @@ class SlotRoleRegistryTest extends MediaWikiUnitTestCase {
 		$this->assertSame( 'FooModel', $handler->getDefaultModel( $title ) );
 	}
 
+	/**
+	 * @covers \MediaWiki\Revision\SlotRoleRegistry::defineRole()
+	 */
 	public function testDefineRoleFailsForDupe() {
 		$registry = $this->newSlotRoleRegistry();
 		$registry->defineRole( 'foo', static function ( $role ) {
@@ -73,6 +81,12 @@ class SlotRoleRegistryTest extends MediaWikiUnitTestCase {
 		} );
 	}
 
+	/**
+	 * @covers \MediaWiki\Revision\SlotRoleRegistry::defineRoleWithModel()
+	 * @covers \MediaWiki\Revision\SlotRoleRegistry::getDefinedRoles()
+	 * @covers \MediaWiki\Revision\SlotRoleRegistry::getKnownRoles()
+	 * @covers \MediaWiki\Revision\SlotRoleRegistry::getRoleHandler()
+	 */
 	public function testDefineRoleWithContentModel() {
 		$registry = $this->newSlotRoleRegistry();
 		$registry->defineRoleWithModel( 'FOO', 'FooModel' );
@@ -89,6 +103,9 @@ class SlotRoleRegistryTest extends MediaWikiUnitTestCase {
 		$this->assertSame( 'FooModel', $handler->getDefaultModel( $title ) );
 	}
 
+	/**
+	 * @covers \MediaWiki\Revision\SlotRoleRegistry::getRoleHandler()
+	 */
 	public function testGetRoleHandlerForUnknownModel() {
 		$registry = $this->newSlotRoleRegistry();
 
@@ -97,6 +114,9 @@ class SlotRoleRegistryTest extends MediaWikiUnitTestCase {
 		$registry->getRoleHandler( 'foo' );
 	}
 
+	/**
+	 * @covers \MediaWiki\Revision\SlotRoleRegistry::getRoleHandler()
+	 */
 	public function testGetRoleHandlerFallbackHandler() {
 		$registry = $this->newSlotRoleRegistry(
 			$this->makeNameTableStore( [ 1 => 'foo' ] )
@@ -106,6 +126,9 @@ class SlotRoleRegistryTest extends MediaWikiUnitTestCase {
 		$this->assertSame( 'foo', $handler->getRole() );
 	}
 
+	/**
+	 * @covers \MediaWiki\Revision\SlotRoleRegistry::getRoleHandler()
+	 */
 	public function testGetRoleHandlerWithBadInstantiator() {
 		$registry = $this->newSlotRoleRegistry();
 		$registry->defineRole( 'foo', static function ( $role ) {
@@ -116,9 +139,12 @@ class SlotRoleRegistryTest extends MediaWikiUnitTestCase {
 		$registry->getRoleHandler( 'foo' );
 	}
 
+	/**
+	 * @covers \MediaWiki\Revision\SlotRoleRegistry::getRequiredRoles()
+	 */
 	public function testGetRequiredRoles() {
 		$registry = $this->newSlotRoleRegistry();
-		$registry->defineRole( SlotRecord::MAIN, function ( $role ) {
+		$registry->defineRole( 'main', function ( $role ) {
 			return new MainSlotRoleHandler(
 				[],
 				$this->createMock( IContentHandlerFactory::class ),
@@ -128,12 +154,15 @@ class SlotRoleRegistryTest extends MediaWikiUnitTestCase {
 		} );
 
 		$title = $this->createMock( Title::class );
-		$this->assertEquals( [ SlotRecord::MAIN ], $registry->getRequiredRoles( $title ) );
+		$this->assertEquals( [ 'main' ], $registry->getRequiredRoles( $title ) );
 	}
 
+	/**
+	 * @covers \MediaWiki\Revision\SlotRoleRegistry::getAllowedRoles()
+	 */
 	public function testGetAllowedRoles() {
 		$registry = $this->newSlotRoleRegistry();
-		$registry->defineRole( SlotRecord::MAIN, function ( $role ) {
+		$registry->defineRole( 'main', function ( $role ) {
 			return new MainSlotRoleHandler(
 				[],
 				$this->createMock( IContentHandlerFactory::class ),
@@ -144,9 +173,13 @@ class SlotRoleRegistryTest extends MediaWikiUnitTestCase {
 		$registry->defineRoleWithModel( 'FOO', CONTENT_MODEL_TEXT );
 
 		$title = $this->createMock( Title::class );
-		$this->assertEquals( [ SlotRecord::MAIN, 'foo' ], $registry->getAllowedRoles( $title ) );
+		$this->assertEquals( [ 'main', 'foo' ], $registry->getAllowedRoles( $title ) );
 	}
 
+	/**
+	 * @covers \MediaWiki\Revision\SlotRoleRegistry::getKnownRoles()
+	 * @covers \MediaWiki\Revision\SlotRoleRegistry::isKnownRole()
+	 */
 	public function testGetKnownRoles() {
 		$registry = $this->newSlotRoleRegistry(
 			$this->makeNameTableStore( [ 1 => 'foo' ] )

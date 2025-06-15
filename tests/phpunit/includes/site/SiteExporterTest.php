@@ -1,17 +1,5 @@
 <?php
 
-namespace MediaWiki\Tests\Site;
-
-use DOMDocument;
-use InvalidArgumentException;
-use MediaWiki\Site\MediaWikiSite;
-use MediaWiki\Site\Site;
-use MediaWiki\Site\SiteExporter;
-use MediaWiki\Site\SiteImporter;
-use MediaWiki\Site\SiteList;
-use MediaWiki\Site\SiteStore;
-use MediaWikiIntegrationTestCase;
-
 /**
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,7 +23,7 @@ use MediaWikiIntegrationTestCase;
  *
  * @group Site
  *
- * @covers \MediaWiki\Site\SiteExporter
+ * @covers SiteExporter
  *
  * @author Daniel Kinzler
  */
@@ -100,7 +88,7 @@ class SiteExporterTest extends MediaWikiIntegrationTestCase {
 		return $store;
 	}
 
-	public static function provideRoundTrip() {
+	public function provideRoundTrip() {
 		$foo = Site::newForType( Site::TYPE_UNKNOWN );
 		$foo->setGlobalId( 'Foo' );
 

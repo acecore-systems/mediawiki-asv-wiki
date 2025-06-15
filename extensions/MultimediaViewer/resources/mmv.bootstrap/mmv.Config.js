@@ -15,73 +15,134 @@
  * along with MediaViewer.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const api = new mw.Api();
-
-/**
- * Contains/retrieves configuration/environment information for MediaViewer.
- */
-class Config {
+( function () {
+	var CP;
 
 	/**
-	 * The media route prefix
+	 * Contains/retrieves configuration/environment information for MediaViewer.
 	 *
-	 * @return {string}
+	 * @class mw.mmv.Config
+	 * @constructor
+	 * @param {Object} viewerConfig
+	 * @param {mw.Map} mwConfig
+	 * @param {Object} mwUser
+	 * @param {mw.Api} api
+	 * @param {mw.SafeStorage} localStorage
 	 */
-	static get ROUTE() {
-		return 'media';
+	function Config( viewerConfig, mwConfig, mwUser, api, localStorage ) {
+		/**
+		 * A plain object storing MediaViewer-specific settings
+		 *
+		 * @type {Object}
+		 */
+		this.viewerConfig = viewerConfig;
+
+		/**
+		 * The mw.config object, for dependency injection
+		 *
+		 * @type {mw.Map}
+		 */
+		this.mwConfig = mwConfig;
+
+		/**
+		 * mw.user object, for dependency injection
+		 *
+		 * @type {Object}
+		 */
+		this.mwUser = mwUser;
+
+		/**
+		 * API object, for dependency injection
+		 *
+		 * @type {mw.Api}
+		 */
+		this.api = api;
+
+		/**
+		 * The localStorage object, for dependency injection
+		 *
+		 * @type {mw.SafeStorage}
+		 */
+		this.localStorage = localStorage;
 	}
+	CP = Config.prototype;
 
 	/**
-	 * RegExp representing the media route
+	 * Get value from local storage or fail gracefully.
 	 *
-	 * @return {RegExp}
+	 * @param {string} key
+	 * @param {*} [fallback] value to return when key is not set or localStorage is not supported
+	 * @return {string|null} stored value or fallback or null if neither exists
 	 */
-	static get ROUTE_REGEXP() {
-		return /^\/media\/(.+)$/;
-	}
+	CP.getFromLocalStorage = function ( key, fallback ) {
+		var value = this.localStorage.get( key );
+
+		// localStorage will only store strings; if values `null`, `false` or
+		// `0` are set, they'll come out as `"null"`, `"false"` or `"0"`, so we
+		// can be certain that an actual null is a failure to locate the item,
+		// and false is an issue with localStorage itself
+		if ( value !== null && value !== false ) {
+			return value;
+		}
+
+		if ( value === null ) {
+			mw.log( 'Failed to fetch item ' + key + ' from localStorage' );
+		}
+
+		return fallback !== undefined ? fallback : null;
+	};
 
 	/**
-	 * RegExp representing the media position as in "File:foo.jpg/3"
+	 * Set item in local storage or fail gracefully.
 	 *
-	 * @return {RegExp}
+	 * @param {string} key
+	 * @param {*} value
+	 * @return {boolean} whether storing the item was successful
 	 */
-	static get POSITION_REGEXP() {
-		return /\/(\d+)$/;
-	}
+	CP.setInLocalStorage = function ( key, value ) {
+		return this.localStorage.set( key, value );
+	};
 
 	/**
-	 * Regular expression representing the legacy media route
+	 * Remove item from local storage or fail gracefully.
 	 *
-	 * @return {RegExp}
+	 * @param {string} key
+	 * @return {boolean} whether storing the item was successful
 	 */
-	static get LEGACY_ROUTE_REGEXP() {
-		return /^mediaviewer\/(.+)$/;
-	}
+	CP.removeFromLocalStorage = function ( key ) {
+		this.localStorage.remove( key );
+
+		// mw.storage.remove catches all exceptions and returns false if any
+		// occur, so we can't distinguish between actual issues, and
+		// localStorage not being supported - however, localStorage.removeItem
+		// is not documented to throw any errors, so nothing to worry about;
+		// when localStorage is not supported, we'll consider removal successful
+		// (it can't have been there in the first place)
+		return true;
+	};
+
+	/**
+	 * Set user preference via AJAX
+	 *
+	 * @param {string} key
+	 * @param {string} value
+	 * @return {jQuery.Promise} a deferred which resolves/rejects on success/failure respectively
+	 */
+	CP.setUserPreference = function ( key, value ) {
+		return this.api.saveOption( key, value );
+	};
 
 	/**
 	 * Returns true if MediaViewer should handle thumbnail clicks.
 	 *
 	 * @return {boolean}
 	 */
-	static isMediaViewerEnabledOnClick() {
-		return mw.config.get( 'wgMediaViewer' ) && // global opt-out switch, can be set in user JS
-			mw.config.get( 'wgMediaViewerOnClick' ) && // thumbnail opt-out, can be set in preferences
-			( mw.user.isNamed() || !mw.storage.get( 'wgMediaViewerOnClick' ) || mw.storage.get( 'wgMediaViewerOnClick' ) === '1' ); // thumbnail opt-out for anons
-	}
-
-	/**
-	 * Returns the location hash (route string) for the given file title.
-	 *
-	 * @param {string} imageFileTitle the file title
-	 * @param {number} [position] the relative position of this image to others with same file
-	 * @return {string} the location hash
-	 * @member mw.mmv
-	 */
-	static getMediaHash( imageFileTitle, position ) {
-		return position > 1 ?
-			`#/${ this.ROUTE }/${ encodeURI( imageFileTitle ) }/${ position }` :
-			`#/${ this.ROUTE }/${ encodeURI( imageFileTitle ) }`;
-	}
+	CP.isMediaViewerEnabledOnClick = function () {
+		// IMPORTANT: mmv.head.js uses the same logic but does not use this class to be lightweight. Make sure to keep it in sync.
+		return this.mwConfig.get( 'wgMediaViewer' ) && // global opt-out switch, can be set in user JS
+			this.mwConfig.get( 'wgMediaViewerOnClick' ) && // thumbnail opt-out, can be set in preferences
+			( !this.mwUser.isAnon() || this.getFromLocalStorage( 'wgMediaViewerOnClick', '1' ) === '1' ); // thumbnail opt-out for anons
+	};
 
 	/**
 	 * (Semi-)permanently stores the setting whether MediaViewer should handle thumbnail clicks.
@@ -92,17 +153,18 @@ class Config {
 	 * @param {boolean} enabled
 	 * @return {jQuery.Promise} a deferred which resolves/rejects on success/failure respectively
 	 */
-	static setMediaViewerEnabledOnClick( enabled ) {
-		const defaultPrefValue = mw.config.get( 'wgMediaViewerEnabledByDefault' );
-		let deferred;
-		let newPrefValue;
-		let success = true;
+	CP.setMediaViewerEnabledOnClick = function ( enabled ) {
+		var deferred,
+			newPrefValue,
+			defaultPrefValue = this.mwConfig.get( 'wgMediaViewerEnabledByDefault' ),
+			config = this,
+			success = true;
 
-		if ( !mw.user.isNamed() ) {
+		if ( this.mwUser.isAnon() ) {
 			if ( !enabled ) {
-				success = mw.storage.set( 'wgMediaViewerOnClick', '0' ); // localStorage stringifies everything, best use strings in the first place
+				success = this.setInLocalStorage( 'wgMediaViewerOnClick', '0' ); // localStorage stringifies everything, best use strings in the first place
 			} else {
-				success = mw.storage.remove( 'wgMediaViewerOnClick' );
+				success = this.removeFromLocalStorage( 'wgMediaViewerOnClick' );
 			}
 			if ( success ) {
 				deferred = $.Deferred().resolve();
@@ -121,27 +183,27 @@ class Config {
 				// which in turn will cause the options API to delete the row and revert the pref to default
 				newPrefValue = enabled ? '1' : undefined;
 			}
-			deferred = api.saveOption( 'multimediaviewer-enable', newPrefValue );
+			deferred = this.setUserPreference( 'multimediaviewer-enable', newPrefValue );
 		}
 
-		return deferred.done( () => {
+		return deferred.done( function () {
 			// make the change work without a reload
-			mw.config.set( 'wgMediaViewerOnClick', enabled );
+			config.mwConfig.set( 'wgMediaViewerOnClick', enabled );
 			if ( !enabled ) {
 				// set flag for showing a popup if this was a first-time disable
-				Config.maybeEnableStatusInfo();
+				config.maybeEnableStatusInfo();
 			}
 		} );
-	}
+	};
 
 	/**
 	 * True if info about enable/disable status should be displayed (mingle #719).
 	 *
 	 * @return {boolean}
 	 */
-	static shouldShowStatusInfo() {
-		return !this.isMediaViewerEnabledOnClick() && mw.storage.get( 'mmv-showStatusInfo' ) === '1';
-	}
+	CP.shouldShowStatusInfo = function () {
+		return !this.isMediaViewerEnabledOnClick() && this.getFromLocalStorage( 'mmv-showStatusInfo' ) === '1';
+	};
 
 	/**
 	 * Called when MediaViewer is disabled. If status info was never displayed before, future
@@ -149,29 +211,68 @@ class Config {
 	 *
 	 * @private
 	 */
-	static maybeEnableStatusInfo() {
-		const currentShowStatusInfo = mw.storage.get( 'mmv-showStatusInfo' );
+	CP.maybeEnableStatusInfo = function () {
+		var currentShowStatusInfo = this.getFromLocalStorage( 'mmv-showStatusInfo' );
 		if ( currentShowStatusInfo === null ) {
-			mw.storage.set( 'mmv-showStatusInfo', '1' );
+			this.setInLocalStorage( 'mmv-showStatusInfo', '1' );
 		}
-	}
+	};
 
 	/**
 	 * Called when status info is displayed. Future shouldShowStatusInfo() calls will return false.
 	 */
-	static disableStatusInfo() {
-		mw.storage.set( 'mmv-showStatusInfo', '0' );
-	}
+	CP.disableStatusInfo = function () {
+		this.setInLocalStorage( 'mmv-showStatusInfo', '0' );
+	};
+
+	/**
+	 * Returns file extensions handled by Media Viewer.
+	 *
+	 * The object's keys are the file extensions.
+	 * The object's values are either 'default' when Media Viewer handles that file extension
+	 * directly or the name of a ResourceLoader module to load when such a file is opened.
+	 *
+	 * @return {Object}
+	 */
+	CP.extensions = function () {
+		return this.viewerConfig.extensions;
+	};
 
 	/**
 	 * Returns UI language
 	 *
 	 * @return {string} Language code
 	 */
-	static language() {
-		return mw.config.get( 'wgUserLanguage', false ) || mw.config.get( 'wgContentLanguage', 'en' );
-	}
-}
+	CP.language = function () {
+		return this.mwConfig.get( 'wgUserLanguage', false ) || this.mwConfig.get( 'wgContentLanguage', 'en' );
+	};
 
-mw.mmv = Config;
-module.exports = Config;
+	/**
+	 * Returns URI of virtual view beacon or false if not set
+	 *
+	 * @return {string|boolean} URI
+	 */
+	CP.recordVirtualViewBeaconURI = function () {
+		return this.viewerConfig.recordVirtualViewBeaconURI;
+	};
+
+	/**
+	 * Returns useThumbnailGuessing flag
+	 *
+	 * @return {boolean}
+	 */
+	CP.useThumbnailGuessing = function () {
+		return this.viewerConfig.useThumbnailGuessing;
+	};
+
+	/**
+	 * Returns imageQueryParameter, if set
+	 *
+	 * @return {string|boolean}
+	 */
+	CP.imageQueryParameter = function () {
+		return this.viewerConfig.imageQueryParameter;
+	};
+
+	mw.mmv.Config = Config;
+}() );

@@ -33,13 +33,11 @@
  * @ingroup Languages
  */
 class ShiConverter extends LanguageConverterSpecific {
-	/**
-	 * The Tifinagh alphabet sequence is based on
-	 * "Dictionnaire Général de la Langue Amazighe Informatisé"
-	 * by IRCAM (https://tal.ircam.ma/dglai/lexieam.php, DGLAi),
-	 * with the labio-velarization mark in the end
-	 */
-	private const TO_LATIN = [
+	// The Tifinagh alphabet sequence is based on
+	// "Dictionnaire Général de la Langue Amazighe Informatisé"
+	// by IRCAM (https://tal.ircam.ma/dglai/lexieam.php, DGLAi),
+	// with the labio-velarization mark in the end
+	public $mToLatin = [
 		'ⴰ' => 'a',
 		'ⴱ' => 'b',
 		'ⴳ' => 'g',
@@ -74,8 +72,8 @@ class ShiConverter extends LanguageConverterSpecific {
 		'ⵯ' => 'ʷ',
 	];
 
-	/** The sequence is based on DGLAi, with the non-standard letters in the end */
-	private const UPPER_TO_LOWER_CASE_LATIN = [
+	// The sequence is based on DGLAi, with the non-standard letters in the end
+	public $mUpperToLowerCaseLatin = [
 		'A' => 'a',
 		'B' => 'b',
 		'G' => 'g',
@@ -112,11 +110,9 @@ class ShiConverter extends LanguageConverterSpecific {
 		'V' => 'v',
 	];
 
-	/**
-	 * The sequence is based on DGLAi, with the labio-velarization mark and
-	 * the non-standard letters in the end
-	 */
-	private const TO_TIFINAGH = [
+	// The sequence is based on DGLAi, with the labio-velarization mark and
+	// the non-standard letters in the end
+	public $mToTifinagh = [
 		'a' => 'ⴰ',
 		'b' => 'ⴱ',
 		'g' => 'ⴳ',
@@ -154,14 +150,32 @@ class ShiConverter extends LanguageConverterSpecific {
 		'v' => 'ⴼ',
 	];
 
+	/**
+	 * Get main language code.
+	 * @since 1.36
+	 *
+	 * @return string
+	 */
 	public function getMainCode(): string {
 		return 'shi';
 	}
 
+	/**
+	 * Get supported variants of the language.
+	 * @since 1.36
+	 *
+	 * @return array
+	 */
 	public function getLanguageVariants(): array {
 		return [ 'shi', 'shi-tfng', 'shi-latn' ];
 	}
 
+	/**
+	 * Get language variants fallbacks.
+	 * @since 1.36
+	 *
+	 * @return array
+	 */
 	public function getVariantsFallbacks(): array {
 		return [
 			'shi' => [ 'shi-latn', 'shi-tfng' ],
@@ -170,21 +184,29 @@ class ShiConverter extends LanguageConverterSpecific {
 		];
 	}
 
-	protected function loadDefaultTables(): array {
-		return [
-			'lowercase' => new ReplacementArray( self::UPPER_TO_LOWER_CASE_LATIN ),
-			'shi-tfng' => new ReplacementArray( self::TO_TIFINAGH ),
-			'shi-latn' => new ReplacementArray( self::TO_LATIN ),
+	protected function loadDefaultTables() {
+		$this->mTables = [
+			'lowercase' => new ReplacementArray( $this->mUpperToLowerCaseLatin ),
+			'shi-tfng' => new ReplacementArray( $this->mToTifinagh ),
+			'shi-latn' => new ReplacementArray( $this->mToLatin ),
 			'shi' => new ReplacementArray()
 		];
 	}
 
+	/**
+	 * It translates text into variant
+	 *
+	 * @param string $text
+	 * @param string $toVariant
+	 *
+	 * @return string
+	 */
 	public function translate( $text, $toVariant ) {
 		// If $text is empty or only includes spaces, do nothing
 		// Otherwise translate it
 		if ( trim( $text ) ) {
 			$this->loadTables();
-			// For Tifinagh, first translate uppercase to lowercase Latin
+			// To Tifinagh, first translate uppercase to lowercase Latin
 			if ( $toVariant == 'shi-tfng' ) {
 				$text = $this->mTables['lowercase']->replace( $text );
 			}

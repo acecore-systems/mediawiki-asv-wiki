@@ -1,35 +1,14 @@
 <?php
 
-use MediaWiki\Content\ContentHandler;
-use MediaWiki\Content\CssContentHandler;
-use MediaWiki\Content\JavaScriptContentHandler;
-use MediaWiki\Content\JsonContent;
-use MediaWiki\Content\JsonContentHandler;
-use MediaWiki\Content\TextContentHandler;
 use MediaWiki\Content\ValidationParams;
-use MediaWiki\Content\WikitextContent;
-use MediaWiki\Content\WikitextContentHandler;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\Language\Language;
-use MediaWiki\Languages\LanguageNameUtils;
-use MediaWiki\Linker\LinkRenderer;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Page\Hook\OpportunisticLinksUpdateHook;
 use MediaWiki\Page\PageIdentity;
 use MediaWiki\Page\PageIdentityValue;
-use MediaWiki\Parser\MagicWordFactory;
-use MediaWiki\Parser\ParserFactory;
-use MediaWiki\Parser\ParserOutput;
-use MediaWiki\Parser\Parsoid\ParsoidParserFactory;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleFactory;
 use Wikimedia\TestingAccessWrapper;
-use Wikimedia\UUID\GlobalIdGenerator;
 
 /**
  * @group ContentHandler
  * @group Database
- * @covers \MediaWiki\Content\ContentHandler
  */
 class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 
@@ -47,18 +26,7 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 				12312 => 'testing',
 			],
 			MainConfigNames::ContentHandlers => [
-				CONTENT_MODEL_WIKITEXT => [
-					'class' => WikitextContentHandler::class,
-					'services' => [
-						'TitleFactory',
-						'ParserFactory',
-						'GlobalIdGenerator',
-						'LanguageNameUtils',
-						'LinkRenderer',
-						'MagicWordFactory',
-						'ParsoidParserFactory',
-					],
-				],
+				CONTENT_MODEL_WIKITEXT => WikitextContentHandler::class,
 				CONTENT_MODEL_JAVASCRIPT => JavaScriptContentHandler::class,
 				CONTENT_MODEL_JSON => JsonContentHandler::class,
 				CONTENT_MODEL_CSS => CssContentHandler::class,
@@ -106,11 +74,23 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider dataGetDefaultModelFor
+	 * @covers ContentHandler::getDefaultModelFor
 	 */
 	public function testGetDefaultModelFor( $title, $expectedModelId ) {
 		$title = Title::newFromText( $title );
-		$this->hideDeprecated( 'MediaWiki\\Content\\ContentHandler::getDefaultModelFor' );
 		$this->assertEquals( $expectedModelId, ContentHandler::getDefaultModelFor( $title ) );
+	}
+
+	/**
+	 * @dataProvider dataGetDefaultModelFor
+	 * @covers ContentHandler::getForTitle
+	 */
+	public function testGetForTitle( $title, $expectedContentModel ) {
+		$this->hideDeprecated( 'ContentHandler::getForTitle' );
+		$title = Title::newFromText( $title );
+		$this->getServiceContainer()->getLinkCache()->addBadLinkObj( $title );
+		$handler = ContentHandler::getForTitle( $title );
+		$this->assertEquals( $expectedContentModel, $handler->getModelID() );
 	}
 
 	public static function dataGetLocalizedName() {
@@ -125,6 +105,7 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider dataGetLocalizedName
+	 * @covers ContentHandler::getLocalizedName
 	 */
 	public function testGetLocalizedName( $id, $expected ) {
 		$name = ContentHandler::getLocalizedName( $id );
@@ -157,6 +138,7 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider dataGetPageLanguage
+	 * @covers ContentHandler::getPageLanguage
 	 */
 	public function testGetPageLanguage( $title, $expected ) {
 		$title = Title::newFromText( $title );
@@ -171,23 +153,82 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertEquals( $expected, $lang->getCode() );
 	}
 
-	public function testGetContentText_Null() {
-		$this->hideDeprecated( 'MediaWiki\\Content\\ContentHandler::getContentText' );
+	public static function dataGetContentText_Null() {
+		return [
+			[ 'fail' ],
+			[ 'serialize' ],
+			[ 'ignore' ],
+		];
+	}
+
+	/**
+	 * @dataProvider dataGetContentText_Null
+	 * @covers ContentHandler::getContentText
+	 */
+	public function testGetContentText_Null( $contentHandlerTextFallback ) {
+		$this->overrideConfigValue( MainConfigNames::ContentHandlerTextFallback, $contentHandlerTextFallback );
+
 		$content = null;
+
 		$text = ContentHandler::getContentText( $content );
 		$this->assertSame( '', $text );
 	}
 
-	public function testGetContentText_TextContent() {
-		$this->hideDeprecated( 'MediaWiki\\Content\\ContentHandler::getContentText' );
+	public static function dataGetContentText_TextContent() {
+		return [
+			[ 'fail' ],
+			[ 'serialize' ],
+			[ 'ignore' ],
+		];
+	}
+
+	/**
+	 * @dataProvider dataGetContentText_TextContent
+	 * @covers ContentHandler::getContentText
+	 */
+	public function testGetContentText_TextContent( $contentHandlerTextFallback ) {
+		$this->overrideConfigValue( MainConfigNames::ContentHandlerTextFallback, $contentHandlerTextFallback );
+
 		$content = new WikitextContent( "hello world" );
+
 		$text = ContentHandler::getContentText( $content );
 		$this->assertEquals( $content->getText(), $text );
 	}
 
-	public function testGetContentText_NonTextContent() {
-		$this->hideDeprecated( 'MediaWiki\\Content\\ContentHandler::getContentText' );
+	/**
+	 * ContentHandler::getContentText should have thrown an exception for non-text Content object
+	 *
+	 * @covers ContentHandler::getContentText
+	 */
+	public function testGetContentText_NonTextContent_fail() {
+		$this->overrideConfigValue( MainConfigNames::ContentHandlerTextFallback, 'fail' );
+
 		$content = new DummyContentForTesting( "hello world" );
+
+		$this->expectException( MWException::class );
+		ContentHandler::getContentText( $content );
+	}
+
+	/**
+	 * @covers ContentHandler::getContentText
+	 */
+	public function testGetContentText_NonTextContent_serialize() {
+		$this->overrideConfigValue( MainConfigNames::ContentHandlerTextFallback, 'serialize' );
+
+		$content = new DummyContentForTesting( "hello world" );
+
+		$text = ContentHandler::getContentText( $content );
+		$this->assertEquals( $content->serialize(), $text );
+	}
+
+	/**
+	 * @covers ContentHandler::getContentText
+	 */
+	public function testGetContentText_NonTextContent_ignore() {
+		$this->overrideConfigValue( MainConfigNames::ContentHandlerTextFallback, 'ignore' );
+
+		$content = new DummyContentForTesting( "hello world" );
+
 		$text = ContentHandler::getContentText( $content );
 		$this->assertNull( $text );
 	}
@@ -242,6 +283,7 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider dataMakeContent
+	 * @covers ContentHandler::makeContent
 	 */
 	public function testMakeContent( $data, $title, $modelId, $format,
 		$expectedModelId, $shouldFail
@@ -268,13 +310,16 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * getAutoSummary() should set "Created blank page" summary if we save an empy string.
+	 * @covers ContentHandler::getAutosummary
+	 *
+	 * Test if we become a "Created blank page" summary from getAutoSummary if no Content added to
+	 * page.
 	 */
 	public function testGetAutosummary() {
 		$this->setContentLang( 'en' );
 
 		$content = new DummyContentHandlerForTesting( CONTENT_MODEL_WIKITEXT );
-		$title = Title::makeTitle( NS_HELP, 'Test' );
+		$title = Title::newFromText( 'Help:Test' );
 		// Create a new content object with no content
 		$newContent = ContentHandler::makeContent( '', $title, CONTENT_MODEL_WIKITEXT, null );
 		// first check, if we become a blank page created summary with the right bitmask
@@ -290,6 +335,7 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * Test software tag that is added when content model of the page changes
+	 * @covers ContentHandler::getChangeTag
 	 */
 	public function testGetChangeTag() {
 		$this->overrideConfigValue( MainConfigNames::SoftwareTags, [ 'mw-contentmodelchange' => true ] );
@@ -303,11 +349,17 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( 'mw-contentmodelchange', $tag );
 	}
 
+	/**
+	 * @covers ContentHandler::supportsCategories
+	 */
 	public function testSupportsCategories() {
 		$handler = new DummyContentHandlerForTesting( CONTENT_MODEL_WIKITEXT );
 		$this->assertTrue( $handler->supportsCategories(), 'content model supports categories' );
 	}
 
+	/**
+	 * @covers ContentHandler::supportsDirectEditing
+	 */
 	public function testSupportsDirectEditing() {
 		$handler = new DummyContentHandlerForTesting( CONTENT_MODEL_JSON );
 		$this->assertFalse( $handler->supportsDirectEditing(), 'direct editing is not supported' );
@@ -323,7 +375,7 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 		return true;
 	}
 
-	public static function provideGetModelForID() {
+	public function provideGetModelForID() {
 		return [
 			[ CONTENT_MODEL_WIKITEXT, WikitextContentHandler::class ],
 			[ CONTENT_MODEL_JAVASCRIPT, JavaScriptContentHandler::class ],
@@ -336,24 +388,22 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
+	 * @covers ContentHandler::getForModelID
 	 * @dataProvider provideGetModelForID
 	 */
 	public function testGetModelForID( $modelId, $handlerClass ) {
-		$handler = $this->getServiceContainer()->getContentHandlerFactory()
-			->getContentHandler( $modelId );
+		$handler = ContentHandler::getForModelID( $modelId );
 
 		$this->assertInstanceOf( $handlerClass, $handler );
 	}
 
+	/**
+	 * @covers ContentHandler::getFieldsForSearchIndex
+	 */
 	public function testGetFieldsForSearchIndex() {
 		$searchEngine = $this->newSearchEngine();
 
-		$handler = $this->getMockBuilder( ContentHandler::class )
-			->onlyMethods(
-				[ 'serializeContent', 'unserializeContent', 'makeEmptyContent' ]
-			)
-			->disableOriginalConstructor()
-			->getMock();
+		$handler = ContentHandler::getForModelID( CONTENT_MODEL_WIKITEXT );
 
 		$fields = $handler->getFieldsForSearchIndex( $searchEngine );
 
@@ -375,9 +425,12 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 		return $searchEngine;
 	}
 
+	/**
+	 * @covers ContentHandler::getDataForSearchIndex
+	 */
 	public function testDataIndexFields() {
 		$mockEngine = $this->createMock( SearchEngine::class );
-		$title = Title::makeTitle( NS_MAIN, 'Not_Main_Page' );
+		$title = Title::newFromText( 'Not_Main_Page', NS_MAIN );
 		$page = $this->getServiceContainer()->getWikiPageFactory()->newFromTitle( $title );
 
 		$this->setTemporaryHook( 'SearchDataForIndex',
@@ -391,9 +444,9 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 				$fields['testDataField'] = 'test content';
 			} );
 
-		$revision = $page->getRevisionRecord();
-		$output = $page->getContentHandler()->getParserOutputForIndexing( $page, null, $revision );
-		$data = $page->getContentHandler()->getDataForSearchIndex( $page, $output, $mockEngine, $revision );
+		$contentRenderer = $this->getServiceContainer()->getContentRenderer();
+		$output = $contentRenderer->getParserOutput( $page->getContent(), $title );
+		$data = $page->getContentHandler()->getDataForSearchIndex( $page, $output, $mockEngine );
 		$this->assertArrayHasKey( 'text', $data );
 		$this->assertArrayHasKey( 'text_bytes', $data );
 		$this->assertArrayHasKey( 'language', $data );
@@ -402,53 +455,45 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertEquals( 'wikitext', $data['content_model'] );
 	}
 
+	/**
+	 * @covers ContentHandler::getParserOutputForIndexing
+	 */
 	public function testParserOutputForIndexing() {
-		$opportunisticUpdateHook =
-			$this->createMock( OpportunisticLinksUpdateHook::class );
-		// WikiPage::triggerOpportunisticLinksUpdate should not be triggered when
-		// getParserOutputForIndexing is called
-		$opportunisticUpdateHook->expects( $this->never() )
-			->method( 'onOpportunisticLinksUpdate' )
-			->willReturn( false );
-		$this->setTemporaryHook( 'OpportunisticLinksUpdate', $opportunisticUpdateHook );
-
-		$title = Title::makeTitle( NS_MAIN, 'Smithee' );
+		$title = Title::newFromText( 'Smithee', NS_MAIN );
 		$page = $this->getServiceContainer()->getWikiPageFactory()->newFromTitle( $title );
-		$revision = $page->getRevisionRecord();
 
-		$out = $page->getContentHandler()->getParserOutputForIndexing( $page, null, $revision );
+		$out = $page->getContentHandler()->getParserOutputForIndexing( $page );
 		$this->assertInstanceOf( ParserOutput::class, $out );
 		$this->assertStringContainsString( 'one who smiths', $out->getRawText() );
 	}
 
+	/**
+	 * @covers ContentHandler::getContentModels
+	 */
 	public function testGetContentModelsHook() {
 		$this->setTemporaryHook( 'GetContentModels', static function ( &$models ) {
 			$models[] = 'Ferrari';
 		} );
-		$this->hideDeprecated( 'MediaWiki\\Content\\ContentHandler::getContentModels' );
 		$this->assertContains( 'Ferrari', ContentHandler::getContentModels() );
 	}
 
+	/**
+	 * @covers ContentHandler::getSlotDiffRenderer
+	 */
 	public function testGetSlotDiffRenderer_default() {
 		$this->mergeMwGlobalArrayValue( 'wgHooks', [
 			'GetSlotDiffRenderer' => [],
 		] );
 
 		// test default renderer
-		$contentHandler = new WikitextContentHandler(
-			CONTENT_MODEL_WIKITEXT,
-			$this->createMock( TitleFactory::class ),
-			$this->createMock( ParserFactory::class ),
-			$this->createMock( GlobalIdGenerator::class ),
-			$this->createMock( LanguageNameUtils::class ),
-			$this->createMock( LinkRenderer::class ),
-			$this->createMock( MagicWordFactory::class ),
-			$this->createMock( ParsoidParserFactory::class )
-		);
+		$contentHandler = new WikitextContentHandler( CONTENT_MODEL_WIKITEXT );
 		$slotDiffRenderer = $contentHandler->getSlotDiffRenderer( RequestContext::getMain() );
 		$this->assertInstanceOf( TextSlotDiffRenderer::class, $slotDiffRenderer );
 	}
 
+	/**
+	 * @covers ContentHandler::getSlotDiffRenderer
+	 */
 	public function testGetSlotDiffRenderer_bc() {
 		$this->mergeMwGlobalArrayValue( 'wgHooks', [
 			'GetSlotDiffRenderer' => [],
@@ -473,6 +518,9 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 		);
 	}
 
+	/**
+	 * @covers ContentHandler::getSlotDiffRenderer
+	 */
 	public function testGetSlotDiffRenderer_nobc() {
 		$this->mergeMwGlobalArrayValue( 'wgHooks', [
 			'GetSlotDiffRenderer' => [],
@@ -492,11 +540,13 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 		$customContentHandler2->method( 'getSlotDiffRendererInternal' )
 			->willReturn( $customSlotDiffRenderer );
 		/** @var ContentHandler $customContentHandler2 */
-		$this->hideDeprecated( 'ContentHandler::getSlotDiffRendererInternal' );
 		$slotDiffRenderer = $customContentHandler2->getSlotDiffRenderer( RequestContext::getMain() );
 		$this->assertSame( $customSlotDiffRenderer, $slotDiffRenderer );
 	}
 
+	/**
+	 * @covers ContentHandler::getSlotDiffRenderer
+	 */
 	public function testGetSlotDiffRenderer_hook() {
 		$this->mergeMwGlobalArrayValue( 'wgHooks', [
 			'GetSlotDiffRenderer' => [],
@@ -533,16 +583,13 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 				$slotDiffRenderer = $customSlotDiffRenderer2;
 			} );
 
-		$this->hideDeprecated( 'ContentHandler::getSlotDiffRendererInternal' );
 		$slotDiffRenderer = $customContentHandler->getSlotDiffRenderer( RequestContext::getMain() );
 		$this->assertSame( $customSlotDiffRenderer2, $slotDiffRenderer );
-
-		$this->hideDeprecated( 'ContentHandler::getSlotDiffRendererInternal' );
 		$slotDiffRenderer = $customContentHandler2->getSlotDiffRenderer( RequestContext::getMain() );
 		$this->assertSame( $customSlotDiffRenderer2, $slotDiffRenderer );
 	}
 
-	public static function providerGetPageViewLanguage() {
+	public function providerGetPageViewLanguage() {
 		yield [ NS_FILE, 'sr', 'sr-ec', 'sr-ec' ];
 		yield [ NS_FILE, 'sr', 'sr', 'sr' ];
 		yield [ NS_MEDIAWIKI, 'sr-ec', 'sr', 'sr-ec' ];
@@ -550,16 +597,15 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * Superseded by OutputPageTest::testGetJsVarsAboutPageLang
-	 *
 	 * @dataProvider providerGetPageViewLanguage
+	 * @covers ContentHandler::getPageViewLanguage
 	 */
 	public function testGetPageViewLanguage( $namespace, $lang, $variant, $expected ) {
 		$contentHandler = $this->getMockBuilder( ContentHandler::class )
 			->disableOriginalConstructor()
 			->getMockForAbstractClass();
 
-		$title = Title::makeTitle( $namespace, 'SimpleTitle' );
+		$title = Title::newFromText( "SimpleTitle", $namespace );
 
 		$this->overrideConfigValue( MainConfigNames::DefaultLanguageVariant, $variant );
 
@@ -570,7 +616,7 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertEquals( $expected, $pageViewLanguage->getCode() );
 	}
 
-	public static function provideValidateSave() {
+	public function provideValidateSave() {
 		yield 'wikitext' => [
 			new WikitextContent( 'hello world' ),
 			true
@@ -589,6 +635,7 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideValidateSave
+	 * @covers ContentHandler::validateSave
 	 */
 	public function testValidateSave( $content, $expectedResult ) {
 		$page = new PageIdentityValue( 0, 1, 'Foo', PageIdentity::LOCAL );
@@ -597,6 +644,6 @@ class ContentHandlerTest extends MediaWikiIntegrationTestCase {
 		$validateParams = new ValidationParams( $page, 0 );
 
 		$status = $contentHandler->validateSave( $content, $validateParams );
-		$this->assertEquals( $expectedResult, $status->isOK() );
+		$this->assertEquals( $expectedResult, $status->isOk() );
 	}
 }

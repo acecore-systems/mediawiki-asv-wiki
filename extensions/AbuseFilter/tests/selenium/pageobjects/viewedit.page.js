@@ -4,58 +4,24 @@ const Page = require( 'wdio-mediawiki/Page' );
 
 class ViewEditPage extends Page {
 	// Here we avoid things depending on the config, e.g. group and global
-	get filterId() {
-		return $( '#mw-abusefilter-edit-id .mw-input' );
-	}
-
-	get name() {
-		return $( 'input[name="wpFilterDescription"]' );
-	}
-
-	get rules() {
-		return $( '#wpFilterRules' );
-	}
-
-	get comments() {
-		return $( 'textarea[name="wpFilterNotes"]' );
-	}
-
-	get hidden() {
-		return $( 'input[name="wpFilterHidden"]' );
-	}
-
-	get enabled() {
-		return $( 'input[name="wpFilterEnabled"]' );
-	}
-
-	get deleted() {
-		return $( 'input[name="wpFilterDeleted"]' );
-	}
+	get filterId() { return $( '#mw-abusefilter-edit-id .mw-input' ); }
+	get name() { return $( 'input[name="wpFilterDescription"]' ); }
+	get rules() { return $( '#wpFilterRules' ); }
+	get comments() { return $( 'textarea[name="wpFilterNotes"]' ); }
+	get hidden() { return $( 'input[name="wpFilterHidden"]' ); }
+	get enabled() { return $( 'input[name="wpFilterEnabled"]' ); }
+	get deleted() { return $( 'input[name="wpFilterDeleted"]' ); }
 
 	// @todo This assumes that warn is enabled in the config, which is true by default
-	get warnCheckbox() {
-		return $( 'input[name="wpFilterActionWarn"]' );
-	}
+	get warnCheckbox() { return $( 'input[name="wpFilterActionWarn"]' ); }
+	get warnOtherMessage() { return $( 'input[name="wpFilterWarnMessageOther"]' ); }
 
-	get warnOtherMessage() {
-		return $( 'input[name="wpFilterWarnMessageOther"]' );
-	}
+	get exportData() { return $( '#mw-abusefilter-export textarea' ).getValue(); }
 
-	get exportData() {
-		return $( '#mw-abusefilter-export textarea' ).getValue();
-	}
+	get submitButton() { return $( '#mw-abusefilter-editing-form input[type="submit"]' ); }
 
-	get submitButton() {
-		return $( '#mw-abusefilter-editing-form input[type="submit"]' );
-	}
-
-	get error() {
-		return $( '.cdx-message--error' );
-	}
-
-	get warning() {
-		return $( '.cdx-message--warning' );
-	}
+	get error() { return $( '.mw-message-box-error' ); }
+	get warning() { return $( '.mw-message-box-warning' ); }
 
 	async submit() {
 		await this.submitButton.waitForClickable();
@@ -68,10 +34,6 @@ class ViewEditPage extends Page {
 	 */
 	async switchEditor() {
 		const button = await $( '#mw-abusefilter-switcheditor' );
-		if ( !await button.isExisting() ) {
-			// CodeEditor not installed, nothing to do here.
-			return;
-		}
 		await button.waitForClickable();
 		await button.click();
 	}

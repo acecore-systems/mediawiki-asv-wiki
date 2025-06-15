@@ -1,27 +1,17 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
-use MediaWiki\Api\ApiMain;
-use MediaWiki\Api\ApiPageSet;
-use MediaWiki\Api\ApiResult;
-use MediaWiki\Context\RequestContext;
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\MainConfigNames;
 use MediaWiki\Page\PageIdentity;
 use MediaWiki\Page\PageReference;
-use MediaWiki\Request\FauxRequest;
 use MediaWiki\Tests\Unit\DummyServicesTrait;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleValue;
-use RuntimeException;
 use Wikimedia\TestingAccessWrapper;
 
 /**
  * @group API
  * @group medium
  * @group Database
- * @covers \MediaWiki\Api\ApiPageSet
+ * @covers ApiPageSet
  */
 class ApiPageSetTest extends ApiTestCase {
 	use DummyServicesTrait;
@@ -49,7 +39,7 @@ class ApiPageSetTest extends ApiTestCase {
 	 * @dataProvider provideRedirectMergePolicy
 	 */
 	public function testRedirectMergePolicyWithArrayResult( $mergePolicy, $expect ) {
-		[ $target, $pageSet ] = $this->createPageSetWithRedirect();
+		list( $target, $pageSet ) = $this->createPageSetWithRedirect();
 		$pageSet->setRedirectMergePolicy( $mergePolicy );
 		$result = [
 			$target->getArticleID() => []
@@ -62,7 +52,7 @@ class ApiPageSetTest extends ApiTestCase {
 	 * @dataProvider provideRedirectMergePolicy
 	 */
 	public function testRedirectMergePolicyWithApiResult( $mergePolicy, $expect ) {
-		[ $target, $pageSet ] = $this->createPageSetWithRedirect();
+		list( $target, $pageSet ) = $this->createPageSetWithRedirect();
 		$pageSet->setRedirectMergePolicy( $mergePolicy );
 		$result = new ApiResult( false );
 		$result->addValue( null, 'pages', [
@@ -104,17 +94,15 @@ class ApiPageSetTest extends ApiTestCase {
 	}
 
 	public function testRedirectMergePolicyRedirectLoop() {
-		$this->hideDeprecated( ApiPageSet::class . '::getTitles' );
-
-		$redirectOneTitle = 'ApiPageSetTestRedirectOne';
-		$redirectTwoTitle = 'ApiPageSetTestRedirectTwo';
-		$this->editPage( $redirectOneTitle, "#REDIRECT [[$redirectTwoTitle]]" );
-		$this->editPage( $redirectTwoTitle, "#REDIRECT [[$redirectOneTitle]]" );
-		[ $target, $pageSet ] = $this->createPageSetWithRedirect(
-			"#REDIRECT [[$redirectOneTitle]]"
+		$loopA = Title::makeTitle( NS_MAIN, 'UTPageRedirectOne' );
+		$loopB = Title::makeTitle( NS_MAIN, 'UTPageRedirectTwo' );
+		$this->editPage( 'UTPageRedirectOne', '#REDIRECT [[UTPageRedirectTwo]]' );
+		$this->editPage( 'UTPageRedirectTwo', '#REDIRECT [[UTPageRedirectOne]]' );
+		list( $target, $pageSet ) = $this->createPageSetWithRedirect(
+			'#REDIRECT [[UTPageRedirectOne]]'
 		);
 		$pageSet->setRedirectMergePolicy( static function ( $cur, $new ) {
-			throw new RuntimeException( 'unreachable, no merge when target is redirect loop' );
+			throw new \RuntimeException( 'unreachable, no merge when target is redirect loop' );
 		} );
 		// This could infinite loop in a bugged impl, but php doesn't offer
 		// a great way to time constrain this.
@@ -125,7 +113,7 @@ class ApiPageSetTest extends ApiTestCase {
 		$this->assertEqualsCanonicalizing(
 			[
 				'UTRedirectSourceA', 'UTRedirectSourceB', 'UTRedirectTarget',
-				$redirectOneTitle, $redirectTwoTitle,
+				'UTPageRedirectOne', 'UTPageRedirectTwo',
 			],
 			array_map( static function ( $x ) {
 				return $x->getPrefixedText();
@@ -155,42 +143,40 @@ class ApiPageSetTest extends ApiTestCase {
 		return [
 			'convert, redirect, convert' => [
 				[
-					'Esttay 1' => '#REDIRECT [[Test 2]]',
-					'Esttay 2' => '',
+					[ '維基百科1', '#REDIRECT [[维基百科2]]' ],
+					[ '維基百科2', '' ],
 				],
-				[ 'titles' => 'Test 1', 'converttitles' => 1, 'redirects' => 1 ],
-				[
-					[ 'from' => 'Test 1', 'to' => 'Esttay 1' ],
-					[ 'from' => 'Test 2', 'to' => 'Esttay 2' ]
-				],
-				[ [ 'from' => 'Esttay 1', 'to' => 'Test 2' ] ],
+				[ 'titles' => '维基百科1', 'converttitles' => 1, 'redirects' => 1 ],
+				[ [ 'from' => '维基百科1', 'to' => '維基百科1' ], [ 'from' => '维基百科2', 'to' => '維基百科2' ] ],
+				[ [ 'from' => '維基百科1', 'to' => '维基百科2' ] ],
 			],
 
 			'redirect, convert, redirect' => [
 				[
-					'Esttay 1' => '#REDIRECT [[Test 2]]',
-					'Esttay 2' => '#REDIRECT [[Esttay 3]]',
+					[ '維基百科3', '#REDIRECT [[维基百科4]]' ],
+					[ '維基百科4', '#REDIRECT [[維基百科5]]' ],
 				],
-				[ 'titles' => 'Esttay 1', 'converttitles' => 1, 'redirects' => 1 ],
-				[ [ 'from' => 'Test 2', 'to' => 'Esttay 2' ] ],
+				[ 'titles' => '維基百科3', 'converttitles' => 1, 'redirects' => 1 ],
+				[ [ 'from' => '维基百科4', 'to' => '維基百科4' ] ],
+				[ [ 'from' => '維基百科3', 'to' => '维基百科4' ], [ 'from' => '維基百科4', 'to' => '維基百科5' ] ],
+			],
+
+			'hans redirects to hant with converttitles' => [
 				[
-					[ 'from' => 'Esttay 1', 'to' => 'Test 2' ],
-					[ 'from' => 'Esttay 2', 'to' => 'Esttay 3' ]
+					[ '维基百科6', '#REDIRECT [[維基百科6]]' ],
 				],
+				[ 'titles' => '维基百科6', 'converttitles' => 1, 'redirects' => 1 ],
+				[ [ 'from' => '維基百科6', 'to' => '维基百科6' ] ],
+				[ [ 'from' => '维基百科6', 'to' => '維基百科6' ] ],
 			],
 
-			'self-redirect to variant, with converttitles' => [
-				[ 'Esttay' => '#REDIRECT [[Test]]' ],
-				[ 'titles' => 'Esttay', 'converttitles' => 1, 'redirects' => 1 ],
-				[ [ 'from' => 'Test', 'to' => 'Esttay' ] ],
-				[ [ 'from' => 'Esttay', 'to' => 'Test' ] ],
-			],
-
-			'self-redirect to variant, without converttitles' => [
-				[ 'Esttay' => '#REDIRECT [[Test]]' ],
-				[ 'titles' => 'Esttay', 'redirects' => 1 ],
+			'hans redirects to hant without converttitles' => [
+				[
+					[ '维基百科6', '#REDIRECT [[維基百科6]]' ],
+				],
+				[ 'titles' => '维基百科6', 'redirects' => 1 ],
 				[],
-				[ [ 'from' => 'Esttay', 'to' => 'Test' ] ],
+				[ [ 'from' => '维基百科6', 'to' => '維基百科6' ] ],
 			],
 		];
 	}
@@ -198,24 +184,25 @@ class ApiPageSetTest extends ApiTestCase {
 	/**
 	 * @dataProvider provideConversionWithRedirects
 	 */
-	public function testHandleConversionWithRedirects( $pages, $params, $expectedConversion, $expectedRedirects ) {
-		$this->overrideConfigValue( MainConfigNames::UsePigLatinVariant, true );
-		foreach ( $pages as $title => $content ) {
-			$this->editPage( $title, $content );
+	public function testHandleConversionWithRedirects( $pages, $params, $expectConversion, $exceptRedirects ) {
+		$this->overrideConfigValue( MainConfigNames::LanguageCode, 'zh' );
+
+		foreach ( $pages as $page ) {
+			$this->editPage( $page[0], $page[1] );
 		}
 
 		$pageSet = $this->newApiPageSet( $params );
 		$pageSet->execute();
 
-		$this->assertSame( $expectedConversion, $pageSet->getConvertedTitlesAsResult() );
-		$this->assertSame( $expectedRedirects, $pageSet->getRedirectTitlesAsResult() );
+		$this->assertSame( $expectConversion, $pageSet->getConvertedTitlesAsResult() );
+		$this->assertSame( $exceptRedirects, $pageSet->getRedirectTitlesAsResult() );
 	}
 
 	public function testSpecialRedirects() {
 		$id1 = $this->editPage( 'UTApiPageSet', 'UTApiPageSet in the default language' )
-			->getNewRevision()->getPageId();
+			->value['revision-record']->getPageId();
 		$id2 = $this->editPage( 'UTApiPageSet/de', 'UTApiPageSet in German' )
-			->getNewRevision()->getPageId();
+			->value['revision-record']->getPageId();
 
 		$user = $this->getTestUser()->getUser();
 		$userName = $user->getName();
@@ -239,10 +226,10 @@ class ApiPageSetTest extends ApiTestCase {
 		$this->assertEquals( [
 		], $pageSet->getRedirectTitlesAsResult() );
 		$this->assertEquals( [
-			[ 'ns' => NS_SPECIAL, 'title' => 'Special:MyContributions', 'special' => true ],
-			[ 'ns' => NS_SPECIAL, 'title' => 'Special:MyPage', 'special' => true ],
-			[ 'ns' => NS_SPECIAL, 'title' => 'Special:MyTalk/subpage', 'special' => true ],
-			[ 'ns' => NS_SPECIAL, 'title' => 'Special:MyLanguage/UTApiPageSet', 'special' => true ],
+			[ 'ns' => -1, 'title' => 'Special:MyContributions', 'special' => true ],
+			[ 'ns' => -1, 'title' => 'Special:MyPage', 'special' => true ],
+			[ 'ns' => -1, 'title' => 'Special:MyTalk/subpage', 'special' => true ],
+			[ 'ns' => -1, 'title' => 'Special:MyLanguage/UTApiPageSet', 'special' => true ],
 		], $pageSet->getInvalidTitlesAndRevisions() );
 		$this->assertEquals( [
 		], $pageSet->getAllTitlesByNamespace() );
@@ -258,14 +245,14 @@ class ApiPageSetTest extends ApiTestCase {
 			[ 'from' => 'Special:MyLanguage/UTApiPageSet', 'to' => 'UTApiPageSet' ],
 		], $pageSet->getRedirectTitlesAsResult() );
 		$this->assertEquals( [
-			[ 'ns' => NS_SPECIAL, 'title' => 'Special:MyContributions', 'special' => true ],
-			[ 'ns' => NS_USER, 'title' => "User:$userName", 'missing' => true ],
-			[ 'ns' => NS_USER_TALK, 'title' => "User talk:$userName/subpage", 'missing' => true ],
+			[ 'ns' => -1, 'title' => 'Special:MyContributions', 'special' => true ],
+			[ 'ns' => 2, 'title' => "User:$userName", 'missing' => true ],
+			[ 'ns' => 3, 'title' => "User talk:$userName/subpage", 'missing' => true ],
 		], $pageSet->getInvalidTitlesAndRevisions() );
 		$this->assertEquals( [
-			NS_MAIN => [ 'UTApiPageSet' => $id1 ],
-			NS_USER => [ $userDbkey => -2 ],
-			NS_USER_TALK => [ "$userDbkey/subpage" => -3 ],
+			0 => [ 'UTApiPageSet' => $id1 ],
+			2 => [ $userDbkey => -2 ],
+			3 => [ "$userDbkey/subpage" => -3 ],
 		], $pageSet->getAllTitlesByNamespace() );
 
 		$context->setLanguage( 'de' );
@@ -279,14 +266,14 @@ class ApiPageSetTest extends ApiTestCase {
 			[ 'from' => 'Special:MyLanguage/UTApiPageSet', 'to' => 'UTApiPageSet/de' ],
 		], $pageSet->getRedirectTitlesAsResult() );
 		$this->assertEquals( [
-			[ 'ns' => NS_SPECIAL, 'title' => 'Special:MyContributions', 'special' => true ],
-			[ 'ns' => NS_USER, 'title' => "User:$userName", 'missing' => true ],
-			[ 'ns' => NS_USER_TALK, 'title' => "User talk:$userName/subpage", 'missing' => true ],
+			[ 'ns' => -1, 'title' => 'Special:MyContributions', 'special' => true ],
+			[ 'ns' => 2, 'title' => "User:$userName", 'missing' => true ],
+			[ 'ns' => 3, 'title' => "User talk:$userName/subpage", 'missing' => true ],
 		], $pageSet->getInvalidTitlesAndRevisions() );
 		$this->assertEquals( [
-			NS_MAIN => [ 'UTApiPageSet/de' => $id2 ],
-			NS_USER => [ $userDbkey => -2 ],
-			NS_USER_TALK => [ "$userDbkey/subpage" => -3 ],
+			0 => [ 'UTApiPageSet/de' => $id2 ],
+			2 => [ $userDbkey => -2 ],
+			3 => [ "$userDbkey/subpage" => -3 ],
 		], $pageSet->getAllTitlesByNamespace() );
 	}
 
@@ -298,8 +285,6 @@ class ApiPageSetTest extends ApiTestCase {
 	 * something was requested which is not part of the cache. Than the test is failing.
 	 */
 	public function testGenderCaching() {
-		// Create the test user now so that the cache will be empty later
-		$this->getTestSysop()->getUser();
 		// Set up the user namespace to have gender aliases to trigger the gender cache
 		$this->overrideConfigValue(
 			MainConfigNames::ExtraGenderNamespaces,
@@ -334,13 +319,6 @@ class ApiPageSetTest extends ApiTestCase {
 	}
 
 	public function testPopulateFromTitles() {
-		$this->hideDeprecated( ApiPageSet::class . '::getTitles' );
-		$this->hideDeprecated( ApiPageSet::class . '::getGoodTitles' );
-		$this->hideDeprecated( ApiPageSet::class . '::getMissingTitles' );
-		$this->hideDeprecated( ApiPageSet::class . '::getGoodAndMissingTitles' );
-		$this->hideDeprecated( ApiPageSet::class . '::getRedirectTitles' );
-		$this->hideDeprecated( ApiPageSet::class . '::getSpecialTitles' );
-
 		$interwikiLookup = $this->getDummyInterwikiLookup( [ 'acme' ] );
 		$this->setService( 'InterwikiLookup', $interwikiLookup );
 

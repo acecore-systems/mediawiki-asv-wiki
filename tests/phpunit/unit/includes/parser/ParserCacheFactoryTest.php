@@ -1,22 +1,12 @@
 <?php
 
-namespace MediaWiki\Tests\Parser;
-
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\Json\JsonCodec;
 use MediaWiki\MainConfigNames;
-use MediaWiki\MainConfigSchema;
 use MediaWiki\Page\WikiPageFactory;
-use MediaWiki\Parser\ParserCache;
 use MediaWiki\Parser\ParserCacheFactory;
 use MediaWiki\Parser\RevisionOutputCache;
-use MediaWiki\Title\TitleFactory;
-use MediaWikiUnitTestCase;
 use Psr\Log\NullLogger;
-use Wikimedia\ObjectCache\HashBagOStuff;
-use Wikimedia\ObjectCache\WANObjectCache;
-use Wikimedia\Stats\StatsFactory;
-use Wikimedia\UUID\GlobalIdGenerator;
 
 /**
  * @covers \MediaWiki\Parser\ParserCacheFactory
@@ -30,8 +20,6 @@ class ParserCacheFactoryTest extends MediaWikiUnitTestCase {
 		$options = new ServiceOptions( ParserCacheFactory::CONSTRUCTOR_OPTIONS, [
 			MainConfigNames::CacheEpoch => '20200202112233',
 			MainConfigNames::OldRevisionParserCacheExpireTime => 60,
-			MainConfigNames::ParserCacheFilterConfig
-				=> MainConfigSchema::getDefaultValue( MainConfigNames::ParserCacheFilterConfig ),
 		] );
 
 		return new ParserCacheFactory(
@@ -39,12 +27,11 @@ class ParserCacheFactoryTest extends MediaWikiUnitTestCase {
 			new WANObjectCache( [ 'cache' => new HashBagOStuff() ] ),
 			$this->createHookContainer(),
 			new JsonCodec(),
-			StatsFactory::newNull(),
+			new NullStatsdDataFactory(),
 			new NullLogger(),
 			$options,
 			$this->createNoOpMock( TitleFactory::class ),
-			$this->createNoOpMock( WikiPageFactory::class ),
-			$this->createNoOpMock( GlobalIdGenerator::class )
+			$this->createNoOpMock( WikiPageFactory::class )
 		);
 	}
 

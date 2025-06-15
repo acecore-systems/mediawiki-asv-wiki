@@ -19,7 +19,6 @@
  * @ingroup Testing
  */
 
-use MediaWiki\Installer\DatabaseUpdater;
 use Wikimedia\Rdbms\IMaintainableDatabase;
 
 class DbTestRecorder extends TestRecorder {
@@ -41,8 +40,8 @@ class DbTestRecorder extends TestRecorder {
 	public function start() {
 		$this->db->begin( __METHOD__ );
 
-		if ( !$this->db->tableExists( 'testrun', __METHOD__ )
-			|| !$this->db->tableExists( 'testitem', __METHOD__ )
+		if ( !$this->db->tableExists( 'testrun' )
+			|| !$this->db->tableExists( 'testitem' )
 		) {
 			print "WARNING> `testrun` table not found in database. Trying to create table.\n";
 			$updater = DatabaseUpdater::newForDB( $this->db );
@@ -50,17 +49,15 @@ class DbTestRecorder extends TestRecorder {
 			echo "OK, resuming.\n";
 		}
 
-		$this->db->newInsertQueryBuilder()
-			->insertInto( 'testrun' )
-			->row( [
+		$this->db->insert( 'testrun',
+			[
 				'tr_date' => $this->db->timestamp(),
 				'tr_mw_version' => $this->version,
 				'tr_php_version' => PHP_VERSION,
 				'tr_db_version' => $this->db->getServerVersion(),
 				'tr_uname' => php_uname()
-			] )
-			->caller( __METHOD__ )
-			->execute();
+			],
+			__METHOD__ );
 		$this->curRun = $this->db->insertId();
 	}
 
@@ -71,15 +68,13 @@ class DbTestRecorder extends TestRecorder {
 	 */
 	public function record( ParserTestResult $result ) {
 		$desc = $result->getDescription();
-		$this->db->newInsertQueryBuilder()
-			->insertInto( 'testitem' )
-			->row( [
+		$this->db->insert( 'testitem',
+			[
 				'ti_run' => $this->curRun,
 				'ti_name' => $desc,
 				'ti_success' => $result->isSuccess() ? 1 : 0,
-			] )
-			->caller( __METHOD__ )
-			->execute();
+			],
+			__METHOD__ );
 	}
 
 	/**

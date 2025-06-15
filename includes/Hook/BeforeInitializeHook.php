@@ -2,11 +2,11 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\Actions\ActionEntryPoint;
-use MediaWiki\Output\OutputPage;
-use MediaWiki\Request\WebRequest;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
+use MediaWiki;
+use OutputPage;
+use Title;
+use User;
+use WebRequest;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.
@@ -17,7 +17,7 @@ use MediaWiki\User\User;
  */
 interface BeforeInitializeHook {
 	/**
-	 * This hook is called before anything is initialized in ActionEntryPoint::performRequest().
+	 * This hook is called before anything is initialized in MediaWiki::performRequest().
 	 *
 	 * @since 1.35
 	 *
@@ -26,16 +26,10 @@ interface BeforeInitializeHook {
 	 * @param OutputPage $output
 	 * @param User $user
 	 * @param WebRequest $request
-	 * @param ActionEntryPoint $mediaWikiEntryPoint (changed from MediaWiki
-	 *        to MediaWikiEntryPoint in MW 1.42)
+	 * @param MediaWiki $mediaWiki
 	 * @return bool|void True or no return value to continue or false to abort
 	 */
-	public function onBeforeInitialize(
-		$title,
-		$unused,
-		$output,
-		$user,
-		$request,
-		$mediaWikiEntryPoint
+	public function onBeforeInitialize( $title, $unused, $output, $user, $request,
+		$mediaWiki
 	);
 }

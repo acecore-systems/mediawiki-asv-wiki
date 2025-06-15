@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel MWExternalLinkAnnotation class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -35,12 +35,10 @@ OO.inheritClass( ve.dm.MWExternalLinkAnnotation, ve.dm.LinkAnnotation );
 
 ve.dm.MWExternalLinkAnnotation.static.name = 'link/mwExternal';
 
-// Allow additional 'rel' values in Parsoid output (T321437)
-// Allow all unknown types for external paste (handled in toDataElement)
 ve.dm.MWExternalLinkAnnotation.static.allowedRdfaTypes = null;
 
 ve.dm.MWExternalLinkAnnotation.static.toDataElement = function ( domElements, converter ) {
-	const domElement = domElements[ 0 ],
+	var domElement = domElements[ 0 ],
 		type = domElement.getAttribute( 'rel' ) || domElement.getAttribute( 'typeof' ) || domElement.getAttribute( 'property' ) || '',
 		types = type.trim().split( /\s+/ );
 
@@ -49,7 +47,7 @@ ve.dm.MWExternalLinkAnnotation.static.toDataElement = function ( domElements, co
 		// ...when pasting: auto-convert it to the correct type (internal/external/span)
 		if ( converter.isFromClipboard() ) {
 			if ( domElement.hasAttribute( 'href' ) ) {
-				const annotation = ve.ui.MWLinkAction.static.getLinkAnnotation( domElement.getAttribute( 'href' ), converter.getHtmlDocument() );
+				var annotation = ve.ui.MWLinkAction.static.getLinkAnnotation( domElement.getAttribute( 'href' ), converter.getHtmlDocument() );
 				return annotation.element;
 			} else {
 				// Convert href-less links to a plain span, which will get stripped by sanitization
@@ -62,7 +60,7 @@ ve.dm.MWExternalLinkAnnotation.static.toDataElement = function ( domElements, co
 	}
 
 	// Parent method
-	const dataElement = ve.dm.MWExternalLinkAnnotation.super.static.toDataElement.apply( this, arguments );
+	var dataElement = ve.dm.MWExternalLinkAnnotation.super.static.toDataElement.apply( this, arguments );
 
 	dataElement.attributes.rel = type;
 	return dataElement;
@@ -70,7 +68,7 @@ ve.dm.MWExternalLinkAnnotation.static.toDataElement = function ( domElements, co
 
 ve.dm.MWExternalLinkAnnotation.static.toDomElements = function ( dataElement, doc, converter ) {
 	// Parent method
-	const domElements = ve.dm.MWExternalLinkAnnotation.super.static.toDomElements.apply( this, arguments );
+	var domElements = ve.dm.MWExternalLinkAnnotation.super.static.toDomElements.apply( this, arguments );
 
 	if ( converter.isForPreview() ) {
 		// Ensure there is an 'external' class when rendering, as this may have been created locally.

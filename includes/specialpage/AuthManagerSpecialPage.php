@@ -1,26 +1,10 @@
 <?php
 
-namespace MediaWiki\SpecialPage;
-
-use ErrorPageError;
-use InvalidArgumentException;
-use LogicException;
 use MediaWiki\Auth\AuthenticationRequest;
 use MediaWiki\Auth\AuthenticationResponse;
 use MediaWiki\Auth\AuthManager;
-use MediaWiki\Context\DerivativeContext;
-use MediaWiki\HTMLForm\Field\HTMLInfoField;
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\Language\RawMessage;
 use MediaWiki\Logger\LoggerFactory;
-use MediaWiki\Message\Message;
-use MediaWiki\Request\DerivativeRequest;
-use MediaWiki\Request\WebRequest;
 use MediaWiki\Session\Token;
-use MediaWiki\Status\Status;
-use MWCryptRand;
-use StatusValue;
-use UnexpectedValueException;
 
 /**
  * A special page subclass for authentication-related special pages. It generates a form from
@@ -30,7 +14,6 @@ use UnexpectedValueException;
  * @note Call self::setAuthManager from special page constructor when extending
  *
  * @stable to extend
- * @ingroup Auth
  */
 abstract class AuthManagerSpecialPage extends SpecialPage {
 	/** @var string[] The list of actions this special page deals with. Subclasses should override
@@ -102,11 +85,11 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 	 */
 	protected function setRequest( array $data, $wasPosted = null ) {
 		$request = $this->getContext()->getRequest();
-		$this->savedRequest = new DerivativeRequest(
-			$request,
-			$data + $request->getQueryValues(),
-			$wasPosted ?? $request->wasPosted()
-		);
+		if ( $wasPosted === null ) {
+			$wasPosted = $request->wasPosted();
+		}
+		$this->savedRequest = new DerivativeRequest( $request, $data + $request->getQueryValues(),
+			$wasPosted );
 	}
 
 	/**
@@ -127,11 +110,11 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 	 *
 	 * This is used in the redirect flow where we need
 	 * to be able to process data that was sent via a GET request. We set the /return subpage as
-	 * the reentry point, so we know we need to treat GET as POST, but we don't want to handle all
-	 * future GETs requests as POSTs, so we need to normalize the URL. (Also, we don't want to show any
+	 * the reentry point so we know we need to treat GET as POST, but we don't want to handle all
+	 * future GETs as POSTs so we need to normalize the URL. (Also we don't want to show any
 	 * received parameters around in the URL; they are ugly and might be sensitive.)
 	 *
-	 * Thus, when on the /return subpage, we stash the request data in the session, redirect, then
+	 * Thus when on the /return subpage, we stash the request data in the session, redirect, then
 	 * use the session to detect that we have been redirected, recover the data and replace the
 	 * real WebRequest with a fake one that contains the saved data.
 	 *
@@ -144,7 +127,7 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 
 		if ( $subPage === 'return' ) {
 			$this->loadAuth( $subPage );
-			$preservedParams = $this->getPreservedParams();
+			$preservedParams = $this->getPreservedParams( false );
 
 			// FIXME save POST values only from request
 			$authData = array_diff_key( $this->getRequest()->getValues(),
@@ -194,7 +177,7 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 
 					$queryParams = [ 'authUniqueId' => $uniqueId ] + $queryParams;
 					$authData = array_diff_key( $request->getValues(),
-							$this->getPreservedParams(), [ 'title' => 1 ] );
+							$this->getPreservedParams( false ), [ 'title' => 1 ] );
 					$authManager->setAuthenticationSessionData( $key, $authData );
 				}
 
@@ -207,9 +190,7 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 
 				$this->getOutput()->redirect( $url );
 				return false;
-			}
-
-			if ( $securityStatus !== AuthManager::SEC_OK ) {
+			} elseif ( $securityStatus !== AuthManager::SEC_OK ) {
 				throw new ErrorPageError( 'cannotauth-not-allowed-title', 'cannotauth-not-allowed' );
 			}
 		}
@@ -228,7 +209,7 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 	}
 
 	/**
-	 * Get the default action for this special page if none is given via URL/POST data.
+	 * Get the default action for this special page, if none is given via URL/POST data.
 	 * Subclasses should override this (or override loadAuth() so this is never called).
 	 * @stable to override
 	 * @param string $subPage Subpage of the special page.
@@ -268,7 +249,7 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 	 */
 	protected function loadAuth( $subPage, $authAction = null, $reset = false ) {
 		// Do not load if already loaded, to cut down on the number of getAuthenticationRequests
-		// calls. This is important for requests which have hidden information, so any
+		// calls. This is important for requests which have hidden information so any
 		// getAuthenticationRequests call would mean putting data into some cache.
 		if (
 			!$reset && $this->subPage === $subPage && $this->authAction
@@ -335,6 +316,7 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 	 * the caller's responsibility.
 	 * @param string $action One of the AuthManager::ACTION_* constants in static::$allowedActions
 	 * @return bool
+	 * @throws LogicException if $action is invalid
 	 */
 	protected function isActionAllowed( $action ) {
 		$authManager = $this->getAuthManager();
@@ -383,7 +365,7 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 
 		$authManager = $this->getAuthManager();
 		$returnToUrl = $this->getPageTitle( 'return' )
-			->getFullURL( $this->getPreservedParams( [ 'withToken' => true ] ), false, PROTO_HTTPS );
+			->getFullURL( $this->getPreservedParams( true ), false, PROTO_HTTPS );
 
 		switch ( $action ) {
 			case AuthManager::ACTION_LOGIN:
@@ -404,9 +386,7 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 			case AuthManager::ACTION_UNLINK:
 				if ( count( $requests ) > 1 ) {
 					throw new InvalidArgumentException( 'only one auth request can be changed at a time' );
-				}
-
-				if ( !$requests ) {
+				} elseif ( !$requests ) {
 					throw new InvalidArgumentException( 'no auth request' );
 				}
 				$req = reset( $requests );
@@ -482,13 +462,13 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 					$status = $ret;
 				} else {
 					throw new UnexpectedValueException( 'invalid HTMLForm::trySubmit() return value: '
-						. 'first element of array is ' . get_debug_type( reset( $status ) ) );
+						. 'first element of array is ' . gettype( reset( $status ) ) );
 				}
 			} else {
-				// not supposed to happen, but HTMLForm does not verify the return type
-				// from the submit callback; better safe then sorry!
+				// not supposed to happen but HTMLForm does not actually verify the return type
+				// from the submit callback; better safe then sorry
 				throw new UnexpectedValueException( 'invalid HTMLForm::trySubmit() return type: '
-					. get_debug_type( $status ) );
+					. gettype( $status ) );
 			}
 
 			if ( ( !$status || !$status->isOK() ) && $this->isReturn ) {
@@ -528,62 +508,22 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 	}
 
 	/**
-	 * Returns URL query parameters which should be preserved between authentication requests.
-	 * These should be used when generating links such as form submit or language switch.
-	 *
-	 * These parameters will be preserved in:
-	 * - successive authentication steps (the form submit URL and the return URL for redirecting
-	 *   providers);
-	 * - links that reload the same form somehow (e.g. language switcher links);
-	 * - links for switching between the login and create account forms.
-	 *
+	 * Returns URL query parameters which can be used to reload the page (or leave and return) while
+	 * preserving all information that is necessary for authentication to continue. These parameters
+	 * will be preserved in the action URL of the form and in the return URL for redirect flow.
 	 * @stable to override
-	 * @param array $options (since 1.43)
-	 *   - reset (bool, default false): Reset the authentication process, i.e. omit parameters
-	 *     which are related to continuing in-progress authentication.
-	 *   - withToken (bool, default false): Include CSRF token
-	 *   Before 1.43, this was a boolean flag identical to the current 'withToken' option.
-	 *   That usage is deprecated.
-	 * @phan-param array{reset?: bool, withToken?: bool}|bool $options
-	 * @return array Array of parameter name => parameter value.
+	 * @param bool $withToken Include CSRF token
+	 * @return array
 	 */
-	protected function getPreservedParams( $options = [] ) {
-		if ( is_bool( $options ) ) {
-			wfDeprecated( __METHOD__ . ' boolean $options', '1.43' );
-			$options = [ 'withToken' => $options ];
-		}
-		$options += [
-			'reset' => false,
-			'withToken' => false,
-		];
-		// Help Phan figure out that these fields are now definitely set - https://github.com/phan/phan/issues/4864
-		'@phan-var array{reset: bool, withToken: bool} $options';
+	protected function getPreservedParams( $withToken = false ) {
 		$params = [];
-		$request = $this->getRequest();
-
-		$params += [
-			'uselang' => $request->getVal( 'uselang' ),
-			'variant' => $request->getVal( 'variant' ),
-			'returnto' => $request->getVal( 'returnto' ),
-			'returntoquery' => $request->getVal( 'returntoquery' ),
-			'returntoanchor' => $request->getVal( 'returntoanchor' ),
-		];
-
-		if ( !$options['reset'] && $this->authAction !== $this->getDefaultAction( $this->subPage ) ) {
+		if ( $this->authAction !== $this->getDefaultAction( $this->subPage ) ) {
 			$params['authAction'] = $this->getContinueAction( $this->authAction );
 		}
-
-		if ( $options['withToken'] ) {
+		if ( $withToken ) {
 			$params[$this->getTokenName()] = $this->getToken()->toString();
 		}
-
-		// Allow authentication extensions like CentralAuth to preserve their own
-		// query params during and after the authentication process.
-		$this->getHookRunner()->onAuthPreserveQueryParams(
-			$params, [ 'reset' => $options['reset'] ]
-		);
-
-		return array_filter( $params, fn ( $val ) => $val !== null );
+		return $params;
 	}
 
 	/**
@@ -673,7 +613,7 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 	 * @return bool
 	 */
 	protected function hasOwnSubmitButton( AuthenticationRequest $req ) {
-		foreach ( $req->getFieldInfo() as $info ) {
+		foreach ( $req->getFieldInfo() as $field => $info ) {
 			if ( $info['type'] === 'button' ) {
 				return true;
 			}
@@ -688,7 +628,7 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 	 */
 	protected function addTabIndex( &$formDescriptor ) {
 		$i = 1;
-		foreach ( $formDescriptor as &$definition ) {
+		foreach ( $formDescriptor as $field => &$definition ) {
 			$class = false;
 			if ( array_key_exists( 'class', $definition ) ) {
 				$class = $definition['class'];
@@ -805,8 +745,7 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 		foreach ( $formDescriptor as &$field ) {
 			$field['__index'] = $i++;
 		}
-		unset( $field );
-		uasort( $formDescriptor, static function ( $first, $second ) {
+		uasort( $formDescriptor, function ( $first, $second ) {
 			return self::getField( $first, 'weight', 0 ) <=> self::getField( $second, 'weight', 0 )
 				?: $first['__index'] <=> $second['__index'];
 		} );
@@ -832,10 +771,9 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 
 	/**
 	 * Maps AuthenticationRequest::getFieldInfo() types to HTMLForm types
-	 *
 	 * @param string $type
-	 *
 	 * @return string
+	 * @throws \LogicException
 	 */
 	protected static function mapFieldInfoTypeToFormDescriptorType( $type ) {
 		$map = [
@@ -849,7 +787,7 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 			'null' => 'info',
 		];
 		if ( !array_key_exists( $type, $map ) ) {
-			throw new InvalidArgumentException( 'invalid field type: ' . $type );
+			throw new \LogicException( 'invalid field type: ' . $type );
 		}
 		return $map[$type];
 	}
@@ -904,6 +842,3 @@ abstract class AuthManagerSpecialPage extends SpecialPage {
 		return array_filter( $defaultFormDescriptor + $formDescriptor );
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( AuthManagerSpecialPage::class, 'AuthManagerSpecialPage' );

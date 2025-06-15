@@ -31,11 +31,8 @@ use Psr\Log\LogLevel;
  * @since 1.27
  */
 class TestLogger extends \Psr\Log\AbstractLogger {
-	/** @var bool */
 	private $collect;
-	/** @var bool */
 	private $collectContext;
-	/** @var array */
 	private $buffer = [];
 	/** @var callable|null */
 	private $filter;

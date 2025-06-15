@@ -85,13 +85,12 @@ class SerializationTestUtils {
 
 	/**
 	 * Get the files with stored serialized instances of $class with extension $ext.
-	 * @param class-string $class
+	 * @param string $class
 	 * @param string $ext
 	 * @return array
 	 */
 	private function getMatchingFiles( string $class, string $ext ): array {
-		$classFile = self::classToFile( $class );
-		$glob = $this->serializedDataPath . "/*-{$classFile}-*.$ext";
+		$glob = $this->serializedDataPath . "/*-{$class}-*.$ext";
 		$matches = glob( $glob );
 
 		if ( !$matches ) {
@@ -100,7 +99,7 @@ class SerializationTestUtils {
 		}
 
 		// File names should look something like this: "1.35-CacheTime-empty.serialized".
-		$pattern = '!/([^/-]+)-' . preg_quote( $classFile, '!' ) . '-([^/-]+)\.[^/]+$!';
+		$pattern = '!/([^/-]+)-' . preg_quote( $class, '!' ) . '-([^/-]+)\.[^/]+$!';
 
 		$files = [];
 		foreach ( $matches as $path ) {
@@ -126,7 +125,7 @@ class SerializationTestUtils {
 	}
 
 	/**
-	 * Get a test instance of $class for test case named $testCaseName.
+	 * Get an test instance of $class for test case named $testCaseName.
 	 * @param string $testCaseName
 	 * @return object
 	 */
@@ -143,7 +142,7 @@ class SerializationTestUtils {
 	/**
 	 * Get an array of instances of $class deserialized from
 	 * files for different code versions, keyed by the test case name.
-	 * @param class-string $class
+	 * @param string $class
 	 * @return array
 	 */
 	private function getDeserializedInstances( string $class ): array {
@@ -156,7 +155,7 @@ class SerializationTestUtils {
 	/**
 	 * Get an array of serialization fixtures for $class stored in files
 	 * for different MW versions, for test case name $testCaseName.
-	 * @param class-string $class
+	 * @param string $class
 	 * @param string $testCaseName
 	 * @return array
 	 */
@@ -171,7 +170,7 @@ class SerializationTestUtils {
 	/**
 	 * Get an array of instances of $class deserialized from stored files
 	 * for different MW versions, for test case named $testCaseName.
-	 * @param class-string $class
+	 * @param string $class
 	 * @param string $testCaseName
 	 * @return array
 	 */
@@ -198,7 +197,7 @@ class SerializationTestUtils {
 	/**
 	 * Get the file info about a stored serialized instance of $class,
 	 * for test case $testCaseName with extension $ext for $version of MW.
-	 * @param class-string $class
+	 * @param string $class
 	 * @param string $testCaseName
 	 * @param string|null $version
 	 * @return \stdClass
@@ -206,29 +205,17 @@ class SerializationTestUtils {
 	public function getStoredSerializedInstance(
 		string $class,
 		string $testCaseName,
-		?string $version = null
+		string $version = null
 	) {
-		$classFile = self::classToFile( $class );
-		$curPath = "$this->serializedDataPath/{$this->getCurrentVersion()}-$classFile-$testCaseName.$this->ext";
 		if ( $version ) {
-			$path = "$this->serializedDataPath/$version-$classFile-$testCaseName.$this->ext";
+			$path = "$this->serializedDataPath/$version-$class-$testCaseName.$this->ext";
 		} else {
 			// Find the latest version we have saved.
-			$savedFiles = glob( "$this->serializedDataPath/?.??*-$classFile-$testCaseName.$this->ext" );
-			if ( count( $savedFiles ) > 0 ) {
-				// swap _ and - to ensure that 1.43-foo sorts after 1.43_wmf...-foo
-				usort(
-					$savedFiles,
-					fn ( $a, $b ) => strtr( $a, '-_', '_-' ) <=> strtr( $b, '-_', '_-' )
-				);
-				$path = end( $savedFiles );
-			} else {
-				// Handle creation of a new test case from scratch (no prior
-				// serialization file exists)
-				$path = $curPath;
-			}
+			$savedFiles = glob( "$this->serializedDataPath/?.??-$class-$testCaseName.$this->ext" );
+			sort( $savedFiles );
+			$path = $savedFiles[count( $savedFiles ) - 1];
 		}
-
+		$curPath = "$this->serializedDataPath/{$this->getCurrentVersion()}-$class-$testCaseName.$this->ext";
 		return (object)[
 			'version' => $version,
 			'class' => $class,
@@ -246,21 +233,6 @@ class SerializationTestUtils {
 	 */
 	private function getCurrentVersion(): string {
 		return preg_replace( '/^(\d\.\d+).*$/', '$1', MW_VERSION );
-	}
-
-	/**
-	 * Clean up the class name to make a filename.
-	 *
-	 * At the moment this strips the namespace prefix; in the future
-	 * we might consider keeping it but replacing backslashes with
-	 * dashes or some such.
-	 *
-	 * @param class-string $class
-	 * @return string A cleaned-up filename
-	 */
-	private static function classToFile( string $class ): string {
-		$arr = explode( '\\', $class );
-		return end( $arr );
 	}
 
 	private function log( $msg ) {

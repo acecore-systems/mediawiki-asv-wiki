@@ -11,9 +11,11 @@ use MediaWiki\Settings\Source\SettingsFileUtils;
  */
 class LocalSettingsLoader {
 
-	private SettingsBuilder $settingsBuilder;
+	/** @var SettingsBuilder */
+	private $settingsBuilder;
 
-	private string $baseDir;
+	/** @var string */
+	private $baseDir;
 
 	/**
 	 * @param SettingsBuilder $settingsBuilder
@@ -50,7 +52,7 @@ class LocalSettingsLoader {
 		}
 
 		// make available some non-config globals available
-		// phpcs:ignore MediaWiki.VariableAnalysis.UnusedGlobalVariables.UnusedGlobal$wgCommandLineMode, MediaWiki.Usage.DeprecatedGlobalVariables
+		// phpcs:ignore MediaWiki.VariableAnalysis.UnusedGlobalVariables.UnusedGlobal$wgCommandLineMode
 		global $wgCommandLineMode;
 
 		// make additional variables available

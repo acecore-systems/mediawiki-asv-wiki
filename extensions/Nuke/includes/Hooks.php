@@ -3,8 +3,8 @@
 namespace MediaWiki\Extension\Nuke;
 
 use MediaWiki\Hook\ContributionsToolLinksHook;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Title\Title;
+use SpecialPage;
+use Title;
 use Wikimedia\IPUtils;
 
 class Hooks implements ContributionsToolLinksHook {
@@ -30,15 +30,5 @@ class Hooks implements ContributionsToolLinksHook {
 				[ 'target' => $username ]
 			);
 		}
-	}
-
-	/**
-	 * Registers Nuke tag for deletion logs
-	 *
-	 * @param string[] &$tags
-	 */
-	public static function onRegisterTags( array &$tags ): bool {
-		$tags[] = 'Nuke';
-		return true;
 	}
 }

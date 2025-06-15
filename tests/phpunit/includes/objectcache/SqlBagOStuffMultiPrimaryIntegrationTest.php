@@ -3,11 +3,11 @@
 /**
  * @group BagOStuff
  * @group Database
- * @covers \SqlBagOStuff
+ * @covers SqlBagOStuff
  */
 class SqlBagOStuffMultiPrimaryIntegrationTest extends BagOStuffTestBase {
 	protected function newCacheInstance() {
-		return $this->getServiceContainer()->getObjectCacheFactory()->newFromParams( [
+		return ObjectCache::newFromParams( [
 			'class' => SqlBagOStuff::class,
 			'loggroup' => 'SQLBagOStuff',
 			'multiPrimaryMode' => true,

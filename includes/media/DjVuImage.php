@@ -2,7 +2,7 @@
 /**
  * DjVu image handler.
  *
- * Copyright © 2006 Brooke Vibber <bvibber@wikimedia.org>
+ * Copyright © 2006 Brion Vibber <brion@pobox.com>
  * https://www.mediawiki.org/
  *
  * This program is free software; you can redistribute it and/or modify
@@ -43,7 +43,7 @@ class DjVuImage {
 	/**
 	 * Memory limit for the DjVu description software
 	 */
-	private const DJVUTXT_MEMORY_LIMIT = 300_000_000;
+	private const DJVUTXT_MEMORY_LIMIT = 300000000;
 
 	/** @var string */
 	private $mFilename;
@@ -77,8 +77,9 @@ class DjVuImage {
 				'width' => $data['width'],
 				'height' => $data['height']
 			];
+		} else {
+			return [];
 		}
-		return [];
 	}
 
 	// ---------
@@ -111,7 +112,7 @@ class DjVuImage {
 			$chunkLength = $arr['chunkLength'];
 			echo str_repeat( ' ', $indent * 4 ) . "$chunk $chunkLength\n";
 
-			if ( $chunk === 'FORM' ) {
+			if ( $chunk == 'FORM' ) {
 				$this->dumpForm( $file, $chunkLength, $indent + 1 );
 			} else {
 				fseek( $file, $chunkLength, SEEK_CUR );
@@ -142,12 +143,12 @@ class DjVuImage {
 			$arr = unpack( 'a4magic/a4form/NformLength/a4subtype', $header );
 
 			$subtype = $arr['subtype'];
-			if ( $arr['magic'] !== 'AT&T' ) {
+			if ( $arr['magic'] != 'AT&T' ) {
 				wfDebug( __METHOD__ . ": not a DjVu file" );
-			} elseif ( $subtype === 'DJVU' ) {
+			} elseif ( $subtype == 'DJVU' ) {
 				// Single-page document
 				$info = $this->getPageInfo( $file );
-			} elseif ( $subtype === 'DJVM' ) {
+			} elseif ( $subtype == 'DJVM' ) {
 				// Multi-page document
 				$info = $this->getMultiPageInfo( $file, $arr['formLength'] );
 			} else {
@@ -163,10 +164,11 @@ class DjVuImage {
 		$header = fread( $file, 8 );
 		if ( strlen( $header ) < 8 ) {
 			return [ false, 0 ];
-		}
-		$arr = unpack( 'a4chunk/Nlength', $header );
+		} else {
+			$arr = unpack( 'a4chunk/Nlength', $header );
 
-		return [ $arr['chunk'], $arr['length'] ];
+			return [ $arr['chunk'], $arr['length'] ];
+		}
 	}
 
 	private function skipChunk( $file, $chunkLength ) {
@@ -183,14 +185,14 @@ class DjVuImage {
 		// and report its information, hoping others are the same size.
 		$start = ftell( $file );
 		do {
-			[ $chunk, $length ] = $this->readChunk( $file );
+			list( $chunk, $length ) = $this->readChunk( $file );
 			if ( !$chunk ) {
 				break;
 			}
 
-			if ( $chunk === 'FORM' ) {
+			if ( $chunk == 'FORM' ) {
 				$subtype = fread( $file, 4 );
-				if ( $subtype === 'DJVU' ) {
+				if ( $subtype == 'DJVU' ) {
 					wfDebug( __METHOD__ . ": found first subpage" );
 
 					return $this->getPageInfo( $file );
@@ -208,8 +210,8 @@ class DjVuImage {
 	}
 
 	private function getPageInfo( $file ) {
-		[ $chunk, $length ] = $this->readChunk( $file );
-		if ( $chunk !== 'INFO' ) {
+		list( $chunk, $length ) = $this->readChunk( $file );
+		if ( $chunk != 'INFO' ) {
 			wfDebug( __METHOD__ . ": expected INFO chunk, got '$chunk'" );
 
 			return false;
@@ -250,117 +252,50 @@ class DjVuImage {
 	 * @return array|null|false
 	 */
 	public function retrieveMetaData() {
-		$config = MediaWikiServices::getInstance()->getMainConfig();
-		$djvuDump = $config->get( MainConfigNames::DjvuDump );
-		$djvuTxt = $config->get( MainConfigNames::DjvuTxt );
-		$djvuUseBoxedCommand = $config->get( MainConfigNames::DjvuUseBoxedCommand );
-		$shell = $config->get( MainConfigNames::ShellboxShell );
+		$djvuDump = MediaWikiServices::getInstance()->getMainConfig()->get( MainConfigNames::DjvuDump );
+		$djvuTxt = MediaWikiServices::getInstance()->getMainConfig()->get( MainConfigNames::DjvuTxt );
 		if ( !$this->isValid() ) {
 			return false;
 		}
 
-		if ( $djvuTxt === null && $djvuDump === null ) {
-			return [];
-		}
-
-		$txt = null;
-		$dump = null;
-
-		if ( $djvuUseBoxedCommand ) {
-			$command = MediaWikiServices::getInstance()->getShellCommandFactory()
-				->createBoxed( 'djvu' )
-				->disableNetwork()
-				->firejailDefaultSeccomp()
-				->routeName( 'djvu-metadata' )
-				->params( $shell, 'scripts/retrieveDjvuMetaData.sh' )
-				->inputFileFromFile(
-					'scripts/retrieveDjvuMetaData.sh',
-					__DIR__ . '/scripts/retrieveDjvuMetaData.sh' )
-				->inputFileFromFile( 'file.djvu', $this->mFilename )
-				->memoryLimit( self::DJVUTXT_MEMORY_LIMIT );
-			$env = [];
-			if ( $djvuDump !== null ) {
-				$env['DJVU_DUMP'] = $djvuDump;
-				$command->outputFileToString( 'dump' );
-			}
-			if ( $djvuTxt !== null ) {
-				$env['DJVU_TXT'] = $djvuTxt;
-				$command->outputFileToString( 'txt' );
-			}
-
-			$result = $command
-				->environment( $env )
-				->execute();
-			if ( $result->getExitCode() !== 0 ) {
-				wfDebug( 'retrieveDjvuMetaData failed with exit code ' . $result->getExitCode() );
-				return false;
-			}
-			if ( $djvuDump !== null ) {
-				if ( $result->wasReceived( 'dump' ) ) {
-					$dump = $result->getFileContents( 'dump' );
-				} else {
-					wfDebug( __METHOD__ . ": did not receive dump file" );
-				}
-			}
-
-			if ( $djvuTxt !== null ) {
-				if ( $result->wasReceived( 'txt' ) ) {
-					$txt = $result->getFileContents( 'txt' );
-				} else {
-					wfDebug( __METHOD__ . ": did not receive text file" );
-				}
-			}
-		} else { // No boxedcommand
-			if ( $djvuDump !== null ) {
-				# djvudump is faster than djvutoxml (now abandoned) as of version 3.5
-				# https://sourceforge.net/p/djvu/bugs/71/
-				$cmd = Shell::escape( $djvuDump ) . ' ' . Shell::escape( $this->mFilename );
-				$dump = wfShellExec( $cmd );
-			}
-			if ( $djvuTxt !== null ) {
-				$cmd = Shell::escape( $djvuTxt ) . ' --detail=page ' . Shell::escape( $this->mFilename );
-				wfDebug( __METHOD__ . ": $cmd" );
-				$retval = 0;
-				$txt = wfShellExec( $cmd, $retval, [], [ 'memory' => self::DJVUTXT_MEMORY_LIMIT ] );
-				if ( $retval !== 0 ) {
-					$txt = null;
-				}
-			}
-		}
-
-		# Convert dump to array
-		$json = [];
-		if ( $dump !== null ) {
-			$data = $this->convertDumpToJSON( $dump );
-			if ( $data !== false ) {
-				$json = [ 'data' => $data ];
-			}
-		}
-
-		# Text layer
-		if ( $txt !== null ) {
-			# Strip some control characters
-			# Ignore carriage returns
-			$txt = preg_replace( "/\\\\013/", "", $txt );
-			# Replace runs of OCR region separators with a single extra line break
-			$txt = preg_replace( "/(?:\\\\(035|037))+/", "\n", $txt );
-
-			$reg = <<<EOR
-				/\(page\s[\d-]*\s[\d-]*\s[\d-]*\s[\d-]*\s*"
-				((?>    # Text to match is composed of atoms of either:
-					\\\\. # - any escaped character
-					|     # - any character different from " and \
-					[^"\\\\]+
-				)*?)
-				"\s*\)
-				| # Or page can be empty ; in this case, djvutxt dumps ()
-				\(\s*()\)/sx
-EOR;
-			$matches = [];
-			preg_match_all( $reg, $txt, $matches );
-			$json['text'] = array_map( [ $this, 'pageTextCallback' ], $matches[1] );
+		if ( isset( $djvuDump ) ) {
+			# djvudump is faster than djvutoxml (now abandoned) as of version 3.5
+			# https://sourceforge.net/p/djvu/bugs/71/
+			$cmd = Shell::escape( $djvuDump ) . ' ' . Shell::escape( $this->mFilename );
+			$dump = wfShellExec( $cmd );
+			$json = [ 'data' => $this->convertDumpToJSON( $dump ) ];
 		} else {
+			$json = null;
+		}
+		# Text layer
+		if ( isset( $djvuTxt ) ) {
+			$cmd = Shell::escape( $djvuTxt ) . ' --detail=page ' . Shell::escape( $this->mFilename );
+			wfDebug( __METHOD__ . ": $cmd" );
+			$retval = '';
+			$txt = wfShellExec( $cmd, $retval, [], [ 'memory' => self::DJVUTXT_MEMORY_LIMIT ] );
 			$json['text'] = [];
+			if ( $retval == 0 ) {
+				# Strip some control characters
+				# Ignore carriage returns
+				$txt = preg_replace( "/\\\\013/", "", $txt );
+				# Replace runs of OCR region separators with a single extra line break
+				$txt = preg_replace( "/(?:\\\\(035|037))+/", "\n", $txt );
+
+				$reg = <<<EOR
+					/\(page\s[\d-]*\s[\d-]*\s[\d-]*\s[\d-]*\s*"
+					((?>    # Text to match is composed of atoms of either:
+						\\\\. # - any escaped character
+						|     # - any character different from " and \
+						[^"\\\\]+
+					)*?)
+					"\s*\)
+					| # Or page can be empty ; in this case, djvutxt dumps ()
+					\(\s*()\)/sx
+EOR;
+				$matches = [];
+				preg_match_all( $reg, $txt, $matches );
+				$json['text'] = array_map( [ $this, 'pageTextCallback' ], $matches[1] );
+			}
 		}
 
 		return $json;
@@ -369,7 +304,8 @@ EOR;
 	private function pageTextCallback( string $match ) {
 		# Get rid of invalid UTF-8
 		$val = UtfNormal\Validator::cleanUp( stripcslashes( $match ) );
-		return str_replace( '�', '', $val );
+		$val = str_replace( '�', '', $val );
+		return $val;
 	}
 
 	/**
@@ -446,7 +382,7 @@ EOR;
 			}
 
 			if ( preg_match(
-				'/^ *INFO *\[\d*] *DjVu *(\d+)x(\d+), *\w*, *(\d+) *dpi, *gamma=([0-9.-]+)/',
+				'/^ *INFO *\[\d*\] *DjVu *(\d+)x(\d+), *\w*, *(\d+) *dpi, *gamma=([0-9.-]+)/',
 				$line,
 				$m
 			) ) {

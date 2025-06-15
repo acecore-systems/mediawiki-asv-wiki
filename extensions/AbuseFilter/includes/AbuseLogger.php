@@ -2,22 +2,20 @@
 
 namespace MediaWiki\Extension\AbuseFilter;
 
+use DeferredUpdates;
+use ExtensionRegistry;
 use InvalidArgumentException;
 use ManualLogEntry;
 use MediaWiki\CheckUser\Hooks;
 use MediaWiki\Config\ServiceOptions;
-use MediaWiki\Deferred\DeferredUpdates;
 use MediaWiki\Extension\AbuseFilter\Variables\VariableHolder;
 use MediaWiki\Extension\AbuseFilter\Variables\VariablesBlobStore;
 use MediaWiki\Extension\AbuseFilter\Variables\VariablesManager;
-use MediaWiki\Registration\ExtensionRegistry;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
 use MediaWiki\User\UserIdentityValue;
-use Profiler;
+use Title;
+use User;
 use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\LBFactory;
-use Wikimedia\ScopedCallback;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 class AbuseLogger {
 	public const CONSTRUCTOR_OPTIONS = [
@@ -45,8 +43,8 @@ class AbuseLogger {
 	private $varManager;
 	/** @var EditRevUpdater */
 	private $editRevUpdater;
-	/** @var LBFactory */
-	private $lbFactory;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
 	/** @var ServiceOptions */
 	private $options;
 	/** @var string */
@@ -60,7 +58,7 @@ class AbuseLogger {
 	 * @param VariablesBlobStore $varBlobStore
 	 * @param VariablesManager $varManager
 	 * @param EditRevUpdater $editRevUpdater
-	 * @param LBFactory $lbFactory
+	 * @param ILoadBalancer $loadBalancer
 	 * @param ServiceOptions $options
 	 * @param string $wikiID
 	 * @param string $requestIP
@@ -74,7 +72,7 @@ class AbuseLogger {
 		VariablesBlobStore $varBlobStore,
 		VariablesManager $varManager,
 		EditRevUpdater $editRevUpdater,
-		LBFactory $lbFactory,
+		ILoadBalancer $loadBalancer,
 		ServiceOptions $options,
 		string $wikiID,
 		string $requestIP,
@@ -90,7 +88,7 @@ class AbuseLogger {
 		$this->varBlobStore = $varBlobStore;
 		$this->varManager = $varManager;
 		$this->editRevUpdater = $editRevUpdater;
-		$this->lbFactory = $lbFactory;
+		$this->loadBalancer = $loadBalancer;
 		$options->assertRequiredOptions( self::CONSTRUCTOR_OPTIONS );
 		$this->options = $options;
 		$this->wikiID = $wikiID;
@@ -109,7 +107,7 @@ class AbuseLogger {
 	 * @phan-return array{local:int[],global:int[]}
 	 */
 	public function addLogEntries( array $actionsTaken ): array {
-		$dbw = $this->lbFactory->getPrimaryDatabase();
+		$dbw = $this->loadBalancer->getConnectionRef( DB_PRIMARY );
 		$logTemplate = $this->buildLogTemplate();
 		$centralLogTemplate = [
 			'afl_wiki' => $this->wikiID,
@@ -121,7 +119,7 @@ class AbuseLogger {
 		$loggedGlobalFilters = [];
 
 		foreach ( $actionsTaken as $filter => $actions ) {
-			[ $filterID, $global ] = GlobalNameUtils::splitGlobalName( $filter );
+			list( $filterID, $global ) = GlobalNameUtils::splitGlobalName( $filter );
 			$thisLog = $logTemplate;
 			$thisLog['afl_filter_id'] = $filterID;
 			$thisLog['afl_global'] = (int)$global;
@@ -180,7 +178,7 @@ class AbuseLogger {
 		$logTemplate = [
 			'afl_user' => $user->getId(),
 			'afl_user_text' => $user->getName(),
-			'afl_timestamp' => $this->lbFactory->getReplicaDatabase()->timestamp(),
+			'afl_timestamp' => $this->loadBalancer->getConnectionRef( DB_REPLICA )->timestamp(),
 			'afl_namespace' => $this->title->getNamespace(),
 			'afl_title' => $this->title->getDBkey(),
 			'afl_action' => $this->action,
@@ -229,11 +227,7 @@ class AbuseLogger {
 		$loggedIDs = [];
 		foreach ( $logRows as $data ) {
 			$data['afl_var_dump'] = $varDump;
-			$dbw->newInsertQueryBuilder()
-				->insertInto( 'abuse_filter_log' )
-				->row( $data )
-				->caller( __METHOD__ )
-				->execute();
+			$dbw->insert( 'abuse_filter_log', $data, __METHOD__ );
 			$loggedIDs[] = $data['afl_id'] = $dbw->insertId();
 
 			// Send data to CheckUser if installed and we
@@ -241,6 +235,8 @@ class AbuseLogger {
 			if ( ExtensionRegistry::getInstance()->isLoaded( 'CheckUser' )
 				&& strpos( $this->options->get( 'AbuseFilterNotifications' ), 'rc' ) === false
 			) {
+				global $wgCheckUserLogAdditionalRights;
+				$wgCheckUserLogAdditionalRights[] = 'abusefilter-view';
 				$entry = $this->newLocalLogEntryFromData( $data );
 				$user = $entry->getPerformerIdentity();
 				// Invert the hack from ::buildLogTemplate because CheckUser attempts
@@ -252,15 +248,7 @@ class AbuseLogger {
 					$entry->setPerformer( new UserIdentityValue( 0, $this->requestIP ) );
 				}
 				$rc = $entry->getRecentChange();
-				// We need to send the entries on POSTSEND to ensure that the user definitely exists, as a temporary
-				// account being created by this edit may not exist until after AbuseFilter processes the edit.
-				DeferredUpdates::addCallableUpdate( static function () use ( $rc ) {
-					// Silence the TransactionProfiler warnings for performing write queries (T359648).
-					$trxProfiler = Profiler::instance()->getTransactionProfiler();
-					$scope = $trxProfiler->silenceForScope( $trxProfiler::EXPECTATION_REPLICAS_ONLY );
-					Hooks::updateCheckUserData( $rc );
-					ScopedCallback::consume( $scope );
-				} );
+				Hooks::updateCheckUserData( $rc );
 			}
 
 			if ( $this->options->get( 'AbuseFilterNotifications' ) !== false ) {
@@ -293,11 +281,7 @@ class AbuseLogger {
 
 		$loggedIDs = [];
 		foreach ( $centralLogRows as $row ) {
-			$fdb->newInsertQueryBuilder()
-				->insertInto( 'abuse_filter_log' )
-				->row( $row )
-				->caller( __METHOD__ )
-				->execute();
+			$fdb->insert( 'abuse_filter_log', $row, __METHOD__ );
 			$loggedIDs[] = $fdb->insertId();
 		}
 		return $loggedIDs;

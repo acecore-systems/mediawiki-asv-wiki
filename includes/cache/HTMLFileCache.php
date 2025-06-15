@@ -22,9 +22,6 @@
  */
 
 use MediaWiki\Cache\CacheKeyHelper;
-use MediaWiki\Cache\FileCacheBase;
-use MediaWiki\Context\IContextSource;
-use MediaWiki\HookContainer\HookRunner;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\PageIdentity;
@@ -41,25 +38,30 @@ class HTMLFileCache extends FileCacheBase {
 	public const MODE_OUTAGE = 1; // fallback cache for DB outages
 	public const MODE_REBUILD = 2; // background cache rebuild mode
 
-	private const CACHEABLE_ACTIONS = [
-		'view',
-		'history',
-	];
-
 	/**
 	 * @param PageIdentity|string $page PageIdentity object or prefixed DB key string
 	 * @param string $action
+	 *
+	 * @throws InvalidArgumentException
 	 */
 	public function __construct( $page, $action ) {
 		parent::__construct();
 
-		if ( !in_array( $action, self::CACHEABLE_ACTIONS ) ) {
+		if ( !in_array( $action, self::cacheablePageActions() ) ) {
 			throw new InvalidArgumentException( 'Invalid file cache type given.' );
 		}
 
 		$this->mKey = CacheKeyHelper::getKeyForPage( $page );
 		$this->mType = (string)$action;
 		$this->mExt = 'html';
+	}
+
+	/**
+	 * Cacheable actions
+	 * @return array
+	 */
+	protected static function cacheablePageActions() {
+		return [ 'view', 'history' ];
 	}
 
 	/**
@@ -91,8 +93,7 @@ class HTMLFileCache extends FileCacheBase {
 	 * @return bool
 	 */
 	public static function useFileCache( IContextSource $context, $mode = self::MODE_NORMAL ) {
-		$services = MediaWikiServices::getInstance();
-		$config = $services->getMainConfig();
+		$config = MediaWikiServices::getInstance()->getMainConfig();
 
 		if ( !$config->get( MainConfigNames::UseFileCache ) && $mode !== self::MODE_REBUILD ) {
 			return false;
@@ -104,13 +105,10 @@ class HTMLFileCache extends FileCacheBase {
 			if ( $query === 'title' || $query === 'curid' ) {
 				continue; // note: curid sets title
 			// Normal page view in query form can have action=view.
-			} elseif ( $query === 'action' && in_array( $val, self::CACHEABLE_ACTIONS ) ) {
+			} elseif ( $query === 'action' && in_array( $val, self::cacheablePageActions() ) ) {
 				continue;
 			// Below are header setting params
 			} elseif ( $query === 'maxage' || $query === 'smaxage' ) {
-				continue;
-			// Uselang value is checked below
-			} elseif ( $query === 'uselang' ) {
 				continue;
 			}
 
@@ -124,17 +122,18 @@ class HTMLFileCache extends FileCacheBase {
 
 		// Check that there are no other sources of variation
 		if ( $user->isRegistered() ||
-			!$ulang->equals( $services->getContentLanguage() ) ) {
+			!$ulang->equals( MediaWikiServices::getInstance()->getContentLanguage() ) ) {
 			return false;
 		}
 
-		$userHasNewMessages = $services->getTalkPageNotificationManager()->userHasNewMessages( $user );
+		$userHasNewMessages = MediaWikiServices::getInstance()
+			->getTalkPageNotificationManager()->userHasNewMessages( $user );
 		if ( ( $mode === self::MODE_NORMAL ) && $userHasNewMessages ) {
 			return false;
 		}
 
 		// Allow extensions to disable caching
-		return ( new HookRunner( $services->getHookContainer() ) )->onHTMLFileCache__useFileCache( $context );
+		return Hooks::runner()->onHTMLFileCache__useFileCache( $context );
 	}
 
 	/**
@@ -230,7 +229,7 @@ class HTMLFileCache extends FileCacheBase {
 			return false;
 		}
 
-		foreach ( self::CACHEABLE_ACTIONS as $type ) {
+		foreach ( self::cacheablePageActions() as $type ) {
 			$fc = new self( $page, $type );
 			$fc->clearCache();
 		}

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor user interface MWGalleryGroupWidget class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -10,11 +10,11 @@
  *
  * @class
  * @extends OO.ui.Widget
- * @mixes OO.ui.mixin.DraggableGroupElement
+ * @mixins OO.ui.mixin.DraggableGroupElement
  *
  * @constructor
  * @param {Object} [config] Configuration options
- * @param {string} [config.orientation='vertical']
+ * @cfg {string} [orientation='vertical']
  */
 ve.ui.MWGalleryGroupWidget = function VeUiMWGalleryGroupWidget( config ) {
 	// Configuration initialization
@@ -41,5 +41,5 @@ OO.mixinClass( ve.ui.MWGalleryGroupWidget, OO.ui.mixin.DraggableGroupElement );
 /* Events */
 
 /**
- * @event ve.ui.MWGalleryGroupWidget#editItem
+ * @event editItem
  */

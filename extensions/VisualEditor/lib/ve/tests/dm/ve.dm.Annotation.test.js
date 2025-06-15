@@ -1,13 +1,13 @@
 /*!
  * VisualEditor DataModel Annotation tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.dm.Annotation' );
 
-QUnit.test( 'getHashObject', ( assert ) => {
-	const cases = [
+QUnit.test( 'getHashObject', function ( assert ) {
+	var cases = [
 		{
 			msg: 'Bold',
 			annotation: new ve.dm.BoldAnnotation( {
@@ -34,7 +34,7 @@ QUnit.test( 'getHashObject', ( assert ) => {
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		assert.deepEqual( caseItem.annotation.getHashObject(), caseItem.expected, caseItem.msg );
 	} );
 } );

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel RemovableAlienMetaItem class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2015 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**

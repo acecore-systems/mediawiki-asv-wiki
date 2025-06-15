@@ -18,8 +18,6 @@
  * @file
  */
 
-use MediaWiki\Status\Status;
-
 /**
  * @newable
  * @stable to extend

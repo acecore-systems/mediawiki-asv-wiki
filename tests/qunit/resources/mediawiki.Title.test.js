@@ -1,6 +1,6 @@
 ( function () {
 	/* eslint-disable camelcase */
-	const repeat = function ( input, multiplier ) {
+	var repeat = function ( input, multiplier ) {
 			return new Array( multiplier + 1 ).join( input );
 		},
 		// See also TitleTest.php#testSecureAndSplit
@@ -131,25 +131,27 @@
 		}
 	} ) );
 
-	QUnit.test( 'constructor', ( assert ) => {
-		sharedCases.valid.forEach(
+	QUnit.test( 'constructor', function ( assert ) {
+		sharedCases.valid.forEach( function ( title ) {
 			// Check no exception is thrown
-			( title ) => new mw.Title( title )
-		);
-		sharedCases.invalid.forEach( ( title ) => {
-			assert.throws( () => new mw.Title( title ), title );
+			return new mw.Title( title );
+		} );
+		sharedCases.invalid.forEach( function ( title ) {
+			assert.throws( function () {
+				return new mw.Title( title );
+			}, title );
 		} );
 	} );
 
-	QUnit.test( 'newFromText', ( assert ) => {
-		sharedCases.valid.forEach( ( title ) => {
+	QUnit.test( 'newFromText', function ( assert ) {
+		sharedCases.valid.forEach( function ( title ) {
 			assert.strictEqual(
 				typeof mw.Title.newFromText( title ),
 				'object',
 				title
 			);
 		} );
-		sharedCases.invalid.forEach( ( title ) => {
+		sharedCases.invalid.forEach( function ( title ) {
 			assert.strictEqual(
 				mw.Title.newFromText( title ),
 				null,
@@ -158,12 +160,13 @@
 		} );
 	} );
 
-	QUnit.test( 'makeTitle', ( assert ) => {
-		const NS_MAIN = 0,
+	QUnit.test( 'makeTitle', function ( assert ) {
+		var cases,
+			NS_MAIN = 0,
 			NS_TALK = 1,
 			NS_TEMPLATE = 10;
 
-		const cases = [
+		cases = [
 			{
 				namespace: NS_TEMPLATE,
 				text: 'Foo',
@@ -196,19 +199,18 @@
 			}
 		];
 
-		cases.forEach( ( caseItem ) => {
-			const title = mw.Title.makeTitle( caseItem.namespace, caseItem.text );
+		cases.forEach( function ( caseItem ) {
+			var title = mw.Title.makeTitle( caseItem.namespace, caseItem.text );
 			assert.strictEqual( title && title.getPrefixedText(), caseItem.expected );
 		} );
 	} );
 
-	QUnit.test( 'Basic parsing', ( assert ) => {
-		let title = new mw.Title( 'File:Foo_bar.JPG' );
+	QUnit.test( 'Basic parsing', function ( assert ) {
+		var title;
+		title = new mw.Title( 'File:Foo_bar.JPG' );
 
 		assert.strictEqual( title.getNamespaceId(), 6 );
 		assert.strictEqual( title.getNamespacePrefix(), 'File:' );
-		assert.strictEqual( title.getFileNameWithoutExtension(), 'Foo_bar' );
-		assert.strictEqual( title.getFileNameTextWithoutExtension(), 'Foo bar' );
 		assert.strictEqual( title.getName(), 'Foo_bar' );
 		assert.strictEqual( title.getNameText(), 'Foo bar' );
 		assert.strictEqual( title.getExtension(), 'JPG' );
@@ -223,8 +225,6 @@
 
 		title = new mw.Title( '.foo' );
 		assert.strictEqual( title.getPrefixedText(), '.foo' );
-		assert.strictEqual( title.getFileNameWithoutExtension(), '' );
-		assert.strictEqual( title.getFileNameTextWithoutExtension(), '' );
 		assert.strictEqual( title.getName(), '' );
 		assert.strictEqual( title.getNameText(), '' );
 		assert.strictEqual( title.getExtension(), 'foo' );
@@ -234,13 +234,13 @@
 		assert.strictEqual( title.getPrefixedText(), '.foo' );
 	} );
 
-	QUnit.test( 'Transformation', ( assert ) => {
-		let title = new mw.Title( 'File:quux pif.jpg' );
-		assert.strictEqual( title.getFileNameTextWithoutExtension(), 'Quux pif', 'First character of title' );
+	QUnit.test( 'Transformation', function ( assert ) {
+		var title;
+
+		title = new mw.Title( 'File:quux pif.jpg' );
 		assert.strictEqual( title.getNameText(), 'Quux pif', 'First character of title' );
 
 		title = new mw.Title( 'File:Glarg_foo_glang.jpg' );
-		assert.strictEqual( title.getFileNameTextWithoutExtension(), 'Glarg foo glang', 'Underscores' );
 		assert.strictEqual( title.getNameText(), 'Glarg foo glang', 'Underscores' );
 
 		title = new mw.Title( 'User:ABC.DEF' );
@@ -271,8 +271,10 @@
 		assert.strictEqual( title.getFragment(), ' foo bar baz', 'Fragment' );
 	} );
 
-	QUnit.test( 'Namespace detection and conversion', ( assert ) => {
-		let title = new mw.Title( 'File:User:Example' );
+	QUnit.test( 'Namespace detection and conversion', function ( assert ) {
+		var title;
+
+		title = new mw.Title( 'File:User:Example' );
 		assert.strictEqual( title.getNamespaceId(), 6, 'Titles can contain namespace prefixes, which are otherwise ignored' );
 
 		title = new mw.Title( 'Example', 6 );
@@ -301,8 +303,10 @@
 		assert.strictEqual( title.toString(), 'Penguins:Flightless_yet_cute.jpg' );
 	} );
 
-	QUnit.test( 'isTalkPage/getTalkPage/getSubjectPage', ( assert ) => {
-		let title = new mw.Title( 'User:Foo' );
+	QUnit.test( 'isTalkPage/getTalkPage/getSubjectPage', function ( assert ) {
+		var title;
+
+		title = new mw.Title( 'User:Foo' );
 		assert.strictEqual( title.isTalkPage(), false, 'Non-talk page detected as such' );
 		assert.strictEqual( title.getSubjectPage().getPrefixedText(), 'User:Foo', 'getSubjectPage on a subject page is a no-op' );
 
@@ -331,7 +335,7 @@
 		assert.strictEqual( title.getFragment(), null, 'getTalkPage does not copy the fragment' );
 	} );
 
-	QUnit.test( 'wantSignaturesNamespace', ( assert ) => {
+	QUnit.test( 'wantSignaturesNamespace', function ( assert ) {
 		mw.config.set( 'wgExtraSignatureNamespaces', [] );
 		assert.strictEqual( mw.Title.wantSignaturesNamespace( 0 ), false, 'Main namespace has no signatures' );
 		assert.strictEqual( mw.Title.wantSignaturesNamespace( 1 ), true, 'Talk namespace has signatures' );
@@ -342,20 +346,24 @@
 		assert.strictEqual( mw.Title.wantSignaturesNamespace( 0 ), true, 'Main namespace has signatures when explicitly defined' );
 	} );
 
-	QUnit.test( 'Throw error on invalid title', ( assert ) => {
-		assert.throws( () => new mw.Title( '' ), 'Throw error on empty string' );
+	QUnit.test( 'Throw error on invalid title', function ( assert ) {
+		assert.throws( function () {
+			return new mw.Title( '' );
+		}, 'Throw error on empty string' );
 	} );
 
-	QUnit.test( 'phpCharToUpper', ( assert ) => {
+	QUnit.test( 'phpCharToUpper', function ( assert ) {
 		assert.strictEqual( mw.Title.phpCharToUpper( '' ), '', 'Empty string' );
 		assert.strictEqual( mw.Title.phpCharToUpper( '\uD801\uDC38' ), '\uD801\uDC10', 'U+10438 (DESERET SMALL LETTER H) 𐐸 -> U+10410 (DESERET CAPITAL LETTER H) 𐐐' );
 	} );
 
-	QUnit.test( 'Case-sensivity', ( assert ) => {
+	QUnit.test( 'Case-sensivity', function ( assert ) {
+		var title;
+
 		// Default config
 		mw.config.set( 'wgCaseSensitiveNamespaces', [] );
 
-		let title = new mw.Title( 'article' );
+		title = new mw.Title( 'article' );
 		assert.strictEqual( title.toString(), 'Article', 'Default config: No sensitive namespaces by default. First-letter becomes uppercase' );
 
 		title = new mw.Title( 'ß' );
@@ -380,16 +388,16 @@
 		assert.strictEqual( title.toString(), 'User:John', '$wgCapitalLinks=false: User namespace is insensitive, first-letter becomes uppercase' );
 	} );
 
-	QUnit.test( 'toString / toText', ( assert ) => {
-		const title = new mw.Title( 'Some random page' );
+	QUnit.test( 'toString / toText', function ( assert ) {
+		var title = new mw.Title( 'Some random page' );
 
 		assert.strictEqual( title.toString(), title.getPrefixedDb() );
 		assert.strictEqual( title.toText(), title.getPrefixedText() );
 	} );
 
-	QUnit.test( 'getExtension', ( assert ) => {
+	QUnit.test( 'getExtension', function ( assert ) {
 		function extTest( pagename, ext, description ) {
-			const title = new mw.Title( pagename );
+			var title = new mw.Title( pagename );
 			assert.strictEqual( title.getExtension(), ext, description || pagename );
 		}
 
@@ -403,10 +411,12 @@
 
 	} );
 
-	QUnit.test( 'exists', ( assert ) => {
+	QUnit.test( 'exists', function ( assert ) {
+		var title;
+
 		// Empty registry, checks default to null
 
-		let title = new mw.Title( 'Some random page', 4 );
+		title = new mw.Title( 'Some random page', 4 );
 		assert.strictEqual( title.exists(), null, 'Return null with empty existance registry' );
 
 		// Basic registry, checks default to boolean
@@ -414,19 +424,20 @@
 		mw.Title.exist.set( [ 'Does_not_exist', 'User:John', 'Foobar' ], false );
 
 		title = new mw.Title( 'Project:Sandbox rules' );
-		assert.true( title.exists(), 'Return true for page titles marked as existing' );
+		assert.assertTrue( title.exists(), 'Return true for page titles marked as existing' );
 		title = new mw.Title( 'Foobar' );
-		assert.false( title.exists(), 'Return false for page titles marked as nonexistent' );
+		assert.assertFalse( title.exists(), 'Return false for page titles marked as nonexistent' );
 
 	} );
 
-	QUnit.test( 'getUrl', ( assert ) => {
+	QUnit.test( 'getUrl', function ( assert ) {
+		var title;
 		mw.config.set( {
 			wgScript: '/w/index.php',
 			wgArticlePath: '/wiki/$1'
 		} );
 
-		let title = new mw.Title( 'Foobar' );
+		title = new mw.Title( 'Foobar' );
 		assert.strictEqual( title.getUrl(), '/wiki/Foobar', 'Basic functionality, getUrl uses mw.util.getUrl' );
 		assert.strictEqual( title.getUrl( { action: 'edit' } ), '/w/index.php?title=Foobar&action=edit', 'Basic functionality, \'params\' parameter' );
 
@@ -437,8 +448,8 @@
 		assert.strictEqual( title.getUrl( { meme: true } ), '/w/index.php?title=User_talk:John_Cena&meme=true#And_His_Name_Is', 'title with fragment and query parameter' );
 	} );
 
-	QUnit.test( 'newFromImg', ( assert ) => {
-		const cases = [
+	QUnit.test( 'newFromImg', function ( assert ) {
+		var cases = [
 			{
 				url: '/wiki/images/9/91/Anticlockwise_heliotrope%27s.jpg',
 				typeOfUrl: 'Full image',
@@ -460,15 +471,14 @@
 
 		];
 
-		cases.forEach( ( caseItem ) => {
-			const title = mw.Title.newFromImg( { src: caseItem.url } );
+		cases.forEach( function ( caseItem ) {
+			var prefix,
+				title = mw.Title.newFromImg( { src: caseItem.url } );
 
 			if ( caseItem.nameText !== undefined ) {
-				const prefix = '[' + caseItem.typeOfUrl + ' URL] ';
+				prefix = '[' + caseItem.typeOfUrl + ' URL] ';
 
 				assert.notStrictEqual( title, null, prefix + 'Parses successfully' );
-				assert.strictEqual( title.getFileNameTextWithoutExtension(), caseItem.nameText,
-					prefix + 'Filename matches original' );
 				assert.strictEqual( title.getNameText(), caseItem.nameText, prefix + 'Filename matches original' );
 				assert.strictEqual( title.getPrefixedText(), caseItem.prefixedText, prefix + 'File page title matches original' );
 				assert.strictEqual( title.getNamespaceId(), 6, prefix + 'Namespace ID matches File namespace' );
@@ -478,8 +488,8 @@
 		} );
 	} );
 
-	QUnit.test( 'getRelativeText', ( assert ) => {
-		const cases = [
+	QUnit.test( 'getRelativeText', function ( assert ) {
+		var cases = [
 			{
 				text: 'asd',
 				relativeTo: 123,
@@ -507,14 +517,14 @@
 			}
 		];
 
-		cases.forEach( ( caseItem ) => {
-			const title = mw.Title.newFromText( caseItem.text );
+		cases.forEach( function ( caseItem ) {
+			var title = mw.Title.newFromText( caseItem.text );
 			assert.strictEqual( title.getRelativeText( caseItem.relativeTo ), caseItem.expectedResult );
 		} );
 	} );
 
-	QUnit.test( 'normalizeExtension', ( assert ) => {
-		const cases = [
+	QUnit.test( 'normalizeExtension', function ( assert ) {
+		var cases = [
 			{
 				extension: 'png',
 				expected: 'png',
@@ -542,15 +552,15 @@
 			}
 		];
 
-		cases.forEach( ( caseItem ) => {
-			const extension = mw.Title.normalizeExtension( caseItem.extension ),
+		cases.forEach( function ( caseItem ) {
+			var extension = mw.Title.normalizeExtension( caseItem.extension ),
 				prefix = '[' + caseItem.description + '] ';
 			assert.strictEqual( extension, caseItem.expected, prefix + 'Extension as expected' );
 		} );
 	} );
 
-	QUnit.test( 'newFromUserInput', ( assert ) => {
-		const cases = [
+	QUnit.test( 'newFromUserInput', function ( assert ) {
+		var cases = [
 			{
 				title: 'DCS0001557854455.JPG',
 				expected: 'DCS0001557854455.JPG',
@@ -596,8 +606,8 @@
 			}
 		];
 
-		cases.forEach( ( caseItem ) => {
-			let prefix,
+		cases.forEach( function ( caseItem ) {
+			var prefix,
 				title = mw.Title.newFromUserInput( caseItem.title, caseItem.defaultNamespace, caseItem.options );
 
 			if ( caseItem.expected !== undefined ) {
@@ -615,27 +625,27 @@
 		} );
 	} );
 
-	QUnit.test( 'newFromUserInput with invalid file name for upload', ( assert ) => {
-		const title = mw.Title.newFromUserInput( 'File:No_dot' );
+	QUnit.test( 'newFromUserInput with invalid file name for upload', function ( assert ) {
+		var title = mw.Title.newFromUserInput( 'File:No_dot' );
 		// Invalid file name is rejected by default
 		assert.strictEqual( title, null, 'file name is not accepted for upload' );
 	} );
 
-	QUnit.test( 'newFromUserInput with misplaced parameter', ( assert ) => {
-		const title = mw.Title.newFromUserInput( 'File:No_dot', { forUploading: false } );
+	QUnit.test( 'newFromUserInput with misplaced parameter', function ( assert ) {
+		var title = mw.Title.newFromUserInput( 'File:No_dot', { forUploading: false } );
 		// Misplaces options parameter (pseudo-compat with MW 1.33 and earlier),
 		// behaves as if it wasn't passed - rejected the same as the default would.
 		assert.strictEqual( title, null, 'misplaced options parameter is ignored' );
 	} );
 
-	QUnit.test( 'newFromUserInput with invalid file name, but not for upload', ( assert ) => {
-		const title = mw.Title.newFromUserInput( 'File:No_dot', 0, { forUploading: false } );
+	QUnit.test( 'newFromUserInput with invalid file name, but not for upload', function ( assert ) {
+		var title = mw.Title.newFromUserInput( 'File:No_dot', 0, { forUploading: false } );
 		// Invalid file name is tolerated with this option
 		assert.strictEqual( title.getPrefixedText(), 'File:No dot', 'file name is accepted' );
 	} );
 
-	QUnit.test( 'newFromFileName', ( assert ) => {
-		const cases = [
+	QUnit.test( 'newFromFileName', function ( assert ) {
+		var cases = [
 			{
 				fileName: 'DCS0001557854455.JPG',
 				typeOfName: 'Standard camera output',
@@ -718,7 +728,7 @@
 			}
 		];
 
-		if ( mw.config.get( 'wgIllegalFileChars', '' ).includes( ':' ) ) {
+		if ( mw.config.get( 'wgIllegalFileChars', '' ).indexOf( ':' ) > -1 ) {
 			// ":" is automatically replaced with "-". Only test this if it is present
 			// in wgIllegalFileChars. Bug: T196480
 			cases.push( {
@@ -735,15 +745,14 @@
 			} );
 		}
 
-		cases.forEach( ( caseItem ) => {
-			const title = mw.Title.newFromFileName( caseItem.fileName );
+		cases.forEach( function ( caseItem ) {
+			var prefix,
+				title = mw.Title.newFromFileName( caseItem.fileName );
 
 			if ( caseItem.nameText !== undefined ) {
-				const prefix = '[' + caseItem.typeOfName + '] ';
+				prefix = '[' + caseItem.typeOfName + '] ';
 
 				assert.notStrictEqual( title, null, prefix + 'Parses successfully' );
-				assert.strictEqual( title.getFileNameTextWithoutExtension(),
-					caseItem.nameText, prefix + 'Filename matches original' );
 				assert.strictEqual( title.getNameText(), caseItem.nameText, prefix + 'Filename matches original' );
 				assert.strictEqual( title.getPrefixedText(), caseItem.prefixedText, prefix + 'File page title matches original' );
 				assert.strictEqual( title.getNamespaceId(), 6, prefix + 'Namespace ID matches File namespace' );
@@ -754,6 +763,7 @@
 	} );
 
 	QUnit.test( 'makeTitle for non existent namespace', function ( assert ) {
+		var title, title2;
 		this.sandbox.stub( mw.config, 'get' )
 			.withArgs( 'wgFormattedNamespaces' ).returns( {
 				4: 'NoTalk'
@@ -762,8 +772,8 @@
 			.withArgs( 'wgNamespaceIds' ).returns( {
 				notalk: 4
 			} );
-		const title = mw.Title.makeTitle( 4, 'Text' );
-		const title2 = mw.Title.makeTitle( 5, 'Text' );
+		title = mw.Title.makeTitle( 4, 'Text' );
+		title2 = mw.Title.makeTitle( 5, 'Text' );
 		assert.strictEqual( title.getPrefixedDb(), 'NoTalk:Text' );
 		assert.strictEqual( title2, null, 'Namespace 5 is unknown' );
 	} );

@@ -15,22 +15,23 @@
  * along with MediaViewer.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const HtmlUtils = require( '../mmv.HtmlUtils.js' );
+( function () {
+	var LP;
 
-/**
- * Class for storing license information about an image. For available fields, see
- * TemplateParser::$licenseFieldClasses in the CommonsMetadata extension.
- */
-class License {
 	/**
+	 * Class for storing license information about an image. For available fields, see
+	 * TemplateParser::$licenseFieldClasses in the CommonsMetadata extension.
+	 *
+	 * @class mw.mmv.model.License
 	 * @param {string} shortName see {@link #shortName}
 	 * @param {string} [internalName] see {@link #internalName}
 	 * @param {string} [longName] see {@link #longName}
 	 * @param {string} [deedUrl] see {@link #deedUrl}
 	 * @param {boolean} [attributionRequired] see {@link #attributionRequired}
 	 * @param {boolean} [nonFree] see {@link #nonFree}
+	 * @constructor
 	 */
-	constructor(
+	function License(
 		shortName,
 		internalName,
 		longName,
@@ -39,7 +40,7 @@ class License {
 		nonFree
 	) {
 		if ( !shortName ) {
-			throw new Error( 'License: shortName is required' );
+			throw new Error( 'mw.mmv.model.License: shortName is required' );
 		}
 
 		/** @property {string} shortName short (abbreviated) name of the license (e.g. CC-BY-SA-3.0) */
@@ -59,45 +60,49 @@ class License {
 
 		/** @property {boolean} nonFree is this a non-free license? */
 		this.nonFree = nonFree;
+
+		/** @property {mw.mmv.HtmlUtils} htmlUtils - */
+		this.htmlUtils = new mw.mmv.HtmlUtils();
 	}
+	LP = License.prototype;
 
 	/**
 	 * Check whether this is a Creative Commons license.
 	 *
 	 * @return {boolean}
 	 */
-	isCc() {
+	LP.isCc = function () {
 		return this.internalName ? this.internalName.slice( 0, 2 ) === 'cc' : false;
-	}
+	};
 
 	/**
 	 * Check whether this is a public domain "license".
 	 *
 	 * @return {boolean}
 	 */
-	isPd() {
+	LP.isPd = function () {
 		return this.internalName === 'pd';
-	}
+	};
 
 	/**
 	 * Check whether this is a free license.
 	 *
 	 * @return {boolean}
 	 */
-	isFree() {
+	LP.isFree = function () {
 		// licenses with missing nonfree information are assumed free
 		return !this.nonFree;
-	}
+	};
 
 	/**
 	 * Check whether reusers need to attribute the author
 	 *
 	 * @return {boolean}
 	 */
-	needsAttribution() {
+	LP.needsAttribution = function () {
 		// to be on the safe side, if the attribution required flag is not set, it is assumed to be true
 		return !this.isPd() && this.attributionRequired !== false;
-	}
+	};
 
 	/**
 	 * Returns the short name of the license:
@@ -108,8 +113,8 @@ class License {
 	 * @return {string}
 	 * FIXME a model should not depend on an i18n class. We should probably use view models.
 	 */
-	getShortName() {
-		const message = `multimediaviewer-license-${ this.internalName || '' }`;
+	LP.getShortName = function () {
+		var message = 'multimediaviewer-license-' + ( this.internalName || '' );
 		if ( mw.messages.exists( message ) ) {
 			// The following messages are used here:
 			// * multimediaviewer-license-cc-by-1.0
@@ -129,29 +134,29 @@ class License {
 			// * multimediaviewer-license-cc-zero
 			// * multimediaviewer-license-pd
 			// * multimediaviewer-license-default
-			return mw.msg( message );
+			return mw.message( message ).text();
 		} else {
 			return this.shortName;
 		}
-	}
+	};
 
 	/**
 	 * Returns a short HTML representation of the license.
 	 *
 	 * @return {string}
 	 */
-	getShortLink() {
-		const shortName = this.getShortName();
+	LP.getShortLink = function () {
+		var shortName = this.getShortName();
 
 		if ( this.deedUrl ) {
-			return HtmlUtils.makeLinkText( shortName, {
+			return this.htmlUtils.makeLinkText( shortName, {
 				href: this.deedUrl,
 				title: this.longName || shortName
 			} );
 		} else {
 			return shortName;
 		}
-	}
-}
+	};
 
-module.exports = License;
+	mw.mmv.model.License = License;
+}() );

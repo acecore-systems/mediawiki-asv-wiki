@@ -1,13 +1,8 @@
 <?php
 
-namespace MediaWiki\Extension\Scribunto\Tests\Engines\LuaCommon;
-
-use LogicException;
-use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LibraryBase;
-
-class LuaCommonTestsFailLibrary extends LibraryBase {
+class Scribunto_LuaCommonTestsFailLibrary extends Scribunto_LuaLibraryBase {
 	public function __construct() {
-		throw new LogicException( 'deferLoad library that is never required was loaded anyway' );
+		throw new MWException( 'deferLoad library that is never required was loaded anyway' );
 	}
 
 	public function register() {

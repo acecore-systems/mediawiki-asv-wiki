@@ -19,7 +19,6 @@
  * @author Ruben Vardanyan (Me@RubenVardanyan.com)
  */
 
-use MediaWiki\Language\Language;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
 
@@ -30,6 +29,14 @@ use MediaWiki\MediaWikiServices;
  */
 class LanguageHy extends Language {
 
+	/**
+	 * Convert from the nominative form of a noun to some other case
+	 * Invoked with {{grammar:case|word}}
+	 *
+	 * @param string $word
+	 * @param string $case
+	 * @return string
+	 */
 	public function convertGrammar( $word, $case ) {
 		$grammarForms =
 			MediaWikiServices::getInstance()->getMainConfig()->get( MainConfigNames::GrammarForms );
@@ -43,7 +50,7 @@ class LanguageHy extends Language {
 		# join and array_slice instead mb_substr
 		$ar = [];
 		preg_match_all( '/./us', $word, $ar );
-		if ( !preg_match( "/[a-zA-Z_]/u", $word ) ) {
+		if ( !preg_match( "/[a-zA-Z_]/us", $word ) ) {
 			switch ( $case ) {
 				case 'genitive': # սեռական հոլով
 					if ( implode( '', array_slice( $ar[0], -1 ) ) == 'ա' ) {

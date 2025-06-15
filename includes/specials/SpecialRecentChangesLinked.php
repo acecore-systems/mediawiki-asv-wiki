@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Recentchangeslinked
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,65 +18,53 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
-use MediaWiki\ChangeTags\ChangeTagsStore;
-use MediaWiki\Html\FormOptions;
-use MediaWiki\Html\Html;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Title\Title;
-use MediaWiki\User\Options\UserOptionsLookup;
-use MediaWiki\User\TempUser\TempUserConfig;
-use MediaWiki\User\UserIdentityUtils;
-use MediaWiki\Watchlist\WatchedItemStoreInterface;
-use MediaWiki\Xml\Xml;
-use MessageCache;
-use RecentChange;
-use SearchEngineFactory;
+use MediaWiki\User\UserOptionsLookup;
+use Wikimedia\Rdbms\ILoadBalancer;
 use Wikimedia\Rdbms\SelectQueryBuilder;
 use Wikimedia\Rdbms\Subquery;
 
 /**
  * This is to display changes made to all articles linked in an article.
  *
- * @ingroup RecentChanges
  * @ingroup SpecialPage
  */
 class SpecialRecentChangesLinked extends SpecialRecentChanges {
 	/** @var bool|Title */
 	protected $rclTargetTitle;
 
-	private SearchEngineFactory $searchEngineFactory;
-	private ChangeTagsStore $changeTagsStore;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
+
+	/** @var SearchEngineFactory */
+	private $searchEngineFactory;
 
 	/**
 	 * @param WatchedItemStoreInterface $watchedItemStore
 	 * @param MessageCache $messageCache
+	 * @param ILoadBalancer $loadBalancer
 	 * @param UserOptionsLookup $userOptionsLookup
 	 * @param SearchEngineFactory $searchEngineFactory
 	 */
 	public function __construct(
 		WatchedItemStoreInterface $watchedItemStore,
 		MessageCache $messageCache,
+		ILoadBalancer $loadBalancer,
 		UserOptionsLookup $userOptionsLookup,
-		SearchEngineFactory $searchEngineFactory,
-		ChangeTagsStore $changeTagsStore,
-		UserIdentityUtils $userIdentityUtils,
-		TempUserConfig $tempUserConfig
+		SearchEngineFactory $searchEngineFactory
 	) {
 		parent::__construct(
 			$watchedItemStore,
 			$messageCache,
-			$userOptionsLookup,
-			$changeTagsStore,
-			$userIdentityUtils,
-			$tempUserConfig
+			$loadBalancer,
+			$userOptionsLookup
 		);
 		$this->mName = 'Recentchangeslinked';
+		$this->loadBalancer = $loadBalancer;
 		$this->searchEngineFactory = $searchEngineFactory;
-		$this->changeTagsStore = $changeTagsStore;
 	}
 
 	public function getDefaultOptions() {
@@ -90,8 +80,6 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 	}
 
 	/**
-	 * FIXME: Port useful changes from SpecialRecentChanges
-	 *
 	 * @inheritDoc
 	 */
 	protected function doMainQuery( $tables, $select, $conds, $query_options,
@@ -113,9 +101,7 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 			return false;
 		}
 
-		$outputPage->setPageTitleMsg(
-			$this->msg( 'recentchangeslinked-title' )->plaintextParams( $title->getPrefixedText() )
-		);
+		$outputPage->setPageTitle( $this->msg( 'recentchangeslinked-title', $title->getPrefixedText() ) );
 
 		/*
 		 * Ordinary links are in the pagelinks table, while transclusions are
@@ -125,7 +111,8 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 		 * merging the results, but the code we inherit from our parent class
 		 * expects only one result set so we use UNION instead.
 		 */
-		$dbr = $this->getDB();
+
+		$dbr = $this->loadBalancer->getConnectionRef( ILoadBalancer::DB_REPLICA, 'recentchangeslinked' );
 		$id = $title->getArticleID();
 		$ns = $title->getNamespace();
 		$dbkey = $title->getDBkey();
@@ -144,19 +131,18 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 		$select[] = 'page_latest';
 
 		$tagFilter = $opts['tagfilter'] !== '' ? explode( '|', $opts['tagfilter'] ) : [];
-		$this->changeTagsStore->modifyDisplayQuery(
+		ChangeTags::modifyDisplayQuery(
 			$tables,
 			$select,
 			$conds,
 			$join_conds,
 			$query_options,
-			$tagFilter,
-			$opts['inverttags']
+			$tagFilter
 		);
 
 		if ( $dbr->unionSupportsOrderAndLimit() ) {
-			if ( in_array( 'DISTINCT', $query_options ) ) {
-				// ChangeTagsStore::modifyDisplayQuery() will have added DISTINCT.
+			if ( count( $tagFilter ) > 1 ) {
+				// ChangeTags::modifyDisplayQuery() will have added DISTINCT.
 				// To prevent this from causing query performance problems, we need to add
 				// a GROUP BY, and add rc_id to the ORDER BY.
 				$order = [
@@ -251,7 +237,7 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 					// TODO: Move this to LinksMigration
 					if ( isset( $linksMigration::$mapping[$link_table] ) ) {
 						$queryInfo = $linksMigration->getQueryInfo( $link_table, $link_table );
-						[ $nsField, $titleField ] = $linksMigration->getTitleFields( $link_table );
+						list( $nsField, $titleField ) = $linksMigration->getTitleFields( $link_table );
 						if ( in_array( 'linktarget', $queryInfo['tables'] ) ) {
 							$joinTable = 'linktarget';
 						} else {
@@ -287,25 +273,25 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 			return false; // should never happen
 		}
 		if ( count( $subsql ) == 1 && $dbr->unionSupportsOrderAndLimit() ) {
-			return $subsql[0]
+			$sql = $subsql[0]
 				->setMaxExecutionTime( $this->getConfig()->get( MainConfigNames::MaxExecutionTimeForExpensiveQueries ) )
-				->caller( __METHOD__ )->fetchResultSet();
+				->getSQL();
 		} else {
-			$unionQueryBuilder = $dbr->newUnionQueryBuilder()->caller( __METHOD__ );
-			foreach ( $subsql as $selectQueryBuilder ) {
-				$unionQueryBuilder->add( $selectQueryBuilder );
-			}
-			return $dbr->newSelectQueryBuilder()
+			$sqls = array_map( static function ( $queryBuilder ) {
+				return $queryBuilder->getSQL();
+			}, $subsql );
+			$queryBuilder = $dbr->newSelectQueryBuilder()
 				->select( '*' )
 				->from(
-					new Subquery( $unionQueryBuilder->getSQL() ),
+					(string)( new Subquery( $dbr->unionQueries( $sqls, $dbr::UNION_DISTINCT ) ) ),
 					'main'
 				)
 				->orderBy( 'rc_timestamp', SelectQueryBuilder::SORT_DESC )
 				->setMaxExecutionTime( $this->getConfig()->get( MainConfigNames::MaxExecutionTimeForExpensiveQueries ) )
-				->limit( $limit )
-				->caller( __METHOD__ )->fetchResultSet();
+				->limit( $limit );
+			$sql = $queryBuilder->getSQL();
 		}
+		return $dbr->query( $sql, __METHOD__ );
 	}
 
 	public function setTopText( FormOptions $opts ) {
@@ -387,9 +373,3 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 		}
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialRecentChangesLinked::class, 'SpecialRecentChangesLinked' );

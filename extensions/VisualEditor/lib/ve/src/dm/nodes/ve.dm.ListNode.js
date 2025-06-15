@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel ListNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -47,50 +47,27 @@ ve.dm.ListNode.static.createItem = function () {
 };
 
 ve.dm.ListNode.static.toDataElement = function ( domElements ) {
-	const style = domElements[ 0 ].nodeName.toLowerCase() === 'ol' ? 'number' : 'bullet';
+	var style = domElements[ 0 ].nodeName.toLowerCase() === 'ol' ? 'number' : 'bullet';
 	return { type: this.name, attributes: { style: style } };
 };
 
 ve.dm.ListNode.static.toDomElements = function ( dataElement, doc ) {
-	const tag = dataElement.attributes && dataElement.attributes.style === 'number' ? 'ol' : 'ul';
+	var tag = dataElement.attributes && dataElement.attributes.style === 'number' ? 'ol' : 'ul';
 	return [ doc.createElement( tag ) ];
 };
 
-ve.dm.ListNode.static.describeChanges = function ( attributeChanges, attributes, element ) {
-	attributeChanges = ve.copy( attributeChanges );
-	if ( 'listType' in attributeChanges ) {
-		let mapped = false;
-		[ 'from', 'to' ].forEach( ( fromOrTo ) => {
-			if ( attributeChanges.listType[ fromOrTo ] === 'definitionList' ) {
-				attributeChanges.style[ fromOrTo ] = 'indent';
-				mapped = true;
-			}
-		} );
-		if ( mapped ) {
-			delete attributeChanges.listType;
-		}
-	}
-	// Parent method
-	return ve.dm.ListNode.super.static.describeChanges.call( this, attributeChanges, attributes, element );
-};
-
 ve.dm.ListNode.static.describeChange = function ( key, change ) {
-	const messageKeys = {
-		bullet: 'visualeditor-listbutton-bullet-tooltip',
-		number: 'visualeditor-listbutton-number-tooltip',
-		indent: 'visualeditor-changedesc-list-style-indent'
-	};
-	if ( key === 'style' && change.from in messageKeys && change.to in messageKeys ) {
+	if ( key === 'style' ) {
 		return ve.htmlMsg( 'visualeditor-changedesc-no-key',
-			// Message keys documented above
-			// eslint-disable-next-line mediawiki/msg-doc
-			this.wrapText( 'del', ve.msg( messageKeys[ change.from ] ) ),
-			// eslint-disable-next-line mediawiki/msg-doc
-			this.wrapText( 'ins', ve.msg( messageKeys[ change.to ] ) )
+			// The following messages are used here:
+			// * visualeditor-listbutton-bullet-tooltip
+			// * visualeditor-listbutton-number-tooltip
+			this.wrapText( 'del', ve.msg( 'visualeditor-listbutton-' + change.from + '-tooltip' ) ),
+			this.wrapText( 'ins', ve.msg( 'visualeditor-listbutton-' + change.to + '-tooltip' ) )
 		);
 	}
 	// Parent method
-	return ve.dm.ListNode.super.static.describeChange.apply( this, arguments );
+	return ve.dm.ListNode.parent.static.describeChange.apply( this, arguments );
 };
 
 /* Methods */

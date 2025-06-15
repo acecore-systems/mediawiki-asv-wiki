@@ -21,16 +21,9 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\Maintenance\Maintenance;
-use MediaWiki\Password\LayeredParameterizedPassword;
-use MediaWiki\Password\ParameterizedPassword;
-use MediaWiki\User\User;
-use Wikimedia\Rdbms\IExpression;
-use Wikimedia\Rdbms\LikeValue;
-
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
+
+use MediaWiki\MediaWikiServices;
 
 /**
  * Maintenance script to wrap all passwords of a certain type in a specified layered
@@ -52,7 +45,7 @@ class WrapOldPasswords extends Maintenance {
 	}
 
 	public function execute() {
-		$passwordFactory = $this->getServiceContainer()->getPasswordFactory();
+		$passwordFactory = MediaWikiServices::getInstance()->getPasswordFactory();
 
 		$typeInfo = $passwordFactory->getTypes();
 		$layeredType = $this->getOption( 'type' );
@@ -74,7 +67,8 @@ class WrapOldPasswords extends Maintenance {
 		$update = $this->hasOption( 'update' );
 
 		// Get a list of password types that are applicable
-		$dbw = $this->getPrimaryDB();
+		$dbw = $this->getDB( DB_PRIMARY );
+		$typeCond = 'user_password' . $dbw->buildLike( ":$firstType:", $dbw->anyString() );
 
 		$count = 0;
 		$minUserId = 0;
@@ -84,21 +78,19 @@ class WrapOldPasswords extends Maintenance {
 			}
 
 			$start = microtime( true );
-			$res = $dbw->newSelectQueryBuilder()
-				->select( [ 'user_id', 'user_name', 'user_password' ] )
-				->lockInShareMode()
-				->from( 'user' )
-				->where( [
-					$dbw->expr( 'user_id', '>', $minUserId ),
-					$dbw->expr(
-						'user_password',
-						IExpression::LIKE,
-						new LikeValue( ":$firstType:", $dbw->anyString() )
-					),
-				] )
-				->orderBy( 'user_id' )
-				->limit( $this->getBatchSize() )
-				->caller( __METHOD__ )->fetchResultSet();
+			$res = $dbw->select( 'user',
+				[ 'user_id', 'user_name', 'user_password' ],
+				[
+					'user_id > ' . $dbw->addQuotes( $minUserId ),
+					$typeCond
+				],
+				__METHOD__,
+				[
+					'ORDER BY' => 'user_id',
+					'LIMIT' => $this->getBatchSize(),
+					'LOCK IN SHARE MODE',
+				]
+			);
 
 			if ( $res->numRows() === 0 ) {
 				if ( $update ) {
@@ -129,12 +121,11 @@ class WrapOldPasswords extends Maintenance {
 				$count++;
 				if ( $update ) {
 					$updateUsers[] = $user;
-					$dbw->newUpdateQueryBuilder()
-						->update( 'user' )
-						->set( [ 'user_password' => $layeredPassword->toString() ] )
-						->where( [ 'user_id' => $row->user_id ] )
-						->caller( __METHOD__ )
-						->execute();
+					$dbw->update( 'user',
+						[ 'user_password' => $layeredPassword->toString() ],
+						[ 'user_id' => $row->user_id ],
+						__METHOD__
+					);
 				}
 
 				$minUserId = $row->user_id;
@@ -168,7 +159,5 @@ class WrapOldPasswords extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = WrapOldPasswords::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

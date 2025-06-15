@@ -18,6 +18,7 @@ form#editform {
 
 #wpTextbox1 {
 	line-height: 1.5em;
+	/* stylelint-disable-next-line plugin/no-unsupported-browser-features */
 	resize: vertical;
 }
 
@@ -27,8 +28,8 @@ form#editform {
 }
 
 /* This disables margin collapse for the children */
-.client-js #editform::before,
-.client-js #editform::after {
+.client-js #editform:before,
+.client-js #editform:after {
 	content: ' ';
 	display: table;
 }

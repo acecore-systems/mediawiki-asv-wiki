@@ -6,7 +6,7 @@ use InvalidArgumentException;
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\Revision\RevisionLookup;
 use MediaWiki\Revision\RevisionRecord;
-use Wikimedia\Rdbms\LBFactory;
+use Wikimedia\Rdbms\ILoadBalancer;
 use WikiPage;
 
 /**
@@ -19,8 +19,8 @@ class EditRevUpdater {
 	private $centralDBManager;
 	/** @var RevisionLookup */
 	private $revisionLookup;
-	/** @var LBFactory */
-	private $lbFactory;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
 	/** @var string */
 	private $wikiID;
 
@@ -35,18 +35,18 @@ class EditRevUpdater {
 	/**
 	 * @param CentralDBManager $centralDBManager
 	 * @param RevisionLookup $revisionLookup
-	 * @param LBFactory $lbFactory
+	 * @param ILoadBalancer $loadBalancer
 	 * @param string $wikiID
 	 */
 	public function __construct(
 		CentralDBManager $centralDBManager,
 		RevisionLookup $revisionLookup,
-		LBFactory $lbFactory,
+		ILoadBalancer $loadBalancer,
 		string $wikiID
 	) {
 		$this->centralDBManager = $centralDBManager;
 		$this->revisionLookup = $revisionLookup;
-		$this->lbFactory = $lbFactory;
+		$this->loadBalancer = $loadBalancer;
 		$this->wikiID = $wikiID;
 	}
 
@@ -107,24 +107,22 @@ class EditRevUpdater {
 		$ret = false;
 		$logs = $this->logIds[ $key ];
 		if ( $logs[ 'local' ] ) {
-			$dbw = $this->lbFactory->getPrimaryDatabase();
-			$dbw->newUpdateQueryBuilder()
-				->update( 'abuse_filter_log' )
-				->set( [ 'afl_rev_id' => $revisionRecord->getId() ] )
-				->where( [ 'afl_id' => $logs['local'] ] )
-				->caller( __METHOD__ )
-				->execute();
+			$dbw = $this->loadBalancer->getConnectionRef( DB_PRIMARY );
+			$dbw->update( 'abuse_filter_log',
+				[ 'afl_rev_id' => $revisionRecord->getId() ],
+				[ 'afl_id' => $logs['local'] ],
+				__METHOD__
+			);
 			$ret = true;
 		}
 
 		if ( $logs[ 'global' ] ) {
 			$fdb = $this->centralDBManager->getConnection( DB_PRIMARY );
-			$fdb->newUpdateQueryBuilder()
-				->update( 'abuse_filter_log' )
-				->set( [ 'afl_rev_id' => $revisionRecord->getId() ] )
-				->where( [ 'afl_id' => $logs['global'], 'afl_wiki' => $this->wikiID ] )
-				->caller( __METHOD__ )
-				->execute();
+			$fdb->update( 'abuse_filter_log',
+				[ 'afl_rev_id' => $revisionRecord->getId() ],
+				[ 'afl_id' => $logs['global'], 'afl_wiki' => $this->wikiID ],
+				__METHOD__
+			);
 			$ret = true;
 		}
 		return $ret;

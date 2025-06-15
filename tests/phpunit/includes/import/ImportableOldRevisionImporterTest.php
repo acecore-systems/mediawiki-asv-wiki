@@ -1,37 +1,37 @@
 <?php
 
-use MediaWiki\Content\ContentHandler;
 use MediaWiki\Revision\SlotRecord;
-use MediaWiki\Tests\User\TempUser\TempUserTestTrait;
-use MediaWiki\Title\Title;
 use Psr\Log\NullLogger;
 
 /**
  * @group Database
- * @covers \ImportableOldRevisionImporter
+ * @coversDefaultClass ImportableOldRevisionImporter
  */
 class ImportableOldRevisionImporterTest extends MediaWikiIntegrationTestCase {
-	use TempUserTestTrait;
 
 	protected function setUp(): void {
 		parent::setUp();
 
-		$this->getServiceContainer()->getChangeTagsStore()->defineTag( 'tag1' );
+		$this->tablesUsed[] = 'change_tag';
+		$this->tablesUsed[] = 'change_tag_def';
+
+		ChangeTags::defineTag( 'tag1' );
 	}
 
-	public static function provideTestCases() {
+	public function provideTestCases() {
 		yield [ [] ];
 		yield [ [ "tag1" ] ];
 	}
 
 	/**
+	 * @covers ::import
 	 * @dataProvider provideTestCases
 	 */
 	public function testImport( $expectedTags ) {
 		$services = $this->getServiceContainer();
 
 		$title = Title::newFromText( __CLASS__ . rand() );
-		$revision = new WikiRevision();
+		$revision = new WikiRevision( $services->getMainConfig() );
 		$revision->setTitle( $title );
 		$revision->setTags( $expectedTags );
 		$content = ContentHandler::makeContent( 'dummy edit', $title );
@@ -40,8 +40,8 @@ class ImportableOldRevisionImporterTest extends MediaWikiIntegrationTestCase {
 		$importer = new ImportableOldRevisionImporter(
 			true,
 			new NullLogger(),
-			$services->getConnectionProvider(),
-			$services->getRevisionStoreFactory()->getRevisionStoreForImport(),
+			$services->getDBLoadBalancer(),
+			$services->getRevisionStore(),
 			$services->getSlotRoleRegistry(),
 			$services->getWikiPageFactory(),
 			$services->getPageUpdaterFactory(),
@@ -50,23 +50,12 @@ class ImportableOldRevisionImporterTest extends MediaWikiIntegrationTestCase {
 		$result = $importer->import( $revision );
 		$this->assertTrue( $result );
 
-		$tags = $this->getServiceContainer()->getChangeTagsStore()->getTags(
-			$this->getDb(),
+		$page = WikiPage::factory( $title );
+		$tags = ChangeTags::getTags(
+			$services->getDBLoadBalancer()->getConnection( DB_PRIMARY ),
 			null,
-			$title->getLatestRevID()
+			$page->getLatest()
 		);
 		$this->assertSame( $expectedTags, $tags );
-	}
-
-	/**
-	 * @covers \MediaWiki\Revision\RevisionStoreFactory::getRevisionStoreForImport
-	 * @covers \MediaWiki\User\ActorMigration::newMigrationForImport
-	 * @covers \MediaWiki\User\ActorStoreFactory::getActorStoreForImport
-	 * @covers \MediaWiki\User\ActorStoreFactory::getActorNormalizationForImport
-	 * @dataProvider provideTestCases
-	 */
-	public function testImportWithTempAccountsEnabled( $expectedTags ) {
-		$this->enableAutoCreateTempUser();
-		$this->testImport( $expectedTags );
 	}
 }

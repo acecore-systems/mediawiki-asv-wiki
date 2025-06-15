@@ -1,7 +1,7 @@
 /*!
  * VisualEditor MediaWiki Initialization ApiResponseCache class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -56,7 +56,7 @@ ve.init.mw.ApiResponseCache.static.processPage = null;
  * @return {string}
  */
 ve.init.mw.ApiResponseCache.static.normalizeTitle = function ( title ) {
-	const titleObj = mw.Title.newFromText( title );
+	var titleObj = mw.Title.newFromText( title );
 	if ( !titleObj ) {
 		return title;
 	}
@@ -105,7 +105,7 @@ ve.init.mw.ApiResponseCache.prototype.getCached = function ( name ) {
 /**
  * Fired when a new entry is added to the cache.
  *
- * @event ve.init.mw.ApiResponseCache#add
+ * @event add
  * @param {Object} entries Cache entries that were added. Object mapping names to data objects.
  */
 
@@ -113,10 +113,10 @@ ve.init.mw.ApiResponseCache.prototype.getCached = function ( name ) {
  * Add entries to the cache. Does not overwrite already-set entries.
  *
  * @param {Object} entries Object keyed by page title, with the values being data objects
- * @fires ve.init.mw.ApiResponseCache#add
+ * @fires add
  */
 ve.init.mw.ApiResponseCache.prototype.set = function ( entries ) {
-	for ( const name in entries ) {
+	for ( var name in entries ) {
 		if ( !Object.prototype.hasOwnProperty.call( this.deferreds, name ) ) {
 			this.deferreds[ name ] = ve.createDeferred();
 		}
@@ -141,51 +141,53 @@ ve.init.mw.ApiResponseCache.prototype.getRequestPromise = null;
  * Perform any scheduled API requests.
  *
  * @private
- * @fires ve.init.mw.ApiResponseCache#add
+ * @fires add
  */
 ve.init.mw.ApiResponseCache.prototype.processQueue = function () {
-	const rejectSubqueue = ( rejectQueue ) => {
-		for ( let i = 0, len = rejectQueue.length; i < len; i++ ) {
-			this.deferreds[ rejectQueue[ i ] ].reject();
-		}
-	};
+	var cache = this;
 
-	const processResult = ( data ) => {
-		const pages = ( data.query && data.query.pages ) || data.pages,
+	function rejectSubqueue( rejectQueue ) {
+		for ( var i = 0, len = rejectQueue.length; i < len; i++ ) {
+			cache.deferreds[ rejectQueue[ i ] ].reject();
+		}
+	}
+
+	function processResult( data ) {
+		var mappedTitles = [],
+			pages = ( data.query && data.query.pages ) || data.pages,
 			processed = {};
 
-		const mappedTitles = [];
-		[ 'redirects', 'normalized', 'converted' ].forEach( ( map ) => {
-			ve.batchPush( mappedTitles, ( data.query && data.query[ map ] ) || [] );
+		[ 'redirects', 'normalized', 'converted' ].forEach( function ( map ) {
+			mappedTitles = mappedTitles.concat( ( data.query && data.query[ map ] ) || [] );
 		} );
 
 		if ( pages ) {
-			let page, processedPage;
-			for ( const pageid in pages ) {
+			var page, processedPage;
+			for ( var pageid in pages ) {
 				page = pages[ pageid ];
-				processedPage = this.constructor.static.processPage( page );
+				processedPage = cache.constructor.static.processPage( page );
 				if ( processedPage !== undefined ) {
 					processed[ page.title ] = processedPage;
 				}
 			}
-			for ( let i = 0; i < mappedTitles.length; i++ ) {
+			for ( var i = 0; i < mappedTitles.length; i++ ) {
 				// Locate the title in mapped titles, if any.
 				if ( mappedTitles[ i ].to === page.title ) {
-					const from = mappedTitles[ i ].fromencoded === '' ?
+					var from = mappedTitles[ i ].fromencoded === '' ?
 						decodeURIComponent( mappedTitles[ i ].from ) :
 						mappedTitles[ i ].from;
 					processed[ from ] = processedPage;
 					break;
 				}
 			}
-			this.set( processed );
+			cache.set( processed );
 		}
-	};
+	}
 
-	const queue = this.queue;
+	var queue = this.queue;
 	this.queue = [];
 	while ( queue.length ) {
-		const subqueue = queue.splice( 0, 50 ).map( this.constructor.static.normalizeTitle );
+		var subqueue = queue.splice( 0, 50 ).map( this.constructor.static.normalizeTitle );
 		this.getRequestPromise( subqueue )
 			.then( processResult )
 

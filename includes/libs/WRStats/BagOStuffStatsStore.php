@@ -2,7 +2,7 @@
 
 namespace Wikimedia\WRStats;
 
-use Wikimedia\ObjectCache\BagOStuff;
+use BagOStuff;
 
 /**
  * An adaptor allowing WRStats to store data in MediaWiki's BagOStuff

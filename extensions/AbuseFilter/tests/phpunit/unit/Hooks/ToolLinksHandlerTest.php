@@ -2,19 +2,20 @@
 
 namespace MediaWiki\Extension\AbuseFilter\Tests\Unit\Hooks;
 
-use MediaWiki\Context\IContextSource;
+use IContextSource;
 use MediaWiki\Extension\AbuseFilter\AbuseFilterPermissionManager;
 use MediaWiki\Extension\AbuseFilter\Hooks\Handlers\ToolLinksHandler;
 use MediaWiki\Linker\LinkRenderer;
-use MediaWiki\Message\Message;
-use MediaWiki\Request\WebRequest;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
 use MediaWikiUnitTestCase;
+use Message;
+use SpecialPage;
+use Title;
+use User;
+use WebRequest;
 
 /**
- * @covers \MediaWiki\Extension\AbuseFilter\Hooks\Handlers\ToolLinksHandler
+ * @coversDefaultClass \MediaWiki\Extension\AbuseFilter\Hooks\Handlers\ToolLinksHandler
+ * @covers ::__construct
  */
 class ToolLinksHandlerTest extends MediaWikiUnitTestCase {
 
@@ -24,6 +25,9 @@ class ToolLinksHandlerTest extends MediaWikiUnitTestCase {
 		return new ToolLinksHandler( $permManager );
 	}
 
+	/**
+	 * @covers ::onContributionsToolLinks
+	 */
 	public function testOnContributionsToolLinks() {
 		$handler = $this->getToolLinksHandler();
 		$sp = $this->createMock( SpecialPage::class );
@@ -36,6 +40,9 @@ class ToolLinksHandlerTest extends MediaWikiUnitTestCase {
 		$this->assertArrayHasKey( 'abuselog', $tools );
 	}
 
+	/**
+	 * @covers ::onContributionsToolLinks
+	 */
 	public function testOnContributionsToolLinks_notAllowed() {
 		$handler = $this->getToolLinksHandler( false );
 		$sp = $this->createMock( SpecialPage::class );
@@ -50,6 +57,9 @@ class ToolLinksHandlerTest extends MediaWikiUnitTestCase {
 		$this->assertCount( 0, $tools );
 	}
 
+	/**
+	 * @covers ::onContributionsToolLinks
+	 */
 	public function testOnContributionsToolLinks_range() {
 		$handler = $this->getToolLinksHandler();
 		$sp = $this->createMock( SpecialPage::class );
@@ -61,6 +71,9 @@ class ToolLinksHandlerTest extends MediaWikiUnitTestCase {
 		$this->assertCount( 0, $tools );
 	}
 
+	/**
+	 * @covers ::onHistoryPageToolLinks
+	 */
 	public function testOnHistoryPageToolLinks() {
 		$handler = $this->getToolLinksHandler();
 		$ctx = $this->createMock( IContextSource::class );
@@ -72,6 +85,9 @@ class ToolLinksHandlerTest extends MediaWikiUnitTestCase {
 		$this->assertCount( 1, $links );
 	}
 
+	/**
+	 * @covers ::onHistoryPageToolLinks
+	 */
 	public function testOnHistoryPageToolLinks_notAllowed() {
 		$handler = $this->getToolLinksHandler( false );
 		$ctx = $this->createMock( IContextSource::class );
@@ -81,6 +97,9 @@ class ToolLinksHandlerTest extends MediaWikiUnitTestCase {
 		$this->assertCount( 0, $links );
 	}
 
+	/**
+	 * @covers ::onUndeletePageToolLinks
+	 */
 	public function testOnUndeletePageToolLinks() {
 		$handler = $this->getToolLinksHandler();
 		$ctx = $this->createMock( IContextSource::class );
@@ -95,6 +114,9 @@ class ToolLinksHandlerTest extends MediaWikiUnitTestCase {
 		$this->assertCount( 1, $links );
 	}
 
+	/**
+	 * @covers ::onUndeletePageToolLinks
+	 */
 	public function testOnUndeletePageToolLinks_notAllowed() {
 		$handler = $this->getToolLinksHandler( false );
 		$ctx = $this->createMock( IContextSource::class );
@@ -107,6 +129,9 @@ class ToolLinksHandlerTest extends MediaWikiUnitTestCase {
 		$this->assertCount( 0, $links );
 	}
 
+	/**
+	 * @covers ::onUndeletePageToolLinks
+	 */
 	public function testOnUndeletePageToolLinks_historyAction() {
 		$handler = $this->getToolLinksHandler();
 		$ctx = $this->createMock( IContextSource::class );

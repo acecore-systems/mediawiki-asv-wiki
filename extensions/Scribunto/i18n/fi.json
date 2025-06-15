@@ -8,13 +8,12 @@
 			"Pxos",
 			"Silvonen",
 			"Stryn",
-			"Valtlai",
 			"Valtlait",
 			"VezonThunder",
+			"Valtlai",
 			"Samoasambia"
 		]
 	},
-	"content-model-scribunto": "Scribunto-moduuli",
 	"scribunto-desc": "Mahdollistaa komentosarjakielien käytön wikisivuilla",
 	"scribunto-line": "rivillä $1",
 	"scribunto-module-line": "kohdassa $1 rivillä $2",
@@ -64,7 +63,5 @@
 	"scribunto-limitreport-profile-ms": "$1 ms",
 	"scribunto-limitreport-logs": "Lua-lokit",
 	"nstab-module": "Moduuli",
-	"tooltip-ca-nstab-module": "Näytä moduulisivu",
-	"namespaceinfo-description-ns828": "Nimiavaruus Lua-koodimoduuleille, joita voidaan kutsua wikisivuilta sekä niiden dokumentaatiosivuilta",
-	"namespaceinfo-description-ns829": "Moduulien ja dokumentaatiosivujen keskustelusivut"
+	"tooltip-ca-nstab-module": "Näytä moduulisivu"
 }

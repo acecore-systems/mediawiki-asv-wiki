@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface DimensionsWidget class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -13,9 +13,9 @@
  *
  * @constructor
  * @param {Object} [config] Configuration options
- * @param {Object} [config.defaults] Default dimensions
- * @param {Object} [config.validate] Validation pattern passed to TextInputWidgets
- * @param {boolean} [config.readOnly=false] Prevent changes to the value of the widget.
+ * @cfg {Object} [defaults] Default dimensions
+ * @cfg {Object} [validate] Validation pattern passed to TextInputWidgets
+ * @cfg {boolean} [readOnly=false] Prevent changes to the value of the widget.
  */
 ve.ui.DimensionsWidget = function VeUiDimensionsWidget( config ) {
 	// Configuration
@@ -37,10 +37,10 @@ ve.ui.DimensionsWidget = function VeUiDimensionsWidget( config ) {
 	this.setReadOnly( !!config.readOnly );
 	this.renderDefaults();
 
-	const labelTimes = new OO.ui.LabelWidget( {
+	var labelTimes = new OO.ui.LabelWidget( {
 		label: ve.msg( 'visualeditor-dimensionswidget-times' )
 	} );
-	const labelPx = new OO.ui.LabelWidget( {
+	var labelPx = new OO.ui.LabelWidget( {
 		label: ve.msg( 'visualeditor-dimensionswidget-px' )
 	} );
 
@@ -68,12 +68,12 @@ OO.inheritClass( ve.ui.DimensionsWidget, OO.ui.Widget );
 /* Events */
 
 /**
- * @event ve.ui.DimensionsWidget#widthChange
+ * @event widthChange
  * @param {string} value The new width
  */
 
 /**
- * @event ve.ui.DimensionsWidget#heightChange
+ * @event heightChange
  * @param {string} value The new width
  */
 
@@ -83,7 +83,7 @@ OO.inheritClass( ve.ui.DimensionsWidget, OO.ui.Widget );
  * Respond to width change, propagate the input change event
  *
  * @param {string} value The new changed value
- * @fires ve.ui.DimensionsWidget#widthChange
+ * @fires widthChange
  */
 ve.ui.DimensionsWidget.prototype.onWidthChange = function ( value ) {
 	this.emit( 'widthChange', value );
@@ -93,7 +93,7 @@ ve.ui.DimensionsWidget.prototype.onWidthChange = function ( value ) {
  * Respond to height change, propagate the input change event
  *
  * @param {string} value The new changed value
- * @fires ve.ui.DimensionsWidget#heightChange
+ * @fires heightChange
  */
 ve.ui.DimensionsWidget.prototype.onHeightChange = function ( value ) {
 	this.emit( 'heightChange', value );
@@ -199,16 +199,11 @@ ve.ui.DimensionsWidget.prototype.setDimensions = function ( dimensions ) {
 };
 
 /**
- * @typedef {Object} Dimensions
- * @memberof ve.ui.DimensionsWidget
- * @property {number} width The value of the width input
- * @property {number} height The value of the height input
- */
-
-/**
  * Return the current dimension values in the widget
  *
- * @return {ve.ui.DimensionsWidget.Dimensions} dimensions The width and height values of the inputs
+ * @return {Object} dimensions The width and height values of the inputs
+ * @return {number} dimensions.width The value of the width input
+ * @return {number} dimensions.height The value of the height input
  */
 ve.ui.DimensionsWidget.prototype.getDimensions = function () {
 	return {

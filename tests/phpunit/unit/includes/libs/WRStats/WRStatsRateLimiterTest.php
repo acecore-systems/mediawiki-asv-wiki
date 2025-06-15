@@ -1,13 +1,8 @@
 <?php
 
-namespace Wikimedia\Tests\WRStats;
+namespace Wikimedia\WRStats;
 
 use PHPUnit\Framework\TestCase;
-use Wikimedia\WRStats\ArrayStatsStore;
-use Wikimedia\WRStats\LimitCondition;
-use Wikimedia\WRStats\LimitOperation;
-use Wikimedia\WRStats\LocalEntityKey;
-use Wikimedia\WRStats\WRStatsRateLimiter;
 
 /**
  * @covers \Wikimedia\WRStats\WRStatsRateLimiter

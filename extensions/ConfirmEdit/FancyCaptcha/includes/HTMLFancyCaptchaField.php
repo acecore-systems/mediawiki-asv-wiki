@@ -1,10 +1,5 @@
 <?php
 
-namespace MediaWiki\Extension\ConfirmEdit\FancyCaptcha;
-
-use MediaWiki\Html\Html;
-use MediaWiki\HTMLForm\HTMLFormField;
-
 /**
  * Captcha input field for FancyCaptcha that displays a question and returns the answer.
  * Does not include the captcha ID; that must be included in the form as a separate hidden field.
@@ -16,7 +11,6 @@ class HTMLFancyCaptchaField extends HTMLFormField {
 	/** @var bool */
 	protected $showCreateHelp;
 
-	/** @var string */
 	protected $mClass = 'captcha';
 
 	/**
@@ -38,7 +32,7 @@ class HTMLFancyCaptchaField extends HTMLFormField {
 		$out = $this->mParent->getOutput();
 
 		// Uses addModuleStyles so it is loaded even when JS is disabled.
-		$out->addModuleStyles( [ 'codex-styles', 'ext.confirmEdit.fancyCaptcha.styles' ] );
+		$out->addModuleStyles( 'ext.confirmEdit.fancyCaptcha.styles' );
 
 		// Loaded only for clients with JS enabled
 		$out->addModules( 'ext.confirmEdit.fancyCaptcha' );
@@ -53,7 +47,7 @@ class HTMLFancyCaptchaField extends HTMLFormField {
 			'type' => 'text',
 			'id'   => $this->mID,
 			'name' => $this->mName,
-			'class' => 'cdx-text-input__input',
+			'class' => 'mw-ui-input',
 			// max_length in captcha.py plus fudge factor
 			'size' => '12',
 			'dir' => $this->mDir,
@@ -72,8 +66,7 @@ class HTMLFancyCaptchaField extends HTMLFormField {
 				'src'    => $this->imageUrl,
 				'alt'    => ''
 			] ) . $captchaReload . Html::closeElement( 'div' ) . Html::closeElement( 'div' ) . "\n"
-			. Html::openElement( 'div', [ 'class' => 'cdx-text-input' ] )
-			. Html::element( 'input', $attribs ) . Html::closeElement( 'div' );
+			. Html::element( 'input', $attribs );
 
 		if ( $this->showCreateHelp ) {
 			// use raw element, the message will contain a link

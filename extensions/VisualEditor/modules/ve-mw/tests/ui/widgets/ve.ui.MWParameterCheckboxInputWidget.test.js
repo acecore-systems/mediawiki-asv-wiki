@@ -13,7 +13,8 @@ QUnit.test( 'Constructor passes config to parent', ( assert ) => {
 	[ '', false, 'empty string' ],
 	[ '2', false, 'unexpected string' ],
 	[ true, false, 'unexpected type' ]
-].forEach( ( [ value, expected, message ] ) => QUnit.test( `setValue( ${ message } )`, ( assert ) => {
+].forEach( ( [ value, expected, message ] ) =>
+	QUnit.test( `setValue( ${message} )`, ( assert ) => {
 		const widget = new ve.ui.MWParameterCheckboxInputWidget();
 		widget.setValue( value );
 
@@ -25,7 +26,8 @@ QUnit.test( 'Constructor passes config to parent', ( assert ) => {
 [
 	true,
 	false
-].forEach( ( value ) => QUnit.test( `setSelected( ${ value } )`, ( assert ) => {
+].forEach( ( value ) =>
+	QUnit.test( `setSelected( ${value} )`, ( assert ) => {
 		const widget = new ve.ui.MWParameterCheckboxInputWidget();
 		widget.setSelected( value );
 

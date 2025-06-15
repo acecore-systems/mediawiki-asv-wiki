@@ -22,17 +22,12 @@
  * @ingroup Benchmark
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/../Maintenance.php';
-// @codeCoverageIgnoreEnd
 
-use MediaWiki\Cache\LinkCache;
 use MediaWiki\Linker\LinkTarget;
-use MediaWiki\Maintenance\Maintenance;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\SlotRecord;
-use MediaWiki\Title\Title;
-use Wikimedia\Rdbms\SelectQueryBuilder;
 
 /**
  * Maintenance script to benchmark how long it takes to parse a given title at an optionally
@@ -44,7 +39,6 @@ class BenchmarkParse extends Maintenance {
 	/** @var string MediaWiki concatenated string timestamp (YYYYMMDDHHMMSS) */
 	private $templateTimestamp = null;
 
-	/** @var bool */
 	private $clearLinkCache = false;
 
 	/**
@@ -77,20 +71,19 @@ class BenchmarkParse extends Maintenance {
 	public function execute() {
 		if ( $this->hasOption( 'tpl-time' ) ) {
 			$this->templateTimestamp = wfTimestamp( TS_MW, strtotime( $this->getOption( 'tpl-time' ) ) );
-			$hookContainer = $this->getHookContainer();
-			$hookContainer->register( 'BeforeParserFetchTemplateRevisionRecord', [ $this, 'onFetchTemplate' ] );
+			Hooks::register( 'BeforeParserFetchTemplateRevisionRecord', [ $this, 'onFetchTemplate' ] );
 		}
 
 		$this->clearLinkCache = $this->hasOption( 'reset-linkcache' );
 		// Set as a member variable to avoid function calls when we're timing the parse
-		$this->linkCache = $this->getServiceContainer()->getLinkCache();
+		$this->linkCache = MediaWikiServices::getInstance()->getLinkCache();
 
 		$title = Title::newFromText( $this->getArg( 0 ) );
 		if ( !$title ) {
 			$this->fatalError( "Invalid title" );
 		}
 
-		$revLookup = $this->getServiceContainer()->getRevisionLookup();
+		$revLookup = MediaWikiServices::getInstance()->getRevisionLookup();
 		if ( $this->hasOption( 'page-time' ) ) {
 			$pageTimestamp = wfTimestamp( TS_MW, strtotime( $this->getOption( 'page-time' ) ) );
 			$id = $this->getRevIdForTime( $title, $pageTimestamp );
@@ -141,16 +134,20 @@ class BenchmarkParse extends Maintenance {
 	 * @return bool|string Revision ID, or false if not found or error
 	 */
 	private function getRevIdForTime( Title $title, $timestamp ) {
-		$dbr = $this->getReplicaDB();
+		$dbr = $this->getDB( DB_REPLICA );
 
-		$id = $dbr->newSelectQueryBuilder()
-			->select( 'rev_id' )
-			->from( 'revision' )
-			->join( 'page', null, 'rev_page=page_id' )
-			->where( [ 'page_namespace' => $title->getNamespace(), 'page_title' => $title->getDBkey() ] )
-			->andWhere( $dbr->expr( 'rev_timestamp', '<=', $timestamp ) )
-			->orderBy( 'rev_timestamp', SelectQueryBuilder::SORT_DESC )
-			->caller( __METHOD__ )->fetchField();
+		$id = $dbr->selectField(
+			[ 'revision', 'page' ],
+			'rev_id',
+			[
+				'page_namespace' => $title->getNamespace(),
+				'page_title' => $title->getDBkey(),
+				'rev_timestamp <= ' . $dbr->addQuotes( $timestamp )
+			],
+			__METHOD__,
+			[ 'ORDER BY' => 'rev_timestamp DESC' ],
+			[ 'revision' => [ 'JOIN', 'rev_page=page_id' ] ]
+		);
 
 		return $id;
 	}
@@ -162,7 +159,7 @@ class BenchmarkParse extends Maintenance {
 	 */
 	private function runParser( RevisionRecord $revision ) {
 		$content = $revision->getContent( SlotRecord::MAIN );
-		$contentRenderer = $this->getServiceContainer()->getContentRenderer();
+		$contentRenderer = MediaWikiServices::getInstance()->getContentRenderer();
 		// @phan-suppress-next-line PhanTypeMismatchArgumentNullable getId does not return null here
 		$contentRenderer->getParserOutput( $content, $revision->getPage(), $revision->getId() );
 		if ( $this->clearLinkCache ) {
@@ -186,7 +183,7 @@ class BenchmarkParse extends Maintenance {
 		bool &$skip,
 		?RevisionRecord &$revRecord
 	): bool {
-		$title = Title::newFromLinkTarget( $titleTarget );
+		$title = Title::castFromLinkTarget( $titleTarget );
 
 		$pdbk = $title->getPrefixedDBkey();
 		if ( !isset( $this->idCache[$pdbk] ) ) {
@@ -194,7 +191,7 @@ class BenchmarkParse extends Maintenance {
 			$this->idCache[$pdbk] = $proposedId;
 		}
 		if ( $this->idCache[$pdbk] !== false ) {
-			$revLookup = $this->getServiceContainer()->getRevisionLookup();
+			$revLookup = MediaWikiServices::getInstance()->getRevisionLookup();
 			$revRecord = $revLookup->getRevisionById( $this->idCache[$pdbk] );
 		}
 
@@ -202,7 +199,5 @@ class BenchmarkParse extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = BenchmarkParse::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

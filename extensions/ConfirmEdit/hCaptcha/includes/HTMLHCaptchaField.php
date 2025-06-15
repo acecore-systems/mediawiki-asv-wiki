@@ -2,8 +2,8 @@
 
 namespace MediaWiki\Extension\ConfirmEdit\hCaptcha;
 
-use MediaWiki\Html\Html;
-use MediaWiki\HTMLForm\HTMLFormField;
+use Html;
+use HTMLFormField;
 
 class HTMLHCaptchaField extends HTMLFormField {
 	/** @var string Public key parameter to be passed to hCaptcha. */

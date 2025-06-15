@@ -23,13 +23,11 @@
  * @todo Document
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
+use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\IReadableDatabase;
-use Wikimedia\Rdbms\SelectQueryBuilder;
+use Wikimedia\Rdbms\ILBFactory;
 
 /**
  * Maintenance script that rebuilds recent changes from scratch.
@@ -69,11 +67,12 @@ class RebuildRecentchanges extends Maintenance {
 			$this->fatalError( "Both 'from' and 'to' must be given, or neither" );
 		}
 
-		$this->rebuildRecentChangesTablePass1();
-		$this->rebuildRecentChangesTablePass2();
-		$this->rebuildRecentChangesTablePass3();
-		$this->rebuildRecentChangesTablePass4();
-		$this->rebuildRecentChangesTablePass5();
+		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
+		$this->rebuildRecentChangesTablePass1( $lbFactory );
+		$this->rebuildRecentChangesTablePass2( $lbFactory );
+		$this->rebuildRecentChangesTablePass3( $lbFactory );
+		$this->rebuildRecentChangesTablePass4( $lbFactory );
+		$this->rebuildRecentChangesTablePass5( $lbFactory );
 		if ( !( $this->hasOption( 'from' ) && $this->hasOption( 'to' ) ) ) {
 			$this->purgeFeeds();
 		}
@@ -82,10 +81,12 @@ class RebuildRecentchanges extends Maintenance {
 
 	/**
 	 * Rebuild pass 1: Insert `recentchanges` entries for page revisions.
+	 *
+	 * @param ILBFactory $lbFactory
 	 */
-	private function rebuildRecentChangesTablePass1() {
-		$dbw = $this->getPrimaryDB();
-		$commentStore = $this->getServiceContainer()->getCommentStore();
+	private function rebuildRecentChangesTablePass1( ILBFactory $lbFactory ) {
+		$dbw = $this->getDB( DB_PRIMARY );
+		$commentStore = CommentStore::getStore();
 
 		if ( $this->hasOption( 'from' ) && $this->hasOption( 'to' ) ) {
 			$this->cutoffFrom = (int)wfTimestamp( TS_UNIX, $this->getOption( 'from' ) );
@@ -105,61 +106,54 @@ class RebuildRecentchanges extends Maintenance {
 		}
 
 		$this->output( "Clearing recentchanges table for time range...\n" );
-		$rcids = $dbw->newSelectQueryBuilder()
-			->select( 'rc_id' )
-			->from( 'recentchanges' )
-			->where( $dbw->expr( 'rc_timestamp', '>', $dbw->timestamp( $this->cutoffFrom ) ) )
-			->andWhere( $dbw->expr( 'rc_timestamp', '<', $dbw->timestamp( $this->cutoffTo ) ) )
-			->caller( __METHOD__ )->fetchFieldValues();
+		$rcids = $dbw->selectFieldValues(
+			'recentchanges',
+			'rc_id',
+			[
+				'rc_timestamp > ' . $dbw->addQuotes( $dbw->timestamp( $this->cutoffFrom ) ),
+				'rc_timestamp < ' . $dbw->addQuotes( $dbw->timestamp( $this->cutoffTo ) )
+			],
+			__METHOD__
+		);
 		foreach ( array_chunk( $rcids, $this->getBatchSize() ) as $rcidBatch ) {
-			$dbw->newDeleteQueryBuilder()
-				->deleteFrom( 'recentchanges' )
-				->where( [ 'rc_id' => $rcidBatch ] )
-				->caller( __METHOD__ )->execute();
-			$this->waitForReplication();
+			$dbw->delete( 'recentchanges', [ 'rc_id' => $rcidBatch ], __METHOD__ );
+			$lbFactory->waitForReplication();
 		}
 
 		$this->output( "Loading from page and revision tables...\n" );
 
-		$res = $dbw->newSelectQueryBuilder()
-			->select(
-				[
-					'rev_timestamp',
-					'rev_minor_edit',
-					'rev_id',
-					'rev_deleted',
-					'page_namespace',
-					'page_title',
-					'page_is_new',
-					'page_id',
-					'rev_comment_text' => 'comment_rev_comment.comment_text',
-					'rev_comment_data' => 'comment_rev_comment.comment_data',
-					'rev_comment_cid' => 'comment_rev_comment.comment_id',
-					'rev_user' => 'actor_rev_user.actor_user',
-					'rev_user_text' => 'actor_rev_user.actor_name',
-					'rev_actor' => 'rev_actor',
-				]
-			)
-			->from( 'revision' )
-			->join( 'page', null, 'rev_page=page_id' )
-			->join( 'comment', 'comment_rev_comment', 'comment_rev_comment.comment_id = rev_comment_id' )
-			->join( 'actor', 'actor_rev_user', 'actor_rev_user.actor_id = rev_actor' )
-			->where(
-				[
-					$dbw->expr( 'rev_timestamp', '>', $dbw->timestamp( $this->cutoffFrom ) ),
-					$dbw->expr( 'rev_timestamp', '<', $dbw->timestamp( $this->cutoffTo ) )
-				]
-			)
-			->orderBy( 'rev_timestamp', SelectQueryBuilder::SORT_DESC )
-			->caller( __METHOD__ )->fetchResultSet();
+		$commentQuery = $commentStore->getJoin( 'rev_comment' );
+		$actorQuery = ActorMigration::newMigration()->getJoin( 'rev_user' );
+		$res = $dbw->select(
+			[ 'revision', 'page' ] + $commentQuery['tables'] + $actorQuery['tables'],
+			[
+				'rev_timestamp',
+				'rev_minor_edit',
+				'rev_id',
+				'rev_deleted',
+				'page_namespace',
+				'page_title',
+				'page_is_new',
+				'page_id'
+			] + $commentQuery['fields'] + $actorQuery['fields'],
+			[
+				'rev_timestamp > ' . $dbw->addQuotes( $dbw->timestamp( $this->cutoffFrom ) ),
+				'rev_timestamp < ' . $dbw->addQuotes( $dbw->timestamp( $this->cutoffTo ) )
+			],
+			__METHOD__,
+			[ 'ORDER BY' => 'rev_timestamp DESC' ],
+			[
+				'page' => [ 'JOIN', 'rev_page=page_id' ],
+			] + $commentQuery['joins'] + $actorQuery['joins']
+		);
 
 		$this->output( "Inserting from page and revision tables...\n" );
 		$inserted = 0;
 		foreach ( $res as $row ) {
 			$comment = $commentStore->getComment( 'rev_comment', $row );
-			$dbw->newInsertQueryBuilder()
-				->insertInto( 'recentchanges' )
-				->row( [
+			$dbw->insert(
+				'recentchanges',
+				[
 					'rc_timestamp' => $row->rev_timestamp,
 					'rc_actor' => $row->rev_actor,
 					'rc_namespace' => $row->page_namespace,
@@ -173,18 +167,20 @@ class RebuildRecentchanges extends Maintenance {
 					'rc_type' => $row->page_is_new ? RC_NEW : RC_EDIT,
 					'rc_source' => $row->page_is_new ? RecentChange::SRC_NEW : RecentChange::SRC_EDIT,
 					'rc_deleted' => $row->rev_deleted
-					] + $commentStore->insert( $dbw, 'rc_comment', $comment ) )
-				->caller( __METHOD__ )->execute();
+				] + $commentStore->insert( $dbw, 'rc_comment', $comment ),
+				__METHOD__
+			);
 
 			$rcid = $dbw->insertId();
-			$dbw->newUpdateQueryBuilder()
-				->update( 'change_tag' )
-				->set( [ 'ct_rc_id' => $rcid ] )
-				->where( [ 'ct_rev_id' => $row->rev_id ] )
-				->caller( __METHOD__ )->execute();
+			$dbw->update(
+				'change_tag',
+				[ 'ct_rc_id' => $rcid ],
+				[ 'ct_rev_id' => $row->rev_id ],
+				__METHOD__
+			);
 
 			if ( ( ++$inserted % $this->getBatchSize() ) == 0 ) {
-				$this->waitForReplication();
+				$lbFactory->waitForReplication();
 			}
 		}
 	}
@@ -192,20 +188,25 @@ class RebuildRecentchanges extends Maintenance {
 	/**
 	 * Rebuild pass 2: Enhance entries for page revisions with references to the previous revision
 	 * (rc_last_oldid, rc_new etc.) and size differences (rc_old_len, rc_new_len).
+	 *
+	 * @param ILBFactory $lbFactory
 	 */
-	private function rebuildRecentChangesTablePass2() {
-		$dbw = $this->getPrimaryDB();
+	private function rebuildRecentChangesTablePass2( ILBFactory $lbFactory ) {
+		$dbw = $this->getDB( DB_PRIMARY );
 
 		$this->output( "Updating links and size differences...\n" );
 
 		# Fill in the rc_last_oldid field, which points to the previous edit
-		$res = $dbw->newSelectQueryBuilder()
-			->select( [ 'rc_cur_id', 'rc_this_oldid', 'rc_timestamp' ] )
-			->from( 'recentchanges' )
-			->where( $dbw->expr( 'rc_timestamp', '>', $dbw->timestamp( $this->cutoffFrom ) ) )
-			->andWhere( $dbw->expr( 'rc_timestamp', '<', $dbw->timestamp( $this->cutoffTo ) ) )
-			->orderBy( [ 'rc_cur_id', 'rc_timestamp' ] )
-			->caller( __METHOD__ )->fetchResultSet();
+		$res = $dbw->select(
+			'recentchanges',
+			[ 'rc_cur_id', 'rc_this_oldid', 'rc_timestamp' ],
+			[
+				"rc_timestamp > " . $dbw->addQuotes( $dbw->timestamp( $this->cutoffFrom ) ),
+				"rc_timestamp < " . $dbw->addQuotes( $dbw->timestamp( $this->cutoffTo ) )
+			],
+			__METHOD__,
+			[ 'ORDER BY' => [ 'rc_cur_id', 'rc_timestamp' ] ]
+		);
 
 		$lastCurId = 0;
 		$lastOldId = 0;
@@ -219,12 +220,13 @@ class RebuildRecentchanges extends Maintenance {
 				$lastCurId = intval( $row->rc_cur_id );
 				$emit = $row->rc_timestamp;
 
-				$revRow = $dbw->newSelectQueryBuilder()
-					->select( [ 'rev_id', 'rev_len' ] )
-					->from( 'revision' )
-					->where( [ 'rev_page' => $lastCurId, $dbw->expr( 'rev_timestamp', '<', $emit ) ] )
-					->orderBy( 'rev_timestamp DESC' )
-					->caller( __METHOD__ )->fetchRow();
+				$revRow = $dbw->selectRow(
+					'revision',
+					[ 'rev_id', 'rev_len' ],
+					[ 'rev_page' => $lastCurId, "rev_timestamp < " . $dbw->addQuotes( $emit ) ],
+					__METHOD__,
+					[ 'ORDER BY' => 'rev_timestamp DESC' ]
+				);
 				if ( $revRow ) {
 					$lastOldId = intval( $revRow->rev_id );
 					# Grab the last text size if available
@@ -241,35 +243,36 @@ class RebuildRecentchanges extends Maintenance {
 				$this->output( "Uhhh, something wrong? No curid\n" );
 			} else {
 				# Grab the entry's text size
-				$size = (int)$dbw->newSelectQueryBuilder()
-					->select( 'rev_len' )
-					->from( 'revision' )
-					->where( [ 'rev_id' => $row->rc_this_oldid ] )
-					->caller( __METHOD__ )->fetchField();
+				$size = (int)$dbw->selectField(
+					'revision',
+					'rev_len',
+					[ 'rev_id' => $row->rc_this_oldid ],
+					__METHOD__
+				);
 
-				$dbw->newUpdateQueryBuilder()
-					->update( 'recentchanges' )
-					->set( [
+				$dbw->update(
+					'recentchanges',
+					[
 						'rc_last_oldid' => $lastOldId,
 						'rc_new' => $new,
 						'rc_type' => $new ? RC_NEW : RC_EDIT,
 						'rc_source' => $new === 1 ? RecentChange::SRC_NEW : RecentChange::SRC_EDIT,
 						'rc_old_len' => $lastSize,
 						'rc_new_len' => $size,
-					] )
-					->where( [
+					],
+					[
 						'rc_cur_id' => $lastCurId,
 						'rc_this_oldid' => $row->rc_this_oldid,
-						// index usage
-						'rc_timestamp' => $row->rc_timestamp,
-					] )
-					->caller( __METHOD__ )->execute();
+						'rc_timestamp' => $row->rc_timestamp // index usage
+					],
+					__METHOD__
+				);
 
 				$lastOldId = intval( $row->rc_this_oldid );
 				$lastSize = $size;
 
 				if ( ( ++$updated % $this->getBatchSize() ) == 0 ) {
-					$this->waitForReplication();
+					$lbFactory->waitForReplication();
 				}
 			}
 		}
@@ -277,59 +280,54 @@ class RebuildRecentchanges extends Maintenance {
 
 	/**
 	 * Rebuild pass 3: Insert `recentchanges` entries for action logs.
+	 *
+	 * @param ILBFactory $lbFactory
 	 */
-	private function rebuildRecentChangesTablePass3() {
+	private function rebuildRecentChangesTablePass3( ILBFactory $lbFactory ) {
 		global $wgLogRestrictions, $wgFilterLogTypes;
 
 		$dbw = $this->getDB( DB_PRIMARY );
-		$commentStore = $this->getServiceContainer()->getCommentStore();
-		$nonRCLogs = array_merge(
-			array_keys( $wgLogRestrictions ),
+		$commentStore = CommentStore::getStore();
+		$nonRCLogs = array_merge( array_keys( $wgLogRestrictions ),
 			array_keys( $wgFilterLogTypes ),
-			[ 'create' ]
-		);
+			[ 'create' ] );
 
 		$this->output( "Loading from user and logging tables...\n" );
 
-		$res = $dbw->newSelectQueryBuilder()
-			->select(
-				[
-					'log_timestamp',
-					'log_actor',
-					'log_namespace',
-					'log_title',
-					'log_page',
-					'log_type',
-					'log_action',
-					'log_id',
-					'log_params',
-					'log_deleted',
-					'log_comment_text' => 'comment_log_comment.comment_text',
-					'log_comment_data' => 'comment_log_comment.comment_data',
-					'log_comment_cid' => 'comment_log_comment.comment_id',
-				]
-			)
-			->from( 'logging' )
-			->join( 'comment', 'comment_log_comment', 'comment_log_comment.comment_id = log_comment_id' )
-			->where(
-				[
-					$dbw->expr( 'log_timestamp', '>', $dbw->timestamp( $this->cutoffFrom ) ),
-					$dbw->expr( 'log_timestamp', '<', $dbw->timestamp( $this->cutoffTo ) ),
-					// Some logs don't go in RC since they are private, or are included in the filterable log types.
-					'log_type' => array_diff( LogPage::validTypes(), $nonRCLogs ),
-				]
-			)
-			->orderBy( [ 'log_timestamp DESC', 'log_id DESC' ] )
-			->caller( __METHOD__ )->fetchResultSet();
+		$commentQuery = $commentStore->getJoin( 'log_comment' );
+		$res = $dbw->select(
+			[ 'logging' ] + $commentQuery['tables'],
+			[
+				'log_timestamp',
+				'log_actor',
+				'log_namespace',
+				'log_title',
+				'log_page',
+				'log_type',
+				'log_action',
+				'log_id',
+				'log_params',
+				'log_deleted'
+			] + $commentQuery['fields'],
+			[
+				'log_timestamp > ' . $dbw->addQuotes( $dbw->timestamp( $this->cutoffFrom ) ),
+				'log_timestamp < ' . $dbw->addQuotes( $dbw->timestamp( $this->cutoffTo ) ),
+				// Some logs don't go in RC since they are private, or are included in the filterable log types.
+				'log_type' => array_diff( LogPage::validTypes(), $nonRCLogs ),
+			],
+			__METHOD__,
+			[ 'ORDER BY' => 'log_timestamp DESC' ],
+			$commentQuery['joins']
+		);
 
 		$field = $dbw->fieldInfo( 'recentchanges', 'rc_cur_id' );
 
 		$inserted = 0;
 		foreach ( $res as $row ) {
 			$comment = $commentStore->getComment( 'log_comment', $row );
-			$dbw->newInsertQueryBuilder()
-				->insertInto( 'recentchanges' )
-				->row( [
+			$dbw->insert(
+				'recentchanges',
+				[
 					'rc_timestamp' => $row->log_timestamp,
 					'rc_actor' => $row->log_actor,
 					'rc_namespace' => $row->log_namespace,
@@ -350,18 +348,20 @@ class RebuildRecentchanges extends Maintenance {
 					'rc_logid' => $row->log_id,
 					'rc_params' => $row->log_params,
 					'rc_deleted' => $row->log_deleted
-					] + $commentStore->insert( $dbw, 'rc_comment', $comment ) )
-				->caller( __METHOD__ )->execute();
+				] + $commentStore->insert( $dbw, 'rc_comment', $comment ),
+				__METHOD__
+			);
 
 			$rcid = $dbw->insertId();
-			$dbw->newUpdateQueryBuilder()
-				->update( 'change_tag' )
-				->set( [ 'ct_rc_id' => $rcid ] )
-				->where( [ 'ct_log_id' => $row->log_id ] )
-				->caller( __METHOD__ )->execute();
+			$dbw->update(
+				'change_tag',
+				[ 'ct_rc_id' => $rcid ],
+				[ 'ct_log_id' => $row->log_id ],
+				__METHOD__
+			);
 
 			if ( ( ++$inserted % $this->getBatchSize() ) == 0 ) {
-				$this->waitForReplication();
+				$lbFactory->waitForReplication();
 			}
 		}
 	}
@@ -369,7 +369,7 @@ class RebuildRecentchanges extends Maintenance {
 	/**
 	 * Find rc_id values that have a user with one of the specified groups
 	 *
-	 * @param IReadableDatabase $db
+	 * @param IDatabase $db
 	 * @param string[] $groups
 	 * @param array $conds Extra query conditions
 	 * @return int[]
@@ -378,35 +378,39 @@ class RebuildRecentchanges extends Maintenance {
 		if ( !count( $groups ) ) {
 			return [];
 		}
-		return $db->newSelectQueryBuilder()
-			->select( 'rc_id' )
-			->distinct()
-			->from( 'recentchanges' )
-			->join( 'actor', null, 'actor_id=rc_actor' )
-			->join( 'user_groups', null, 'ug_user=actor_user' )
-			->where( $conds )
-			->andWhere( [
-				$db->expr( 'rc_timestamp', '>', $db->timestamp( $this->cutoffFrom ) ),
-				$db->expr( 'rc_timestamp', '<', $db->timestamp( $this->cutoffTo ) ),
+		return $db->selectFieldValues(
+			[ 'recentchanges', 'actor', 'user_groups' ],
+			'rc_id',
+			$conds + [
+				"rc_timestamp > " . $db->addQuotes( $db->timestamp( $this->cutoffFrom ) ),
+				"rc_timestamp < " . $db->addQuotes( $db->timestamp( $this->cutoffTo ) ),
 				'ug_group' => $groups
-			] )
-			->caller( __METHOD__ )->fetchFieldValues();
+			],
+			__METHOD__,
+			[ 'DISTINCT' ],
+			[
+				'actor' => [ 'JOIN', 'actor_id=rc_actor' ],
+				'user_groups' => [ 'JOIN', 'ug_user=actor_user' ]
+			]
+		);
 	}
 
 	/**
 	 * Rebuild pass 4: Mark bot and autopatrolled entries.
+	 *
+	 * @param ILBFactory $lbFactory
 	 */
-	private function rebuildRecentChangesTablePass4() {
+	private function rebuildRecentChangesTablePass4( ILBFactory $lbFactory ) {
 		global $wgUseRCPatrol, $wgUseNPPatrol, $wgUseFilePatrol, $wgMiserMode;
 
-		$dbw = $this->getPrimaryDB();
+		$dbw = $this->getDB( DB_PRIMARY );
 
 		# @FIXME: recognize other bot account groups (not the same as users with 'bot' rights)
 		# @NOTE: users with 'bot' rights choose when edits are bot edits or not. That information
 		# may be lost at this point (aside from joining on the patrol log table entries).
 		$botgroups = [ 'bot' ];
 		$autopatrolgroups = ( $wgUseRCPatrol || $wgUseNPPatrol || $wgUseFilePatrol ) ?
-			$this->getServiceContainer()->getGroupPermissionsLookup()
+			MediaWikiServices::getInstance()->getGroupPermissionsLookup()
 			->getGroupsWithPermission( 'autopatrol' ) : [];
 
 		# Flag our recent bot edits
@@ -418,12 +422,13 @@ class RebuildRecentchanges extends Maintenance {
 			$rcids = $this->findRcIdsWithGroups( $dbw, $botgroups );
 
 			foreach ( array_chunk( $rcids, $this->getBatchSize() ) as $rcidBatch ) {
-				$dbw->newUpdateQueryBuilder()
-					->update( 'recentchanges' )
-					->set( [ 'rc_bot' => 1 ] )
-					->where( [ 'rc_id' => $rcidBatch ] )
-					->caller( __METHOD__ )->execute();
-				$this->waitForReplication();
+				$dbw->update(
+					'recentchanges',
+					[ 'rc_bot' => 1 ],
+					[ 'rc_id' => $rcidBatch ],
+					__METHOD__
+				);
+				$lbFactory->waitForReplication();
 			}
 		}
 
@@ -435,22 +440,23 @@ class RebuildRecentchanges extends Maintenance {
 			if ( !$wgUseRCPatrol ) {
 				$subConds = [];
 				if ( $wgUseNPPatrol ) {
-					$subConds[] = $dbw->expr( 'rc_source', '=', RecentChange::SRC_NEW );
+					$subConds[] = 'rc_source = ' . $dbw->addQuotes( RecentChange::SRC_NEW );
 				}
 				if ( $wgUseFilePatrol ) {
-					$subConds[] = $dbw->expr( 'rc_log_type', '=', 'upload' );
+					$subConds[] = 'rc_log_type = ' . $dbw->addQuotes( 'upload' );
 				}
 				$conds[] = $dbw->makeList( $subConds, IDatabase::LIST_OR );
 			}
 
 			$rcids = $this->findRcIdsWithGroups( $dbw, $autopatrolgroups, $conds );
 			foreach ( array_chunk( $rcids, $this->getBatchSize() ) as $rcidBatch ) {
-				$dbw->newUpdateQueryBuilder()
-					->update( 'recentchanges' )
-					->set( [ 'rc_patrolled' => 2 ] )
-					->where( [ 'rc_id' => $rcidBatch ] )
-					->caller( __METHOD__ )->execute();
-				$this->waitForReplication();
+				$dbw->update(
+					'recentchanges',
+					[ 'rc_patrolled' => 2 ],
+					[ 'rc_id' => $rcidBatch ],
+					__METHOD__
+				);
+				$lbFactory->waitForReplication();
 			}
 		}
 	}
@@ -458,23 +464,26 @@ class RebuildRecentchanges extends Maintenance {
 	/**
 	 * Rebuild pass 5: Delete duplicate entries where we generate both a page revision and a log
 	 * entry for a single action (upload, move, protect, import, etc.).
+	 *
+	 * @param ILBFactory $lbFactory
 	 */
-	private function rebuildRecentChangesTablePass5() {
-		$dbw = $this->getPrimaryDB();
+	private function rebuildRecentChangesTablePass5( ILBFactory $lbFactory ) {
+		$dbw = $this->getDB( DB_PRIMARY );
 
 		$this->output( "Removing duplicate revision and logging entries...\n" );
 
-		$res = $dbw->newSelectQueryBuilder()
-			->select( [ 'ls_value', 'ls_log_id' ] )
-			->from( 'logging' )
-			->join( 'log_search', null, 'ls_log_id = log_id' )
-			->where( [
+		$res = $dbw->select(
+			[ 'logging', 'log_search' ],
+			[ 'ls_value', 'ls_log_id' ],
+			[
+				'ls_log_id = log_id',
 				'ls_field' => 'associated_rev_id',
-				$dbw->expr( 'log_type', '!=', 'create' ),
-				$dbw->expr( 'log_timestamp', '>', $dbw->timestamp( $this->cutoffFrom ) ),
-				$dbw->expr( 'log_timestamp', '<', $dbw->timestamp( $this->cutoffTo ) ),
-			] )
-			->caller( __METHOD__ )->fetchResultSet();
+				'log_type != ' . $dbw->addQuotes( 'create' ),
+				'log_timestamp > ' . $dbw->addQuotes( $dbw->timestamp( $this->cutoffFrom ) ),
+				'log_timestamp < ' . $dbw->addQuotes( $dbw->timestamp( $this->cutoffTo ) ),
+			],
+			__METHOD__
+		);
 
 		$updates = 0;
 		foreach ( $res as $row ) {
@@ -482,20 +491,22 @@ class RebuildRecentchanges extends Maintenance {
 			$log_id = $row->ls_log_id;
 
 			// Mark the logging row as having an associated rev id
-			$dbw->newUpdateQueryBuilder()
-				->update( 'recentchanges' )
-				->set( [ 'rc_this_oldid' => $rev_id ] )
-				->where( [ 'rc_logid' => $log_id ] )
-				->caller( __METHOD__ )->execute();
+			$dbw->update(
+				'recentchanges',
+				/*SET*/ [ 'rc_this_oldid' => $rev_id ],
+				/*WHERE*/ [ 'rc_logid' => $log_id ],
+				__METHOD__
+			);
 
 			// Delete the revision row
-			$dbw->newDeleteQueryBuilder()
-				->deleteFrom( 'recentchanges' )
-				->where( [ 'rc_this_oldid' => $rev_id, 'rc_logid' => 0 ] )
-				->caller( __METHOD__ )->execute();
+			$dbw->delete(
+				'recentchanges',
+				/*WHERE*/ [ 'rc_this_oldid' => $rev_id, 'rc_logid' => 0 ],
+				__METHOD__
+			);
 
 			if ( ( ++$updates % $this->getBatchSize() ) == 0 ) {
-				$this->waitForReplication();
+				$lbFactory->waitForReplication();
 			}
 		}
 	}
@@ -508,14 +519,12 @@ class RebuildRecentchanges extends Maintenance {
 
 		$this->output( "Deleting feed timestamps.\n" );
 
-		$wanCache = $this->getServiceContainer()->getMainWANObjectCache();
+		$wanCache = MediaWikiServices::getInstance()->getMainWANObjectCache();
 		foreach ( $wgFeedClasses as $feed => $className ) {
 			$wanCache->delete( $wanCache->makeKey( 'rcfeed', $feed, 'timestamp' ) ); # Good enough for now.
 		}
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = RebuildRecentchanges::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

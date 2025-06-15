@@ -24,12 +24,6 @@ use MediaWiki\MediaWikiServices;
 
 /**
  * Pointer object for an item within a CGZ blob stored in the text table.
- *
- * WARNING: Objects of this class are serialized and permanently stored in the DB.
- * Do not change the name or visibility of any property!
- *
- * Note: the property visibility was changed in 2020 from public to protected.
- * This may cause problems in future.
  */
 class HistoryBlobStub {
 	/**
@@ -97,12 +91,13 @@ class HistoryBlobStub {
 		if ( isset( self::$blobCache[$this->mOldId] ) ) {
 			$obj = self::$blobCache[$this->mOldId];
 		} else {
-			$dbr = MediaWikiServices::getInstance()->getConnectionProvider()->getReplicaDatabase();
-			$row = $dbr->newSelectQueryBuilder()
-				->select( [ 'old_flags', 'old_text' ] )
-				->from( 'text' )
-				->where( [ 'old_id' => $this->mOldId ] )
-				->caller( __METHOD__ )->fetchRow();
+			$dbr = wfGetDB( DB_REPLICA );
+			$row = $dbr->selectRow(
+				'text',
+				[ 'old_flags', 'old_text' ],
+				[ 'old_id' => $this->mOldId ],
+				__METHOD__
+			);
 
 			if ( !$row ) {
 				return false;
@@ -127,21 +122,23 @@ class HistoryBlobStub {
 			if ( in_array( 'gzip', $flags ) ) {
 				// This shouldn't happen, but a bug in the compress script
 				// may at times gzip-compress a HistoryBlob object row.
-				$obj = HistoryBlobUtils::unserialize( gzinflate( $row->old_text ), true );
+				$obj = unserialize( gzinflate( $row->old_text ) );
 			} else {
-				$obj = HistoryBlobUtils::unserialize( $row->old_text, true );
+				$obj = unserialize( $row->old_text );
+			}
+
+			if ( !is_object( $obj ) ) {
+				// Correct for old double-serialization bug.
+				$obj = unserialize( $obj );
 			}
 
 			// Save this item for reference; if pulling many
 			// items in a row we'll likely use it again.
+			$obj->uncompress();
 			self::$blobCache = [ $this->mOldId => $obj ];
 		}
 
-		if ( method_exists( $obj, 'getItem' ) ) {
-			return $obj->getItem( $this->mHash );
-		}
-
-		return false;
+		return $obj->getItem( $this->mHash );
 	}
 
 	/**

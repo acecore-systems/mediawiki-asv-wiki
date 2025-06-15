@@ -1,17 +1,12 @@
 <?php
 
-namespace Wikimedia\Tests;
-
 use Liuggio\StatsdClient\Entity\StatsdData;
 use Liuggio\StatsdClient\Sender\SenderInterface;
-use MediaWikiCoversValidator;
-use PHPUnit\Framework\TestCase;
-use Wikimedia\Stats\SamplingStatsdClient;
 
 /**
- * @covers \Wikimedia\Stats\SamplingStatsdClient
+ * @covers SamplingStatsdClient
  */
-class SamplingStatsdClientTest extends TestCase {
+class SamplingStatsdClientTest extends PHPUnit\Framework\TestCase {
 
 	use MediaWikiCoversValidator;
 
@@ -27,6 +22,11 @@ class SamplingStatsdClientTest extends TestCase {
 	 * @dataProvider samplingDataProvider
 	 */
 	public function testSampling( $data, $sampleRate, $seed, $expectWrite ) {
+		if ( version_compare( PHP_VERSION, '8.3', '>=' ) ) {
+			// Use of deprecated MT_RAND_PHP - T352908
+			$this->markTestSkipped( "PHP 8.3 isn't supported for this test" );
+		}
+
 		$sender = $this->createMock( SenderInterface::class );
 		$sender->method( 'open' )->willReturn( true );
 		if ( $expectWrite ) {
@@ -35,9 +35,11 @@ class SamplingStatsdClientTest extends TestCase {
 		} else {
 			$sender->expects( $this->never() )->method( 'write' );
 		}
-
-		mt_srand( $seed );
-
+		if ( defined( 'MT_RAND_PHP' ) ) {
+			mt_srand( $seed, MT_RAND_PHP );
+		} else {
+			mt_srand( $seed );
+		}
 		$client = new SamplingStatsdClient( $sender );
 		$client->send( $data, $sampleRate );
 	}
@@ -54,12 +56,12 @@ class SamplingStatsdClientTest extends TestCase {
 
 		return [
 			// $data, $sampleRate, $seed, $expectWrite
-			[ $unsampled, 1, 0 /*0.54*/, true ],
-			[ $sampled, 1, 0 /*0.54*/, false ],
-			[ $sampled, 1, 7 /*0.07*/, true ],
-			[ $unsampled, 0.1, 0 /*0.54*/, false ],
-			[ $sampled, 0.5, 0 /*0.54*/, false ],
-			[ $sampled, 0.5, 7 /*0.07*/, false ],
+			[ $unsampled, 1, 0 /*0.44*/, true ],
+			[ $sampled, 1, 0 /*0.44*/, false ],
+			[ $sampled, 1, 4 /*0.03*/, true ],
+			[ $unsampled, 0.1, 0 /*0.44*/, false ],
+			[ $sampled, 0.5, 0 /*0.44*/, false ],
+			[ $sampled, 0.5, 4 /*0.03*/, false ],
 		];
 	}
 

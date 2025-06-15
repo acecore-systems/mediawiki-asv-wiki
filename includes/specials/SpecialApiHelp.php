@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:ApiHelp
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,41 +18,22 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
-use MediaWiki\Api\ApiHelp;
-use MediaWiki\Api\ApiMain;
-use MediaWiki\Api\ApiUsageException;
-use MediaWiki\Html\Html;
-use MediaWiki\SpecialPage\UnlistedSpecialPage;
-use MediaWiki\Utils\UrlUtils;
-
 /**
- * Redirect to help pages served by api.php.
- *
- * For situations where linking to full api.php URLs is not wanted
- * or not possible, e.g. in edit summaries.
+ * Special page to redirect to API help pages, for situations where linking to
+ * the api.php endpoint is not wanted.
  *
  * @ingroup SpecialPage
  */
 class SpecialApiHelp extends UnlistedSpecialPage {
-
-	private UrlUtils $urlUtils;
-
-	/**
-	 * @param UrlUtils $urlUtils
-	 */
-	public function __construct(
-		UrlUtils $urlUtils
-	) {
+	public function __construct() {
 		parent::__construct( 'ApiHelp' );
-		$this->urlUtils = $urlUtils;
 	}
 
 	public function execute( $par ) {
-		if ( !$par ) {
+		if ( empty( $par ) ) {
 			$par = 'main';
 		}
 
@@ -67,13 +50,13 @@ class SpecialApiHelp extends UnlistedSpecialPage {
 		// These are for linking from wikitext, since url parameters are a pain
 		// to do.
 		while ( true ) {
-			if ( str_starts_with( $par, 'sub/' ) ) {
+			if ( substr( $par, 0, 4 ) === 'sub/' ) {
 				$par = substr( $par, 4 );
 				$options['submodules'] = 1;
 				continue;
 			}
 
-			if ( str_starts_with( $par, 'rsub/' ) ) {
+			if ( substr( $par, 0, 5 ) === 'rsub/' ) {
 				$par = substr( $par, 5 );
 				$options['recursivesubmodules'] = 1;
 				continue;
@@ -87,7 +70,7 @@ class SpecialApiHelp extends UnlistedSpecialPage {
 			unset( $options['nolead'], $options['title'] );
 			// @phan-suppress-next-line PhanPossiblyUndeclaredVariable False positive
 			$options['modules'] = $moduleName;
-			$link = wfAppendQuery( (string)$this->urlUtils->expand( wfScript( 'api' ), PROTO_CURRENT ), $options );
+			$link = wfAppendQuery( wfExpandUrl( wfScript( 'api' ), PROTO_CURRENT ), $options );
 			$this->getOutput()->redirect( $link );
 			return;
 		}
@@ -111,6 +94,3 @@ class SpecialApiHelp extends UnlistedSpecialPage {
 		return true;
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialApiHelp::class, 'SpecialApiHelp' );

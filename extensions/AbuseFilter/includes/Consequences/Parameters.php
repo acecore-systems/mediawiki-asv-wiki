@@ -2,13 +2,13 @@
 
 namespace MediaWiki\Extension\AbuseFilter\Consequences;
 
-use MediaWiki\Extension\AbuseFilter\ActionSpecifier;
 use MediaWiki\Extension\AbuseFilter\Filter\ExistingFilter;
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\User\UserIdentity;
 
 /**
  * Immutable value object that provides "base" parameters to Consequence objects
+ * @todo Should use ActionSpecifier
  */
 class Parameters {
 	/** @var ExistingFilter */
@@ -17,22 +17,34 @@ class Parameters {
 	/** @var bool */
 	private $isGlobalFilter;
 
-	/** @var ActionSpecifier */
-	private $specifier;
+	/** @var UserIdentity */
+	private $user;
+
+	/** @var LinkTarget */
+	private $target;
+
+	/** @var string */
+	private $action;
 
 	/**
 	 * @param ExistingFilter $filter
 	 * @param bool $isGlobalFilter
-	 * @param ActionSpecifier $specifier
+	 * @param UserIdentity $user
+	 * @param LinkTarget $target
+	 * @param string $action
 	 */
 	public function __construct(
 		ExistingFilter $filter,
 		bool $isGlobalFilter,
-		ActionSpecifier $specifier
+		UserIdentity $user,
+		LinkTarget $target,
+		string $action
 	) {
 		$this->filter = $filter;
 		$this->isGlobalFilter = $isGlobalFilter;
-		$this->specifier = $specifier;
+		$this->user = $user;
+		$this->target = $target;
+		$this->action = $action;
 	}
 
 	/**
@@ -50,30 +62,23 @@ class Parameters {
 	}
 
 	/**
-	 * @return ActionSpecifier
-	 */
-	public function getActionSpecifier(): ActionSpecifier {
-		return $this->specifier;
-	}
-
-	/**
 	 * @return UserIdentity
 	 */
 	public function getUser(): UserIdentity {
-		return $this->specifier->getUser();
+		return $this->user;
 	}
 
 	/**
 	 * @return LinkTarget
 	 */
 	public function getTarget(): LinkTarget {
-		return $this->specifier->getTitle();
+		return $this->target;
 	}
 
 	/**
 	 * @return string
 	 */
 	public function getAction(): string {
-		return $this->specifier->getAction();
+		return $this->action;
 	}
 }

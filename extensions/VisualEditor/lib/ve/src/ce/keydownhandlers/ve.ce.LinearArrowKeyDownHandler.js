@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable linear arrow key down handler
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /* istanbul ignore next */
@@ -39,29 +39,19 @@ ve.ce.LinearArrowKeyDownHandler.static.supportedSelections = [ 'linear' ];
  * @inheritdoc
  */
 ve.ce.LinearArrowKeyDownHandler.static.execute = function ( surface, e ) {
-	const isBlockMove = e.keyCode === OO.ui.Keys.UP || e.keyCode === OO.ui.Keys.DOWN ||
+	var isBlockMove = e.keyCode === OO.ui.Keys.UP || e.keyCode === OO.ui.Keys.DOWN ||
 			e.keyCode === OO.ui.Keys.PAGEUP || e.keyCode === OO.ui.Keys.PAGEDOWN ||
 			e.keyCode === OO.ui.Keys.HOME || e.keyCode === OO.ui.Keys.END,
 		keyBlockDirection = e.keyCode === OO.ui.Keys.DOWN || e.keyCode === OO.ui.Keys.PAGEDOWN || e.keyCode === OO.ui.Keys.END ? 1 : -1,
+		range = surface.model.getSelection().getRange(),
 		activeNode = surface.getActiveNode();
-	let range = surface.model.getSelection().getRange();
 
 	// TODO: onDocumentKeyDown did this already
 	surface.surfaceObserver.stopTimerLoop();
 	// TODO: onDocumentKeyDown did this already
 	surface.surfaceObserver.pollOnce();
 
-	function moveOffFocusableNode( focusableRange, dir ) {
-		return surface.model.getDocument().getRelativeRange(
-			focusableRange,
-			dir,
-			'character',
-			e.shiftKey,
-			activeNode && ( e.shiftKey || activeNode.trapsCursor() ) ? activeNode.getRange() : null
-		);
-	}
-
-	let direction, directionality;
+	var direction, directionality;
 	if ( surface.focusedBlockSlug ) {
 		// Block level selection, so directionality is just css directionality
 		if ( isBlockMove ) {
@@ -77,7 +67,13 @@ ve.ce.LinearArrowKeyDownHandler.static.execute = function ( surface, e ) {
 				direction = 1;
 			}
 		}
-		range = moveOffFocusableNode( range, direction );
+		range = surface.model.getDocument().getRelativeRange(
+			range,
+			direction,
+			'character',
+			e.shiftKey,
+			activeNode && ( e.shiftKey || activeNode.trapsCursor() ) ? activeNode.getRange() : null
+		);
 		surface.model.setLinearSelection( range );
 		e.preventDefault();
 		return true;
@@ -98,6 +94,21 @@ ve.ce.LinearArrowKeyDownHandler.static.execute = function ( surface, e ) {
 			}
 		}
 
+		if ( !surface.focusedNode.isContent() ) {
+			// Block focusable node: move back/forward in DM (and DOM) and preventDefault
+			range = surface.model.getDocument().getRelativeRange(
+				range,
+				direction,
+				'character',
+				e.shiftKey,
+				activeNode && ( e.shiftKey || activeNode.trapsCursor() ) ? activeNode.getRange() : null
+			);
+			surface.model.setLinearSelection( range );
+			e.preventDefault();
+			return true;
+		}
+		// Else inline focusable node
+
 		if ( e.shiftKey ) {
 			// There is no DOM range to expand (because the selection is faked), so
 			// use "collapse to focus - observe - expand". Define "focus" to be the
@@ -108,16 +119,8 @@ ve.ce.LinearArrowKeyDownHandler.static.execute = function ( surface, e ) {
 			if ( direction === -1 ^ range.isBackwards() ) {
 				range = range.flip();
 			}
-			let observationRange = new ve.Range( range.to );
-
-			if ( !surface.focusedNode.isContent() ) {
-				// Block focusable node: move the observation range to an adjacent content offset
-				observationRange = moveOffFocusableNode( observationRange, direction );
-				observationRange = new ve.Range( observationRange.to );
-			}
-			surface.model.setLinearSelection( observationRange );
+			surface.model.setLinearSelection( new ve.Range( range.to ) );
 		} else {
-			range = moveOffFocusableNode( range, direction );
 			// Move to start/end of node in the model in DM (and DOM)
 			range = new ve.Range( direction === 1 ? range.end : range.start );
 			surface.model.setLinearSelection( range );
@@ -131,7 +134,7 @@ ve.ce.LinearArrowKeyDownHandler.static.execute = function ( surface, e ) {
 	}
 	// Else keep DM range and DOM selection as-is
 
-	let collapseNode, collapseOffset;
+	var collapseNode, collapseOffset;
 	if ( e.shiftKey && !ve.supportsSelectionExtend && range.isBackwards() ) {
 		// If the browser doesn't support backwards selections, but the dm range
 		// is backwards, then use "collapse to anchor - observe - expand".
@@ -146,29 +149,29 @@ ve.ce.LinearArrowKeyDownHandler.static.execute = function ( surface, e ) {
 	// Else don't collapse the selection
 
 	if ( collapseNode ) {
-		const nativeRange = surface.getElementDocument().createRange();
+		var nativeRange = surface.getElementDocument().createRange();
 		nativeRange.setStart( collapseNode, collapseOffset );
 		nativeRange.setEnd( collapseNode, collapseOffset );
 		surface.nativeSelection.removeAllRanges();
 		surface.nativeSelection.addRange( nativeRange );
 	}
 
-	const startFocusNode = surface.nativeSelection.focusNode;
-	const startFocusOffset = surface.nativeSelection.focusOffset;
+	var startFocusNode = surface.nativeSelection.focusNode;
+	var startFocusOffset = surface.nativeSelection.focusOffset;
 
 	// Re-expand (or fixup) the selection after the native action, if necessary
 	surface.eventSequencer.afterOne( { keydown: function () {
 		// Support: Chrome
 		// Chrome bug lets you cursor into a multi-line contentEditable=false with up/down…
-		const viewNode = $( surface.nativeSelection.focusNode ).closest( '.ve-ce-leafNode,.ve-ce-branchNode' ).data( 'view' );
+		var viewNode = $( surface.nativeSelection.focusNode ).closest( '.ve-ce-leafNode,.ve-ce-branchNode' ).data( 'view' );
 		if ( !viewNode ) {
 			// Irrelevant selection (or none)
 			return;
 		}
 
-		let newRange;
+		var newRange;
 		if ( viewNode.isFocusable() ) {
-			let afterDirection;
+			var afterDirection;
 			// We've landed in a focusable node; fixup the range
 			if ( isBlockMove ) {
 				// The intended direction is clear, even if the cursor did not move

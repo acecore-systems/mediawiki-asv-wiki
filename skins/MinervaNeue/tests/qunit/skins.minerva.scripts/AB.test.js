@@ -1,27 +1,31 @@
-( function () {
+( function ( M ) {
 
-	const AB = require( 'skins.minerva.scripts/AB.js' );
-	const defaultConfig = {
-		testName: 'WME.MinervaABTest',
-		samplingRate: 0.5,
-		sessionId: mw.user.generateRandomSessionId()
-	};
+	var AB = require( '../../../resources/skins.minerva.scripts/AB.js' ),
+		util = M.require( 'mobile.startup' ).util,
+		defaultConfig = {
+			testName: 'WME.MinervaABTest',
+			samplingRate: 0.5,
+			sessionId: mw.user.generateRandomSessionId()
+		};
 
 	QUnit.module( 'Minerva AB-test' );
 
-	QUnit.test( 'Bucketing test', ( assert ) => {
-		const userBuckets = {
-			unsampled: 0,
-			control: 0,
-			treatment: 0
-		};
-		const maxUsers = 1000;
+	QUnit.test( 'Bucketing test', function ( assert ) {
+		var userBuckets = {
+				unsampled: 0,
+				control: 0,
+				treatment: 0
+			},
+			maxUsers = 1000,
+			bucketingTest,
+			config,
+			i;
 
-		for ( let i = 0; i < maxUsers; i++ ) {
-			const config = Object.assign( {}, defaultConfig, {
+		for ( i = 0; i < maxUsers; i++ ) {
+			config = util.extend( {}, defaultConfig, {
 				sessionId: mw.user.generateRandomSessionId()
 			} );
-			const bucketingTest = new AB( config );
+			bucketingTest = new AB( config );
 			if ( bucketingTest.isControl() ) {
 				++userBuckets.control;
 			} else if ( bucketingTest.isTreatment() ) {
@@ -49,4 +53,4 @@
 			true, 'test new treatment group is about 25% (' + userBuckets.treatment / 10 + '%)' );
 	} );
 
-}() );
+}( mw.mobileFrontend ) );

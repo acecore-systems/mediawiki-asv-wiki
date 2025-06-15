@@ -20,12 +20,9 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
 use MediaWiki\Cache\LinkBatchFactory;
 use MediaWiki\Linker\LinksMigration;
 use MediaWiki\ParamValidator\TypeDef\NamespaceDef;
-use MediaWiki\Title\Title;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\TypeDef\IntegerDef;
 
@@ -39,17 +36,23 @@ class ApiQueryLinks extends ApiQueryGeneratorBase {
 	private const LINKS = 'links';
 	private const TEMPLATES = 'templates';
 
-	private string $table;
-	private string $prefix;
-	private string $titlesParam;
-	private string $helpUrl;
+	private $table, $prefix, $titlesParam, $helpUrl;
 
-	private LinkBatchFactory $linkBatchFactory;
-	private LinksMigration $linksMigration;
+	/** @var LinkBatchFactory */
+	private $linkBatchFactory;
 
+	/** @var LinksMigration */
+	private $linksMigration;
+
+	/**
+	 * @param ApiQuery $query
+	 * @param string $moduleName
+	 * @param LinkBatchFactory $linkBatchFactory
+	 * @param LinksMigration $linksMigration
+	 */
 	public function __construct(
 		ApiQuery $query,
-		string $moduleName,
+		$moduleName,
 		LinkBatchFactory $linkBatchFactory,
 		LinksMigration $linksMigration
 	) {
@@ -99,7 +102,7 @@ class ApiQueryLinks extends ApiQueryGeneratorBase {
 		$params = $this->extractRequestParams();
 
 		if ( isset( $this->linksMigration::$mapping[$this->table] ) ) {
-			[ $nsField, $titleField ] = $this->linksMigration->getTitleFields( $this->table );
+			list( $nsField, $titleField ) = $this->linksMigration->getTitleFields( $this->table );
 			$queryInfo = $this->linksMigration->getQueryInfo( $this->table );
 			$this->addTables( $queryInfo['tables'] );
 			$this->addJoinConds( $queryInfo['joins'] );
@@ -132,28 +135,34 @@ class ApiQueryLinks extends ApiQueryGeneratorBase {
 					$lb->addObj( $title );
 				}
 			}
-			if ( $lb->isEmpty() ) {
-				// No titles, no results!
+			$cond = $lb->constructSet( $this->prefix, $this->getDB() );
+			if ( $cond ) {
+				$this->addWhere( $cond );
+				$multiNS = count( $lb->data ) !== 1;
+				$multiTitle = count( array_merge( ...$lb->data ) ) !== 1;
+			} else {
+				// No titles so no results
 				return;
 			}
-			$cond = $lb->constructSet( $this->prefix, $this->getDB() );
-			$this->addWhere( $cond );
-			$multiNS = count( $lb->data ) !== 1;
-			$multiTitle = count( array_merge( ...$lb->data ) ) !== 1;
 		} elseif ( $params['namespace'] ) {
 			$this->addWhereFld( $nsField, $params['namespace'] );
 			$multiNS = $params['namespace'] === null || count( $params['namespace'] ) !== 1;
 		}
 
 		if ( $params['continue'] !== null ) {
-			$db = $this->getDB();
-			$cont = $this->parseContinueParamOrDie( $params['continue'], [ 'int', 'int', 'string' ] );
-			$op = $params['dir'] == 'descending' ? '<=' : '>=';
-			$this->addWhere( $db->buildComparison( $op, [
-				"{$this->prefix}_from" => $cont[0],
-				$nsField => $cont[1],
-				$titleField => $cont[2],
-			] ) );
+			$cont = explode( '|', $params['continue'] );
+			$this->dieContinueUsageIf( count( $cont ) != 3 );
+			$op = $params['dir'] == 'descending' ? '<' : '>';
+			$plfrom = (int)$cont[0];
+			$plns = (int)$cont[1];
+			$pltitle = $this->getDB()->addQuotes( $cont[2] );
+			$this->addWhere(
+				"{$this->prefix}_from $op $plfrom OR " .
+				"({$this->prefix}_from = $plfrom AND " .
+				"($nsField $op $plns OR " .
+				"($nsField = $plns AND " .
+				"$titleField $op= $pltitle)))"
+			);
 		}
 
 		$sort = ( $params['dir'] == 'descending' ? ' DESC' : '' );
@@ -267,6 +276,3 @@ class ApiQueryLinks extends ApiQueryGeneratorBase {
 		return $this->helpUrl;
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiQueryLinks::class, 'ApiQueryLinks' );

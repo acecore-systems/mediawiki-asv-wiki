@@ -21,19 +21,13 @@
  */
 
 use MediaWiki\CommentFormatter\CommentFormatter;
-use MediaWiki\Config\ConfigException;
 use MediaWiki\Content\IContentHandlerFactory;
-use MediaWiki\Context\IContextSource;
-use MediaWiki\Deferred\DeferredUpdates;
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\Linker\Linker;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Message\Message;
 use MediaWiki\Page\RollbackPageFactory;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\SlotRecord;
-use MediaWiki\User\Options\UserOptionsLookup;
+use MediaWiki\User\UserOptionsLookup;
 use MediaWiki\Watchlist\WatchlistManager;
 
 /**
@@ -43,15 +37,24 @@ use MediaWiki\Watchlist\WatchlistManager;
  */
 class RollbackAction extends FormAction {
 
-	private IContentHandlerFactory $contentHandlerFactory;
-	private RollbackPageFactory $rollbackPageFactory;
-	private UserOptionsLookup $userOptionsLookup;
-	private WatchlistManager $watchlistManager;
-	private CommentFormatter $commentFormatter;
+	/** @var IContentHandlerFactory */
+	private $contentHandlerFactory;
+
+	/** @var RollbackPageFactory */
+	private $rollbackPageFactory;
+
+	/** @var UserOptionsLookup */
+	private $userOptionsLookup;
+
+	/** @var WatchlistManager */
+	private $watchlistManager;
+
+	/** @var CommentFormatter */
+	private $commentFormatter;
 
 	/**
-	 * @param Article $article
-	 * @param IContextSource $context
+	 * @param Page $page
+	 * @param IContextSource|null $context
 	 * @param IContentHandlerFactory $contentHandlerFactory
 	 * @param RollbackPageFactory $rollbackPageFactory
 	 * @param UserOptionsLookup $userOptionsLookup
@@ -59,15 +62,15 @@ class RollbackAction extends FormAction {
 	 * @param CommentFormatter $commentFormatter
 	 */
 	public function __construct(
-		Article $article,
-		IContextSource $context,
+		Page $page,
+		?IContextSource $context,
 		IContentHandlerFactory $contentHandlerFactory,
 		RollbackPageFactory $rollbackPageFactory,
 		UserOptionsLookup $userOptionsLookup,
 		WatchlistManager $watchlistManager,
 		CommentFormatter $commentFormatter
 	) {
-		parent::__construct( $article, $context );
+		parent::__construct( $page, $context );
 		$this->contentHandlerFactory = $contentHandlerFactory;
 		$this->rollbackPageFactory = $rollbackPageFactory;
 		$this->userOptionsLookup = $userOptionsLookup;
@@ -192,22 +195,12 @@ class RollbackAction extends FormAction {
 			throw new ThrottledError;
 		}
 
-		# NOTE: Permission errors already handled by Action::checkExecute.
-		if ( $rollbackResult->hasMessage( 'readonlytext' ) ) {
-			throw new ReadOnlyError;
-		}
+		if ( $rollbackResult->hasMessage( 'alreadyrolled' ) || $rollbackResult->hasMessage( 'cantrollback' ) ) {
+			$this->getOutput()->setPageTitle( $this->msg( 'rollbackfailed' ) );
+			$errArray = $rollbackResult->getErrors()[0];
+			$this->getOutput()->addWikiMsgArray( $errArray['message'], $errArray['params'] );
 
-		if ( $rollbackResult->getMessages() ) {
-			$this->getOutput()->setPageTitleMsg( $this->msg( 'rollbackfailed' ) );
-
-			foreach ( $rollbackResult->getMessages() as $msg ) {
-				$this->getOutput()->addWikiMsg( $msg );
-			}
-
-			if (
-				( $rollbackResult->hasMessage( 'alreadyrolled' ) || $rollbackResult->hasMessage( 'cantrollback' ) )
-				&& isset( $data['current-revision-record'] )
-			) {
+			if ( isset( $data['current-revision-record'] ) ) {
 				/** @var RevisionRecord $current */
 				$current = $data['current-revision-record'];
 
@@ -225,11 +218,22 @@ class RollbackAction extends FormAction {
 			return;
 		}
 
+		# NOTE: Permission errors already handled by Action::checkExecute.
+		if ( $rollbackResult->hasMessage( 'readonlytext' ) ) {
+			throw new ReadOnlyError;
+		}
+
+		# XXX: Would be nice if ErrorPageError could take multiple errors, and/or a status object.
+		#      Right now, we only show the first error
+		foreach ( $rollbackResult->getErrors() as $error ) {
+			throw new ErrorPageError( 'rollbackfailed', $error['message'], $error['params'] );
+		}
+
 		/** @var RevisionRecord $current */
 		$current = $data['current-revision-record'];
 		$target = $data['target-revision-record'];
 		$newId = $data['newid'];
-		$this->getOutput()->setPageTitleMsg( $this->msg( 'actioncomplete' ) );
+		$this->getOutput()->setPageTitle( $this->msg( 'actioncomplete' ) );
 		$this->getOutput()->setRobotPolicy( 'noindex,nofollow' );
 
 		$old = Linker::revUserTools( $current );
@@ -244,17 +248,6 @@ class RollbackAction extends FormAction {
 				->params( $targetUser ? $targetUser->getName() : '' )
 				->parseAsBlock()
 		);
-		// Load the mediawiki.misc-authed-curate module, so that we can fire the JavaScript
-		// postEdit hook on a successful rollback.
-		$this->getOutput()->addModules( 'mediawiki.misc-authed-curate' );
-		// Export a success flag to the frontend, so that the mediawiki.misc-authed-curate
-		// ResourceLoader module can use this as an indicator to fire the postEdit hook.
-		$this->getOutput()->addJsConfigVars( [
-			'wgRollbackSuccess' => true,
-			// Don't show an edit confirmation with mw.notify(), the rollback success page
-			// is already a visual confirmation.
-			'wgPostEditConfirmationDisabled' => true,
-		] );
 
 		if ( $this->userOptionsLookup->getBoolOption( $user, 'watchrollback' ) ) {
 			$this->watchlistManager->addWatchIgnoringRights( $user, $this->getTitle() );

@@ -21,8 +21,6 @@
  * @ingroup Parser
  */
 
-namespace MediaWiki\Parser;
-
 use MediaWiki\MediaWikiServices;
 
 /**
@@ -39,12 +37,10 @@ class MWTidy {
 	 * @param string $text HTML input fragment. This should not contain a
 	 *                     <body> or <html> tag.
 	 * @return string Corrected HTML output
+	 * @throws MWException
 	 * @deprecated since 1.36; use MediaWikiServices::getTidy()->tidy() instead
 	 */
 	public static function tidy( $text ) {
 		return MediaWikiServices::getInstance()->getTidy()->tidy( $text );
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( MWTidy::class, 'MWTidy' );

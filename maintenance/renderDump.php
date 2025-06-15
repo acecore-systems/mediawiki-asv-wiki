@@ -6,7 +6,7 @@
  *
  * Templates etc are pulled from the local wiki database, not from the dump.
  *
- * Copyright (C) 2006 Brooke Vibber <bvibber@wikimedia.org>
+ * Copyright (C) 2006 Brion Vibber <brion@pobox.com>
  * https://www.mediawiki.org/
  *
  * This program is free software; you can redistribute it and/or modify
@@ -28,14 +28,9 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\Parser\ParserOptions;
-use MediaWiki\Permissions\UltimateAuthority;
-use MediaWiki\Revision\MutableRevisionRecord;
-use MediaWiki\User\User;
+use MediaWiki\MediaWikiServices;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script that takes page text out of an XML dump file
@@ -45,10 +40,8 @@ require_once __DIR__ . '/Maintenance.php';
  */
 class DumpRenderer extends Maintenance {
 
-	/** @var int */
 	private $count = 0;
-	private string $outputDirectory;
-	private float $startTime;
+	private $outputDirectory, $startTime;
 	/** @var string */
 	private $prefix;
 
@@ -73,12 +66,10 @@ class DumpRenderer extends Maintenance {
 			$this->fatalError( 'Parser class configuration temporarily disabled.' );
 		}
 
-		$user = User::newSystemUser( User::MAINTENANCE_SCRIPT_USER, [ 'steal' => true ] );
-
 		$source = new ImportStreamSource( $this->getStdin() );
-		$importer = $this->getServiceContainer()
+		$importer = MediaWikiServices::getInstance()
 			->getWikiImporterFactory()
-			->getWikiImporter( $source, new UltimateAuthority( $user ) );
+			->getWikiImporter( $source );
 
 		$importer->setRevisionCallback(
 			[ $this, 'handleRevision' ] );
@@ -117,41 +108,28 @@ class DumpRenderer extends Maintenance {
 			$this->prefix,
 			$this->count,
 			$sanitized );
-		$this->output( sprintf( "%s\t%s\n", $filename, $display ) );
+		$this->output( sprintf( "%s\n", $filename, $display ) );
 
 		$user = new User();
 		$options = ParserOptions::newFromUser( $user );
 
 		$content = $rev->getContent();
-		$contentRenderer = $this->getServiceContainer()->getContentRenderer();
-		// ContentRenderer expects a RevisionRecord, and all we have is a
-		// WikiRevision from the dump.  Make a fake MutableRevisionRecord to
-		// satisfy it -- the only thing ::getParserOutput actually needs is
-		// the revision ID and revision timestamp.
-		$mutableRev = new MutableRevisionRecord( $rev->getTitle() );
-		$mutableRev->setId( $rev->getID() );
-		$mutableRev->setTimestamp( $rev->getTimestamp() );
-		$output = $contentRenderer->getParserOutput(
-			$content, $title, $mutableRev, $options
-		);
+		$contentRenderer = MediaWikiServices::getInstance()->getContentRenderer();
+		$output = $contentRenderer->getParserOutput( $content, $title, null, $options );
 
 		file_put_contents( $filename,
 			"<!DOCTYPE html>\n" .
 			"<html lang=\"en\" dir=\"ltr\">\n" .
 			"<head>\n" .
 			"<meta charset=\"UTF-8\" />\n" .
-			"<meta name=\"color-scheme\" content=\"light dark\">" .
 			"<title>" . htmlspecialchars( $display, ENT_COMPAT ) . "</title>\n" .
 			"</head>\n" .
 			"<body>\n" .
-			// TODO T371004 move runOutputPipeline out of $parserOutput
-			$output->runOutputPipeline( $options, [] )->getContentHolderText() .
+			$output->getText() .
 			"</body>\n" .
 			"</html>" );
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = DumpRenderer::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

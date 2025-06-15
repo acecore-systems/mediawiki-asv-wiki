@@ -21,11 +21,9 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\Title\Title;
+use MediaWiki\MediaWikiServices;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script that purges a list of pages passed through stdin
@@ -58,7 +56,7 @@ class PurgePage extends Maintenance {
 			return;
 		}
 
-		$page = $this->getServiceContainer()->getWikiPageFactory()->newFromTitle( $title );
+		$page = MediaWikiServices::getInstance()->getWikiPageFactory()->newFromTitle( $title );
 
 		if ( !$this->getOption( 'skip-exists-check' ) && !$page->exists() ) {
 			$this->error( "Page doesn't exist" );
@@ -73,7 +71,5 @@ class PurgePage extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = PurgePage::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

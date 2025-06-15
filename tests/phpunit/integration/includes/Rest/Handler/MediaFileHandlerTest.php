@@ -2,13 +2,10 @@
 
 namespace MediaWiki\Tests\Rest\Handler;
 
-use MediaWiki\Context\RequestContext;
-use MediaWiki\MainConfigNames;
 use MediaWiki\Rest\Handler\MediaFileHandler;
 use MediaWiki\Rest\LocalizedHttpException;
 use MediaWiki\Rest\RequestData;
-use MediaWiki\Title\Title;
-use MediaWikiLangTestCase;
+use Title;
 use Wikimedia\Message\MessageValue;
 
 /**
@@ -16,7 +13,7 @@ use Wikimedia\Message\MessageValue;
  *
  * @group Database
  */
-class MediaFileHandlerTest extends MediaWikiLangTestCase {
+class MediaFileHandlerTest extends \MediaWikiLangTestCase {
 
 	use MediaTestTrait;
 
@@ -43,13 +40,6 @@ class MediaFileHandlerTest extends MediaWikiLangTestCase {
 		$title = __CLASS__ . '.jpg';
 		$request = new RequestData( [ 'pathParams' => [ 'title' => $title ] ] );
 
-		$user = RequestContext::getMain()->getUser();
-		$userOptionsManager = $this->getServiceContainer()->getUserOptionsManager();
-		$this->overrideConfigValue( MainConfigNames::ImageLimits, [
-			$userOptionsManager->getIntOption( $user, 'imagesize' ) => [ 100, 100 ],
-			$userOptionsManager->getIntOption( $user, 'thumbsize' ) => [ 20, 20 ],
-		] );
-
 		$handler = $this->newHandler();
 		$data = $this->executeHandlerAndGetBodyData( $handler, $request );
 
@@ -68,8 +58,8 @@ class MediaFileHandlerTest extends MediaWikiLangTestCase {
 				'preferred' => [
 					'mediatype' => 'test',
 					'size' => null,
-					'width' => 100,
-					'height' => 67,
+					'width' => 64,
+					'height' => 64,
 					'duration' => 678,
 					'url' => 'https://media.example.com/static/thumb/' . $title,
 				],
@@ -84,8 +74,8 @@ class MediaFileHandlerTest extends MediaWikiLangTestCase {
 				'thumbnail' => [
 					'mediatype' => 'test',
 					'size' => null,
-					'width' => 20,
-					'height' => 13,
+					'width' => 64,
+					'height' => 64,
 					'duration' => 678,
 					'url' => 'https://media.example.com/static/thumb/' . $title,
 				],
@@ -129,7 +119,7 @@ class MediaFileHandlerTest extends MediaWikiLangTestCase {
 
 	public function testExecute_wrongNamespace() {
 		$title = Title::newFromText( 'User:' . __CLASS__ . '.jpg' );
-		$this->editPage( $title, 'First' );
+		$this->editPage( $title->getPrefixedDBkey(), 'First' );
 		$request = new RequestData( [ 'pathParams' => [ 'title' => $title->getPrefixedDBkey() ] ] );
 
 		$handler = $this->newHandler();

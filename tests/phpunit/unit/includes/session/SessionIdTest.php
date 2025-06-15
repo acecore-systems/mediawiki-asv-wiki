@@ -1,15 +1,12 @@
 <?php
 
-namespace MediaWiki\Tests\Session;
-
-use MediaWiki\Session\SessionId;
-use MediaWikiUnitTestCase;
+namespace MediaWiki\Session;
 
 /**
  * @group Session
- * @covers \MediaWiki\Session\SessionId
+ * @covers MediaWiki\Session\SessionId
  */
-class SessionIdTest extends MediaWikiUnitTestCase {
+class SessionIdTest extends \MediaWikiUnitTestCase {
 
 	public function testEverything() {
 		$id = new SessionId( 'foo' );

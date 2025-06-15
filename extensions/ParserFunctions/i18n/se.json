@@ -20,8 +20,6 @@
 	"pfunc_expr_unrecognised_punctuation": "Čájáhusmeattáhus: Dovdameahttun earromearka «$1»",
 	"pfunc_expr_unclosed_bracket": "Čájáhusmeattáhus: Raba dávgeruođu",
 	"pfunc_expr_division_by_zero": "Juhkkojuvvo nullii",
-	"pfunc_expr_invalid_argument": "Dohkkemeahttumis ákkastallan $1:ii: unnit go -1 dahje stuorát go 1",
-	"pfunc_expr_invalid_argument_ln": "Dohkkemeahttumis ákkastallan ln:i: unnit dahje seamma go 0",
 	"pfunc_expr_unknown_error": "Čájáhusmeattáhus: Dovdameahttun meattáhus ($1)",
 	"pfunc_expr_not_a_number": "I $1: boađus ii leat nummár",
 	"pfunc_string_too_long": "Meattáhus: Streaŋga rasttilda ráji mii lea $1 mearkka"

@@ -5,13 +5,13 @@ use Wikimedia\TestingAccessWrapper;
 
 /**
  * @group Media
- * @requires extension exif
  */
 class FormatMetadataTest extends MediaWikiMediaTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
 
+		$this->checkPHPExtension( 'exif' );
 		$this->overrideConfigValues( [
 			MainConfigNames::LanguageCode => 'en',
 			MainConfigNames::ShowEXIF => true,
@@ -19,7 +19,7 @@ class FormatMetadataTest extends MediaWikiMediaTestCase {
 	}
 
 	/**
-	 * @covers \File::formatMetadata
+	 * @covers File::formatMetadata
 	 */
 	public function testInvalidDate() {
 		$file = $this->dataFile( 'broken_exif_date.jpg', 'image/jpeg' );
@@ -44,7 +44,7 @@ class FormatMetadataTest extends MediaWikiMediaTestCase {
 
 	/**
 	 * @dataProvider provideResolveMultivalueValue
-	 * @covers \FormatMetadata::resolveMultivalueValue
+	 * @covers FormatMetadata::resolveMultivalueValue
 	 */
 	public function testResolveMultivalueValue( $input, $output ) {
 		$formatMetadata = new FormatMetadata();
@@ -55,7 +55,7 @@ class FormatMetadataTest extends MediaWikiMediaTestCase {
 		$this->assertEquals( $output, $actualInput );
 	}
 
-	public static function provideResolveMultivalueValue() {
+	public function provideResolveMultivalueValue() {
 		return [
 			'nonArray' => [
 				'foo',
@@ -102,13 +102,13 @@ class FormatMetadataTest extends MediaWikiMediaTestCase {
 
 	/**
 	 * @dataProvider provideGetFormattedData
-	 * @covers \FormatMetadata::getFormattedData
+	 * @covers FormatMetadata::getFormattedData
 	 */
 	public function testGetFormattedData( $input, $output ) {
 		$this->assertEquals( $output, FormatMetadata::getFormattedData( $input ) );
 	}
 
-	public static function provideGetFormattedData() {
+	public function provideGetFormattedData() {
 		return [
 			[
 				[ 'Software' => 'Adobe Photoshop CS6 (Macintosh)' ],
@@ -145,35 +145,35 @@ class FormatMetadataTest extends MediaWikiMediaTestCase {
 	}
 
 	/**
-	 * @covers \FormatMetadata::getPriorityLanguages
+	 * @covers FormatMetadata::getPriorityLanguages
 	 * @dataProvider provideGetPriorityLanguagesData
-	 * @param string $language
+	 * @param string $languageClass
 	 * @param string[] $expected
 	 */
 	public function testGetPriorityLanguagesInternal_language_expect(
-		string $language,
+		string $languageClass,
 		array $expected
 	): void {
 		$formatMetadata = TestingAccessWrapper::newFromObject( new FormatMetadata() );
 		$context = $formatMetadata->getContext();
-		$context->setLanguage( $this->getServiceContainer()->getLanguageFactory()->getLanguage( $language ) );
+		$context->setLanguage( new $languageClass() );
 
 		$x = $formatMetadata->getPriorityLanguages();
 		$this->assertSame( $expected, $x );
 	}
 
-	public static function provideGetPriorityLanguagesData() {
+	public function provideGetPriorityLanguagesData() {
 		return [
 			'LanguageMl' => [
-				'ml',
+				LanguageMl::class,
 				[ 'ml', 'en' ],
 			],
 			'LanguageEn' => [
-				'en',
+				LanguageEn::class,
 				[ 'en', 'en' ],
 			],
 			'LanguageQqx' => [
-				'qqx',
+				LanguageQqx::class,
 				[ 'qqx', 'en' ],
 			],
 		];

@@ -63,7 +63,7 @@ class CommandFactory {
 	/**
 	 * @param ShellboxClientFactory $shellboxClientFactory
 	 * @param array $limits See {@see Command::limits()}
-	 * @param string|bool $cgroup
+	 * @param string|bool $cgroup See {@see Command::cgroup()}
 	 * @param string|bool $restrictionMethod
 	 */
 	public function __construct( ShellboxClientFactory $shellboxClientFactory,
@@ -145,8 +145,8 @@ class CommandFactory {
 				// or relative paths, resolve them all.
 				$realIP = realpath( $IP );
 				$currentUser = posix_getpwuid( posix_geteuid() );
-				$this->useAllUsers = str_starts_with( $realIP, '/home/' )
-					&& !str_starts_with( $realIP, $currentUser['dir'] );
+				$this->useAllUsers = ( strpos( $realIP, '/home/' ) === 0 )
+					&& ( strpos( $realIP, $currentUser['dir'] ) !== 0 );
 				if ( $this->useAllUsers ) {
 					$this->logger->warning( 'firejail: MediaWiki is located ' .
 						'in a home directory that does not belong to the ' .
@@ -172,18 +172,14 @@ class CommandFactory {
 	/**
 	 * Instantiates a new BoxedCommand.
 	 *
-	 * @since 1.36
 	 * @param ?string $service Name of Shellbox (as configured in
 	 *                         $wgShellboxUrls) that should be used
-	 * @param int|float|null $wallTimeLimit The wall time limit, or null to use the default.
-	 *   This needs to be set early so that the HTTP timeout is configured correctly.
 	 * @return BoxedCommand
 	 */
-	public function createBoxed( ?string $service = null, $wallTimeLimit = null ): BoxedCommand {
-		$wallTimeLimit ??= $this->limits['walltime'];
+	public function createBoxed( ?string $service = null ): BoxedCommand {
 		if ( $this->shellboxClientFactory->isEnabled( $service ) ) {
 			$client = $this->shellboxClientFactory->getClient( [
-				'timeout' => $wallTimeLimit + 1,
+				'timeout' => $this->limits['walltime'] + 1,
 				'service' => $service,
 			] );
 			$executor = new RemoteBoxedExecutor( $client );
@@ -195,7 +191,7 @@ class CommandFactory {
 		}
 		return $executor->createCommand()
 			->cpuTimeLimit( $this->limits['time'] )
-			->wallTimeLimit( $wallTimeLimit )
+			->wallTimeLimit( $this->limits['walltime'] )
 			->memoryLimit( $this->limits['memory'] * 1024 )
 			->fileSizeLimit( $this->limits['filesize'] * 1024 )
 			->logStderr( $this->doLogStderr );

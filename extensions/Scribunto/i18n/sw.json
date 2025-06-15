@@ -5,7 +5,6 @@
 			"Kisare"
 		]
 	},
-	"content-model-scribunto": "Moduli ya Scribunto",
 	"scribunto-desc": "Mfumo wa kuingiza lugha ya hati katika kurasa za MediaWiki",
 	"scribunto-line": "kwenye mstari wa $1",
 	"scribunto-module-line": "katika $1 kwenye mstari wa $2",

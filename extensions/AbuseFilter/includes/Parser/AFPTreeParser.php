@@ -10,10 +10,11 @@
 
 namespace MediaWiki\Extension\AbuseFilter\Parser;
 
+use IBufferingStatsdDataFactory;
+use InvalidArgumentException;
 use MediaWiki\Extension\AbuseFilter\KeywordsManager;
 use MediaWiki\Extension\AbuseFilter\Parser\Exception\UserVisibleException;
 use Psr\Log\LoggerInterface;
-use Wikimedia\Stats\IBufferingStatsdDataFactory;
 
 /**
  * A parser that transforms the text of the filter into a parse tree.
@@ -23,33 +24,33 @@ class AFPTreeParser {
 	 * @var array[] Contains the AFPTokens for the code being parsed
 	 * @phan-var array<int,array{0:AFPToken,1:int}>
 	 */
-	private $mTokens;
+	public $mTokens;
 	/**
 	 * @var AFPToken The current token
 	 */
-	private $mCur;
+	public $mCur;
 	/** @var int The position of the current token */
 	private $mPos;
 
 	/**
 	 * @var string|null The ID of the filter being parsed, if available. Can also be "global-$ID"
 	 */
-	private $mFilter;
+	protected $mFilter;
 
 	public const CACHE_VERSION = 2;
 
 	/**
 	 * @var LoggerInterface Used for debugging
 	 */
-	private $logger;
+	protected $logger;
 
 	/**
 	 * @var IBufferingStatsdDataFactory
 	 */
-	private $statsd;
+	protected $statsd;
 
 	/** @var KeywordsManager */
-	private $keywordsManager;
+	protected $keywordsManager;
 
 	/**
 	 * @param LoggerInterface $logger Used for debugging
@@ -86,8 +87,8 @@ class AFPTreeParser {
 	/**
 	 * Advances the parser to the next token in the filter code.
 	 */
-	private function move() {
-		[ $this->mCur, $this->mPos ] = $this->mTokens[$this->mPos];
+	protected function move() {
+		list( $this->mCur, $this->mPos ) = $this->mTokens[$this->mPos];
 	}
 
 	/**
@@ -96,7 +97,7 @@ class AFPTreeParser {
 	 *
 	 * @return AFPToken
 	 */
-	private function getNextToken() {
+	protected function getNextToken() {
 		return $this->mTokens[$this->mPos][0];
 	}
 
@@ -106,7 +107,7 @@ class AFPTreeParser {
 	 *
 	 * @return AFPParserState
 	 */
-	private function getState() {
+	protected function getState() {
 		return new AFPParserState( $this->mCur, $this->mPos );
 	}
 
@@ -116,7 +117,7 @@ class AFPTreeParser {
 	 *
 	 * @param AFPParserState $state
 	 */
-	private function setState( AFPParserState $state ) {
+	protected function setState( AFPParserState $state ) {
 		$this->mCur = $state->token;
 		$this->mPos = $state->pos;
 	}
@@ -153,7 +154,7 @@ class AFPTreeParser {
 	 * @return AFPTreeNode|null Null only if no statements
 	 * @throws UserVisibleException
 	 */
-	private function doLevelEntry() {
+	protected function doLevelEntry() {
 		$result = $this->doLevelSemicolon();
 
 		if ( $this->mCur->type !== AFPToken::TNONE ) {
@@ -171,7 +172,7 @@ class AFPTreeParser {
 	 *
 	 * @return AFPTreeNode|null
 	 */
-	private function doLevelSemicolon() {
+	protected function doLevelSemicolon() {
 		$statements = [];
 
 		do {
@@ -211,7 +212,7 @@ class AFPTreeParser {
 	 * @return AFPTreeNode
 	 * @throws UserVisibleException
 	 */
-	private function doLevelSet() {
+	protected function doLevelSet() {
 		if ( $this->mCur->type === AFPToken::TID ) {
 			$varname = (string)$this->mCur->value;
 
@@ -277,7 +278,7 @@ class AFPTreeParser {
 	 * @return AFPTreeNode
 	 * @throws UserVisibleException
 	 */
-	private function doLevelConditions() {
+	protected function doLevelConditions() {
 		if ( $this->mCur->type === AFPToken::TKEYWORD && $this->mCur->value === 'if' ) {
 			$position = $this->mPos;
 			$this->move();
@@ -357,7 +358,7 @@ class AFPTreeParser {
 	 *
 	 * @return AFPTreeNode
 	 */
-	private function doLevelBoolOps() {
+	protected function doLevelBoolOps() {
 		$leftOperand = $this->doLevelCompares();
 		$ops = [ '&', '|', '^' ];
 		while ( $this->mCur->type === AFPToken::TOP && in_array( $this->mCur->value, $ops ) ) {
@@ -381,7 +382,7 @@ class AFPTreeParser {
 	 *
 	 * @return AFPTreeNode
 	 */
-	private function doLevelCompares() {
+	protected function doLevelCompares() {
 		$leftOperand = $this->doLevelSumRels();
 		$equalityOps = [ '==', '===', '!=', '!==', '=' ];
 		$orderOps = [ '<', '>', '<=', '>=' ];
@@ -410,7 +411,7 @@ class AFPTreeParser {
 	 *
 	 * @return AFPTreeNode
 	 */
-	private function doLevelSumRels() {
+	protected function doLevelSumRels() {
 		$leftOperand = $this->doLevelMulRels();
 		$ops = [ '+', '-' ];
 		while ( $this->mCur->type === AFPToken::TOP && in_array( $this->mCur->value, $ops ) ) {
@@ -432,7 +433,7 @@ class AFPTreeParser {
 	 *
 	 * @return AFPTreeNode
 	 */
-	private function doLevelMulRels() {
+	protected function doLevelMulRels() {
 		$leftOperand = $this->doLevelPow();
 		$ops = [ '*', '/', '%' ];
 		while ( $this->mCur->type === AFPToken::TOP && in_array( $this->mCur->value, $ops ) ) {
@@ -454,7 +455,7 @@ class AFPTreeParser {
 	 *
 	 * @return AFPTreeNode
 	 */
-	private function doLevelPow() {
+	protected function doLevelPow() {
 		$base = $this->doLevelBoolInvert();
 		while ( $this->mCur->type === AFPToken::TOP && $this->mCur->value === '**' ) {
 			$position = $this->mPos;
@@ -470,7 +471,7 @@ class AFPTreeParser {
 	 *
 	 * @return AFPTreeNode
 	 */
-	private function doLevelBoolInvert() {
+	protected function doLevelBoolInvert() {
 		if ( $this->mCur->type === AFPToken::TOP && $this->mCur->value === '!' ) {
 			$position = $this->mPos;
 			$this->move();
@@ -486,7 +487,7 @@ class AFPTreeParser {
 	 *
 	 * @return AFPTreeNode
 	 */
-	private function doLevelKeywordOperators() {
+	protected function doLevelKeywordOperators() {
 		$leftOperand = $this->doLevelUnarys();
 		$keyword = strtolower( $this->mCur->value );
 		if ( $this->mCur->type === AFPToken::TKEYWORD &&
@@ -511,7 +512,7 @@ class AFPTreeParser {
 	 *
 	 * @return AFPTreeNode
 	 */
-	private function doLevelUnarys() {
+	protected function doLevelUnarys() {
 		$op = $this->mCur->value;
 		if ( $this->mCur->type === AFPToken::TOP && ( $op === "+" || $op === "-" ) ) {
 			$position = $this->mPos;
@@ -528,7 +529,7 @@ class AFPTreeParser {
 	 * @return AFPTreeNode
 	 * @throws UserVisibleException
 	 */
-	private function doLevelArrayElements() {
+	protected function doLevelArrayElements() {
 		$array = $this->doLevelParenthesis();
 		while ( $this->mCur->type === AFPToken::TSQUAREBRACKET && $this->mCur->value === '[' ) {
 			$position = $this->mPos;
@@ -551,7 +552,7 @@ class AFPTreeParser {
 	 * @return AFPTreeNode
 	 * @throws UserVisibleException
 	 */
-	private function doLevelParenthesis() {
+	protected function doLevelParenthesis() {
 		if ( $this->mCur->type === AFPToken::TBRACE && $this->mCur->value === '(' ) {
 			$next = $this->getNextToken();
 			if ( $next->type === AFPToken::TBRACE && $next->value === ')' ) {
@@ -588,7 +589,7 @@ class AFPTreeParser {
 	 * @return AFPTreeNode
 	 * @throws UserVisibleException
 	 */
-	private function doLevelFunction() {
+	protected function doLevelFunction() {
 		$next = $this->getNextToken();
 		if ( $this->mCur->type === AFPToken::TID &&
 			$next->type === AFPToken::TBRACE &&
@@ -605,13 +606,7 @@ class AFPTreeParser {
 					$thisArg = $this->doLevelSemicolon();
 					if ( $thisArg !== null ) {
 						$args[] = $thisArg;
-					} elseif (
-						array_key_exists( $func, FilterEvaluator::FUNC_ARG_COUNT ) &&
-						FilterEvaluator::FUNC_ARG_COUNT[$func][1] !== INF
-					) {
-						// If this function exists and is not variadic, fail now. If it does not exist, we'll fail when
-						// checking the call validity in SyntaxChecker (T387649). Trailing commas are allowed when
-						// calling variadic functions.
+					} elseif ( !$this->functionIsVariadic( $func ) ) {
 						throw new UserVisibleException(
 							'unexpectedtoken',
 							$this->mPos,
@@ -650,7 +645,7 @@ class AFPTreeParser {
 	 * @return AFPTreeNode
 	 * @throws UserVisibleException
 	 */
-	private function doLevelAtom() {
+	protected function doLevelAtom() {
 		$tok = $this->mCur->value;
 		switch ( $this->mCur->type ) {
 			case AFPToken::TID:
@@ -724,9 +719,22 @@ class AFPTreeParser {
 	 * performance.
 	 * @param string $varname
 	 */
-	private function checkLogDeprecatedVar( $varname ) {
+	protected function checkLogDeprecatedVar( $varname ) {
 		if ( $this->keywordsManager->isVarDeprecated( $varname ) ) {
 			$this->logger->debug( "Deprecated variable $varname used in filter {$this->mFilter}." );
 		}
+	}
+
+	/**
+	 * @param string $fname
+	 * @return bool
+	 */
+	protected function functionIsVariadic( string $fname ): bool {
+		if ( !array_key_exists( $fname, FilterEvaluator::FUNC_ARG_COUNT ) ) {
+			// @codeCoverageIgnoreStart
+			throw new InvalidArgumentException( "Function $fname is not valid" );
+			// @codeCoverageIgnoreEnd
+		}
+		return FilterEvaluator::FUNC_ARG_COUNT[$fname][1] === INF;
 	}
 }

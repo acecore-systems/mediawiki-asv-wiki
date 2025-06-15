@@ -1,9 +1,9 @@
 {
 	"@metadata": {
 		"authors": [
-			"BigDareLibrary",
 			"Demmy",
-			"Oyatopeabioye"
+			"Oyatopeabioye",
+			"BigDareLibrary"
 		]
 	},
 	"mobile-frontend-editor-edit": "Àtúnṣe",
@@ -17,6 +17,5 @@
 	"mobile-frontend-main-menu-watchlist": "Ìtòjọ àmójútó",
 	"mobile-frontend-pageaction-edit-tooltip": "Àtúnṣe abala asíwájú ojúewé yìí.",
 	"mobile-frontend-placeholder": "Ṣ'àwáàrí {{ORUKO AAYE AYELUJARA}}",
-	"mobile-frontend-random-button": "Laileto",
-	"skin-minerva-night-mode-unavailable": "Oju-iwe nikan wa ni akori awọ \"Ọjọ."
+	"mobile-frontend-random-button": "Laileto"
 }

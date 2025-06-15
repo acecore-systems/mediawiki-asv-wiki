@@ -8,7 +8,7 @@
  * @ingroup Content
  * @since 1.27
  */
-class MWUnknownContentModelException extends Exception {
+class MWUnknownContentModelException extends MWException {
 	/** @var string The name of the unknown content model */
 	private $modelId;
 

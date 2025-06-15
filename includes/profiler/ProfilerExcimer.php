@@ -28,7 +28,6 @@ class ProfilerExcimer extends Profiler {
 	private $cpuProf;
 	/** @var ExcimerProfiler */
 	private $realProf;
-	/** @var float */
 	private $period;
 
 	/**

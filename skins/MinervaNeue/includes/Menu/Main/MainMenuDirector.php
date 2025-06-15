@@ -19,21 +19,50 @@
  */
 namespace MediaWiki\Minerva\Menu\Main;
 
+use MediaWiki\SpecialPage\SpecialPageFactory;
+use MessageLocalizer;
+
 /**
  * Director responsible for building Main Menu
  */
 final class MainMenuDirector {
 
-	private IMainMenuBuilder $builder;
-	private ?array $menuData = null;
+	/**
+	 * @var IMainMenuBuilder
+	 */
+	private $builder;
+
+	/**
+	 * @var array
+	 */
+	private $menuData;
+
+	/**
+	 * @var MessageLocalizer
+	 */
+	private $msgLocalizer;
+
+	/**
+	 * @var SpecialPageFactory
+	 */
+	private $specialPageFactory;
 
 	/**
 	 * Director responsible for Main Menu building
 	 *
 	 * @param IMainMenuBuilder $builder
+	 * @param MessageLocalizer $messageLocalizer Used for translating texts in menu toggle
+	 * @param SpecialPageFactory $specialPageFactory Used to check for MobileMenu special page
+	 * existence
 	 */
-	public function __construct( IMainMenuBuilder $builder ) {
+	public function __construct(
+		IMainMenuBuilder $builder,
+		MessageLocalizer $messageLocalizer,
+		SpecialPageFactory $specialPageFactory
+	) {
 		$this->builder = $builder;
+		$this->msgLocalizer = $messageLocalizer;
+		$this->specialPageFactory = $specialPageFactory;
 	}
 
 	/**
@@ -65,7 +94,7 @@ final class MainMenuDirector {
 		$menuData = [
 			'items' => [
 				'groups' => [],
-				'sitelinks' => $builder->getSiteLinks()->getEntries()
+				'sitelinks' => $this->builder->getSiteLinks()->getEntries()
 			]
 		];
 

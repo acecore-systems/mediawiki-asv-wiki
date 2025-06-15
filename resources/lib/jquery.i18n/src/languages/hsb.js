@@ -1,7 +1,6 @@
 /**
  * Upper Sorbian (Hornjoserbsce) language functions
  */
-
 ( function ( $ ) {
 	'use strict';
 

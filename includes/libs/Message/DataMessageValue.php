@@ -2,8 +2,6 @@
 
 namespace Wikimedia\Message;
 
-use MediaWiki\Json\JsonDeserializer;
-
 /**
  * Value object representing a message for i18n with alternative
  * machine-readable data.
@@ -18,7 +16,7 @@ use MediaWiki\Json\JsonDeserializer;
  * `[ 'min' => 1, 'max' => 10 ]` rather than
  * `[ 0 => new ScalarParam( ParamType::TEXT, 1 ), 1 => new ScalarParam( ParamType::TEXT, 10 ) ]`.
  *
- * DataMessageValues are pure value objects and are newable and (de)serializable.
+ * DataMessageValues are pure value objects and are safely newable.
  *
  * @newable
  */
@@ -39,7 +37,7 @@ class DataMessageValue extends MessageValue {
 	 * @param array|null $data Structured data representing the concept
 	 *  behind this message.
 	 */
-	public function __construct( $key, $params = [], $code = null, ?array $data = null ) {
+	public function __construct( $key, $params = [], $code = null, array $data = null ) {
 		parent::__construct( $key, $params );
 
 		$this->code = $code ?? $key;
@@ -54,7 +52,7 @@ class DataMessageValue extends MessageValue {
 	 * @param array|null $data
 	 * @return DataMessageValue
 	 */
-	public static function new( $key, $params = [], $code = null, ?array $data = null ) {
+	public static function new( $key, $params = [], $code = null, array $data = null ) {
 		return new DataMessageValue( $key, $params, $code, $data );
 	}
 
@@ -92,20 +90,5 @@ class DataMessageValue extends MessageValue {
 			. ' code="' . htmlspecialchars( $this->code ) . '">'
 			. $contents
 			. '</datamessage>';
-	}
-
-	protected function toJsonArray(): array {
-		// WARNING: When changing how this class is serialized, follow the instructions
-		// at <https://www.mediawiki.org/wiki/Manual:Parser_cache/Serialization_compatibility>!
-		return parent::toJsonArray() + [
-			'code' => $this->code,
-			'data' => $this->data,
-		];
-	}
-
-	public static function newFromJsonArray( JsonDeserializer $deserializer, array $json ) {
-		// WARNING: When changing how this class is serialized, follow the instructions
-		// at <https://www.mediawiki.org/wiki/Manual:Parser_cache/Serialization_compatibility>!
-		return new self( $json['key'], $json['params'], $json['code'], $json['data'] );
 	}
 }

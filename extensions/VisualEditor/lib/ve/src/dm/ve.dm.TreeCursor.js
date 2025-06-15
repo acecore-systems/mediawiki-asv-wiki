@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel TreeCursor class
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 // TODO identify a core of "trusted" code that is guaranteed to detect tree invalidation.
@@ -58,7 +58,7 @@ ve.dm.TreeCursor.prototype.normalizeCursor = function ( tooShort ) {
 	}
 	this.crossIgnoredNodes();
 
-	let item;
+	var item;
 	// If at the start of long enough text node, step in
 	if (
 		this.node.hasChildren() &&
@@ -77,7 +77,7 @@ ve.dm.TreeCursor.prototype.normalizeCursor = function ( tooShort ) {
  * Cross any immediately following nodes that are in liveIgnoreNodes
  */
 ve.dm.TreeCursor.prototype.crossIgnoredNodes = function () {
-	let parent, nextSibling;
+	var parent, nextSibling;
 	if (
 		this.node &&
 		this.node.type === 'text' &&
@@ -89,8 +89,8 @@ ve.dm.TreeCursor.prototype.crossIgnoredNodes = function () {
 		// At the end of a text node and the next node is ignored
 		this.stepOut();
 	}
-	const len = ( this.node && this.node.hasChildren() && this.node.children.length ) || 0;
-	let item;
+	var len = ( this.node && this.node.hasChildren() && this.node.children.length ) || 0;
+	var item;
 	while (
 		this.offset < len &&
 		( item = this.node.children[ this.offset ] ) &&
@@ -109,7 +109,7 @@ ve.dm.TreeCursor.prototype.crossIgnoredNodes = function () {
  * @throws {Error} If this.linearOffset does not match this.node and this.offset
  */
 ve.dm.TreeCursor.prototype.checkLinearOffset = function () {
-	let expected = this.node.getOffset();
+	var expected = this.node.getOffset();
 	if ( this.node.type === 'text' ) {
 		expected += this.offset;
 	} else {
@@ -119,7 +119,7 @@ ve.dm.TreeCursor.prototype.checkLinearOffset = function () {
 		}
 		if ( this.node.hasChildren() ) {
 			// Add the outer length of each crossed child
-			this.node.children.slice( 0, this.offset ).forEach( ( child ) => {
+			this.node.children.slice( 0, this.offset ).forEach( function ( child ) {
 				expected += child.getOuterLength();
 			} );
 		}
@@ -130,18 +130,6 @@ ve.dm.TreeCursor.prototype.checkLinearOffset = function () {
 };
 
 /**
- * @typedef {Object} Step
- * @memberof ve.dm.TreeCursor
- * @property {string} type open|close|cross|crosstext
- * @property {number} length Linear length of the step (integer >= 1)
- * @property {number[]} path Offset path from the root to the node containing the stepped item
- * @property {ve.dm.Node|null} node The node containing the stepped item
- * @property {number} offset The offset of the stepped item within its parent
- * @property {number} [offsetLength] Number of characters 'crosstext' passed
- * @property {ve.dm.Node} [item] The node stepped into/out of/across (absent for 'crosstext')
- */
-
-/**
  * Take a single step in the walk, consuming no more than a given linear model length
  *
  * A "single step" means either stepping across text content, or stepping over a node, or
@@ -150,7 +138,14 @@ ve.dm.TreeCursor.prototype.checkLinearOffset = function () {
  * See https://phabricator.wikimedia.org/T162762 for the algorithm
  *
  * @param {number} maxLength Maximum linear model length to step over (integer >= 1)
- * @return {ve.dm.TreeCursor.Step|null} The type of step taken, or null if there are no more steps
+ * @return {Object|null} The type of step taken, or null if there are no more steps
+ * @return {string} return.type open|close|cross|crosstext
+ * @return {number} return.length Linear length of the step (integer >= 1)
+ * @return {number[]} return.path Offset path from the root to the node containing the stepped item
+ * @return {ve.dm.Node|null} return.node The node containing the stepped item
+ * @return {number} return.offset The offset of the stepped item within its parent
+ * @return {number} [return.offsetLength] Number of characters 'crosstext' passed
+ * @return {ve.dm.Node} [return.item] The node stepped into/out of/across (absent for 'crosstext')
  */
 ve.dm.TreeCursor.prototype.stepAtMost = function ( maxLength ) {
 	if ( !this.node ) {
@@ -162,7 +157,7 @@ ve.dm.TreeCursor.prototype.stepAtMost = function ( maxLength ) {
 		this.checkLinearOffset();
 	}
 	this.normalizeCursor( maxLength );
-	let length, step;
+	var length, step;
 	if ( this.node.type === 'text' ) {
 		// We cannot be the end, because we just normalized
 		length = Math.min( maxLength, this.node.length - this.offset );
@@ -180,7 +175,7 @@ ve.dm.TreeCursor.prototype.stepAtMost = function ( maxLength ) {
 		return step;
 	}
 	// Else not a text node
-	const childLength = this.node.hasChildren() ? this.node.children.length : 0;
+	var childLength = this.node.hasChildren() ? this.node.children.length : 0;
 	if ( this.offset > childLength ) {
 		throw new Error( 'Offset ' + this.offset + ' > childLength ' + childLength );
 	}
@@ -188,7 +183,7 @@ ve.dm.TreeCursor.prototype.stepAtMost = function ( maxLength ) {
 		return this.stepOut();
 	}
 	// Else there are unpassed child nodes
-	const item = this.node.children[ this.offset ];
+	var item = this.node.children[ this.offset ];
 	if ( item.getOuterLength() > maxLength ) {
 		return this.stepIn();
 	}
@@ -221,9 +216,9 @@ ve.dm.TreeCursor.prototype.stepIn = function () {
 	) {
 		throw new Error( 'No node to step into' );
 	}
-	const item = this.node.children[ this.offset ];
-	const length = item.type === 'text' ? 0 : 1;
-	const step = {
+	var item = this.node.children[ this.offset ];
+	var length = item.type === 'text' ? 0 : 1;
+	var step = {
 		type: 'open',
 		length: length,
 		path: this.path.slice(),
@@ -246,8 +241,9 @@ ve.dm.TreeCursor.prototype.stepIn = function () {
  * @return {Object|null} The step
  */
 ve.dm.TreeCursor.prototype.stepOut = function () {
-	const priorOffset = this.offset;
-	const item = this.nodes.pop();
+	var treeCursor = this,
+		priorOffset = this.offset;
+	var item = this.nodes.pop();
 	this.node = this.nodes[ this.nodes.length - 1 ];
 	this.offset = this.path.pop();
 	if ( this.node === undefined ) {
@@ -260,14 +256,14 @@ ve.dm.TreeCursor.prototype.stepOut = function () {
 	} else {
 		if ( item.hasChildren() ) {
 			// Increase linearOffset by the length of each child
-			item.children.slice( priorOffset ).forEach( ( child ) => {
-				this.linearOffset += child.getOuterLength();
+			item.children.slice( priorOffset ).forEach( function ( child ) {
+				treeCursor.linearOffset += child.getOuterLength();
 			} );
 		}
 		// Increase linearOffset for the close tag
 		this.linearOffset++;
 	}
-	const step = {
+	var step = {
 		type: 'close',
 		length: item.type === 'text' ? 0 : 1,
 		path: this.path.slice(),

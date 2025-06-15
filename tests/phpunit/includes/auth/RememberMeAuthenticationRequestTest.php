@@ -1,8 +1,7 @@
 <?php
 
-namespace MediaWiki\Tests\Auth;
+namespace MediaWiki\Auth;
 
-use MediaWiki\Auth\RememberMeAuthenticationRequest;
 use Wikimedia\TestingAccessWrapper;
 
 /**
@@ -61,7 +60,7 @@ class RememberMeAuthenticationRequestTest extends AuthenticationRequestTestCase 
 		return $req;
 	}
 
-	public static function provideLoadFromSubmission() {
+	public function provideLoadFromSubmission() {
 		return [
 			'Empty request' => [
 				[ 30 * 24 * 3600 ],

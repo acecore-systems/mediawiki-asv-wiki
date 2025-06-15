@@ -20,8 +20,7 @@
  */
 
 use MediaWiki\MediaWikiServices;
-use MediaWiki\SpecialPage\SpecialPage;
-use Wikimedia\Rdbms\IDBAccessObject;
+use MediaWiki\Revision\RevisionFactory;
 
 /**
  * Item class for a archive table row
@@ -32,7 +31,7 @@ class RevDelArchiveItem extends RevDelRevisionItem {
 			->getRevisionFactory()
 			->newRevisionFromArchiveRow(
 				$row,
-				IDBAccessObject::READ_NORMAL,
+				RevisionFactory::READ_NORMAL,
 				null,
 				[ 'page_id' => $list->getPage()->getId() ]
 			);
@@ -66,19 +65,18 @@ class RevDelArchiveItem extends RevDelRevisionItem {
 	}
 
 	public function setBits( $bits ) {
-		$dbw = MediaWikiServices::getInstance()->getConnectionProvider()->getPrimaryDatabase();
-		$dbw->newUpdateQueryBuilder()
-			->update( 'archive' )
-			->set( [ 'ar_deleted' => $bits ] )
-			->where( [
+		$dbw = wfGetDB( DB_PRIMARY );
+		$dbw->update( 'archive',
+			[ 'ar_deleted' => $bits ],
+			[
 				'ar_namespace' => $this->list->getPage()->getNamespace(),
 				'ar_title' => $this->list->getPage()->getDBkey(),
 				// use timestamp for index
 				'ar_timestamp' => $this->row->ar_timestamp,
 				'ar_rev_id' => $this->row->ar_rev_id,
 				'ar_deleted' => $this->getBits()
-			] )
-			->caller( __METHOD__ )->execute();
+			],
+			__METHOD__ );
 
 		return (bool)$dbw->affectedRows();
 	}

@@ -29,6 +29,7 @@
  * @since 1.25
  */
 class SkinApi extends SkinMustache {
+	public $skinname = 'apioutput';
 	/**
 	 * Extension of class methods is discouraged.
 	 * Developers are encouraged to improve the flexibility of SkinMustache

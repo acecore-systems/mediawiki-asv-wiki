@@ -3,9 +3,7 @@ const Page = require( 'wdio-mediawiki/Page' );
 
 class MathPage extends Page {
 
-	get mathml() {
-		return $( '.mwe-math-element' );
-	}
+	get img() { return $( '.mwe-math-fallback-image-inline' ); }
 
 }
 module.exports = new MathPage();

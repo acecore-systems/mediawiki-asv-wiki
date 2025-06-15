@@ -6,20 +6,19 @@ use MediaWiki\Extension\AbuseFilter\Consequences\Parameters;
 use MediaWiki\Extension\AbuseFilter\FilterUser;
 use MediaWiki\Extension\AbuseFilter\Variables\VariableHolder;
 use MediaWiki\User\UserGroupManager;
-use MediaWiki\User\UserIdentityUtils;
 use MediaWiki\User\UserIdentityValue;
 
 /**
- * @group Database
- * @covers \MediaWiki\Extension\AbuseFilter\Consequences\Consequence\Degroup
- * @todo Make this a unit test once ManualLogEntry is servicified (T253717) and DI is possible for User::newSystemUser
+ * @coversDefaultClass \MediaWiki\Extension\AbuseFilter\Consequences\Consequence\Degroup
+ * @covers ::__construct
+ * @todo Make this a unit test once ManualLogEntry is servicified (T253717)
  */
 class DegroupTest extends MediaWikiIntegrationTestCase {
 	use ConsequenceGetMessageTestTrait;
 
 	private function getMsgLocalizer(): MessageLocalizer {
 		$ml = $this->createMock( MessageLocalizer::class );
-		$ml->method( 'msg' )->willReturnCallback( function ( $k, ...$p ) {
+		$ml->method( 'msg' )->willReturnCallback( function ( $k, $p ) {
 			return $this->getMockMessage( $k, $p );
 		} );
 		return $ml;
@@ -30,6 +29,9 @@ class DegroupTest extends MediaWikiIntegrationTestCase {
 		return AbuseFilterServices::getFilterUser();
 	}
 
+	/**
+	 * @covers ::execute
+	 */
 	public function testExecute() {
 		$user = new UserIdentityValue( 1, 'Degrouped user' );
 		$params = $this->provideGetMessageParameters( $user )->current()[0];
@@ -40,19 +42,20 @@ class DegroupTest extends MediaWikiIntegrationTestCase {
 			->method( 'removeUserFromGroup' )
 			->with( $user, 'sysop' );
 		$filterUser = $this->getFilterUser();
-		$userIdentityUtils = $this->createMock( UserIdentityUtils::class );
-		$userIdentityUtils->method( 'isNamed' )->willReturn( true );
+
 		$degroup = new Degroup(
 			$params,
 			VariableHolder::newFromArray( [ 'user_groups' => [ '*', 'user', 'sysop' ] ] ),
 			$userGroupManager,
-			$userIdentityUtils,
 			$filterUser,
 			$this->getMsgLocalizer()
 		);
 		$this->assertTrue( $degroup->execute() );
 	}
 
+	/**
+	 * @covers ::execute
+	 */
 	public function testExecute_noGroups() {
 		$params = $this->provideGetMessageParameters()->current()[0];
 		$userGroupManager = $this->createMock( UserGroupManager::class );
@@ -65,13 +68,15 @@ class DegroupTest extends MediaWikiIntegrationTestCase {
 			$params,
 			VariableHolder::newFromArray( [ 'user_groups' => [ '*', 'user' ] ] ),
 			$userGroupManager,
-			$this->createMock( UserIdentityUtils::class ),
 			$this->createMock( FilterUser::class ),
 			$this->getMsgLocalizer()
 		);
 		$this->assertFalse( $degroup->execute() );
 	}
 
+	/**
+	 * @covers ::execute
+	 */
 	public function testExecute_variableNotSet() {
 		$user = new UserIdentityValue( 1, 'Degrouped user' );
 		$params = $this->provideGetMessageParameters( $user )->current()[0];
@@ -85,19 +90,20 @@ class DegroupTest extends MediaWikiIntegrationTestCase {
 			->method( 'removeUserFromGroup' )
 			->with( $user, 'sysop' );
 		$filterUser = $this->getFilterUser();
-		$userIdentityUtils = $this->createMock( UserIdentityUtils::class );
-		$userIdentityUtils->method( 'isNamed' )->willReturn( true );
+
 		$degroup = new Degroup(
 			$params,
 			new VariableHolder(),
 			$userGroupManager,
-			$userIdentityUtils,
 			$filterUser,
 			$this->getMsgLocalizer()
 		);
 		$this->assertTrue( $degroup->execute() );
 	}
 
+	/**
+	 * @covers ::execute
+	 */
 	public function testExecute_anonymous() {
 		$user = new UserIdentityValue( 0, 'Anonymous user' );
 		$params = $this->provideGetMessageParameters( $user )->current()[0];
@@ -110,35 +116,13 @@ class DegroupTest extends MediaWikiIntegrationTestCase {
 			$params,
 			$this->createMock( VariableHolder::class ),
 			$userGroupManager,
-			$this->createMock( UserIdentityUtils::class ),
 			$filterUser,
 			$this->getMsgLocalizer()
 		);
 		$this->assertFalse( $degroup->execute() );
 	}
 
-	public function testExecute_temp() {
-		$user = new UserIdentityValue( 10, '*12345' );
-		$params = $this->provideGetMessageParameters( $user )->current()[0];
-		$userGroupManager = $this->createMock( UserGroupManager::class );
-		$userGroupManager->expects( $this->never() )->method( $this->anything() );
-		$userIdentityUtils = $this->createMock( UserIdentityUtils::class );
-		$userIdentityUtils->method( 'isNamed' )->willReturn( false );
-		$filterUser = $this->createMock( FilterUser::class );
-		$filterUser->expects( $this->never() )->method( $this->anything() );
-
-		$degroup = new Degroup(
-			$params,
-			$this->createMock( VariableHolder::class ),
-			$userGroupManager,
-			$userIdentityUtils,
-			$filterUser,
-			$this->getMsgLocalizer()
-		);
-		$this->assertFalse( $degroup->execute() );
-	}
-
-	public static function provideRevert(): array {
+	public function provideRevert(): array {
 		return [
 			[ true, [ '*', 'user', 'sysop' ] ],
 			[ true, [ '*', 'user', 'canceled', 'sysop' ] ],
@@ -148,6 +132,7 @@ class DegroupTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
+	 * @covers ::revert
 	 * @dataProvider provideRevert
 	 */
 	public function testRevert( bool $success, array $hadGroups, array $hasGroups = [] ) {
@@ -167,12 +152,11 @@ class DegroupTest extends MediaWikiIntegrationTestCase {
 			$params,
 			VariableHolder::newFromArray( [ 'user_groups' => $hadGroups ] ),
 			$userGroupManager,
-			$this->createMock( UserIdentityUtils::class ),
 			$this->createMock( FilterUser::class ),
 			$this->getMsgLocalizer()
 		);
 
-		$performer = new UserIdentityValue( 42, 'Foo' );
+		$performer = $this->getTestUser()->getUser();
 		$this->assertSame(
 			$success,
 			$degroup->revert( $performer, 'reason' )
@@ -180,6 +164,7 @@ class DegroupTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
+	 * @covers ::getMessage
 	 * @dataProvider provideGetMessageParameters
 	 */
 	public function testGetMessage( Parameters $params ) {
@@ -187,7 +172,6 @@ class DegroupTest extends MediaWikiIntegrationTestCase {
 			$params,
 			new VariableHolder(),
 			$this->createMock( UserGroupManager::class ),
-			$this->createMock( UserIdentityUtils::class ),
 			$this->createMock( FilterUser::class ),
 			$this->getMsgLocalizer()
 		);

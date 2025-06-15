@@ -1,16 +1,14 @@
 <?php
 
-namespace Wikimedia\Tests\ParamValidator;
+namespace Wikimedia\ParamValidator;
 
-use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\UploadedFileInterface;
 use Wikimedia\Message\DataMessageValue;
-use Wikimedia\ParamValidator\SimpleCallbacks;
 
 /**
- * @covers \Wikimedia\ParamValidator\SimpleCallbacks
+ * @covers Wikimedia\ParamValidator\SimpleCallbacks
  */
-class SimpleCallbacksTest extends TestCase {
+class SimpleCallbacksTest extends \PHPUnit\Framework\TestCase {
 
 	public function testDataAccess() {
 		$callbacks = new SimpleCallbacks(

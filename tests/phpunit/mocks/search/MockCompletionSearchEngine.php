@@ -1,7 +1,5 @@
 <?php
 
-use MediaWiki\Title\Title;
-
 /**
  * SearchEngine implementation for returning mocked completion search results.
  */

@@ -19,16 +19,14 @@
  * @author This, that and the other
  */
 
-use MediaWiki\Title\ForeignTitle;
-
 /**
- * @covers \MediaWiki\Title\ForeignTitle
+ * @covers ForeignTitle
  *
  * @group Title
  */
 class ForeignTitleTest extends \MediaWikiUnitTestCase {
 
-	public static function basicProvider() {
+	public function basicProvider() {
 		return [
 			[
 				new ForeignTitle( 20, 'Contributor', 'JohnDoe' ),
@@ -70,12 +68,12 @@ class ForeignTitleTest extends \MediaWikiUnitTestCase {
 	}
 
 	public function testUnknownNamespaceError() {
-		$this->expectException( RuntimeException::class );
+		$this->expectException( MWException::class );
 		$title = new ForeignTitle( null, 'this', 'that' );
 		$title->getNamespaceId();
 	}
 
-	public static function fullTextProvider() {
+	public function fullTextProvider() {
 		return [
 			[
 				new ForeignTitle( 20, 'Contributor', 'JohnDoe' ),

@@ -2,20 +2,23 @@
 
 namespace MediaWiki\Rest\Handler;
 
-use MediaWiki\Api\ApiBase;
-use MediaWiki\Api\ApiMain;
-use MediaWiki\Api\ApiMessage;
-use MediaWiki\Api\ApiUsageException;
-use MediaWiki\Api\IApiMessage;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\Request\FauxRequest;
-use MediaWiki\Request\WebResponse;
+use ApiBase;
+use ApiMain;
+use ApiMessage;
+use ApiUsageException;
+use FauxRequest;
+use IApiMessage;
 use MediaWiki\Rest\Handler;
-use MediaWiki\Rest\Handler\Helper\RestStatusTrait;
 use MediaWiki\Rest\HttpException;
 use MediaWiki\Rest\LocalizedHttpException;
 use MediaWiki\Rest\Response;
+use RequestContext;
+use WebResponse;
+use Wikimedia\Message\ListParam;
+use Wikimedia\Message\MessageParam;
 use Wikimedia\Message\MessageValue;
+use Wikimedia\Message\ParamType;
+use Wikimedia\Message\ScalarParam;
 
 /**
  * Base class for REST handlers that are implemented by mapping to an existing ApiModule.
@@ -23,7 +26,6 @@ use Wikimedia\Message\MessageValue;
  * @stable to extend
  */
 abstract class ActionModuleBasedHandler extends Handler {
-	use RestStatusTrait;
 
 	/**
 	 * @var ApiMain|null
@@ -54,7 +56,7 @@ abstract class ActionModuleBasedHandler extends Handler {
 		$context = RequestContext::getMain();
 		$session = $context->getRequest()->getSession();
 
-		// NOTE: This being a MediaWiki\Request\FauxRequest instance triggers special case behavior
+		// NOTE: This being a FauxRequest instance triggers special case behavior
 		// in ApiMain, causing ApiMain::isInternalMode() to return true. Among other things,
 		// this causes ApiMain to throw errors rather than encode them in the result data.
 		$fauxRequest = new FauxRequest( [], true, $session );
@@ -114,14 +116,15 @@ abstract class ActionModuleBasedHandler extends Handler {
 			$apiMain->execute();
 		} catch ( ApiUsageException $ex ) {
 			// use a fake loop to throw the first error
-			foreach ( $ex->getStatusValue()->getMessages( 'error' ) as $msg ) {
-				$msg = ApiMessage::create( $msg );
+			foreach ( $ex->getStatusValue()->getErrorsByType( 'error' ) as $error ) {
+				$msg = ApiMessage::create( $error );
 				$this->throwHttpExceptionForActionModuleError( $msg, $ex->getCode() ?: 400 );
 			}
 
 			// This should never happen, since ApiUsageExceptions should always
 			// have errors in their Status object.
-			throw new LocalizedHttpException( new MessageValue( "rest-unmapped-action-error", [ $ex->getMessage() ] ),
+			throw new HttpException(
+				'Unmapped action module error: ' . $ex->getMessage(),
 				$ex->getCode()
 			);
 		}
@@ -199,7 +202,7 @@ abstract class ActionModuleBasedHandler extends Handler {
 	 * @stable to override
 	 *
 	 * @param IApiMessage $msg A message object representing an error in an action module,
-	 *        typically from calling getStatusValue()->getMessages( 'error' ) on
+	 *        typically from calling getStatusValue()->getErrorsByType( 'error' ) on
 	 *        an ApiUsageException.
 	 * @param int $statusCode The HTTP status indicated by the original exception
 	 *
@@ -228,7 +231,39 @@ abstract class ActionModuleBasedHandler extends Handler {
 	 * @return MessageValue
 	 */
 	protected function makeMessageValue( IApiMessage $msg ) {
-		return $this->getMessageValueConverter()->convertMessage( $msg );
+		$params = [];
+
+		// TODO: find a better home for the parameter mapping logic
+		foreach ( $msg->getParams() as $p ) {
+			$params[] = $this->makeMessageParam( $p );
+		}
+
+		return new MessageValue( $msg->getKey(), $params );
+	}
+
+	/**
+	 * @param mixed $param
+	 *
+	 * @return MessageParam
+	 */
+	private function makeMessageParam( $param ) {
+		if ( is_array( $param ) ) {
+			foreach ( $param as $type => $value ) {
+				if ( $type === 'list' ) {
+					$paramList = [];
+
+					foreach ( $value as $v ) {
+						$paramList[] = $this->makeMessageParam( $v );
+					}
+
+					return new ListParam( ParamType::TEXT, $paramList );
+				} else {
+					return new ScalarParam( $type, $value );
+				}
+			}
+		} else {
+			return new ScalarParam( ParamType::TEXT, $param );
+		}
 	}
 
 }

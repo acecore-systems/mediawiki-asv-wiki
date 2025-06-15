@@ -23,13 +23,12 @@
  * @newable
  */
 class ZipDirectoryReaderError extends Exception {
-	/** @var string */
 	protected $errorCode;
 
 	/**
 	 * @stable to call
 	 *
-	 * @param string $code
+	 * @param mixed $code
 	 */
 	public function __construct( $code ) {
 		$this->errorCode = $code;
@@ -37,7 +36,7 @@ class ZipDirectoryReaderError extends Exception {
 	}
 
 	/**
-	 * @return string
+	 * @return mixed
 	 */
 	public function getErrorCode() {
 		return $this->errorCode;

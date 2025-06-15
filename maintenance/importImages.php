@@ -32,17 +32,10 @@
  * @author Mij <mij@bitchx.it>
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 use MediaWiki\MainConfigNames;
-use MediaWiki\Maintenance\Maintenance;
-use MediaWiki\Specials\SpecialUpload;
-use MediaWiki\StubObject\StubGlobalUser;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
-use Wikimedia\FileBackend\FSFile\FSFile;
+use MediaWiki\MediaWikiServices;
 
 class ImportImages extends Maintenance {
 
@@ -125,7 +118,7 @@ class ImportImages extends Maintenance {
 		$this->addOption( 'unprotect', 'Unprotects all uploaded images' );
 		$this->addOption( 'source-wiki-url',
 			'If specified, take User and Comment data for each imported file from this URL. '
-				. 'For example, --source-wiki-url="https://en.wikipedia.org/w/',
+				. 'For example, --source-wiki-url="http://en.wikipedia.org/',
 			false,
 			true
 		);
@@ -133,18 +126,10 @@ class ImportImages extends Maintenance {
 	}
 
 	public function execute() {
-		$services = $this->getServiceContainer();
+		$services = MediaWikiServices::getInstance();
 		$permissionManager = $services->getPermissionManager();
 
-		$found = 0;
-		$processed = 0;
-		$statistics = [
-			'ignored' => 0,
-			'added' => 0,
-			'skipped' => 0,
-			'overwritten' => 0,
-			'failed' => 0,
-		];
+		$processed = $added = $ignored = $skipped = $overwritten = $failed = 0;
 
 		$this->output( "Importing Files\n\n" );
 
@@ -166,7 +151,7 @@ class ImportImages extends Maintenance {
 
 		# Search the path provided for candidates for import
 		$files = $this->findFiles( $dir, $extensions, $this->hasOption( 'search-recursively' ) );
-		if ( !$files->valid() ) {
+		if ( !$files ) {
 			$this->output( "No suitable files could be found for import.\n" );
 			return false;
 		}
@@ -201,20 +186,19 @@ class ImportImages extends Maintenance {
 		}
 		$commentExt = $this->getOption( 'comment-ext' );
 		$summary = $this->getOption( 'summary', '' );
+
 		$license = $this->getOption( 'license', '' );
+
 		$sourceWikiUrl = $this->getOption( 'source-wiki-url' );
 
-		$tags = in_array(
-			ChangeTags::TAG_SERVER_SIDE_UPLOAD,
-			$this->getServiceContainer()->getChangeTagsStore()->getSoftwareTags()
-		)
+		$tags = in_array( ChangeTags::TAG_SERVER_SIDE_UPLOAD, ChangeTags::getSoftwareTags() )
 			? [ ChangeTags::TAG_SERVER_SIDE_UPLOAD ]
 			: [];
 
 		# Batch "upload" operation
+		$lbFactory = $services->getDBLoadBalancerFactory();
 		$restrictionStore = $services->getRestrictionStore();
 		foreach ( $files as $file ) {
-			$found++;
 			if ( $sleep && ( $processed > 0 ) ) {
 				sleep( $sleep );
 			}
@@ -223,7 +207,7 @@ class ImportImages extends Maintenance {
 
 			# Validate a title
 			$title = Title::makeTitleSafe( NS_FILE, $base );
-			if ( !$title ) {
+			if ( !is_object( $title ) ) {
 				$this->output(
 					"{$base} could not be imported; a valid title cannot be produced\n"
 				);
@@ -231,12 +215,12 @@ class ImportImages extends Maintenance {
 			}
 
 			if ( $from ) {
-				if ( $from !== $title->getDBkey() ) {
-					$statistics['ignored']++;
+				if ( $from == $title->getDBkey() ) {
+					$from = null;
+				} else {
+					$ignored++;
 					continue;
 				}
-				// Found the requested file, continue from here
-				$from = null;
 			}
 
 			if ( $checkUserBlock && ( ( $processed % $checkUserBlock ) == 0 ) ) {
@@ -245,7 +229,7 @@ class ImportImages extends Maintenance {
 					$this->output(
 						"{$user->getName()} is blocked from {$title->getPrefixedText()}! skipping.\n"
 					);
-					$statistics['skipped']++;
+					$skipped++;
 					continue;
 				}
 			}
@@ -259,7 +243,7 @@ class ImportImages extends Maintenance {
 					$svar = 'overwritten';
 				} else {
 					$this->output( "{$base} exists, skipping\n" );
-					$statistics['skipped']++;
+					$skipped++;
 					continue;
 				}
 			} else {
@@ -267,12 +251,14 @@ class ImportImages extends Maintenance {
 					$repo = $image->getRepo();
 					# XXX: we end up calculating this again when actually uploading. that sucks.
 					$sha1 = FSFile::getSha1Base36FromPath( $file );
+
 					$dupes = $repo->findBySha1( $sha1 );
+
 					if ( $dupes ) {
 						$this->output(
 							"{$base} already exists as {$dupes[0]->getName()}, skipping\n"
 						);
-						$statistics['skipped']++;
+						$skipped++;
 						continue;
 					}
 				}
@@ -284,11 +270,17 @@ class ImportImages extends Maintenance {
 			if ( $sourceWikiUrl ) {
 				/* find comment text directly from source wiki, through MW's API */
 				$real_comment = $this->getFileCommentFromSourceWiki( $sourceWikiUrl, $base );
-				$commentText = $real_comment !== false ? $real_comment : $comment;
+				if ( $real_comment === false ) {
+					$commentText = $comment;
+				} else {
+					$commentText = $real_comment;
+				}
 
 				/* find user directly from source wiki, through MW's API */
 				$real_user = $this->getFileUserFromSourceWiki( $sourceWikiUrl, $base );
-				if ( $real_user !== false ) {
+				if ( $real_user === false ) {
+					// don't change $wgUser
+				} else {
 					$realUser = User::newFromName( $real_user );
 					if ( $realUser === false ) {
 						# user does not exist in target wiki
@@ -345,7 +337,7 @@ class ImportImages extends Maintenance {
 					$this->output( "failed. (" .
 						$archive->getMessage( false, false, 'en' )->text() .
 						")\n" );
-					$statistics['failed']++;
+					$failed++;
 					continue;
 				}
 			}
@@ -388,7 +380,7 @@ class ImportImages extends Maintenance {
 					$this->output( "\nWaiting for replica DBs...\n" );
 					// Wait for replica DBs.
 					sleep( 2 ); # Why this sleep?
-					$this->waitForReplication();
+					$lbFactory->waitForReplication();
 
 					$this->output( "\nSetting image restrictions ..." );
 
@@ -407,7 +399,7 @@ class ImportImages extends Maintenance {
 				$svar = 'failed';
 			}
 
-			$statistics[$svar]++;
+			$$svar++;
 			$processed++;
 
 			if ( $limit && $processed >= $limit ) {
@@ -417,48 +409,58 @@ class ImportImages extends Maintenance {
 
 		# Print out some statistics
 		$this->output( "\n" );
-		foreach ( array_merge(
+		foreach (
 			[
-				'Found' => $found,
+				'Found' => count( $files ),
 				'Limit' => $limit,
-			],
-			$statistics
-		) as $desc => $number ) {
+				'Ignored' => $ignored,
+				'Added' => $added,
+				'Skipped' => $skipped,
+				'Overwritten' => $overwritten,
+				'Failed' => $failed,
+			] as $desc => $number
+		) {
 			if ( $number > 0 ) {
-				$this->output( ucfirst( $desc ) . ": $number\n" );
+				$this->output( "{$desc}: {$number}\n" );
 			}
 		}
 
 		// Return true if there are no failed imports (= zero exit code), or
 		// return false if there are any failed imports (= non-zero exit code)
-		return $statistics['failed'] === 0;
+		return $failed === 0;
 	}
 
 	/**
 	 * Search a directory for files with one of a set of extensions
 	 *
 	 * @param string $dir Path to directory to search
-	 * @param array $exts Array of lowercase extensions to search for
+	 * @param array $exts Array of extensions to search for
 	 * @param bool $recurse Search subdirectories recursively
-	 * @return \Generator<string> Generator that iterating filenames
+	 * @return array|bool Array of filenames on success, or false on failure
 	 */
 	private function findFiles( $dir, $exts, $recurse = false ) {
-		$dhl = is_dir( $dir ) ? opendir( $dir ) : false;
-		if ( !$dhl ) {
-			return;
+		if ( !is_dir( $dir ) ) {
+			return [];
 		}
 
-		// phpcs:ignore Generic.CodeAnalysis.AssignmentInCondition.FoundInWhileCondition
+		$dhl = opendir( $dir );
+		if ( !$dhl ) {
+			return [];
+		}
+
+		$files = [];
 		while ( ( $file = readdir( $dhl ) ) !== false ) {
 			if ( is_file( $dir . '/' . $file ) ) {
 				$ext = pathinfo( $file, PATHINFO_EXTENSION );
 				if ( in_array( strtolower( $ext ), $exts ) ) {
-					yield $dir . '/' . $file;
+					$files[] = $dir . '/' . $file;
 				}
 			} elseif ( $recurse && is_dir( $dir . '/' . $file ) && $file !== '..' && $file !== '.' ) {
-				yield from $this->findFiles( $dir . '/' . $file, $exts, true );
+				$files = array_merge( $files, $this->findFiles( $dir . '/' . $file, $exts, true ) );
 			}
 		}
+
+		return $files;
 	}
 
 	/**
@@ -473,10 +475,10 @@ class ImportImages extends Maintenance {
 	 * @param string $file Base path
 	 * @param string $auxExtension The extension to be appended to the base path
 	 * @param int $maxStrip The maximum number of extensions to strip from the base path (default: 1)
-	 * @return string|false
+	 * @return string|bool
 	 */
 	private function findAuxFile( $file, $auxExtension, $maxStrip = 1 ) {
-		if ( !str_starts_with( $auxExtension, '.' ) ) {
+		if ( strpos( $auxExtension, '.' ) !== 0 ) {
 			$auxExtension = '.' . $auxExtension;
 		}
 
@@ -509,12 +511,12 @@ class ImportImages extends Maintenance {
 	 * @param string $wiki_host
 	 * @param string $file
 	 *
-	 * @return string|false
+	 * @return string|bool
 	 */
 	private function getFileCommentFromSourceWiki( $wiki_host, $file ) {
 		$url = $wiki_host . '/api.php?action=query&format=xml&titles=File:'
 			. rawurlencode( $file ) . '&prop=imageinfo&&iiprop=comment';
-		$body = $this->getServiceContainer()->getHttpRequestFactory()->get( $url, [], __METHOD__ );
+		$body = MediaWikiServices::getInstance()->getHttpRequestFactory()->get( $url, [], __METHOD__ );
 		if ( preg_match( '#<ii comment="([^"]*)" />#', $body, $matches ) == 0 ) {
 			return false;
 		}
@@ -525,7 +527,7 @@ class ImportImages extends Maintenance {
 	private function getFileUserFromSourceWiki( $wiki_host, $file ) {
 		$url = $wiki_host . '/api.php?action=query&format=xml&titles=File:'
 			. rawurlencode( $file ) . '&prop=imageinfo&&iiprop=user';
-		$body = $this->getServiceContainer()->getHttpRequestFactory()->get( $url, [], __METHOD__ );
+		$body = MediaWikiServices::getInstance()->getHttpRequestFactory()->get( $url, [], __METHOD__ );
 		if ( preg_match( '#<ii user="([^"]*)" />#', $body, $matches ) == 0 ) {
 			return false;
 		}
@@ -535,7 +537,5 @@ class ImportImages extends Maintenance {
 
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = ImportImages::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

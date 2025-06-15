@@ -1,6 +1,8 @@
 <?php
 /** Church Slavic (словѣньскъ / ⰔⰎⰑⰂⰡⰐⰠⰔⰍⰟ)
  *
+ * To improve a translation please visit https://translatewiki.net
+ *
  * @file
  * @ingroup Languages
  */
@@ -58,7 +60,7 @@ $namespaceAliases = [
 
 /** @phpcs-require-sorted-array */
 $magicWords = [
-	'language'                  => [ '0', '#ѨꙀꙐКЪ', '#LANGUAGE' ],
+	'language'                  => [ '0', '#ѨꙀꙐКЪ:', '#LANGUAGE:' ],
 	'redirect'                  => [ '0', '#ПРѢНАПРАВЛЄНИѤ', '#REDIRECT' ],
 ];
 

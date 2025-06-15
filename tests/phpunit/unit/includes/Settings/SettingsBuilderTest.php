@@ -1,20 +1,18 @@
 <?php
 
-namespace MediaWiki\Tests\Unit\Settings;
+namespace phpunit\unit\includes\Settings;
 
+use BagOStuff;
+use ExtensionRegistry;
 use InvalidArgumentException;
-use MediaWiki\MainConfigNames;
 use MediaWiki\MainConfigSchema;
-use MediaWiki\Registration\ExtensionRegistry;
 use MediaWiki\Settings\Cache\CacheableSource;
-use MediaWiki\Settings\Cache\CachedSource;
 use MediaWiki\Settings\Config\ArrayConfigBuilder;
 use MediaWiki\Settings\Config\MergeStrategy;
 use MediaWiki\Settings\Config\PhpIniSink;
 use MediaWiki\Settings\SettingsBuilder;
 use MediaWiki\Settings\SettingsBuilderException;
 use PHPUnit\Framework\TestCase;
-use Wikimedia\ObjectCache\BagOStuff;
 
 /**
  * @covers \MediaWiki\Settings\SettingsBuilder
@@ -130,40 +128,22 @@ class SettingsBuilderTest extends TestCase {
 		$config = $configBuilder->build();
 		$this->assertSame( 'TEST', $config->get( 'Something' ) );
 
-		// Check that after enterRegistrationStage(), we can still override config,
-		// but we can't load settings sources.
-		$setting->enterRegistrationStage();
-		$setting->overrideConfigValue( 'Foo', 'bar' );
+		// Finalize and lock loading & applying anymore settings
+		$setting->finalize();
 
 		$this->expectException( SettingsBuilderException::class );
 		$setting->loadFile( 'fixtures/settings.json' )->apply();
 	}
 
-	public function testSettingConfigAfterLock() {
-		$setting = $this->newSettingsBuilder();
-
-		// Check that after enterOperationStage(), we can't override config.
-		$setting->enterReadOnlyStage();
-
-		$this->expectException( SettingsBuilderException::class );
-		$setting->overrideConfigValue( 'Foo', 'bar' );
-	}
-
 	public function testLoadingExtensions() {
 		$extensionRegistryMock = $this->createMock( ExtensionRegistry::class );
-		$expectedQueuePaths = [
-			'/test/extensions/Foo/extension.json',
-			'/test/extensions/Bar/extension.json',
-			'/test/skins/Quux/skin.json',
-		];
 		$extensionRegistryMock
 			->expects( $this->exactly( 3 ) )
-			->method( 'queue' )
-			->willReturnCallback( function ( $path ) use ( &$expectedQueuePaths ) {
-				$this->assertContains( $path, $expectedQueuePaths );
-				$pathIdx = array_search( $path, $expectedQueuePaths, true );
-				unset( $expectedQueuePaths[$pathIdx] );
-			} );
+			->method( 'queue' )->withConsecutive(
+				[ '/test/extensions/Foo/extension.json' ],
+				[ '/test/extensions/Bar/extension.json' ],
+				[ '/test/skins/Quux/skin.json' ]
+			);
 
 		$setting = $this->newSettingsBuilder( [
 			'extensionRegistry' => $extensionRegistryMock,
@@ -173,7 +153,7 @@ class SettingsBuilderTest extends TestCase {
 		$setting->apply();
 	}
 
-	public static function provideConfigDefaults() {
+	public function provideConfigDefaults() {
 		yield 'sets a value from a single settings file' => [
 			'settingsBatches' => [
 				[ 'config' => [ 'MySetting' => 'MyValue', ], ],
@@ -374,16 +354,6 @@ class SettingsBuilderTest extends TestCase {
 		$this->assertSame( 22, $config->get( 'b' ) );
 	}
 
-	public function testRegisterHookHandler() {
-		$setting = $this->newSettingsBuilder();
-
-		$hookName = 'TestHookForSettingsBuilderTest';
-		$setting->registerHookHandlers( [ $hookName => [ 'strtolower' ] ] );
-
-		$config = $setting->getConfig();
-		$this->assertArrayHasKey( $hookName, $config->get( MainConfigNames::Hooks ) );
-	}
-
 	public function testApplyPurgesState() {
 		$configBuilder = new ArrayConfigBuilder();
 		$setting = $this->newSettingsBuilder( [ 'configBuilder' => $configBuilder ] );
@@ -464,7 +434,7 @@ class SettingsBuilderTest extends TestCase {
 		$this->assertSame( [ 'x' ], $config->get( 'X' ) );
 	}
 
-	public static function provideValidate() {
+	public function provideValidate() {
 		yield 'all good' => [
 			'settings' => [
 				'config-schema' => [ 'foo' => [ 'type' => 'string', ], ],
@@ -536,7 +506,7 @@ class SettingsBuilderTest extends TestCase {
 			->load( $mockSource );
 
 		$hashKey = 'abc123';
-		$key = 'global:' . self::class . ':' . $hashKey;
+		$key = 'global:MediaWiki\Tests\Unit\Settings\Cache\CachedSourceTest:' . $hashKey;
 
 		// Mock a cache miss
 		$mockSource
@@ -547,7 +517,7 @@ class SettingsBuilderTest extends TestCase {
 		$mockCache
 			->expects( $this->once() )
 			->method( 'makeGlobalKey' )
-			->with( CachedSource::class, $hashKey )
+			->with( 'MediaWiki\Settings\Cache\CachedSource', $hashKey )
 			->willReturn( $key );
 
 		$mockCache

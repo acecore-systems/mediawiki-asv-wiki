@@ -14,8 +14,10 @@
 	} );
 
 	QUnit.test( 'Use toggle', function ( assert ) {
-		const tocNode = $.parseHTML( this.tocHtml )[ 0 ];
-		const tocToggle = tocNode.querySelector( '.toctogglelabel' );
+		var tocNode, tocToggle;
+
+		tocNode = $.parseHTML( this.tocHtml )[ 0 ];
+		tocToggle = tocNode.querySelector( '.toctogglelabel' );
 		$( '#qunit-fixture' ).append( tocNode );
 		mw.hook( 'wikipage.content' ).fire( $( '#qunit-fixture' ) );
 
@@ -30,9 +32,11 @@
 	} );
 
 	QUnit.test( 'Initially hidden', function ( assert ) {
+		var tocNode;
+
 		this.getCookie.returns( '1' );
 
-		const tocNode = $.parseHTML( this.tocHtml )[ 0 ];
+		tocNode = $.parseHTML( this.tocHtml )[ 0 ];
 		$( '#qunit-fixture' ).append( tocNode );
 		mw.hook( 'wikipage.content' ).fire( $( '#qunit-fixture' ) );
 

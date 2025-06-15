@@ -19,19 +19,10 @@
  * @file
  */
 
-use MediaWiki\Context\IContextSource;
 use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\HookContainer\HookRunner;
-use MediaWiki\Language\Language;
-use MediaWiki\Language\RawMessage;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Message\Message;
-use MediaWiki\Output\OutputPage;
 use MediaWiki\Permissions\Authority;
-use MediaWiki\Request\WebRequest;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
-use Wikimedia\Message\MessageSpecifier;
 
 /**
  * @defgroup Actions Actions
@@ -53,6 +44,16 @@ use Wikimedia\Message\MessageSpecifier;
 abstract class Action implements MessageLocalizer {
 
 	/**
+	 * Page on which we're performing the action
+	 * @since 1.17
+	 * @deprecated since 1.35, use {@link getArticle()} ?? {@link getWikiPage()}. Must be removed.
+	 * @internal
+	 *
+	 * @var WikiPage|Article|ImagePage|CategoryPage|Page
+	 */
+	protected $page;
+
+	/**
 	 * @var Article
 	 * @since 1.35
 	 */
@@ -72,11 +73,6 @@ abstract class Action implements MessageLocalizer {
 	 */
 	protected $fields;
 
-	/** @var HookContainer|null */
-	private $hookContainer;
-	/** @var HookRunner|null */
-	private $hookRunner;
-
 	/**
 	 * Get an appropriate Action subclass for the given action
 	 * @since 1.17
@@ -84,17 +80,21 @@ abstract class Action implements MessageLocalizer {
 	 * @param string $action
 	 * @param Article $article
 	 * @param IContextSource|null $context Falls back to article's context
-	 * @return Action|false|null False if the action is disabled, null
+	 * @return Action|bool|null False if the action is disabled, null
 	 *     if it is not recognised
 	 */
 	final public static function factory(
 		string $action,
 		Article $article,
-		?IContextSource $context = null
+		IContextSource $context = null
 	) {
+		if ( $context === null ) {
+			$context = $article->getContext();
+		}
+
 		return MediaWikiServices::getInstance()
 			->getActionFactory()
-			->getAction( $action, $article, $context ?? $article->getContext() );
+			->getAction( $action, $article, $context );
 	}
 
 	/**
@@ -107,8 +107,25 @@ abstract class Action implements MessageLocalizer {
 	 * @return string Action name
 	 */
 	final public static function getActionName( IContextSource $context ) {
-		// Optimisation: Reuse/prime the cached value of RequestContext
-		return $context->getActionName();
+		return MediaWikiServices::getInstance()
+			->getActionFactory()
+			->getActionName( $context );
+	}
+
+	/**
+	 * Check if a given action is recognised, even if it's disabled
+	 *
+	 * @since 1.17
+	 * @deprecated since 1.38 use (bool)ActionFactory::getAction()
+	 *
+	 * @param string $name Name of an action
+	 * @return bool
+	 */
+	final public static function exists( string $name ): bool {
+		wfDeprecated( __METHOD__, '1.38' );
+		return MediaWikiServices::getInstance()
+			->getActionFactory()
+			->actionExists( $name );
 	}
 
 	/**
@@ -227,25 +244,12 @@ abstract class Action implements MessageLocalizer {
 	}
 
 	/**
-	 * @since 1.40
-	 * @internal For use by ActionFactory
-	 * @param HookContainer $hookContainer
-	 */
-	public function setHookContainer( HookContainer $hookContainer ) {
-		$this->hookContainer = $hookContainer;
-		$this->hookRunner = new HookRunner( $hookContainer );
-	}
-
-	/**
 	 * @since 1.35
 	 * @internal since 1.37
 	 * @return HookContainer
 	 */
 	protected function getHookContainer() {
-		if ( !$this->hookContainer ) {
-			$this->hookContainer = MediaWikiServices::getInstance()->getHookContainer();
-		}
-		return $this->hookContainer;
+		return MediaWikiServices::getInstance()->getHookContainer();
 	}
 
 	/**
@@ -255,10 +259,7 @@ abstract class Action implements MessageLocalizer {
 	 * @return HookRunner
 	 */
 	protected function getHookRunner() {
-		if ( !$this->hookRunner ) {
-			$this->hookRunner = new HookRunner( $this->getHookContainer() );
-		}
-		return $this->hookRunner;
+		return new HookRunner( $this->getHookContainer() );
 	}
 
 	/**
@@ -266,12 +267,47 @@ abstract class Action implements MessageLocalizer {
 	 *
 	 * @stable to call
 	 *
-	 * @param Article $article
-	 * @param IContextSource $context
+	 * @param Article|WikiPage|Page $page
+	 * 	Calling with anything other then Article is deprecated since 1.35
+	 * @param IContextSource|null $context
 	 */
-	public function __construct( Article $article, IContextSource $context ) {
-		$this->article = $article;
+	public function __construct(
+		Page $page,
+		IContextSource $context = null
+	) {
+		if ( $context === null ) {
+			wfWarn( __METHOD__ . ' called without providing a Context object.' );
+		}
+
+		$this->page = $page;// @todo remove b/c
+		$this->article = self::convertPageToArticle( $page, $context, __METHOD__ );
 		$this->context = $context;
+	}
+
+	private static function convertPageToArticle(
+		Page $page,
+		?IContextSource $context,
+		string $method
+	): Article {
+		if ( $page instanceof Article ) {
+			return $page;
+		}
+
+		if ( !$page instanceof WikiPage ) {
+			throw new LogicException(
+				$method . ' called with unknown Page: ' . get_class( $page )
+			);
+		}
+
+		wfDeprecated(
+			$method . ' with: ' . get_class( $page ),
+			'1.35'
+		);
+
+		return Article::newFromWikiPage(
+			$page,
+			$context ?? RequestContext::getMain()
+		);
 	}
 
 	/**
@@ -285,10 +321,6 @@ abstract class Action implements MessageLocalizer {
 	/**
 	 * Get the permission required to perform this action.  Often, but not always,
 	 * the same as the action name
-	 *
-	 * Implementations of this methods must always return the same value, regardless
-	 * of parameters passed to the constructor or system state.
-	 *
 	 * @since 1.17
 	 * @stable to override
 	 *
@@ -300,10 +332,6 @@ abstract class Action implements MessageLocalizer {
 
 	/**
 	 * Indicates whether this action requires read rights
-	 *
-	 * Implementations of this methods must always return the same value, regardless
-	 * of parameters passed to the constructor or system state.
-	 *
 	 * @since 1.38
 	 * @stable to override
 	 * @return bool
@@ -326,7 +354,10 @@ abstract class Action implements MessageLocalizer {
 		$right = $this->getRestriction();
 		$permissionManager = MediaWikiServices::getInstance()->getPermissionManager();
 		if ( $right !== null ) {
-			$permissionManager->throwPermissionErrors( $right, $user, $this->getTitle() );
+			$errors = $permissionManager->getPermissionErrors( $right, $user, $this->getTitle() );
+			if ( count( $errors ) ) {
+				throw new PermissionsError( $right, $errors );
+			}
 		}
 
 		// If the action requires an unblock, explicitly check the user's block.
@@ -358,20 +389,7 @@ abstract class Action implements MessageLocalizer {
 	}
 
 	/**
-	 * Indicates whether this action page write access to the wiki.
-	 *
-	 * Subclasses must override this method to return true if the operation they will
-	 * perform is not "safe" per RFC 7231 section 4.2.1. A subclass's operation is "safe"
-	 * if it is essentially read-only, i.e. the client does not request nor expect any
-	 * state change that would be observable in the responses to future requests.
-	 *
-	 * Implementations of this method must always return the same value, regardless of the
-	 * parameters passed to the constructor or system state.
-	 *
-	 * When handling GET/HEAD requests, subclasses should only perform "safe" operations.
-	 * Note that subclasses handling POST requests might still implement "safe" operations,
-	 * particularly in the case where large input parameters are required.
-	 *
+	 * Whether this action requires the wiki not to be locked
 	 * @since 1.17
 	 * @stable to override
 	 *
@@ -382,11 +400,7 @@ abstract class Action implements MessageLocalizer {
 	}
 
 	/**
-	 * Whether this action can still be executed by a blocked user.
-	 *
-	 * Implementations of this methods must always return the same value, regardless
-	 * of parameters passed to the constructor or system state.
-	 *
+	 * Whether this action can still be executed by a blocked user
 	 * @since 1.17
 	 * @stable to override
 	 *
@@ -405,13 +419,7 @@ abstract class Action implements MessageLocalizer {
 	protected function setHeaders() {
 		$out = $this->getOutput();
 		$out->setRobotPolicy( 'noindex,nofollow' );
-		$title = $this->getPageTitle();
-		if ( is_string( $title ) ) {
-			// T343849: deprecated
-			wfDeprecated( 'string return from Action::getPageTitle()', '1.41' );
-			$title = ( new RawMessage( '$1' ) )->rawParams( $title );
-		}
-		$out->setPageTitleMsg( $title );
+		$out->setPageTitle( $this->getPageTitle() );
 		$out->setSubtitle( $this->getDescription() );
 		$out->setArticleRelated( true );
 	}
@@ -419,13 +427,11 @@ abstract class Action implements MessageLocalizer {
 	/**
 	 * Returns the name that goes in the `<h1>` page title.
 	 *
-	 * Since 1.41, returning a string from this method has been deprecated.
-	 *
 	 * @stable to override
-	 * @return string|Message
+	 * @return string
 	 */
 	protected function getPageTitle() {
-		return ( new RawMessage( '$1' ) )->plaintextParams( $this->getTitle()->getPrefixedText() );
+		return $this->getTitle()->getPrefixedText();
 	}
 
 	/**
@@ -483,20 +489,7 @@ abstract class Action implements MessageLocalizer {
 	}
 
 	/**
-	 * Indicates whether POST requests handled by this action require write access to the wiki.
-	 *
-	 * Subclasses must override this method to return true if any of the operations that
-	 * they perform on POST requests are not "safe" per RFC 7231 section 4.2.1. A subclass's
-	 * operation is "safe" if it is essentially read-only, i.e. the client does not request
-	 * nor expect any state change that would be observable in the responses to future requests.
-	 *
-	 * Implementations of this method must always return the same value, regardless of the
-	 * parameters passed to the constructor or system state.
-	 *
-	 * When handling GET/HEAD requests, subclasses should only perform "safe" operations.
-	 * Note that some subclasses might only perform "safe" operations even for POST requests,
-	 * particularly in the case where large input parameters are required.
-	 *
+	 * Indicates whether this action may perform database writes
 	 * @return bool
 	 * @since 1.27
 	 * @stable to override

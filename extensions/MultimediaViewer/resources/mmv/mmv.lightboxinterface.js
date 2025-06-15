@@ -15,61 +15,58 @@
  * along with MultimediaViewer.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const Canvas = require( './ui/mmv.ui.canvas.js' );
-const CanvasButtons = require( './ui/mmv.ui.canvasButtons.js' );
-const MetadataPanel = require( './ui/mmv.ui.metadataPanel.js' );
-const ThumbnailWidthCalculator = require( './mmv.ThumbnailWidthCalculator.js' );
-const UiElement = require( './ui/mmv.ui.js' );
+( function () {
+	var LIP;
 
-/** Proxy for a Dialog. Initialises and attaches the dialog upon first use. */
-class DialogProxy extends UiElement {
-	constructor( eventName, initDialog ) {
-		super();
-		this.eventName = eventName;
-		this.initDialog = initDialog;
-	}
+	/**
+	 * Represents the main interface of the lightbox
+	 *
+	 * @class mw.mmv.LightboxInterface
+	 * @extends mw.mmv.ui.Element
+	 * @constructor
+	 */
+	function LightboxInterface() {
+		this.localStorage = mw.storage;
 
-	attach() {
-		this.handleEvent( this.eventName, this.handleOpenCloseClick.bind( this ) );
-	}
-
-	set( ...setValues ) {
-		this.setValues = setValues;
-	}
-
-	handleOpenCloseClick() {
-		mw.loader.using( 'mmv.ui.reuse', ( req ) => {
-			this.unattach();
-			const dialog = this.initDialog( req );
-			dialog.attach();
-			dialog.set( ...this.setValues );
-			dialog.handleOpenCloseClick();
-		} );
-	}
-
-	closeDialog() {}
-}
-
-/**
- * Represents the main interface of the lightbox
- */
-class LightboxInterface extends UiElement {
-
-	constructor() {
-		const $wrapper = $( '<div>' )
-			.addClass( 'mw-mmv-wrapper' );
-		super( $wrapper );
-		this.$wrapper = $wrapper;
-
-		// When opening we might override the theme-color, so remember the original value
-		const metaElement = document.querySelector( 'meta[name="theme-color"]' );
-		this.originalThemeColor = metaElement ? metaElement.getAttribute( 'content' ) : null;
+		/** @property {mw.mmv.Config} config - */
+		this.config = new mw.mmv.Config(
+			mw.config.get( 'wgMultimediaViewer', {} ),
+			mw.config,
+			mw.user,
+			new mw.Api(),
+			this.localStorage
+		);
 
 		/**
-		 * @property {ThumbnailWidthCalculator}
+		 * @property {mw.mmv.ThumbnailWidthCalculator}
 		 * @private
 		 */
-		this.thumbnailWidthCalculator = new ThumbnailWidthCalculator();
+		this.thumbnailWidthCalculator = new mw.mmv.ThumbnailWidthCalculator();
+
+		this.init();
+		mw.mmv.ui.Element.call( this, this.$wrapper );
+	}
+	OO.inheritClass( LightboxInterface, mw.mmv.ui.Element );
+	LIP = LightboxInterface.prototype;
+
+	/**
+	 * The currently selected LightboxImage.
+	 *
+	 * @type {mw.mmv.LightboxImage}
+	 * @protected
+	 */
+	LIP.currentImage = null;
+
+	/**
+	 * Initialize the entire interface - helper method.
+	 */
+	LIP.init = function () {
+		// SVG filter, needed to achieve blur in Firefox
+		// eslint-disable-next-line no-jquery/no-parse-html-literal
+		this.$filter = $( '<svg><filter id="gaussian-blur"><fegaussianblur stdDeviation="3"></filter></svg>' );
+
+		this.$wrapper = $( '<div>' )
+			.addClass( 'mw-mmv-wrapper' );
 
 		this.$main = $( '<div>' )
 			.addClass( 'mw-mmv-main' );
@@ -83,9 +80,7 @@ class LightboxInterface extends UiElement {
 			.append( this.$innerWrapper );
 
 		this.$preDiv = $( '<div>' )
-			// The overlay has no-invert, so the interface overlaid
-			// on it must also have no-invert
-			.addClass( 'mw-mmv-pre-image mw-no-invert' );
+			.addClass( 'mw-mmv-pre-image' );
 
 		this.$postDiv = $( '<div>' )
 			.addClass( 'mw-mmv-post-image' );
@@ -96,7 +91,8 @@ class LightboxInterface extends UiElement {
 		this.$main.append(
 			this.$preDiv,
 			this.$imageWrapper,
-			this.$postDiv
+			this.$postDiv,
+			this.$filter
 		);
 
 		this.$wrapper.append(
@@ -105,56 +101,50 @@ class LightboxInterface extends UiElement {
 
 		this.setupCanvasButtons();
 
-		this.panel = new MetadataPanel( this.$postDiv, this.$aboveFold );
-		this.buttons = new CanvasButtons( this.$preDiv, this.$closeButton, this.$fullscreenButton );
-		this.canvas = new Canvas( this.$innerWrapper, this.$imageWrapper, this.$wrapper );
+		this.panel = new mw.mmv.ui.MetadataPanel( this.$postDiv, this.$aboveFold, this.localStorage, this.config );
+		this.buttons = new mw.mmv.ui.CanvasButtons( this.$preDiv, this.$closeButton, this.$fullscreenButton );
+		this.canvas = new mw.mmv.ui.Canvas( this.$innerWrapper, this.$imageWrapper, this.$wrapper );
 
-		/** @property {DialogProxy|ReuseDialog} */
-		this.fileReuse = new DialogProxy( 'mmv-reuse-open', ( req ) => {
-			const { ReuseDialog } = req( 'mmv.ui.reuse' );
-			this.fileReuse = new ReuseDialog( this.$preDiv, this.buttons.$download );
-			return this.fileReuse;
-		} );
-		/** @property {DialogProxy|DownloadDialog} */
-		this.downloadDialog = new DialogProxy( 'mmv-download-open', ( req ) => {
-			const { DownloadDialog } = req( 'mmv.ui.reuse' );
-			this.downloadDialog = new DownloadDialog( this.$preDiv, this.buttons.$download );
-			return this.downloadDialog;
-		} );
-	}
+		this.fileReuse = new mw.mmv.ui.reuse.Dialog( this.$innerWrapper, this.buttons.$reuse, this.config );
+		this.downloadDialog = new mw.mmv.ui.download.Dialog( this.$innerWrapper, this.buttons.$download, this.config );
+		this.optionsDialog = new mw.mmv.ui.OptionsDialog( this.$innerWrapper, this.buttons.$options, this.config );
+	};
 
 	/**
 	 * Sets up the file reuse data in the DOM
 	 *
-	 * @param {ImageModel} image
+	 * @param {mw.mmv.model.Image} image
+	 * @param {mw.mmv.model.Repo} repo
 	 * @param {string} caption
 	 * @param {string} alt
 	 */
-	setFileReuseData( image, caption, alt ) {
+	LIP.setFileReuseData = function ( image, repo, caption, alt ) {
 		this.buttons.set( image );
-		this.fileReuse.set( image, caption, alt );
-		this.downloadDialog.set( image );
-	}
+		this.fileReuse.set( image, repo, caption, alt );
+		this.downloadDialog.set( image, repo );
+	};
 
 	/**
 	 * Empties the interface.
 	 */
-	empty() {
+	LIP.empty = function () {
 		this.panel.empty();
+
 		this.canvas.empty();
+
 		this.buttons.empty();
 
 		this.$main.addClass( 'metadata-panel-is-closed' )
 			.removeClass( 'metadata-panel-is-open' );
-	}
+	};
 
 	/**
 	 * Opens the lightbox.
 	 */
-	open() {
+	LIP.open = function () {
 		this.empty();
 		this.attach();
-	}
+	};
 
 	/**
 	 * Attaches the interface to the DOM.
@@ -162,7 +152,10 @@ class LightboxInterface extends UiElement {
 	 * @param {string} [parentId] parent id where we want to attach the UI. Defaults to document
 	 *  element, override is mainly used for testing.
 	 */
-	attach( parentId ) {
+	LIP.attach = function ( parentId ) {
+		var ui = this,
+			$parent;
+
 		// Advanced description needs to be below the fold when the lightbox opens
 		// regardless of what the scroll value was prior to opening the lightbox
 		// If the lightbox is already attached, it means we're doing prev/next, and
@@ -174,7 +167,7 @@ class LightboxInterface extends UiElement {
 		// Make sure that the metadata is going to be at the bottom when it appears
 		// 83 is the height of the top metadata area. Which can't be measured by
 		// reading the DOM at this point of the execution, unfortunately
-		this.$postDiv.css( 'top', `${ $( window ).height() - 83 }px` );
+		this.$postDiv.css( 'top', ( $( window ).height() - 83 ) + 'px' );
 
 		// Re-appending the same content can have nasty side-effects
 		// Such as the browser leaving fullscreen mode if the fullscreened element is part of it
@@ -182,42 +175,38 @@ class LightboxInterface extends UiElement {
 			return;
 		}
 
-		// Make sure devices set their theming to dark to match the background of the viewer
-		this.setThemeColor( '#000000' );
-
-		this.handleEvent( 'keyup', ( e ) => {
+		this.handleEvent( 'keyup', function ( e ) {
 			if ( e.keyCode === 27 && !( e.altKey || e.ctrlKey || e.shiftKey || e.metaKey ) ) {
 				// Escape button pressed
-				this.unattach();
+				ui.unattach();
 			}
 		} );
 
-		this.handleEvent( 'fullscreenchange.lip', () => {
-			this.fullscreenChange();
+		this.handleEvent( 'jq-fullscreen-change.lip', function ( e ) {
+			ui.fullscreenChange( e );
 		} );
 
-		this.handleEvent( 'keydown', ( e ) => {
-			this.keydown( e );
-		} );
-
-		this.handleEvent( 'touchstart', ( e ) => {
-			this.touchTap( e );
-		} );
+		this.handleEvent( 'keydown', function ( e ) { ui.keydown( e ); } );
 
 		// mousemove generates a ton of events, which is why we throttle it
-		this.handleEvent( 'mousemove.lip', mw.util.throttle( ( e ) => {
-			this.mousemove( e );
-		}, 100, true ) );
+		this.handleEvent( 'mousemove.lip', mw.util.throttle( function ( e ) {
+			ui.mousemove( e );
+		}, 250 ) );
+
+		this.handleEvent( 'mmv-faded-out', function ( e ) { ui.fadedOut( e ); } );
+		this.handleEvent( 'mmv-fade-stopped', function ( e ) { ui.fadeStopped( e ); } );
 
 		this.buttons.connect( this, {
 			next: [ 'emit', 'next' ],
 			prev: [ 'emit', 'prev' ]
 		} );
 
-		const $parent = $( parentId || document.body );
+		$parent = $( parentId || document.body );
 
-		// Clean up fullscreen data left attached to the DOM
-		this.$main.removeClass( 'jq-fullscreened' ).removeClass( 'user-inactive' );
+		// Clean up fullscreen data because hard-existing fullscreen might have left
+		// jquery.fullscreen unable to remove the class and attribute, since $main wasn't
+		// attached to the DOM anymore at the time the jq-fullscreen-change event triggered
+		this.$main.data( 'isFullscreened', false ).removeClass( 'jq-fullscreened' );
 		this.isFullscreen = false;
 
 		$parent
@@ -231,38 +220,44 @@ class LightboxInterface extends UiElement {
 		this.canvas.attach();
 
 		// cross-communication between panel and canvas, sort of
-		this.$postDiv.on( 'mmv-metadata-open.lip', () => {
-			this.$main.addClass( 'metadata-panel-is-open' )
+		this.$postDiv.on( 'mmv-metadata-open.lip', function () {
+			ui.$main.addClass( 'metadata-panel-is-open' )
 				.removeClass( 'metadata-panel-is-closed' );
-		} ).on( 'mmv-metadata-close.lip', () => {
-			this.$main.removeClass( 'metadata-panel-is-open' )
+		} ).on( 'mmv-metadata-close.lip', function () {
+			ui.$main.removeClass( 'metadata-panel-is-open' )
 				.addClass( 'metadata-panel-is-closed' );
 		} );
-		this.$wrapper.on( 'mmv-panel-close-area-click.lip', () => {
-			this.panel.scroller.toggle( 'down' );
+		this.$wrapper.on( 'mmv-panel-close-area-click.lip', function () {
+			ui.panel.scroller.toggle( 'down' );
 		} );
 
+		// Buttons fading might not had been reset properly after a hard fullscreen exit
+		// This needs to happen after the parent attach() because the buttons need to be attached
+		// to the DOM for $.fn.stop() to work
+		this.buttons.stopFade();
 		this.buttons.attach();
 
 		this.fileReuse.attach();
 		this.downloadDialog.attach();
+		this.optionsDialog.attach();
+
+		// Reset the cursor fading
+		this.fadeStopped();
 
 		this.attached = true;
-	}
+	};
 
 	/**
 	 * Detaches the interface from the DOM.
-	 *
-	 * @fires MultimediaViewer#mmv-close
 	 */
-	unattach() {
+	LIP.unattach = function () {
 		// We trigger this event on the document because unattach() can run
 		// when the interface is unattached
 		// We're calling this before cleaning up (below) the DOM, as that
 		// appears to have an impact on automatic scroll restoration (which
 		// might happen as a result of this being closed) in FF
 		$( document ).trigger( $.Event( 'mmv-close' ) )
-			.off( 'fullscreenchange.lip' );
+			.off( 'jq-fullscreen-change.lip' );
 
 		// Has to happen first so that the scroller can freeze with visible elements
 		this.panel.unattach();
@@ -282,6 +277,9 @@ class LightboxInterface extends UiElement {
 		this.downloadDialog.unattach();
 		this.downloadDialog.closeDialog();
 
+		this.optionsDialog.unattach();
+		this.optionsDialog.closeDialog();
+
 		// Canvas listens for events from dialogs, so should be unattached at the end
 		this.canvas.unattach();
 
@@ -292,109 +290,99 @@ class LightboxInterface extends UiElement {
 			prev: [ 'emit', 'prev' ]
 		} );
 
-		this.setThemeColor( this.originalThemeColor );
-
 		this.attached = false;
-	}
+	};
 
 	/**
 	 * Exits fullscreen mode.
 	 */
-	exitFullscreen() {
+	LIP.exitFullscreen = function () {
 		this.fullscreenButtonJustPressed = true;
-		if ( this.$main.get( 0 ) === document.fullscreenElement ) {
-			if ( document.exitFullscreen ) {
-				document.exitFullscreen();
-			}
-		}
-		this.isFullscreen = false;
-		this.$main.removeClass( 'jq-fullscreened' );
-		clearTimeout( this.interactionTimer );
-		this.userActivity();
-	}
+		this.$main.exitFullscreen();
+	};
 
 	/**
 	 * Enters fullscreen mode.
 	 */
-	enterFullscreen() {
-		const el = this.$main.get( 0 );
-		if ( el.requestFullscreen ) {
-			el.requestFullscreen();
-		}
-		this.isFullscreen = true;
-		this.$main.addClass( 'jq-fullscreened' );
-		this.resetInteractionTimer();
-		this.userInactive();
-	}
-
-	/**
-	 * Interrupt and reset the 3sec delay to hide the controls
-	 */
-	resetInteractionTimer() {
-		clearTimeout( this.interactionTimer );
-		this.interactionTimer = setTimeout( () => {
-			this.userInactive();
-		}, 3000 );
-	}
-
-	/**
-	 * In fullscreen, hide the mouse cursor and the controls
-	 * Called from resetInteractionTimer()
-	 */
-	userInactive() {
-		this.$main.addClass( 'user-inactive' );
-	}
-
-	/**
-	 * In fullscreen, show the mouse cursor and the controls
-	 * Call this after any interactivity
-	 */
-	userActivity() {
-		this.$main.removeClass( 'user-inactive' );
-	}
+	LIP.enterFullscreen = function () {
+		this.$main.enterFullscreen();
+	};
 
 	/**
 	 * Setup for canvas navigation buttons
 	 */
-	setupCanvasButtons() {
+	LIP.setupCanvasButtons = function () {
+		var ui = this,
+			tooltipDelay = mw.config.get( 'wgMultimediaViewer' ).tooltipDelay;
+
 		this.$closeButton = $( '<button>' )
-			.addClass( 'cdx-button cdx-button--icon-only mw-mmv-button mw-mmv-close' )
-			.prop( 'title', mw.msg( 'multimediaviewer-close-popup-text' ) )
-			.append( $( '<span>' ).addClass( 'mw-mmv-icon' ) )
-			.on( 'click', () => {
-				this.unattach();
+			.text( ' ' )
+			.addClass( 'mw-mmv-close' )
+			.prop( 'title', mw.message( 'multimediaviewer-close-popup-text' ).text() )
+			.tipsy( {
+				delayIn: tooltipDelay,
+				gravity: this.correctEW( 'ne' )
+			} )
+			.on( 'click', function () {
+				if ( ui.isFullscreen ) {
+					ui.$main.trigger( $.Event( 'jq-fullscreen-change.lip' ) );
+				}
+				ui.unattach();
 			} );
 
 		this.$fullscreenButton = $( '<button>' )
-			.addClass( 'cdx-button cdx-button--icon-only mw-mmv-button mw-mmv-fullscreen' )
-			.prop( 'title', mw.msg( 'multimediaviewer-fullscreen-popup-text' ) )
-			.append( $( '<span>' ).addClass( 'mw-mmv-icon' ) )
-			.on( 'click', () => {
-				if ( this.isFullscreen ) {
-					this.exitFullscreen();
+			.text( ' ' )
+			.addClass( 'mw-mmv-fullscreen' )
+			.prop( 'title', mw.message( 'multimediaviewer-fullscreen-popup-text' ).text() )
+			.tipsy( {
+				delayIn: tooltipDelay,
+				gravity: this.correctEW( 'ne' )
+			} )
+			.on( 'click', function ( e ) {
+				if ( ui.isFullscreen ) {
+					ui.exitFullscreen();
+
+					// mousemove is throttled and the mouse coordinates only
+					// register every 250ms, so there is a chance that we moved
+					// our mouse over one of the buttons but it didn't register,
+					// and a fadeOut is triggered; when we're coming back from
+					// fullscreen, we'll want to make sure the mouse data is
+					// current so that the fadeOut behavior will not trigger
+					ui.mousePosition = { x: e.pageX, y: e.pageY };
+					ui.buttons.revealAndFade( ui.mousePosition );
 				} else {
-					this.enterFullscreen();
+					ui.enterFullscreen();
 				}
 			} );
-	}
+
+		// If the browser doesn't support fullscreen mode, hide the fullscreen button
+		// This horrendous hack comes from jquery.fullscreen.js
+		if ( $.support.fullscreen ) {
+			this.$fullscreenButton.show();
+		} else {
+			this.$fullscreenButton.hide();
+		}
+	};
 
 	/**
 	 * Handle a fullscreen change event.
+	 *
+	 * @param {jQuery.Event} e The fullscreen change event.
 	 */
-	fullscreenChange() {
-		// eslint-disable-next-line compat/compat
-		this.isFullscreen = !!document.fullscreenElement;
+	LIP.fullscreenChange = function ( e ) {
+		this.isFullscreen = e.fullscreen;
+
 		if ( this.isFullscreen ) {
 			this.$fullscreenButton
-				.prop( 'title', mw.msg( 'multimediaviewer-defullscreen-popup-text' ) )
-				.attr( 'alt', mw.msg( 'multimediaviewer-defullscreen-popup-text' ) );
+				.prop( 'title', mw.message( 'multimediaviewer-defullscreen-popup-text' ).text() )
+				.attr( 'alt', mw.message( 'multimediaviewer-defullscreen-popup-text' ).text() );
 		} else {
 			this.$fullscreenButton
-				.prop( 'title', mw.msg( 'multimediaviewer-fullscreen-popup-text' ) )
-				.attr( 'alt', mw.msg( 'multimediaviewer-fullscreen-popup-text' ) );
+				.prop( 'title', mw.message( 'multimediaviewer-fullscreen-popup-text' ).text() )
+				.attr( 'alt', mw.message( 'multimediaviewer-fullscreen-popup-text' ).text() );
 		}
 
-		if ( !this.fullscreenButtonJustPressed && !this.isFullscreen ) {
+		if ( !this.fullscreenButtonJustPressed && !e.fullscreen ) {
 			// Close the interface all the way if the user pressed 'esc'
 			this.unattach();
 		} else if ( this.fullscreenButtonJustPressed ) {
@@ -408,50 +396,60 @@ class LightboxInterface extends UiElement {
 		}
 
 		if ( this.isFullscreen ) {
-			this.userInactive();
+			// When entering fullscreen without a mousemove, the browser
+			// still thinks that the cursor is where it was prior to entering
+			// fullscreen. I.e. on top of the fullscreen button
+			// Thus, we purposefully reset the saved position, so that
+			// the fade out really takes place (otherwise it's cancelled
+			// by updateControls which is called a few times when fullscreen opens)
+			this.mousePosition = { x: 0, y: 0 };
+			this.buttons.fadeOut();
 		}
 
 		// Some browsers only send resize events before toggling fullscreen, but not once the toggling is done
 		// This makes sure that the UI is properly resized after a fullscreen change
 		this.$main.trigger( $.Event( 'mmv-resize-end' ) );
-	}
+	};
 
 	/**
 	 * Handles keydown events on the document
 	 *
 	 * @param {jQuery.Event} e The jQuery keypress event object
 	 */
-	keydown( e ) {
-		const isRtl = $( document.body ).hasClass( 'rtl' );
+	LIP.keydown = function ( e ) {
+		var forward,
+			isRtl = $( document.body ).hasClass( 'rtl' );
 
 		if ( e.altKey || e.shiftKey || e.ctrlKey || e.metaKey ) {
 			return;
 		}
-		if ( e.key === 'ArrowLeft' ) {
-			this.emit( isRtl ? 'next' : 'prev' );
-			e.preventDefault();
-		} else if ( e.key === 'ArrowRight' ) {
-			this.emit( isRtl ? 'prev' : 'next' );
-			e.preventDefault();
-		} else if ( e.key === 'Home' ) {
-			this.emit( 'first' );
-			e.preventDefault();
-		} else if ( e.key === 'End' ) {
-			this.emit( 'last' );
-			e.preventDefault();
-		} else if ( this.isFullscreen ) {
-			// Any other key in fullscreen reveals the controls
-			this.resetInteractionTimer();
-			this.userActivity();
+
+		switch ( e.which ) {
+			case 37: // Left arrow
+			case 39: // Right arrow
+				e.preventDefault();
+				forward = ( e.which === 39 );
+				if ( isRtl ) {
+					forward = !forward;
+				}
+
+				if ( forward ) {
+					this.emit( 'next' );
+				} else {
+					this.emit( 'prev' );
+				}
+
+				e.preventDefault();
+				break;
 		}
-	}
+	};
 
 	/**
 	 * Handles mousemove events on the document
 	 *
 	 * @param {jQuery.Event} e The mousemove event object
 	 */
-	mousemove( e ) {
+	LIP.mousemove = function ( e ) {
 		// T77869 ignore fake mousemove events triggered by Chrome
 		if (
 			e &&
@@ -462,56 +460,50 @@ class LightboxInterface extends UiElement {
 			return;
 		}
 
-		if ( this.isFullscreen ) {
-			this.resetInteractionTimer();
-			this.userActivity();
+		if ( e ) {
+			// Saving the mouse position is useful whenever we need to
+			// run LIP.mousemove manually, such as when going to the next/prev
+			// element
+			this.mousePosition = { x: e.pageX, y: e.pageY };
 		}
-	}
 
-	touchTap() {
 		if ( this.isFullscreen ) {
-			this.resetInteractionTimer();
-			this.userActivity();
+			this.buttons.revealAndFade( this.mousePosition );
 		}
-	}
+	};
+
+	/**
+	 * Called when the buttons have completely faded out and disappeared
+	 */
+	LIP.fadedOut = function () {
+		this.$main.addClass( 'cursor-hidden' );
+	};
+
+	/**
+	 * Called when the buttons have stopped fading and are back into view
+	 */
+	LIP.fadeStopped = function () {
+		this.$main.removeClass( 'cursor-hidden' );
+	};
 
 	/**
 	 * Updates the next and prev buttons
 	 *
-	 * @param {boolean} showPrevNext Show prev/next button
+	 * @param {boolean} showPrevButton Whether the prev button should be revealed or not
+	 * @param {boolean} showNextButton Whether the next button should be revealed or not
 	 */
-	updateControls( showPrevNext ) {
-		const prevNextTop = `${ ( this.$imageWrapper.height() - 60 ) / 2 }px`;
+	LIP.updateControls = function ( showPrevButton, showNextButton ) {
+		var prevNextTop = ( ( this.$imageWrapper.height() / 2 ) - 60 ) + 'px';
 
-		if ( this.isFullscreen ) {
+		if ( this.$main.data( 'isFullscreened' ) ) {
 			this.$postDiv.css( 'top', '' );
 		} else {
 			this.$postDiv.css( 'top', this.$imageWrapper.height() );
 		}
 
 		this.buttons.setOffset( prevNextTop );
-		this.buttons.$nav.toggle( showPrevNext );
-	}
+		this.buttons.toggle( showPrevButton, showNextButton );
+	};
 
-	/**
-	 * Update the theme-color of the document
-	 *
-	 * @param {string|null} color to set as theme-color or null to remove the theme-color
-	 */
-	setThemeColor( color ) {
-		let metaElement = document.querySelector( 'meta[name="theme-color"]' );
-		if ( !metaElement ) {
-			metaElement = document.createElement( 'meta' );
-			metaElement.setAttribute( 'name', 'theme-color' );
-			document.head.appendChild( metaElement );
-		}
-		if ( color === null ) {
-			metaElement.remove();
-		} else {
-			this.originalThemeColor = metaElement.getAttribute( 'content' );
-			metaElement.setAttribute( 'content', color );
-		}
-	}
-}
-
-module.exports = LightboxInterface;
+	mw.mmv.LightboxInterface = LightboxInterface;
+}() );

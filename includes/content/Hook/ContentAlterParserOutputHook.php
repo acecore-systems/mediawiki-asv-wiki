@@ -2,9 +2,9 @@
 
 namespace MediaWiki\Content\Hook;
 
-use MediaWiki\Content\Content;
-use MediaWiki\Parser\ParserOutput;
-use MediaWiki\Title\Title;
+use Content;
+use ParserOutput;
+use Title;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

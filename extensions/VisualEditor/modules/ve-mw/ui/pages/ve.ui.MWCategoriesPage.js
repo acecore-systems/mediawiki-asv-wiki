@@ -1,7 +1,7 @@
 /*!
  * VisualEditor user interface MWCategoriesPage class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -14,7 +14,7 @@
  * @constructor
  * @param {string} name Unique symbolic name of page
  * @param {Object} [config] Configuration options
- * @param {jQuery} [config.$overlay] Overlay to render dropdowns in
+ * @cfg {jQuery} [$overlay] Overlay to render dropdowns in
  */
 ve.ui.MWCategoriesPage = function VeUiMWCategoriesPage( name, config ) {
 	// Configuration initialization
@@ -24,9 +24,9 @@ ve.ui.MWCategoriesPage = function VeUiMWCategoriesPage( name, config ) {
 	ve.ui.MWCategoriesPage.super.apply( this, arguments );
 
 	// Properties
-	this.fragment = null;
+	this.metaList = null;
 	this.defaultSortKeyTouched = false;
-	this.fallbackDefaultSortKey = mw.Title.newFromText( ve.init.target.getPageName() ).getMainText();
+	this.fallbackDefaultSortKey = ve.init.target.getPageName();
 	this.categoriesFieldset = new OO.ui.FieldsetLayout( {
 		label: ve.msg( 'visualeditor-dialog-meta-categories-data-label' ),
 		icon: 'tag'
@@ -114,10 +114,16 @@ ve.ui.MWCategoriesPage.prototype.onDefaultSortChange = function ( value ) {
  *  or undefined to go at the end
  */
 ve.ui.MWCategoriesPage.prototype.onNewCategory = function ( item, beforeMetaItem ) {
-	this.fragment.insertMeta(
-		this.getCategoryItemForInsertion( item ),
-		beforeMetaItem ? beforeMetaItem.getOffset() : undefined
-	);
+	var args = [ this.getCategoryItemForInsertion( item ) ];
+
+	// Insert new metaList item
+	if ( beforeMetaItem ) {
+		args.push( beforeMetaItem.getOffset() );
+		if ( beforeMetaItem.getIndex ) {
+			args.push( beforeMetaItem.getIndex() );
+		}
+	}
+	this.metaList.insertMeta.apply( this.metaList, args );
 };
 
 /**
@@ -127,7 +133,7 @@ ve.ui.MWCategoriesPage.prototype.onNewCategory = function ( item, beforeMetaItem
  */
 ve.ui.MWCategoriesPage.prototype.onUpdateSortKey = function ( item ) {
 	// Replace meta item with updated one
-	this.fragment.replaceMeta( item.metaItem, this.getCategoryItemForInsertion( item, item.metaItem.getElement() ) );
+	item.metaItem.replaceWith( this.getCategoryItemForInsertion( item, item.metaItem.getElement() ) );
 };
 
 /**
@@ -138,7 +144,7 @@ ve.ui.MWCategoriesPage.prototype.onUpdateSortKey = function ( item ) {
 ve.ui.MWCategoriesPage.prototype.onMetaListInsert = function ( metaItem ) {
 	// Responsible for adding UI components
 	if ( metaItem.element.type === 'mwCategory' ) {
-		const index = this.fragment.getDocument().getMetaList().getItemsInGroup( 'mwCategory' ).indexOf( metaItem );
+		var index = this.metaList.getItemsInGroup( 'mwCategory' ).indexOf( metaItem );
 		this.categoryWidget.addItems(
 			[ this.getCategoryItemFromMetaListItem( metaItem ) ],
 			index
@@ -153,7 +159,7 @@ ve.ui.MWCategoriesPage.prototype.onMetaListInsert = function ( metaItem ) {
  */
 ve.ui.MWCategoriesPage.prototype.onMetaListRemove = function ( metaItem ) {
 	if ( metaItem.element.type === 'mwCategory' ) {
-		const item = this.categoryWidget.categories[ this.getCategoryItemFromMetaListItem( metaItem ).value ];
+		var item = this.categoryWidget.categories[ this.getCategoryItemFromMetaListItem( metaItem ).value ];
 		this.categoryWidget.removeItems( [ item ] );
 	}
 };
@@ -161,10 +167,10 @@ ve.ui.MWCategoriesPage.prototype.onMetaListRemove = function ( metaItem ) {
 /**
  * Get default sort key item.
  *
- * @return {Object} Default sort key item
+ * @return {string} Default sort key item
  */
 ve.ui.MWCategoriesPage.prototype.getDefaultSortKeyItem = function () {
-	return this.fragment.getDocument().getMetaList().getItemsInGroup( 'mwDefaultSort' )[ 0 ] || null;
+	return this.metaList.getItemsInGroup( 'mwDefaultSort' )[ 0 ] || null;
 };
 
 /**
@@ -173,11 +179,11 @@ ve.ui.MWCategoriesPage.prototype.getDefaultSortKeyItem = function () {
  * @return {Object[]} items
  */
 ve.ui.MWCategoriesPage.prototype.getCategoryItems = function () {
-	const items = [],
-		categories = this.fragment.getDocument().getMetaList().getItemsInGroup( 'mwCategory' );
+	var items = [],
+		categories = this.metaList.getItemsInGroup( 'mwCategory' );
 
 	// Loop through MwCategories and build out items
-	for ( let i = 0; i < categories.length; i++ ) {
+	for ( var i = 0; i < categories.length; i++ ) {
 		items.push( this.getCategoryItemFromMetaListItem( categories[ i ] ) );
 	}
 	return items;
@@ -190,7 +196,7 @@ ve.ui.MWCategoriesPage.prototype.getCategoryItems = function () {
  * @return {Object} item
  */
 ve.ui.MWCategoriesPage.prototype.getCategoryItemFromMetaListItem = function ( metaItem ) {
-	const title = mw.Title.newFromText( metaItem.element.attributes.category ),
+	var title = mw.Title.newFromText( metaItem.element.attributes.category ),
 		value = title ? title.getMainText() : '';
 
 	return {
@@ -210,7 +216,7 @@ ve.ui.MWCategoriesPage.prototype.getCategoryItemFromMetaListItem = function ( me
  * @return {Object} metaBase
  */
 ve.ui.MWCategoriesPage.prototype.getCategoryItemForInsertion = function ( item, oldData ) {
-	const newData = {
+	var newData = {
 		attributes: { category: item.name, sortkey: item.sortKey || '' },
 		type: 'mwCategory'
 	};
@@ -223,34 +229,35 @@ ve.ui.MWCategoriesPage.prototype.getCategoryItemForInsertion = function ( item, 
 /**
  * Setup categories page.
  *
- * @param {ve.dm.SurfaceFragment} fragment Surface fragment
+ * @param {ve.dm.MetaList} metaList Meta list
  * @param {Object} config
  * @param {Object} [config.data] Dialog setup data
  * @param {boolean} [config.isReadOnly=false] Dialog is in read-only mode
  * @return {jQuery.Promise}
  */
-ve.ui.MWCategoriesPage.prototype.setup = function ( fragment, config ) {
-	this.fragment = fragment;
-	this.fragment.getDocument().getMetaList().connect( this, {
+ve.ui.MWCategoriesPage.prototype.setup = function ( metaList, config ) {
+	var page = this;
+
+	this.metaList = metaList;
+	this.metaList.connect( this, {
 		insert: 'onMetaListInsert',
 		remove: 'onMetaListRemove'
 	} );
 
-	const defaultSortKeyItem = this.getDefaultSortKeyItem();
+	var defaultSortKeyItem = this.getDefaultSortKeyItem();
 
-	this.categoryWidget.setFragment( fragment );
-	const promise = this.categoryWidget.addItems( this.getCategoryItems() ).then( () => {
-		this.categoryWidget.setDisabled( config.isReadOnly );
+	var promise = this.categoryWidget.addItems( this.getCategoryItems() ).then( function () {
+		page.categoryWidget.setDisabled( config.isReadOnly );
 	} );
 
 	this.defaultSortInput.setValue(
-		defaultSortKeyItem ? defaultSortKeyItem.getAttribute( 'sortkey' ) : this.fallbackDefaultSortKey
+		defaultSortKeyItem ? defaultSortKeyItem.getAttribute( 'content' ) : this.fallbackDefaultSortKey
 	).setReadOnly( config.isReadOnly );
 	this.defaultSortKeyTouched = false;
 
 	// Update input position after transition
-	setTimeout( () => {
-		this.categoryWidget.fitInput();
+	setTimeout( function () {
+		page.categoryWidget.fitInput();
 	}, OO.ui.theme.getDialogTransitionDuration() );
 
 	return promise;
@@ -269,30 +276,25 @@ ve.ui.MWCategoriesPage.prototype.focus = function () {
  * @param {Object} [data] Dialog tear down data
  */
 ve.ui.MWCategoriesPage.prototype.teardown = function ( data ) {
-	const currentDefaultSortKeyItem = this.getDefaultSortKeyItem(),
-		newDefaultSortKey = this.defaultSortInput.getValue();
+	var currentDefaultSortKeyItem = this.getDefaultSortKeyItem(),
+		newDefaultSortKey = this.defaultSortInput.getValue(),
+		newDefaultSortKeyData = {
+			type: 'mwDefaultSort',
+			attributes: { content: newDefaultSortKey }
+		};
 
 	if ( data && data.action === 'done' ) {
 		// Alter the default sort key iff it's been touched & is actually different
 		if ( this.defaultSortKeyTouched ) {
 			if ( newDefaultSortKey === '' || newDefaultSortKey === this.fallbackDefaultSortKey ) {
 				if ( currentDefaultSortKeyItem ) {
-					this.fragment.removeMeta( currentDefaultSortKeyItem );
+					currentDefaultSortKeyItem.remove();
 				}
 			} else {
-				const newDefaultSortKeyData = {
-					type: 'mwDefaultSort',
-					attributes: {
-						sortkey: newDefaultSortKey
-					}
-				};
 				if ( !currentDefaultSortKeyItem ) {
-					const firstCategory = this.fragment.getDocument().getMetaList().getItemsInGroup( 'mwCategory' )[ 0 ],
-						offset = firstCategory && firstCategory.getOffset();
-					this.fragment.insertMeta( newDefaultSortKeyData, offset );
-				} else if ( currentDefaultSortKeyItem.getAttribute( 'sortkey' ) !== newDefaultSortKey ) {
-					this.fragment.replaceMeta(
-						currentDefaultSortKeyItem,
+					this.metaList.insertMeta( newDefaultSortKeyData );
+				} else if ( currentDefaultSortKeyItem.getAttribute( 'content' ) !== newDefaultSortKey ) {
+					currentDefaultSortKeyItem.replaceWith(
 						ve.extendObject( true, {},
 							currentDefaultSortKeyItem.getElement(),
 							newDefaultSortKeyData
@@ -304,9 +306,8 @@ ve.ui.MWCategoriesPage.prototype.teardown = function ( data ) {
 	}
 
 	this.categoryWidget.clearItems();
-	this.categoryWidget.setFragment( null );
-	this.fragment.getDocument().getMetaList().disconnect( this );
-	this.fragment = null;
+	this.metaList.disconnect( this );
+	this.metaList = null;
 };
 
 ve.ui.MWCategoriesPage.prototype.getFieldsets = function () {

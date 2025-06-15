@@ -1,10 +1,10 @@
 <?php
 
+use MediaWiki\Auth\AuthenticationRequestTestCase;
 use MediaWiki\Extension\ConfirmEdit\Auth\CaptchaAuthenticationRequest;
 use MediaWiki\Extension\ConfirmEdit\SimpleCaptcha\SimpleCaptcha;
 use MediaWiki\Extension\ConfirmEdit\Store\CaptchaHashStore;
 use MediaWiki\Extension\ConfirmEdit\Store\CaptchaStore;
-use MediaWiki\Tests\Auth\AuthenticationRequestTestCase;
 
 /**
  * @covers \MediaWiki\Extension\ConfirmEdit\Auth\CaptchaAuthenticationRequest
@@ -12,9 +12,9 @@ use MediaWiki\Tests\Auth\AuthenticationRequestTestCase;
 class CaptchaAuthenticationRequestTest extends AuthenticationRequestTestCase {
 	public function setUp(): void {
 		parent::setUp();
-		$this->overrideConfigValues( [
-			'CaptchaClass' => SimpleCaptcha::class,
-			'CaptchaStorageClass' => CaptchaHashStore::class,
+		$this->setMwGlobals( [
+			'wgCaptchaClass' => SimpleCaptcha::class,
+			'wgCaptchaStorageClass' => CaptchaHashStore::class,
 		] );
 		CaptchaStore::unsetInstanceForTests();
 		CaptchaStore::get()->clearAll();
@@ -31,7 +31,7 @@ class CaptchaAuthenticationRequestTest extends AuthenticationRequestTestCase {
 		];
 	}
 
-	public static function provideLoadFromSubmission() {
+	public function provideLoadFromSubmission() {
 		return [
 			'no id' => [
 				[ '123', [ 'question' => '1+2', 'answer' => '3' ] ],

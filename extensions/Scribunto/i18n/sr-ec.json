@@ -7,7 +7,6 @@
 			"Сербијана"
 		]
 	},
-	"content-model-scribunto": "Scribunto модул",
 	"scribunto-line": "на линији $1",
 	"scribunto-parser-dialog-title": "Грешка у скрипти",
 	"scribunto-error-short": "Грешка у скрипти: $1",
@@ -28,7 +27,5 @@
 	"scribunto-limitreport-timeusage-value": "$1/$2 секунди",
 	"scribunto-limitreport-memusage": "Меморија коришћења Lua",
 	"nstab-module": "Модул",
-	"tooltip-ca-nstab-module": "Погледајте страницу модула",
-	"namespaceinfo-description-ns828": "Именски простор за Lua модуле и њихову документацију.",
-	"namespaceinfo-description-ns829": "Странице за разговор модула и њихове документације"
+	"tooltip-ca-nstab-module": "Погледајте страницу модула"
 }

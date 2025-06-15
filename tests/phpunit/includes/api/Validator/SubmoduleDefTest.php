@@ -1,18 +1,17 @@
 <?php
 
-namespace MediaWiki\Tests\Api\Validator;
+namespace MediaWiki\Api\Validator;
 
-use MediaWiki\Api\ApiMain;
-use MediaWiki\Api\ApiModuleManager;
-use MediaWiki\Api\Validator\SubmoduleDef;
-use MediaWiki\Tests\Api\MockApi;
+use ApiMain;
+use ApiModuleManager;
+use MockApi;
 use Wikimedia\Message\DataMessageValue;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\SimpleCallbacks;
 use Wikimedia\ParamValidator\TypeDef\EnumDef;
+use Wikimedia\ParamValidator\TypeDef\TypeDefTestCase;
 use Wikimedia\ParamValidator\ValidationException;
 use Wikimedia\TestingAccessWrapper;
-use Wikimedia\Tests\ParamValidator\TypeDef\TypeDefTestCase;
 
 /**
  * @covers \MediaWiki\Api\Validator\SubmoduleDef

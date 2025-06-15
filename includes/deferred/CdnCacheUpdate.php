@@ -18,15 +18,9 @@
  * @file
  */
 
-namespace MediaWiki\Deferred;
-
-use CdnPurgeJob;
-use Exception;
-use InvalidArgumentException;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\PageReference;
-use RuntimeException;
 use Wikimedia\Assert\Assert;
 use Wikimedia\IPUtils;
 
@@ -71,6 +65,20 @@ class CdnCacheUpdate implements DeferrableUpdate, MergeableUpdate {
 
 		$this->urlTuples = array_merge( $this->urlTuples, $update->urlTuples );
 		$this->pageTuples = array_merge( $this->pageTuples, $update->pageTuples );
+	}
+
+	/**
+	 * Create an update object from an array of Title objects, or a TitleArray object
+	 *
+	 * @param PageReference[] $pages
+	 * @param string[] $urls
+	 *
+	 * @return CdnCacheUpdate
+	 * @deprecated Since 1.35 Use HtmlCacheUpdater instead. Hard deprecated since 1.39.
+	 */
+	public static function newFromTitles( $pages, $urls = [] ) {
+		wfDeprecated( __METHOD__, '1.35' );
+		return new CdnCacheUpdate( array_merge( $pages, $urls ) );
 	}
 
 	public function doUpdate() {
@@ -159,9 +167,9 @@ class CdnCacheUpdate implements DeferrableUpdate, MergeableUpdate {
 		$services = MediaWikiServices::getInstance();
 		/** @var PageReference $page */
 
-		// Avoid multiple queries for HTMLCacheUpdater::getUrls() call
+		// Avoid multiple queries for HtmlCacheUpdater::getUrls() call
 		$lb = $services->getLinkBatchFactory()->newLinkBatch();
-		foreach ( $this->pageTuples as [ $page, ] ) {
+		foreach ( $this->pageTuples as list( $page, $delay ) ) {
 			$lb->addObj( $page );
 		}
 		$lb->execute();
@@ -170,14 +178,14 @@ class CdnCacheUpdate implements DeferrableUpdate, MergeableUpdate {
 
 		// Resolve the titles into CDN URLs
 		$htmlCacheUpdater = $services->getHtmlCacheUpdater();
-		foreach ( $this->pageTuples as [ $page, $delay ] ) {
+		foreach ( $this->pageTuples as list( $page, $delay ) ) {
 			foreach ( $htmlCacheUpdater->getUrls( $page ) as $url ) {
 				// Use the highest rebound for duplicate URLs in order to handle the most lag
 				$reboundDelayByUrl[$url] = max( $reboundDelayByUrl[$url] ?? 0, $delay );
 			}
 		}
 
-		foreach ( $this->urlTuples as [ $url, $delay ] ) {
+		foreach ( $this->urlTuples as list( $url, $delay ) ) {
 			// Use the highest rebound for duplicate URLs in order to handle the most lag
 			$reboundDelayByUrl[$url] = max( $reboundDelayByUrl[$url] ?? 0, $delay );
 		}
@@ -188,6 +196,7 @@ class CdnCacheUpdate implements DeferrableUpdate, MergeableUpdate {
 	/**
 	 * Send Hyper Text Caching Protocol (HTCP) CLR requests
 	 *
+	 * @throws MWException
 	 * @param string[] $urls Collection of URLs to purge
 	 */
 	private static function HTCPPurge( array $urls ) {
@@ -231,7 +240,7 @@ class CdnCacheUpdate implements DeferrableUpdate, MergeableUpdate {
 
 		foreach ( $urls as $url ) {
 			if ( !is_string( $url ) ) {
-				throw new InvalidArgumentException( 'Bad purge URL' );
+				throw new MWException( 'Bad purge URL' );
 			}
 			$url = self::expand( $url );
 			$conf = self::getRuleForURL( $url, $htcpRouting );
@@ -247,7 +256,7 @@ class CdnCacheUpdate implements DeferrableUpdate, MergeableUpdate {
 			}
 			foreach ( $conf as $subconf ) {
 				if ( !isset( $subconf['host'] ) || !isset( $subconf['port'] ) ) {
-					throw new RuntimeException( "Invalid HTCP rule for URL $url\n" );
+					throw new MWException( "Invalid HTCP rule for URL $url\n" );
 				}
 			}
 
@@ -292,7 +301,7 @@ class CdnCacheUpdate implements DeferrableUpdate, MergeableUpdate {
 		$reqs = [];
 		foreach ( $urls as $url ) {
 			$url = self::expand( $url );
-			$urlInfo = wfGetUrlUtils()->parse( $url ) ?? false;
+			$urlInfo = wfParseUrl( $url );
 			$urlHost = strlen( $urlInfo['port'] ?? '' )
 				? IPUtils::combineHostAndPort( $urlInfo['host'], (int)$urlInfo['port'] )
 				: $urlInfo['host'];
@@ -331,7 +340,7 @@ class CdnCacheUpdate implements DeferrableUpdate, MergeableUpdate {
 	 * @return string
 	 */
 	private static function expand( $url ) {
-		return (string)MediaWikiServices::getInstance()->getUrlUtils()->expand( $url, PROTO_INTERNAL );
+		return wfExpandUrl( $url, PROTO_INTERNAL );
 	}
 
 	/**
@@ -350,6 +359,3 @@ class CdnCacheUpdate implements DeferrableUpdate, MergeableUpdate {
 		return false;
 	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( CdnCacheUpdate::class, 'CdnCacheUpdate' );

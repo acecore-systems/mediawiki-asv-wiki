@@ -5,11 +5,10 @@ namespace MediaWiki\Tests\Maintenance;
 use DumpCategoriesAsRdf;
 use MediaWiki\MainConfigNames;
 use MediaWikiLangTestCase;
-use Wikimedia\Rdbms\IMaintainableDatabase;
 
 /**
- * @covers \MediaWiki\Category\CategoriesRdf
- * @covers \DumpCategoriesAsRdf
+ * @covers CategoriesRdf
+ * @covers DumpCategoriesAsRdf
  */
 class CategoriesRdfTest extends MediaWikiLangTestCase {
 	public function getCategoryIterator() {
@@ -59,16 +58,15 @@ class CategoriesRdfTest extends MediaWikiLangTestCase {
 		$this->overrideConfigValues( [
 			MainConfigNames::Server => 'http://acme.test',
 			MainConfigNames::CanonicalServer => 'http://acme.test',
+			MainConfigNames::ArticlePath => '/wiki/$1',
 			MainConfigNames::RightsUrl => 'https://creativecommons.org/licenses/by-sa/3.0/',
 		] );
 
 		$dumpScript =
 			$this->getMockBuilder( DumpCategoriesAsRdf::class )
-				->onlyMethods( [ 'getDB', 'getCategoryIterator', 'getCategoryLinksIterator' ] )
+				->onlyMethods( [ 'getCategoryIterator', 'getCategoryLinksIterator' ] )
 				->getMock();
 
-		$dumpScript->method( 'getDB' )
-			->willReturn( $this->createNoOpMock( IMaintainableDatabase::class ) );
 		$dumpScript->expects( $this->once() )
 			->method( 'getCategoryIterator' )
 			->willReturn( $this->getCategoryIterator() );

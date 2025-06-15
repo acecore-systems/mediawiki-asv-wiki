@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface Tool classes.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -60,15 +60,6 @@ ve.ui.Tool.static.deactivateOnSelect = true;
 ve.ui.Tool.static.makesEmbeddableContextItem = true;
 
 /**
- * Icon to use when this tool is shown in a non-toolbar context
- *
- * @static
- * @property {string|null}
- * @inheritable
- */
-ve.ui.Tool.static.fallbackIcon = null;
-
-/**
  * Get the symbolic command name for this tool.
  *
  * @static
@@ -86,7 +77,7 @@ ve.ui.Tool.static.getCommandName = function () {
  * @return {ve.ui.Command|null|undefined} Undefined means command not found, null means no command set
  */
 ve.ui.Tool.static.getCommand = function ( surface ) {
-	const commandName = this.getCommandName();
+	var commandName = this.getCommandName();
 	if ( commandName === null ) {
 		return null;
 	}
@@ -102,7 +93,7 @@ ve.ui.Tool.static.getCommand = function ( surface ) {
  * @param {Object|null} direction Context direction with 'inline' & 'block' properties
  */
 ve.ui.Tool.prototype.onUpdateState = function ( fragment ) {
-	const command = this.getCommand();
+	var command = this.getCommand();
 	if ( command !== null ) {
 		this.setDisabled(
 			!command || !fragment || !command.isExecutable( fragment ) ||
@@ -119,10 +110,11 @@ ve.ui.Tool.prototype.onUpdateState = function ( fragment ) {
  * @inheritdoc
  */
 ve.ui.Tool.prototype.onSelect = function () {
-	const command = this.getCommand(),
-		surface = this.toolbar.getSurface();
+	var contextClosePromise,
+		command = this.getCommand(),
+		surface = this.toolbar.getSurface(),
+		tool = this;
 
-	let contextClosePromise;
 	if ( command instanceof ve.ui.Command ) {
 		if ( surface.context.inspector ) {
 			contextClosePromise = surface.context.inspector.close().closed;
@@ -139,10 +131,10 @@ ve.ui.Tool.prototype.onSelect = function () {
 	if ( contextClosePromise ) {
 		// N.B. If contextClosePromise is already resolved, then the handler is called
 		// before the call to .done returns
-		contextClosePromise.done( () => {
+		contextClosePromise.done( function () {
 			if ( !command.execute( surface, undefined, 'tool' ) ) {
 				// If the command fails, ensure the tool is not active
-				this.setActive( false );
+				tool.setActive( false );
 			}
 		} );
 	}

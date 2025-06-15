@@ -1,5 +1,3 @@
-'use strict';
-
 /*!
  * VisualEditor MWCitationNeededContextItem class.
  *
@@ -10,11 +8,13 @@
 /**
  * Context item for a citation needed template.
  *
- * @constructor
+ * @class
  * @extends ve.ui.MWDefinedTransclusionContextItem
- * @param {ve.ui.LinearContext} context Context the item is in
- * @param {ve.dm.Model} model Model the item is related to
- * @param {Object} [config]
+ *
+ * @constructor
+ * @param {ve.ui.Context} context Context item is in
+ * @param {ve.dm.Model} model Model item is related to
+ * @param {Object} config Configuration options
  */
 ve.ui.MWCitationNeededContextItem = function VeUiMWCitationNeededContextItem() {
 	// Parent constructor
@@ -48,63 +48,63 @@ ve.ui.MWCitationNeededContextItem.static.label = OO.ui.deferMsg( 'cite-ve-citati
 /* Methods */
 
 ve.ui.MWCitationNeededContextItem.prototype.onAddClick = function () {
-	const surface = this.context.getSurface();
-	const encapsulatedWikitext = this.getCanonicalParam( 'encapsulate' );
+	var contextItem = this,
+		surface = this.context.getSurface(),
+		encapsulatedWikitext = this.getCanonicalParam( 'encapsulate' );
 
-	let promise;
+	var promise;
 	if ( encapsulatedWikitext ) {
 		this.addButton.setDisabled( true );
-		promise = ve.init.target
-			.parseWikitextFragment( encapsulatedWikitext, false, this.model.getDocument() )
-			.then( ( response ) => {
+		promise = ve.init.target.parseWikitextFragment( encapsulatedWikitext, false, this.model.getDocument() ).then( function ( response ) {
+			var dmDoc, nodes, range;
 
-				if ( ve.getProp( response, 'visualeditor', 'result' ) !== 'success' ) {
-					return ve.createDeferred().reject().promise();
-				}
+			if ( ve.getProp( response, 'visualeditor', 'result' ) !== 'success' ) {
+				return ve.createDeferred().reject().promise();
+			}
 
-				const dmDoc = ve.ui.MWWikitextStringTransferHandler.static
-					.createDocumentFromParsoidHtml(
-						response.visualeditor.content,
-						surface.getModel().getDocument()
-					);
-				const nodes = dmDoc.getDocumentNode().children.filter( ( node ) => !node.isInternal() );
-				let range;
+			dmDoc = ve.ui.MWWikitextStringTransferHandler.static.createDocumentFromParsoidHtml(
+				response.visualeditor.content,
+				surface.getModel().getDocument()
+			);
 
-				// Unwrap single content branch nodes to match internal copy/paste behaviour
-				// (which wouldn't put the open and close tags in the clipboard to begin with).
-				if (
-					nodes.length === 1 &&
-					nodes[ 0 ].canContainContent()
-				) {
-					range = nodes[ 0 ].getRange();
-				}
-
-				surface.getModel().pushStaging();
-				surface.getModel().getFragment()
-					.insertDocument( dmDoc, range ).collapseToEnd().select();
-				return true;
+			nodes = dmDoc.getDocumentNode().children.filter( function ( node ) {
+				return !node.isInternal();
 			} );
-		promise.always( () => {
-			this.addButton.setDisabled( false );
+
+			// Unwrap single content branch nodes to match internal copy/paste behaviour
+			// (which wouldn't put the open and close tags in the clipboard to begin with).
+			if (
+				nodes.length === 1 &&
+				nodes[ 0 ].canContainContent()
+			) {
+				range = nodes[ 0 ].getRange();
+			}
+
+			surface.getModel().pushStaging();
+			surface.getModel().getFragment().insertDocument( dmDoc, range ).collapseToEnd().select();
+			return true;
+		} );
+		promise.always( function () {
+			contextItem.addButton.setDisabled( false );
 		} );
 	} else {
 		promise = ve.createDeferred().resolve( false ).promise();
 	}
 
 	// TODO: This assumes Citoid is installed...
-	const action = ve.ui.actionFactory.create( 'citoid', surface );
-	promise.then( ( inStaging ) => {
+	var action = ve.ui.actionFactory.create( 'citoid', surface );
+	promise.then( function ( inStaging ) {
 		action.open( true, undefined, inStaging );
 	} );
 	ve.track( 'activity.' + this.constructor.static.name, { action: 'context-add-citation' } );
 };
 
 /**
- * @override
+ * @inheritdoc
  */
 ve.ui.MWCitationNeededContextItem.prototype.renderBody = function () {
-	const date = this.getCanonicalParam( 'date' );
-	let description = ve.msg( 'cite-ve-citationneeded-description' );
+	var date = this.getCanonicalParam( 'date' ),
+		description = ve.msg( 'cite-ve-citationneeded-description' );
 
 	if ( date ) {
 		description += ve.msg( 'word-separator' ) + ve.msg( 'parentheses', date );
@@ -113,7 +113,7 @@ ve.ui.MWCitationNeededContextItem.prototype.renderBody = function () {
 	this.$body.empty();
 	this.$body.append( $( '<p>' ).addClass( 've-ui-mwCitationNeededContextItem-description' ).text( description ) );
 
-	const reason = this.getCanonicalParam( 'reason' );
+	var reason = this.getCanonicalParam( 'reason' );
 	if ( reason ) {
 		this.$body.append(
 			$( '<p>' ).addClass( 've-ui-mwCitationNeededContextItem-reason' ).append(

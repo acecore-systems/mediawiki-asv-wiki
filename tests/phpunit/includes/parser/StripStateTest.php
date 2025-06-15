@@ -1,13 +1,7 @@
 <?php
 
-namespace MediaWiki\Tests\Parser;
-
-use MediaWiki\Parser\Parser;
-use MediaWiki\Parser\StripState;
-use MediaWikiIntegrationTestCase;
-
 /**
- * @covers \MediaWiki\Parser\StripState
+ * @covers StripState
  */
 class StripStateTest extends MediaWikiIntegrationTestCase {
 	protected function setUp(): void {
@@ -109,7 +103,7 @@ class StripStateTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expected, $text );
 	}
 
-	public static function provideGetLimitReport() {
+	public function provideGetLimitReport() {
 		for ( $i = 1; $i < 4; $i++ ) {
 			yield [ $i ];
 		}
@@ -128,7 +122,7 @@ class StripStateTest extends MediaWikiIntegrationTestCase {
 		$text = $ss->unstripNoWiki( $text );
 		$report = $ss->getLimitReport();
 		$messages = [];
-		foreach ( $report as [ $msg, $params ] ) {
+		foreach ( $report as list( $msg, $params ) ) {
 			$messages[$msg] = $params;
 		}
 		$this->assertSame( [ $depth - 1, 5 ], $messages['limitreport-unstrip-depth'] );

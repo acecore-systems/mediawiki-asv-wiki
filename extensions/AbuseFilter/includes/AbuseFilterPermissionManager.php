@@ -2,11 +2,8 @@
 
 namespace MediaWiki\Extension\AbuseFilter;
 
-use MediaWiki\Config\ServiceOptions;
 use MediaWiki\Extension\AbuseFilter\Filter\AbstractFilter;
-use MediaWiki\Extension\AbuseFilter\Filter\Flags;
 use MediaWiki\Permissions\Authority;
-use MediaWiki\User\Options\UserOptionsLookup;
 
 /**
  * This class simplifies the interactions between the AbuseFilter code and Authority, knowing
@@ -14,29 +11,6 @@ use MediaWiki\User\Options\UserOptionsLookup;
  */
 class AbuseFilterPermissionManager {
 	public const SERVICE_NAME = 'AbuseFilterPermissionManager';
-
-	public const CONSTRUCTOR_OPTIONS = [
-		'AbuseFilterProtectedVariables',
-	];
-
-	/**
-	 * @var string[] Protected variables defined in config via AbuseFilterProtectedVariables
-	 */
-	private $protectedVariables;
-
-	private UserOptionsLookup $userOptionsLookup;
-
-	/**
-	 * @param ServiceOptions $options
-	 * @param UserOptionsLookup $userOptionsLookup
-	 */
-	public function __construct(
-		ServiceOptions $options,
-		UserOptionsLookup $userOptionsLookup
-	) {
-		$this->protectedVariables = $options->get( 'AbuseFilterProtectedVariables' );
-		$this->userOptionsLookup = $userOptionsLookup;
-	}
 
 	/**
 	 * @param Authority $performer
@@ -87,76 +61,10 @@ class AbuseFilterPermissionManager {
 	 * @return bool
 	 */
 	public function canViewPrivateFilters( Authority $performer ): bool {
-		$block = $performer->getBlock();
-		return (
-			!( $block && $block->isSitewide() ) &&
-			$performer->isAllowedAny(
-				'abusefilter-modify',
-				'abusefilter-view-private'
-			)
+		return $performer->isAllowedAny(
+			'abusefilter-modify',
+			'abusefilter-view-private'
 		);
-	}
-
-	/**
-	 * @param Authority $performer
-	 * @return bool
-	 */
-	public function canViewProtectedVariables( Authority $performer ) {
-		$block = $performer->getBlock();
-		return (
-			!( $block && $block->isSitewide() ) &&
-			$performer->isAllowed( 'abusefilter-access-protected-vars' )
-		);
-	}
-
-	/**
-	 * @param Authority $performer
-	 * @return bool
-	 */
-	public function canViewProtectedVariableValues( Authority $performer ) {
-		return (
-			$this->canViewProtectedVariables( $performer ) &&
-			$this->userOptionsLookup->getOption(
-				$performer->getUser(),
-				'abusefilter-protected-vars-view-agreement'
-			)
-		);
-	}
-
-	/**
-	 * Return all used protected variables from an array of variables. Ignore user permissions.
-	 *
-	 * @param string[] $usedVariables
-	 * @return string[]
-	 */
-	public function getUsedProtectedVariables( array $usedVariables ): array {
-		return array_intersect( $usedVariables, $this->protectedVariables );
-	}
-
-	/**
-	 * Check if the filter uses variables that the user is not allowed to use (i.e., variables that are protected, if
-	 * the user can't view protected variables), and return them.
-	 *
-	 * @param Authority $performer
-	 * @param string[] $usedVariables
-	 * @return string[]
-	 */
-	public function getForbiddenVariables( Authority $performer, array $usedVariables ): array {
-		$usedProtectedVariables = array_intersect( $usedVariables, $this->protectedVariables );
-		// All good if protected variables aren't used, or the user can view them.
-		if ( count( $usedProtectedVariables ) === 0 || $this->canViewProtectedVariables( $performer ) ) {
-			return [];
-		}
-		return $usedProtectedVariables;
-	}
-
-	/**
-	 * Return an array of protected variables (originally defined in configuration)
-	 *
-	 * @return string[]
-	 */
-	public function getProtectedVariables() {
-		return $this->protectedVariables;
 	}
 
 	/**
@@ -194,26 +102,17 @@ class AbuseFilterPermissionManager {
 
 	/**
 	 * @param Authority $performer
-	 * @param int $privacyLevel Bitmask of privacy flags
+	 * @param bool|int $filterHidden Whether the filter is hidden
 	 * @todo Take a Filter parameter
 	 * @return bool
 	 */
-	public function canSeeLogDetailsForFilter( Authority $performer, int $privacyLevel ): bool {
-		if ( !$this->canSeeLogDetails( $performer ) ) {
-			return false;
+	public function canSeeLogDetailsForFilter( Authority $performer, $filterHidden ): bool {
+		if ( $filterHidden ) {
+			return $this->canSeeLogDetails( $performer )
+				&& $this->canViewPrivateFiltersLogs( $performer );
 		}
 
-		if ( $privacyLevel === Flags::FILTER_PUBLIC ) {
-			return true;
-		}
-		if ( FilterUtils::isHidden( $privacyLevel ) && !$this->canViewPrivateFiltersLogs( $performer ) ) {
-			return false;
-		}
-		if ( FilterUtils::isProtected( $privacyLevel ) && !$this->canViewProtectedVariables( $performer ) ) {
-			return false;
-		}
-
-		return true;
+		return $this->canSeeLogDetails( $performer );
 	}
 
 	/**

@@ -1,13 +1,13 @@
 /*!
  * VisualEditor DataModel Surface tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.dm.Surface' );
 
 ve.dm.SurfaceStub = function VeDmSurfaceStub( data, range ) {
-	const doc = new ve.dm.Document( data || [ { type: 'paragraph' }, ...'hi', { type: '/paragraph' }, { type: 'internalList' }, { type: '/internalList' } ] );
+	var doc = new ve.dm.Document( data || [ { type: 'paragraph' }, 'h', 'i', { type: '/paragraph' }, { type: 'internalList' }, { type: '/internalList' } ] );
 
 	// Inheritance
 	ve.dm.SurfaceStub.super.call( this, doc );
@@ -20,36 +20,36 @@ OO.inheritClass( ve.dm.SurfaceStub, ve.dm.Surface );
 
 // Tests
 
-QUnit.test( 'getDocument', ( assert ) => {
-	const surface = new ve.dm.SurfaceStub();
+QUnit.test( 'getDocument', function ( assert ) {
+	var surface = new ve.dm.SurfaceStub();
 	assert.strictEqual( surface.getDocument(), surface.documentModel );
 } );
 
-QUnit.test( 'getSelection', ( assert ) => {
-	const surface = new ve.dm.SurfaceStub();
+QUnit.test( 'getSelection', function ( assert ) {
+	var surface = new ve.dm.SurfaceStub();
 	assert.strictEqual( surface.getSelection(), surface.selection );
 } );
 
-QUnit.test( 'setSelection out of range', ( assert ) => {
-	const surface = new ve.dm.SurfaceStub( [
+QUnit.test( 'setSelection out of range', function ( assert ) {
+	var surface = new ve.dm.SurfaceStub( [
 		{ type: 'paragraph' },
-		...'Foo',
+		'F', 'o', 'o',
 		{ type: '/paragraph' },
 		{ type: 'internalList' }, { type: '/internalList' }
 	] );
 
 	surface.setSelection( new ve.dm.LinearSelection( new ve.Range( 2, 100 ) ) );
-	let range = surface.getSelection().getRange();
+	var range = surface.getSelection().getRange();
 	assert.deepEqual( [ range.start, range.end ], [ 2, 5 ] );
 	surface.setSelection( new ve.dm.LinearSelection( new ve.Range( 99, 100 ) ) );
 	range = surface.getSelection().getRange();
 	assert.deepEqual( [ range.start, range.end ], [ 5, 5 ] );
 } );
 
-QUnit.test( 'contextChange events', ( assert ) => {
-	const surface = new ve.dm.SurfaceStub( ve.dm.example.preprocessAnnotations( [
+QUnit.test( 'contextChange events', function ( assert ) {
+	var surface = new ve.dm.SurfaceStub( ve.dm.example.preprocessAnnotations( [
 		{ type: 'paragraph' },
-		...'Foo',
+		'F', 'o', 'o',
 		// Bold "bar"
 		[ 'b', [ ve.dm.example.bold ] ],
 		[ 'a', [ ve.dm.example.bold ] ],
@@ -58,29 +58,29 @@ QUnit.test( 'contextChange events', ( assert ) => {
 		[ 'b', [ ve.dm.example.italic ] ],
 		[ 'a', [ ve.dm.example.italic ] ],
 		[ 'z', [ ve.dm.example.italic ] ],
-		...'Foo',
+		'F', 'o', 'o',
 		{ type: '/paragraph' },
 		{ type: 'list', attributes: { style: 'bullet' } },
 		{ type: 'listItem' },
 		{ type: 'paragraph' },
-		...'One',
+		'O', 'n', 'e',
 		{ type: '/paragraph' },
 		{ type: '/listItem' },
 		{ type: 'listItem' },
 		{ type: 'paragraph' },
-		...'Two',
+		'T', 'w', 'o',
 		{ type: '/paragraph' },
 		{ type: '/listItem' },
 		{ type: '/list' },
 		{ type: 'internalList' }, { type: '/internalList' }
 	] ) );
 
-	let contextChanges = 0;
-	surface.on( 'contextChange', () => {
+	var contextChanges = 0;
+	surface.on( 'contextChange', function () {
 		contextChanges++;
 	} );
 
-	const cases = [
+	var cases = [
 		{
 			title: 'setSelection, to equivalent selection',
 			initialSelection: new ve.Range( 1 ),
@@ -150,7 +150,7 @@ QUnit.test( 'contextChange events', ( assert ) => {
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		surface.setLinearSelection( caseItem.initialSelection || new ve.Range( 1 ) );
 		contextChanges = 0;
 		surface.setLinearSelection( caseItem.selection );
@@ -158,8 +158,8 @@ QUnit.test( 'contextChange events', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'documentUpdate/select events', ( assert ) => {
-	const surface = new ve.dm.SurfaceStub(),
+QUnit.test( 'documentUpdate/select events', function ( assert ) {
+	var surface = new ve.dm.SurfaceStub(),
 		doc = surface.getDocument(),
 		// docmentUpdate doesn't fire for no-op transactions, so make sure there's something there
 		tx = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 3, [ 'i' ] ),
@@ -168,10 +168,10 @@ QUnit.test( 'documentUpdate/select events', ( assert ) => {
 			select: 0
 		};
 
-	surface.on( 'documentUpdate', () => {
+	surface.on( 'documentUpdate', function () {
 		events.documentUpdate++;
 	} );
-	surface.on( 'select', () => {
+	surface.on( 'select', function () {
 		events.select++;
 	} );
 	surface.change( tx.clone() );
@@ -182,8 +182,8 @@ QUnit.test( 'documentUpdate/select events', ( assert ) => {
 	assert.deepEqual( events, { documentUpdate: 2, select: 2 }, 'change with transaction and selection' );
 } );
 
-QUnit.test( 'breakpoint/undo/redo', ( assert ) => {
-	const range = new ve.Range( 1, 3 ),
+QUnit.test( 'breakpoint/undo/redo', function ( assert ) {
+	var range = new ve.Range( 1, 3 ),
 		surface = new ve.dm.SurfaceStub( null, range ),
 		fragment = surface.getFragment(),
 		doc = surface.getDocument(),
@@ -224,14 +224,14 @@ QUnit.test( 'breakpoint/undo/redo', ( assert ) => {
 
 } );
 
-QUnit.test( 'multi-user undo', ( assert ) => {
-	const surfaces = [];
+QUnit.test( 'multi-user undo', function ( assert ) {
+	var surfaces = [];
 
 	// Create two surfaces owned by authors 1 & 2, consisting of interleaved
 	// transactions by both users, each adding to their own paragraph
-	for ( let i = 1; i <= 2; i++ ) {
-		const range = new ve.Range( 1 );
-		const surface = new ve.dm.SurfaceStub( [
+	for ( var i = 1; i <= 2; i++ ) {
+		var range = new ve.Range( 1 );
+		var surface = new ve.dm.SurfaceStub( [
 			{ type: 'paragraph' }, { type: '/paragraph' },
 			{ type: 'paragraph' }, { type: '/paragraph' },
 			{ type: 'internalList' }, { type: '/internalList' }
@@ -239,24 +239,24 @@ QUnit.test( 'multi-user undo', ( assert ) => {
 		surface.setAuthorId( i );
 		surface.setMultiUser( true );
 
-		const doc = surface.getDocument();
+		var doc = surface.getDocument();
 
-		let tx = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 1, [ ...'foo' ] );
+		var tx = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 1, 'foo'.split( '' ) );
 		tx.authorId = 1;
 		surface.change( tx );
 		surface.breakpoint();
 
-		tx = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 6, [ ...'123' ] );
+		tx = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 6, '123'.split( '' ) );
 		tx.authorId = 2;
 		surface.change( tx );
 		surface.breakpoint();
 
-		tx = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 4, [ ...'bar' ] );
+		tx = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 4, 'bar'.split( '' ) );
 		tx.authorId = 1;
 		surface.change( tx );
 		surface.breakpoint();
 
-		tx = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 12, [ ...'456' ] );
+		tx = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 12, '456'.split( '' ) );
 		tx.authorId = 2;
 		surface.change( tx );
 		surface.breakpoint();
@@ -271,7 +271,7 @@ QUnit.test( 'multi-user undo', ( assert ) => {
 		surfaces[ 0 ].getDocument().getData(),
 		[
 			{ type: 'paragraph' }, { type: '/paragraph' },
-			{ type: 'paragraph' }, ...'123456', { type: '/paragraph' },
+			{ type: 'paragraph' }, '1', '2', '3', '4', '5', '6', { type: '/paragraph' },
 			{ type: 'internalList' }, { type: '/internalList' }
 		]
 	);
@@ -283,7 +283,7 @@ QUnit.test( 'multi-user undo', ( assert ) => {
 	assert.equalLinearData(
 		surfaces[ 1 ].getDocument().getData(),
 		[
-			{ type: 'paragraph' }, ...'foobar', { type: '/paragraph' },
+			{ type: 'paragraph' }, 'f', 'o', 'o', 'b', 'a', 'r', { type: '/paragraph' },
 			{ type: 'paragraph' }, { type: '/paragraph' },
 			{ type: 'internalList' }, { type: '/internalList' }
 		]
@@ -297,16 +297,14 @@ QUnit.test( 'multi-user undo', ( assert ) => {
 
 } );
 
-QUnit.test( 'change rollback', ( assert ) => {
-	const range = new ve.Range( 1, 3 ),
+QUnit.test( 'change rollback', function ( assert ) {
+	var range = new ve.Range( 1, 3 ),
 		surface = new ve.dm.SurfaceStub( null, range ),
 		doc = surface.getDocument();
 
-	const tx = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 1, [ { type: '/heading' } ] );
+	var tx = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 1, [ { type: '/heading' } ] );
 	assert.throws(
-		() => {
-			surface.change( tx );
-		},
+		function () { surface.change( tx ); },
 		new Error( 'Expected closing for paragraph but got closing for heading' ),
 		'Transaction throws an exception'
 	);
@@ -314,18 +312,18 @@ QUnit.test( 'change rollback', ( assert ) => {
 	assert.strictEqual( surface.canUndo(), false, 'No history to undo after failed change' );
 } );
 
-QUnit.test( 'range translation', ( assert ) => {
-	const surface = new ve.dm.SurfaceStub( null, new ve.Range( 3 ) ),
+QUnit.test( 'range translation', function ( assert ) {
+	var surface = new ve.dm.SurfaceStub( null, new ve.Range( 3 ) ),
 		doc = surface.getDocument(),
 		tx = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 3, [ 'x' ] );
 	surface.change( tx );
-	const selection = surface.getSelection();
+	var selection = surface.getSelection();
 	assert.true( selection instanceof ve.dm.LinearSelection, 'Selection is linear' );
 	assert.equalRange( selection.getRange(), new ve.Range( 3 ), 'Cursor is unmoved' );
 } );
 
-QUnit.test( 'staging', ( assert ) => {
-	const surface = new ve.dm.SurfaceStub( null, new ve.Range( 1, 3 ) ),
+QUnit.test( 'staging', function ( assert ) {
+	var surface = new ve.dm.SurfaceStub( null, new ve.Range( 1, 3 ) ),
 		fragment = surface.getFragment(),
 		doc = surface.getDocument();
 
@@ -341,7 +339,7 @@ QUnit.test( 'staging', ( assert ) => {
 	assert.deepEqual( surface.getStagingTransactions(), [], 'getStagingTransactions empty array after pushStaging' );
 	assert.strictEqual( surface.doesStagingAllowUndo(), false, 'doesStagingAllowUndo false when staging without undo' );
 
-	let tx1 = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 2, [ 'b' ] );
+	var tx1 = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 2, [ 'b' ] );
 	surface.change( tx1 );
 
 	assert.strictEqual( fragment.getText(), 'abhi', 'document contents match after first transaction' );
@@ -354,7 +352,7 @@ QUnit.test( 'staging', ( assert ) => {
 	assert.strictEqual( surface.doesStagingAllowUndo(), true, 'doesStagingAllowUndo true when staging with undo' );
 	assert.equalHash( surface.getSelection(), fragment.getSelection(), 'Surface selection matches fragment range' );
 
-	let tx2 = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 3, [ 'c' ] );
+	var tx2 = ve.dm.TransactionBuilder.static.newFromInsertion( doc, 3, [ 'c' ] );
 	surface.change( tx2 );
 
 	assert.strictEqual( fragment.getText(), 'abchi', 'document contents match after second transaction' );
@@ -430,11 +428,12 @@ QUnit.test( 'staging', ( assert ) => {
 
 } );
 
-QUnit.test( 'getOffsetFromSourceOffset / getSourceOffsetFromOffset / getRangeFromSourceOffsets', ( assert ) => {
-	const surface = new ve.dm.SurfaceStub( [
-			{ type: 'paragraph' }, ...'Foo', { type: '/paragraph' },
-			{ type: 'paragraph' }, ...'ba', { type: '/paragraph' },
-			{ type: 'paragraph' }, ...'Quux', { type: '/paragraph' },
+QUnit.test( 'getOffsetFromSourceOffset / getSourceOffsetFromOffset / getRangeFromSourceOffsets', function ( assert ) {
+	var i,
+		surface = new ve.dm.SurfaceStub( [
+			{ type: 'paragraph' }, 'f', 'o', 'o', { type: '/paragraph' },
+			{ type: 'paragraph' }, 'b', 'a', { type: '/paragraph' },
+			{ type: 'paragraph' }, 'q', 'u', 'u', 'x', { type: '/paragraph' },
 			{ type: 'internalList' }, { type: '/internalList' }
 		] ),
 		expectedOffsets = [
@@ -449,32 +448,24 @@ QUnit.test( 'getOffsetFromSourceOffset / getSourceOffsetFromOffset / getRangeFro
 			12
 		];
 
-	for ( let i = 0; i < expectedOffsets.length; i++ ) {
+	for ( i = 0; i < expectedOffsets.length; i++ ) {
 		assert.strictEqual( surface.getOffsetFromSourceOffset( i ), expectedOffsets[ i ], 'Correct offset at ' + i );
 	}
 	assert.throws(
-		() => {
-			surface.getOffsetFromSourceOffset( -1 );
-		},
+		function () { surface.getOffsetFromSourceOffset( -1 ); },
 		Error, 'Offset -1 is out of bounds' );
 	assert.throws(
-		() => {
-			surface.getOffsetFromSourceOffset( expectedOffsets.length );
-		},
+		function () { surface.getOffsetFromSourceOffset( expectedOffsets.length ); },
 		Error, 'Offset ' + expectedOffsets.length + ' is out of bounds'
 	);
-	for ( let i = 0; i < expectedSourceOffsets.length; i++ ) {
+	for ( i = 0; i < expectedSourceOffsets.length; i++ ) {
 		assert.strictEqual( surface.getSourceOffsetFromOffset( i ), expectedSourceOffsets[ i ], 'Correct source offset at ' + i );
 	}
 	assert.throws(
-		() => {
-			surface.getSourceOffsetFromOffset( -1 );
-		},
+		function () { surface.getSourceOffsetFromOffset( -1 ); },
 		Error, 'Offset -1 is out of bounds' );
 	assert.throws(
-		() => {
-			surface.getSourceOffsetFromOffset( expectedSourceOffsets.length );
-		},
+		function () { surface.getSourceOffsetFromOffset( expectedSourceOffsets.length ); },
 		Error, 'Offset ' + expectedSourceOffsets.length + ' is out of bounds'
 	);
 
@@ -485,16 +476,15 @@ QUnit.test( 'getOffsetFromSourceOffset / getSourceOffsetFromOffset / getRangeFro
 } );
 
 QUnit.test( 'autosave', function ( assert ) {
-	const storage = ve.init.platform.sessionStorage,
+	var storage = ve.init.platform.sessionStorage,
+		autosaveFailed = 0,
 		done = assert.async(),
+		surface = new ve.dm.SurfaceStub(),
+		fragment = surface.getLinearFragment( new ve.Range( 3 ) ),
 		state = {
 			name: 'name',
 			id: 1
 		};
-
-	let surface = new ve.dm.SurfaceStub(),
-		fragment = surface.getLinearFragment( new ve.Range( 3 ) ),
-		autosaveFailed = 0;
 
 	assert.strictEqual( surface.restoreChanges(), false, 'restoreChanges returns false when nothing to restore' );
 	assert.strictEqual( surface.storeDocState( state, '<p>foo</p>' ), true, 'storeDocState returns true' );
@@ -508,7 +498,7 @@ QUnit.test( 'autosave', function ( assert ) {
 
 	fragment.insertContent( ' bar' );
 	surface.breakpoint();
-	assert.deepEqual( storage.getObject( 've-changes' ), null, 'Changes aren\'t stored before startStoringChanges' );
+	assert.deepEqual( storage.getList( 've-changes' ), [], 'Changes aren\'t stored before startStoringChanges' );
 
 	surface = new ve.dm.SurfaceStub();
 	fragment = surface.getLinearFragment( new ve.Range( 3 ) );
@@ -517,7 +507,7 @@ QUnit.test( 'autosave', function ( assert ) {
 	fragment.insertContent( ' bar' );
 	surface.breakpoint();
 	assert.deepEqual(
-		storage.getObject( 've-changes' ),
+		storage.getList( 've-changes' ).map( JSON.parse ),
 		[ {
 			start: 0,
 			transactions: [ [ 3, [ '', ' bar' ], 3 ] ]
@@ -526,12 +516,12 @@ QUnit.test( 'autosave', function ( assert ) {
 	);
 
 	surface.storeChanges();
-	assert.strictEqual( storage.getObject( 've-changes' ).length, 1, 'No extra change stored if no changes since last store' );
+	assert.strictEqual( storage.getList( 've-changes' ).length, 1, 'No extra change stored if no changes since last store' );
 
 	fragment.convertNodes( 'heading', { level: 1 } );
 	surface.breakpoint();
 	assert.deepEqual(
-		storage.getObject( 've-changes' )[ 1 ],
+		storage.getList( 've-changes' ).map( JSON.parse )[ 1 ],
 		{
 			start: 1,
 			transactions: [ [
@@ -547,7 +537,7 @@ QUnit.test( 'autosave', function ( assert ) {
 	surface.setLinearSelection( new ve.Range( 5 ) );
 	surface.breakpoint();
 	assert.strictEqual(
-		storage.getObject( 've-changes' ).length, 3, 'Fourth change stored'
+		storage.getList( 've-changes' ).length, 3, 'Fourth change stored'
 	);
 	assert.deepEqual(
 		storage.getObject( 've-selection' ),
@@ -559,11 +549,11 @@ QUnit.test( 'autosave', function ( assert ) {
 	fragment.collapseToEnd().insertContent( ' quux' );
 	surface.breakpoint();
 	assert.strictEqual(
-		storage.getObject( 've-changes' ).length, 3, 'Change not stored after stopStoringChanges'
+		storage.getList( 've-changes' ).length, 3, 'Change not stored after stopStoringChanges'
 	);
 
 	assert.throws(
-		() => {
+		function () {
 			surface.documentModel.completeHistory = new ve.dm.Change();
 			surface.restoreChanges();
 		},
@@ -577,12 +567,12 @@ QUnit.test( 'autosave', function ( assert ) {
 	assert.strictEqual( surface.restoreChanges(), true, 'restoreChanges returns true on success' );
 	assert.strictEqual( surface.getHtml(), '<h1>hi bar baz</h1>', 'Document HTML restored' );
 	assert.strictEqual( surface.getDocument().getCompleteHistoryLength(), 3, 'Document history restored' );
-	setTimeout( ( ( s ) => {
+	setTimeout( function ( s ) {
 		assert.equalHash( s.getSelection(), { type: 'linear', range: { type: 'range', from: 5, to: 5 } }, 'Document selection restored (async)' );
 		s.undo();
 		assert.equalHash( s.getSelection(), { type: 'linear', range: { type: 'range', from: 7, to: 7 } }, 'Document selection guessed after undo' );
 		done();
-	} ).bind( this, surface ) );
+	}.bind( this, surface ) );
 
 	ve.init.platform.storageDisabled = true;
 	assert.strictEqual( surface.restoreChanges(), false, 'restoreChanges returns false if session storage disabled' );
@@ -591,7 +581,7 @@ QUnit.test( 'autosave', function ( assert ) {
 	surface.removeDocStateAndChanges();
 	assert.strictEqual( storage.get( 've-html' ), null, 'HTML empty after removeDocStateAndChanges' );
 	assert.strictEqual( storage.getObject( 've-docstate' ), null, 'Doc state empty after removeDocStateAndChanges' );
-	assert.deepEqual( storage.getObject( 've-changes' ), null, 'Changes empty after removeDocStateAndChanges' );
+	assert.deepEqual( storage.getList( 've-changes' ), [], 'Changes empty after removeDocStateAndChanges' );
 
 	surface = new ve.dm.SurfaceStub();
 	fragment = surface.getLinearFragment( new ve.Range( 3 ) );
@@ -607,10 +597,10 @@ QUnit.test( 'autosave', function ( assert ) {
 	assert.strictEqual( surface.storeDocState( state ), false, 'storeDocState returns false when sessionStorage disabled' );
 	fragment.insertContent( ' bar' );
 	surface.breakpoint();
-	assert.strictEqual( storage.getObject( 've-changes' ), false, 'No changes recorded' );
+	assert.strictEqual( storage.getList( 've-changes' ).length, 0, 'No changes recorded after storeDocState failure' );
 	ve.init.platform.storageDisabled = false;
 
-	surface.on( 'autosaveFailed', () => {
+	surface.on( 'autosaveFailed', function () {
 		autosaveFailed++;
 	} );
 	surface.startStoringChanges();
@@ -623,7 +613,7 @@ QUnit.test( 'autosave', function ( assert ) {
 	fragment.insertContent( ' baz' );
 	surface.breakpoint();
 	assert.strictEqual( autosaveFailed, 1, 'Subsequent failures don\'t fire autosaveFailed again' );
-	assert.strictEqual( storage.getObject( 've-changes' ), false, 'No changes recorded' );
+	assert.strictEqual( storage.getList( 've-changes' ).length, 0, 'No changes recorded after storeChanges failure' );
 	ve.init.platform.storageDisabled = false;
 
 	surface.storeDocState( state, '<p>foo</p>' );

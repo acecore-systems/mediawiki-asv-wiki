@@ -1,19 +1,19 @@
 /*!
  * VisualEditor ContentEditable TextState tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ce.TextState' );
 
 /* Tests */
 
-QUnit.test( 'getChangeTransaction', ( assert ) => {
-	const underlineHash = ve.dm.example.underlineHash,
+QUnit.test( 'getChangeTransaction', function ( assert ) {
+	var underlineHash = ve.dm.example.underlineHash,
 		boldHash = ve.dm.example.boldHash,
 		annHash = ve.dm.example.annHash;
 
-	const cases = [
+	var cases = [
 		{
 			msg: 'Clear bold',
 			oldRawHtml: '<p>foo <b>bar</b> baz</p>',
@@ -24,7 +24,7 @@ QUnit.test( 'getChangeTransaction', ( assert ) => {
 				{
 					type: 'replace',
 					remove: [ [ 'b', [ annHash( 'b' ) ] ], [ 'a', [ annHash( 'b' ) ] ], [ 'r', [ annHash( 'b' ) ] ] ],
-					insert: [ ...'bar' ]
+					insert: [ 'b', 'a', 'r' ]
 				},
 				{ type: 'retain', length: 7 }
 			]
@@ -53,7 +53,7 @@ QUnit.test( 'getChangeTransaction', ( assert ) => {
 				{ type: 'retain', length: 5 },
 				{
 					type: 'replace',
-					remove: [ ...'bar' ],
+					remove: [ 'b', 'a', 'r' ],
 					insert: [ [ 'b', [ boldHash ] ], [ 'a', [ boldHash ] ], [ 'r', [ boldHash ] ] ]
 				},
 				{ type: 'retain', length: 7 }
@@ -114,7 +114,7 @@ QUnit.test( 'getChangeTransaction', ( assert ) => {
 				{ type: 'retain', length: 5 },
 				{
 					type: 'replace',
-					remove: [ ...'bar' ],
+					remove: [ 'b', 'a', 'r' ],
 					insert: [
 						[ 'b', [ annHash( 'u' ), boldHash ] ],
 						[ 'a', [ annHash( 'u' ), boldHash ] ],
@@ -263,7 +263,7 @@ QUnit.test( 'getChangeTransaction', ( assert ) => {
 				{ type: 'retain', length: 9 },
 				{
 					type: 'replace',
-					remove: [ ...'baz' ],
+					remove: [ 'b', 'a', 'z' ],
 					// TODO: Reuse bold instead of creating a new bold?
 					// (Some annotation types may need specific rules as to
 					// when this can be done)
@@ -310,11 +310,11 @@ QUnit.test( 'getChangeTransaction', ( assert ) => {
 						[ 'b', [ annHash( 'i' ) ] ],
 						[ 'a', [ annHash( 'i' ) ] ],
 						[ 'r', [ annHash( 'i' ) ] ],
-						...' baz'
+						' ', 'b', 'a', 'z'
 					],
 					// The first insertion get
 					insert: [
-						...'bar ',
+						'b', 'a', 'r', ' ',
 						[ 'b', [ annHash( 'b' ) ] ],
 						[ 'a', [ annHash( 'b' ) ] ],
 						[ 'z', [ annHash( 'b' ) ] ]
@@ -355,11 +355,11 @@ QUnit.test( 'getChangeTransaction', ( assert ) => {
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
-		const view = ve.test.utils.createSurfaceViewFromHtml( caseItem.oldRawHtml );
-		const documentView = view.getDocument();
-		const documentNode = documentView.getDocumentNode();
-		const contentNode = documentNode.children[ 0 ];
+	cases.forEach( function ( caseItem ) {
+		var view = ve.test.utils.createSurfaceViewFromHtml( caseItem.oldRawHtml );
+		var documentView = view.getDocument();
+		var documentNode = documentView.getDocumentNode();
+		var contentNode = documentNode.children[ 0 ];
 		( caseItem.willFail ? assert.notEqualDomElement : assert.equalDomElement ).call(
 			assert,
 			$( '<div>' ).append( contentNode.$element.clone().contents() )[ 0 ],
@@ -367,11 +367,11 @@ QUnit.test( 'getChangeTransaction', ( assert ) => {
 			caseItem.msg + ' (oldInnerHtml)'
 		);
 		view.model.setSelection( new ve.dm.LinearSelection( new ve.Range( 1 ) ) );
-		const oldState = new ve.ce.RangeState( null, documentNode, false );
+		var oldState = new ve.ce.RangeState( null, documentNode, false );
 		contentNode.$element.html( caseItem.newInnerHtml );
 		view.model.setSelection( new ve.dm.LinearSelection( new ve.Range( 1 ) ) );
-		const newState = new ve.ce.RangeState( oldState, documentNode, false );
-		const change = newState.textState.getChangeTransaction(
+		var newState = new ve.ce.RangeState( oldState, documentNode, false );
+		var change = newState.textState.getChangeTransaction(
 			oldState.textState,
 			view.model.getDocument(),
 			newState.node.getOffset()

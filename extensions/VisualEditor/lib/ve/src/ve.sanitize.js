@@ -1,7 +1,7 @@
 /*!
  * VisualEditor HTML sanitization utilities.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /* global DOMPurify */
@@ -15,13 +15,13 @@
  */
 ve.sanitizeHtml = function ( html, returnDocument ) {
 	// TODO: Move MW-specific rules to ve-mw
-	const addTags = [ 'figure-inline' ],
+	var addTags = [ 'figure-inline' ],
 		addAttrs = [
 			'srcset',
 			// RDFa
 			'about', 'rel', 'resource', 'property', 'content', 'datatype', 'typeof'
 		];
-	const options = {
+	var options = {
 		ADD_TAGS: addTags,
 		ADD_ATTR: addAttrs,
 		ADD_URI_SAFE_ATTR: addAttrs,
@@ -44,20 +44,4 @@ ve.sanitizeHtml = function ( html, returnDocument ) {
  */
 ve.sanitizeHtmlToDocument = function ( html ) {
 	return ve.sanitizeHtml( html, true );
-};
-
-/**
- * Set an element attribute to a specific value if it is safe
- *
- * @param {HTMLElement} element Element
- * @param {string} attr Attribute
- * @param {string} val Value
- * @param {string} [fallbackVal] Optional fallback value if val is unsafe (will also be safety-checked)
- */
-ve.setAttributeSafe = function ( element, attr, val, fallbackVal ) {
-	if ( DOMPurify.isValidAttribute( element.tagName, attr, val ) ) {
-		element.setAttribute( attr, val );
-	} else if ( fallbackVal !== undefined && DOMPurify.isValidAttribute( element.tagName, attr, fallbackVal ) ) {
-		element.setAttribute( attr, fallbackVal );
-	}
 };

@@ -19,14 +19,9 @@
  * @ingroup RevisionDelete
  */
 
-use MediaWiki\Cache\HTMLCacheUpdater;
-use MediaWiki\Context\IContextSource;
-use MediaWiki\FileRepo\File\FileSelectQueryBuilder;
 use MediaWiki\Page\PageIdentity;
-use Wikimedia\Rdbms\IReadableDatabase;
-use Wikimedia\Rdbms\IResultWrapper;
+use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\LBFactory;
-use Wikimedia\Rdbms\SelectQueryBuilder;
 
 /**
  * List for filearchive table items
@@ -38,7 +33,7 @@ class RevDelArchivedFileList extends RevDelFileList {
 	 * @param PageIdentity $page
 	 * @param array $ids
 	 * @param LBFactory $lbFactory
-	 * @param HTMLCacheUpdater $htmlCacheUpdater
+	 * @param HtmlCacheUpdater $htmlCacheUpdater
 	 * @param RepoGroup $repoGroup
 	 */
 	public function __construct(
@@ -46,7 +41,7 @@ class RevDelArchivedFileList extends RevDelFileList {
 		PageIdentity $page,
 		array $ids,
 		LBFactory $lbFactory,
-		HTMLCacheUpdater $htmlCacheUpdater,
+		HtmlCacheUpdater $htmlCacheUpdater,
 		RepoGroup $repoGroup
 	) {
 		parent::__construct(
@@ -72,17 +67,24 @@ class RevDelArchivedFileList extends RevDelFileList {
 	}
 
 	/**
-	 * @param IReadableDatabase $db
-	 * @return IResultWrapper
+	 * @param IDatabase $db
+	 * @return mixed
 	 */
 	public function doQuery( $db ) {
 		$ids = array_map( 'intval', $this->ids );
 
-		$queryBuilder = FileSelectQueryBuilder::newForArchivedFile( $db );
-		$queryBuilder->where( [ 'fa_name' => $this->page->getDBkey(), 'fa_id' => $ids ] )
-			->orderBy( 'fa_id', SelectQueryBuilder::SORT_DESC );
-
-		return $queryBuilder->caller( __METHOD__ )->fetchResultSet();
+		$fileQuery = ArchivedFile::getQueryInfo();
+		return $db->select(
+			$fileQuery['tables'],
+			$fileQuery['fields'],
+			[
+				'fa_name' => $this->page->getDBkey(),
+				'fa_id' => $ids
+			],
+			__METHOD__,
+			[ 'ORDER BY' => 'fa_id DESC' ],
+			$fileQuery['joins']
+		);
 	}
 
 	public function newItem( $row ) {

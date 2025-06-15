@@ -3,9 +3,9 @@
  */
 
 ( function () {
-	let jqXhr, $multipageimage, $spinner,
+	var jqXhr, $multipageimage, $spinner,
+		cache = {},
 		cacheOrder = [];
-	const cache = {};
 
 	/* Fetch the next page, caching up to 10 last-loaded pages.
 	 * @param {string} url
@@ -28,10 +28,12 @@
 
 		// TODO Don't fetch the entire page. Ideally we'd only fetch the content portion or the data
 		// (thumbnail urls) and update the interface manually.
-		jqXhr = $.ajax( url ).then( ( data ) => $( data ).find( '.mw-filepage-multipage' ).contents() );
+		jqXhr = $.ajax( url ).then( function ( data ) {
+			return $( data ).find( 'table.multipageimage' ).contents();
+		} );
 
 		// Handle cache updates
-		jqXhr.done( ( $contents ) => {
+		jqXhr.done( function ( $contents ) {
 			jqXhr = undefined;
 
 			// Cache the newly loaded page
@@ -54,11 +56,14 @@
 	 *   true, this function won't push a new history state, for the browser did so already).
 	 */
 	function switchPage( url, hist ) {
+		var $tr, promise;
+
 		// Start fetching data (might be cached)
-		const promise = fetchPageData( url );
+		promise = fetchPageData( url );
 
 		// Add a new spinner if one doesn't already exist and the data is not already ready
 		if ( !$spinner && promise.state() !== 'resolved' ) {
+			$tr = $multipageimage.find( 'tr' );
 			$spinner = $.createSpinner( {
 				size: 'large',
 				type: 'block'
@@ -66,14 +71,14 @@
 				// Copy the old content dimensions equal so that the current scroll position is not
 				// lost between emptying the table is and receiving the new contents.
 				.css( {
-					height: $multipageimage.outerHeight(),
-					width: $multipageimage.outerWidth()
+					height: $tr.outerHeight(),
+					width: $tr.outerWidth()
 				} );
 
 			$multipageimage.empty().append( $spinner );
 		}
 
-		promise.done( ( $contents ) => {
+		promise.done( function ( $contents ) {
 			$spinner = undefined;
 
 			// Replace table contents
@@ -86,18 +91,20 @@
 
 			// Update browser history and address bar. But not if we came here from a history
 			// event, in which case the url is already updated by the browser.
-			if ( !hist ) {
+			if ( history.pushState && !hist ) {
 				history.pushState( { tag: 'mw-pagination' }, document.title, url );
 			}
 		} );
 	}
 
 	function bindPageNavigation( $container ) {
-		$container.find( '.mw-filepage-multipage-navigation' ).one( 'click', 'a', function ( e ) {
+		$container.find( '.multipageimagenavbox' ).one( 'click', 'a', function ( e ) {
+			var page, url;
+
 			// Generate the same URL on client side as the one generated in ImagePage::openShowImage.
 			// We avoid using the URL in the link directly since it could have been manipulated (T68608)
-			const page = mw.util.getParamValue( 'page', this.href );
-			const url = mw.util.getUrl( null, page ? { page: page } : {} );
+			page = mw.util.getParamValue( 'page', this.href );
+			url = mw.util.getUrl( null, page ? { page: page } : {} );
 
 			switchPage( url );
 			e.preventDefault();
@@ -109,24 +116,26 @@
 		} );
 	}
 
-	$( () => {
+	$( function () {
 		if ( mw.config.get( 'wgCanonicalNamespace' ) !== 'File' ) {
 			return;
 		}
-		$multipageimage = $( '.mw-filepage-multipage' );
+		$multipageimage = $( 'table.multipageimage' );
 		if ( !$multipageimage.length ) {
 			return;
 		}
 
 		bindPageNavigation( $multipageimage );
 
-		// Update the url using the History API
-		history.replaceState( { tag: 'mw-pagination' }, '' );
-		$( window ).on( 'popstate', ( e ) => {
-			const state = e.originalEvent.state;
-			if ( state && state.tag === 'mw-pagination' ) {
-				switchPage( location.href, true );
-			}
-		} );
+		// Update the url using the History API (if available)
+		if ( history.pushState && history.replaceState ) {
+			history.replaceState( { tag: 'mw-pagination' }, '' );
+			$( window ).on( 'popstate', function ( e ) {
+				var state = e.originalEvent.state;
+				if ( state && state.tag === 'mw-pagination' ) {
+					switchPage( location.href, true );
+				}
+			} );
+		}
 	} );
 }() );

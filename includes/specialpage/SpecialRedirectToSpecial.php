@@ -21,10 +21,6 @@
  * @ingroup SpecialPage
  */
 
-namespace MediaWiki\SpecialPage;
-
-use MediaWiki\Title\Title;
-
 /**
  * @stable to extend
  *
@@ -69,6 +65,3 @@ abstract class SpecialRedirectToSpecial extends RedirectSpecialPage {
 		return SpecialPage::getTitleFor( $this->redirName, $this->redirSubpage );
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialRedirectToSpecial::class, 'SpecialRedirectToSpecial' );

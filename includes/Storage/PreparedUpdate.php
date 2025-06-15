@@ -1,11 +1,11 @@
 <?php
 namespace MediaWiki\Storage;
 
-use MediaWiki\Content\Content;
+use Content;
 use MediaWiki\Page\PageIdentity;
-use MediaWiki\Parser\ParserOutput;
 use MediaWiki\Revision\RenderedRevision;
 use MediaWiki\Revision\RevisionRecord;
+use ParserOutput;
 
 /**
  * An object representing a page update during an edit.

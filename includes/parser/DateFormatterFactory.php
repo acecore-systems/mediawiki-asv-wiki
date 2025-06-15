@@ -1,9 +1,5 @@
 <?php
 
-namespace MediaWiki\Parser;
-
-use MediaWiki\Language\Language;
-
 class DateFormatterFactory {
 	/** @var DateFormatter[] */
 	private $instances;
@@ -20,6 +16,3 @@ class DateFormatterFactory {
 		return $this->instances[$code];
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( DateFormatterFactory::class, 'DateFormatterFactory' );

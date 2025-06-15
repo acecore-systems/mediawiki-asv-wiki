@@ -1,5 +1,9 @@
 <?php
 /**
+ * Helps EditPage build textboxes
+ *
+ * (C) Copyright 2017 Kunal Mehta <legoktm@debian.org>
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -22,16 +26,14 @@ namespace MediaWiki\EditPage;
 
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\PageIdentity;
-use MediaWiki\Parser\Sanitizer;
-use MediaWiki\Title\Title;
 use MediaWiki\User\UserIdentity;
+use Sanitizer;
+use Title;
 
 /**
  * Helps EditPage build textboxes
  *
- * @newable
  * @since 1.31
- * @author Kunal Mehta <legoktm@debian.org>
  */
 class TextboxBuilder {
 
@@ -45,7 +47,8 @@ class TextboxBuilder {
 			// is awkward.
 			// But don't add a newline if the text is empty, or Firefox in XHTML
 			// mode will show an extra newline. A bit annoying.
-			return $wikitext . "\n";
+			$wikitext .= "\n";
+			return $wikitext;
 		}
 		return $wikitext;
 	}
@@ -104,14 +107,14 @@ class TextboxBuilder {
 		$name, array $customAttribs, UserIdentity $user, PageIdentity $page
 	) {
 		$attribs = $customAttribs + [
-			'accesskey' => ',',
-			'id' => $name,
-			'cols' => 80,
-			'rows' => 25,
-			// Avoid PHP notices when appending preferences
-			// (appending allows customAttribs['style'] to still work).
-			'style' => ''
-		];
+				'accesskey' => ',',
+				'id' => $name,
+				'cols' => 80,
+				'rows' => 25,
+				// Avoid PHP notices when appending preferences
+				// (appending allows customAttribs['style'] to still work).
+				'style' => ''
+			];
 
 		// The following classes can be used here:
 		// * mw-editfont-monospace
@@ -130,7 +133,7 @@ class TextboxBuilder {
 			$attribs['class'] = $class;
 		}
 
-		$title = Title::newFromPageIdentity( $page );
+		$title = Title::castFromPageIdentity( $page );
 		$pageLang = $title->getPageLanguage();
 		$attribs['lang'] = $pageLang->getHtmlCode();
 		$attribs['dir'] = $pageLang->getDir();

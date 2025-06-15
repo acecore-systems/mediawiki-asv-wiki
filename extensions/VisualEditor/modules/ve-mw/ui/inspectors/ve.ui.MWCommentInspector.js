@@ -1,12 +1,12 @@
 /*!
  * VisualEditor UserInterface MWCommentInspector class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
 /**
- * Inspector for editing MediaWiki comments.
+ * Inspector for editing Mediawiki comments.
  *
  * @class
  * @extends ve.ui.CommentInspector
@@ -42,7 +42,7 @@ ve.ui.MWCommentInspector.prototype.initialize = function () {
 };
 
 ve.ui.MWCommentInspector.prototype.onCopy = function ( e ) {
-	const clipboardData = e.originalEvent.clipboardData,
+	var clipboardData = e.originalEvent.clipboardData,
 		selection = ( e.target.value ).slice( e.target.selectionStart, e.target.selectionEnd );
 	if ( ve.isClipboardDataFormatsSupported( e, true ) ) {
 		// We are in an environment where setting text/x-wiki will work

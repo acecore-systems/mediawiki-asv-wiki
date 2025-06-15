@@ -1,8 +1,8 @@
 {
 	"@metadata": {
 		"authors": [
-			"Elefentiste",
-			"Robin van der Vliet"
+			"Robin van der Vliet",
+			"Elefentiste"
 		]
 	},
 	"visualeditor-cite-tool-name-book": "Libro",
@@ -13,5 +13,6 @@
 	"cite-ve-dialog-reference-title": "Refere",
 	"cite-ve-dialogbutton-citation-educationpopup-title": "Sitas",
 	"cite-ve-dialogbutton-reference-title": "Refere",
-	"cite-ve-toolbar-group-label": "Sita"
+	"cite-ve-toolbar-group-label": "Sita",
+	"visualeditor-internal-list-diff-default-group-name-mwreference": "Referes"
 }

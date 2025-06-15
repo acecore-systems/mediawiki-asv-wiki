@@ -1,15 +1,15 @@
 /*!
  * VisualEditor DataModel LinearData tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.dm.LinearData' );
 
 /* Tests */
 
-QUnit.test( 'basic usage', ( assert ) => {
-	const store = new ve.dm.HashValueStore(),
+QUnit.test( 'basic usage', function ( assert ) {
+	var store = new ve.dm.HashValueStore(),
 		data = new ve.dm.LinearData( store, ve.copy( ve.dm.example.data ) );
 
 	assert.strictEqual( data.getData(), data.data, 'getData: with no arguments returns data by reference' );
@@ -23,10 +23,9 @@ QUnit.test( 'basic usage', ( assert ) => {
 	assert.strictEqual( data.getStore(), store, 'getStore: equal to original store by reference' );
 } );
 
-QUnit.test( 'slice(Object)/splice(Object)/batchSplice', ( assert ) => {
-	const store = new ve.dm.HashValueStore();
-
-	let data = new ve.dm.LinearData( store, ve.copy( ve.dm.example.data ) ),
+QUnit.test( 'slice(Object)/splice(Object)/batchSplice', function ( assert ) {
+	var store = new ve.dm.HashValueStore(),
+		data = new ve.dm.LinearData( store, ve.copy( ve.dm.example.data ) ),
 		expectedData = ve.copy( ve.dm.example.data );
 
 	assert.deepEqual( data.slice( 7, 22 ), expectedData.slice( 7, 22 ),
@@ -35,8 +34,8 @@ QUnit.test( 'slice(Object)/splice(Object)/batchSplice', ( assert ) => {
 	assert.deepEqual( data.getData(), expectedData,
 		'slice: arrays match after slice'
 	);
-	const dataSlice = data.sliceObject( 10, 12 );
-	const expectedDataSlice = new ve.dm.LinearData( store,
+	var dataSlice = data.sliceObject( 10, 12 );
+	var expectedDataSlice = new ve.dm.LinearData( store,
 		expectedData.slice( 10, 12 )
 	);
 	assert.deepEqual( dataSlice.getData(), expectedDataSlice.getData(),
@@ -50,14 +49,14 @@ QUnit.test( 'slice(Object)/splice(Object)/batchSplice', ( assert ) => {
 	data = new ve.dm.LinearData( store, ve.copy( ve.dm.example.data ) );
 	expectedData = ve.copy( ve.dm.example.data );
 
-	assert.deepEqual( data.splice( 1, 3, ...'xyz' ), expectedData.splice( 1, 3, ...'xyz' ),
+	assert.deepEqual( data.splice( 1, 3, 'x', 'y', 'z' ), expectedData.splice( 1, 3, 'x', 'y', 'z' ),
 		'splice: result matches splice'
 	);
 	assert.deepEqual( data.getData(), expectedData,
 		'splice: arrays match after splice'
 	);
-	let dataSplice = data.spliceObject( 7, 3, 'x' );
-	let expectedDataSplice = new ve.dm.LinearData( store,
+	var dataSplice = data.spliceObject( 7, 3, 'x' );
+	var expectedDataSplice = new ve.dm.LinearData( store,
 		expectedData.splice( 7, 3, 'x' )
 	);
 	assert.deepEqual( dataSplice.getData(), expectedDataSplice.getData(),
@@ -72,8 +71,8 @@ QUnit.test( 'slice(Object)/splice(Object)/batchSplice', ( assert ) => {
 	expectedData = ve.copy( ve.dm.example.data );
 
 	assert.deepEqual(
-		data.batchSplice( 1, 3, [ ...'xyz' ] ),
-		ve.batchSplice( expectedData, 1, 3, [ ...'xyz' ] ),
+		data.batchSplice( 1, 3, [ 'x', 'y', 'z' ] ),
+		ve.batchSplice( expectedData, 1, 3, [ 'x', 'y', 'z' ] ),
 		'batchSplice: result matches ve.batchSplice'
 	);
 	assert.deepEqual( data.getData(), expectedData, 'batchSplice: array matches after batch splice' );

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface CommentAnnotationInspector class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -53,14 +53,13 @@ ve.ui.CommentAnnotationInspector.prototype.onTextInputResize = function () {
  * Update the actions based on the annotation state
  */
 ve.ui.CommentAnnotationInspector.prototype.updateActions = function () {
-	let isValid = false;
+	var isValid = false,
+		inspector = this;
 
 	this.textInput.getValidity()
-		.then( () => {
-			isValid = true;
-		} )
-		.always( () => {
-			this.actions.forEach( { actions: [ 'done', 'insert' ] }, ( action ) => {
+		.then( function () { isValid = true; } )
+		.always( function () {
+			inspector.actions.forEach( { actions: [ 'done', 'insert' ] }, function ( action ) {
 				action.setDisabled( !isValid );
 			} );
 		} );
@@ -84,7 +83,7 @@ ve.ui.CommentAnnotationInspector.prototype.getInsertionText = function () {
  * @inheritdoc
  */
 ve.ui.CommentAnnotationInspector.prototype.getAnnotation = function () {
-	const comments = ( this.initialAnnotation && this.initialAnnotation.getAttribute( 'comments' ).slice() ) || [];
+	var comments = ( this.initialAnnotation && this.initialAnnotation.getAttribute( 'comments' ).slice() ) || [];
 	comments.push( {
 		author: this.getFragment().getSurface().synchronizer.getAuthorData().name,
 		text: this.textInput.getValue().trim()
@@ -142,18 +141,18 @@ ve.ui.CommentAnnotationInspector.prototype.initialize = function () {
  */
 ve.ui.CommentAnnotationInspector.prototype.getSetupProcess = function ( data ) {
 	return ve.ui.CommentAnnotationInspector.super.prototype.getSetupProcess.call( this, data )
-		.next( () => {
+		.next( function () {
 			if ( this.initialAnnotation ) {
-				const $thread = ve.ui.CommentAnnotationContextItem.static.renderThread( this.initialAnnotation );
+				var $thread = ve.ui.CommentAnnotationContextItem.static.renderThread( this.initialAnnotation );
 				this.$thread.empty().append( $thread );
 			}
 			this.$user.text( this.getFragment().getSurface().synchronizer.getAuthorData().name );
 			this.textInput.setValue( '' );
-			this.actions.forEach( { actions: [ 'done' ] }, ( action ) => {
+			this.actions.forEach( { actions: [ 'done' ] }, function ( action ) {
 				action.setLabel( ve.msg( 'visualeditor-commentannotationcontextitem-comment' ) );
 			} );
 			this.updateActions();
-		} );
+		}, this );
 };
 
 /**
@@ -161,12 +160,12 @@ ve.ui.CommentAnnotationInspector.prototype.getSetupProcess = function ( data ) {
  */
 ve.ui.CommentAnnotationInspector.prototype.getReadyProcess = function ( data ) {
 	return ve.ui.CommentAnnotationInspector.super.prototype.getReadyProcess.call( this, data )
-		.next( () => {
+		.next( function () {
 			this.textInput.focus().select();
 
 			// Clear validation state, so that we don't get "invalid" state immediately on focus
 			this.textInput.setValidityFlag( true );
-		} );
+		}, this );
 };
 
 /**
@@ -174,9 +173,9 @@ ve.ui.CommentAnnotationInspector.prototype.getReadyProcess = function ( data ) {
  */
 ve.ui.CommentAnnotationInspector.prototype.getHoldProcess = function ( data ) {
 	return ve.ui.CommentAnnotationInspector.super.prototype.getHoldProcess.call( this, data )
-		.next( () => {
+		.next( function () {
 			this.textInput.blur();
-		} );
+		}, this );
 };
 
 /**
@@ -184,9 +183,9 @@ ve.ui.CommentAnnotationInspector.prototype.getHoldProcess = function ( data ) {
  */
 ve.ui.CommentAnnotationInspector.prototype.getTeardownProcess = function ( data ) {
 	return ve.ui.CommentAnnotationInspector.super.prototype.getTeardownProcess.call( this, data )
-		.next( () => {
+		.next( function () {
 			this.textInput.setValue( '' );
-		} );
+		}, this );
 };
 
 /* Registration */

@@ -18,22 +18,11 @@
  * @file
  */
 
-namespace MediaWiki\PoolCounter;
-
-use InvalidArgumentException;
 use MediaWiki\Logger\Spi as LoggerSpi;
-use MediaWiki\MainConfigNames;
-use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\PageRecord;
 use MediaWiki\Page\WikiPageFactory;
-use MediaWiki\Parser\ParserCache;
-use MediaWiki\Parser\ParserOptions;
-use MediaWiki\Parser\ParserOutput;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\RevisionRenderer;
-use MediaWiki\Status\Status;
-use MediaWiki\Utils\MWTimestamp;
-use Wikimedia\Rdbms\ChronologyProtector;
 use Wikimedia\Rdbms\ILBFactory;
 
 /**
@@ -42,19 +31,21 @@ use Wikimedia\Rdbms\ILBFactory;
  * @internal
  */
 class PoolWorkArticleViewCurrent extends PoolWorkArticleView {
+
 	/** @var string */
 	private $workKey;
+
 	/** @var PageRecord */
 	private $page;
+
 	/** @var ParserCache */
 	private $parserCache;
+
 	/** @var ILBFactory */
 	private $lbFactory;
+
 	/** @var WikiPageFactory */
 	private $wikiPageFactory;
-	/** @var bool Whether it should trigger an opportunistic LinksUpdate or not */
-	private bool $triggerLinksUpdate;
-	private ChronologyProtector $chronologyProtector;
 
 	/**
 	 * @param string $workKey
@@ -64,11 +55,9 @@ class PoolWorkArticleViewCurrent extends PoolWorkArticleView {
 	 * @param RevisionRenderer $revisionRenderer
 	 * @param ParserCache $parserCache
 	 * @param ILBFactory $lbFactory
-	 * @param ChronologyProtector $chronologyProtector
 	 * @param LoggerSpi $loggerSpi
 	 * @param WikiPageFactory $wikiPageFactory
 	 * @param bool $cacheable Whether it should store the result in cache or not
-	 * @param bool $triggerLinksUpdate Whether it should trigger an opportunistic LinksUpdate or not
 	 */
 	public function __construct(
 		string $workKey,
@@ -78,11 +67,9 @@ class PoolWorkArticleViewCurrent extends PoolWorkArticleView {
 		RevisionRenderer $revisionRenderer,
 		ParserCache $parserCache,
 		ILBFactory $lbFactory,
-		ChronologyProtector $chronologyProtector,
 		LoggerSpi $loggerSpi,
 		WikiPageFactory $wikiPageFactory,
-		bool $cacheable = true,
-		bool $triggerLinksUpdate = false
+		bool $cacheable = true
 	) {
 		// TODO: Remove support for partially initialized RevisionRecord instances once
 		//       Article no longer uses fake revisions.
@@ -96,31 +83,18 @@ class PoolWorkArticleViewCurrent extends PoolWorkArticleView {
 		$this->page = $page;
 		$this->parserCache = $parserCache;
 		$this->lbFactory = $lbFactory;
-		$this->chronologyProtector = $chronologyProtector;
 		$this->wikiPageFactory = $wikiPageFactory;
 		$this->cacheable = $cacheable;
-		$this->triggerLinksUpdate = $triggerLinksUpdate;
 	}
 
 	/**
 	 * @return Status
 	 */
 	public function doWork() {
-		// T371713: Temporary statistics collection code to determine
-		// feasibility of Parsoid selective update
-		$sampleRate = MediaWikiServices::getInstance()->getMainConfig()->get(
-			MainConfigNames::ParsoidSelectiveUpdateSampleRate
-		);
-		$doSample = ( $sampleRate && mt_rand( 1, $sampleRate ) === 1 );
+		// Reduce effects of race conditions for slow parses (T48014)
+		$cacheTime = wfTimestampNow();
 
-		$previousOutput = null;
-		if ( $this->parserOptions->getUseParsoid() || $doSample ) {
-			// Parsoid can do selective updates, so it is worth checking the
-			// cache for an existing entry.  Not worth it for the legacy
-			// parser, though.
-			$previousOutput = $this->parserCache->getDirty( $this->page, $this->parserOptions ) ?: null;
-		}
-		$status = $this->renderRevision( $previousOutput, $doSample, 'PoolWorkArticleViewCurrent' );
+		$status = $this->renderRevision();
 		/** @var ParserOutput|null $output */
 		$output = $status->getValue();
 
@@ -129,13 +103,14 @@ class PoolWorkArticleViewCurrent extends PoolWorkArticleView {
 				$this->parserCache->save(
 					$output,
 					$this->page,
-					$this->parserOptions
+					$this->parserOptions,
+					$cacheTime,
+					$this->revision->getId()
 				);
 			}
 
-			if ( $this->triggerLinksUpdate ) {
-				$this->wikiPageFactory->newFromTitle( $this->page )->triggerOpportunisticLinksUpdate( $output );
-			}
+			$this->wikiPageFactory->newFromTitle( $this->page )
+				->triggerOpportunisticLinksUpdate( $output );
 		}
 
 		return $status;
@@ -177,12 +152,12 @@ class PoolWorkArticleViewCurrent extends PoolWorkArticleView {
 			 * the save request, so there is a bias towards avoiding fast stale
 			 * responses of potentially several seconds.
 			 */
-			$lastWriteTime = $this->chronologyProtector->getTouched( $this->lbFactory->getMainLB() );
+			$lastWriteTime = $this->lbFactory->getChronologyProtectorTouched();
 			$cacheTime = MWTimestamp::convert( TS_UNIX, $parserOutput->getCacheTime() );
 			if ( $lastWriteTime && $cacheTime <= $lastWriteTime ) {
 				$logger->info(
 					'declining to send dirty output since cache time ' .
-					'{cacheTime} is before last write time {lastWriteTime}',
+						'{cacheTime} is before last write time {lastWriteTime}',
 					[
 						'workKey' => $this->workKey,
 						'cacheTime' => $cacheTime,
@@ -205,6 +180,3 @@ class PoolWorkArticleViewCurrent extends PoolWorkArticleView {
 	}
 
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( PoolWorkArticleViewCurrent::class, 'PoolWorkArticleViewCurrent' );

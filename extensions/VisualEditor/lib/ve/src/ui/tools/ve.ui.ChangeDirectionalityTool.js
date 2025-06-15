@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface ChangeDirectionalityTool class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -30,8 +30,6 @@ OO.inheritClass( ve.ui.ChangeDirectionalityTool, ve.ui.Tool );
 
 ve.ui.ChangeDirectionalityTool.static.name = 'changeDirectionality';
 
-ve.ui.ChangeDirectionalityTool.static.group = 'utility';
-
 ve.ui.ChangeDirectionalityTool.static.icon = 'textDirRTL';
 
 ve.ui.ChangeDirectionalityTool.static.title =
@@ -52,7 +50,7 @@ ve.ui.ChangeDirectionalityTool.prototype.onUpdateState = function ( fragment ) {
 	// Parent method
 	ve.ui.ChangeDirectionalityTool.super.prototype.onUpdateState.apply( this, arguments );
 
-	const modelDir = fragment.getDocument().getDir();
+	var modelDir = fragment.getDocument().getDir();
 
 	if ( modelDir !== this.modelDir ) {
 		// Icons used here textDirLTR, textDirRTL
@@ -64,7 +62,7 @@ ve.ui.ChangeDirectionalityTool.prototype.onUpdateState = function ( fragment ) {
 		this.modelDir = modelDir;
 	}
 
-	const viewDir = this.toolbar.getSurface().getView().getDocument().getDir();
+	var viewDir = this.toolbar.getSurface().getView().getDocument().getDir();
 	this.setActive( viewDir !== modelDir );
 };
 

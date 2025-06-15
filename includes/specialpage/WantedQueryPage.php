@@ -1,5 +1,7 @@
 <?php
 /**
+ * Class definition for a wanted query page.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,19 +18,15 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\SpecialPage;
-
-use MediaWiki\Title\Title;
-use Skin;
-use stdClass;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IResultWrapper;
 
 /**
- * Base class for a "wanted" query page like WantedPages, WantedTemplates, etc
- *
+ * Class definition for a wanted query page like
+ * WantedPages, WantedTemplates, etc
  * @stable to extend
  * @ingroup SpecialPage
  */
@@ -161,6 +159,3 @@ abstract class WantedQueryPage extends QueryPage {
 	}
 
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( WantedQueryPage::class, 'WantedQueryPage' );

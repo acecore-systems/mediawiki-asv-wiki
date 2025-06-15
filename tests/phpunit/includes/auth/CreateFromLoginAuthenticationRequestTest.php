@@ -1,10 +1,6 @@
 <?php
 
-namespace MediaWiki\Tests\Auth;
-
-use MediaWiki\Auth\AuthManager;
-use MediaWiki\Auth\CreateFromLoginAuthenticationRequest;
-use MediaWiki\Auth\UsernameAuthenticationRequest;
+namespace MediaWiki\Auth;
 
 /**
  * @group AuthManager
@@ -18,7 +14,7 @@ class CreateFromLoginAuthenticationRequestTest extends AuthenticationRequestTest
 		);
 	}
 
-	public static function provideLoadFromSubmission() {
+	public function provideLoadFromSubmission() {
 		return [
 			'Empty request' => [
 				[],

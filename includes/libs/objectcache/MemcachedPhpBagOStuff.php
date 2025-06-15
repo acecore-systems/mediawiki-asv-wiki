@@ -1,5 +1,7 @@
 <?php
 /**
+ * Object caching using memcached.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,18 +18,11 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup Cache
  */
-namespace Wikimedia\ObjectCache;
-
-use MemcachedClient;
 
 /**
- * Store data on memcached servers(s) via a pure-PHP memcached client.
- *
- * In configuration, the CACHE_MEMCACHED will activate the MemcachedPhpBagOStuff
- * class. This works out of the box without any PHP extension or other PECL
- * dependencies.  If you can install the php-memcached PECL extension,
- * it is recommended to use MemcachedPeclBagOStuff instead.
+ * A wrapper class for the pure-PHP memcached client, exposing a BagOStuff interface.
  *
  * @ingroup Cache
  */
@@ -67,8 +62,10 @@ class MemcachedPhpBagOStuff extends MemcachedBagOStuff {
 		$routeKey = $this->validateKeyAndPrependRoute( $key );
 
 		// T257003: only require "gets" (instead of "get") when a CAS token is needed
-		$res = $getToken // @phan-suppress-next-line PhanTypeMismatchArgument False positive
-			? $this->client->get( $routeKey, $casToken ) : $this->client->get( $routeKey );
+		$res = $getToken
+			// @phan-suppress-next-line PhanTypeMismatchArgument False positive
+			? $this->client->get( $routeKey, $casToken )
+			: $this->client->get( $routeKey );
 
 		if ( $this->client->_last_cmd_status !== self::ERR_NONE ) {
 			$this->setLastError( $this->client->_last_cmd_status );
@@ -125,12 +122,37 @@ class MemcachedPhpBagOStuff extends MemcachedBagOStuff {
 		return $res;
 	}
 
+	public function incr( $key, $value = 1, $flags = 0 ) {
+		$routeKey = $this->validateKeyAndPrependRoute( $key );
+		$n = $this->client->incr( $routeKey, $value );
+
+		$res = ( $n !== false && $n !== null ) ? $n : false;
+
+		if ( $this->client->_last_cmd_status !== self::ERR_NONE ) {
+			$this->setLastError( $this->client->_last_cmd_status );
+		}
+
+		return $res;
+	}
+
+	public function decr( $key, $value = 1, $flags = 0 ) {
+		$routeKey = $this->validateKeyAndPrependRoute( $key );
+		$n = $this->client->decr( $routeKey, $value );
+
+		$res = ( $n !== false && $n !== null ) ? $n : false;
+
+		if ( $this->client->_last_cmd_status !== self::ERR_NONE ) {
+			$this->setLastError( $this->client->_last_cmd_status );
+		}
+
+		return $res;
+	}
+
 	protected function doIncrWithInitAsync( $key, $exptime, $step, $init ) {
 		$routeKey = $this->validateKeyAndPrependRoute( $key );
 		$watchPoint = $this->watchErrors();
 		$this->client->add( $routeKey, $init - $step, $this->fixExpiry( $exptime ) );
 		$this->client->incr( $routeKey, $step );
-
 		return !$this->getLastError( $watchPoint );
 	}
 
@@ -192,6 +214,3 @@ class MemcachedPhpBagOStuff extends MemcachedBagOStuff {
 		return $this->isInteger( $value ) ? (int)$value : $this->client->unserialize( $value );
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( MemcachedPhpBagOStuff::class, 'MemcachedPhpBagOStuff' );

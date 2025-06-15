@@ -1,7 +1,7 @@
 QUnit.module( 'mediawiki.visibleTimeout', QUnit.newMwEnvironment( {
 	beforeEach: function () {
 		// Document with just enough stuff to make the tests work.
-		const listeners = [];
+		var listeners = [];
 		this.mockDocument = {
 			hidden: false,
 			addEventListener: function ( type, listener ) {
@@ -10,7 +10,7 @@ QUnit.module( 'mediawiki.visibleTimeout', QUnit.newMwEnvironment( {
 				}
 			},
 			removeEventListener: function ( type, listener ) {
-				let i;
+				var i;
 				if ( type === 'visibilitychange' ) {
 					i = listeners.indexOf( listener );
 					if ( i >= 0 ) {
@@ -20,7 +20,7 @@ QUnit.module( 'mediawiki.visibleTimeout', QUnit.newMwEnvironment( {
 			},
 			// Helper function to swap visibility and run listeners
 			toggleVisibility: function () {
-				let i;
+				var i;
 				this.hidden = !this.hidden;
 				for ( i = 0; i < listeners.length; i++ ) {
 					listeners[ i ]();
@@ -32,7 +32,9 @@ QUnit.module( 'mediawiki.visibleTimeout', QUnit.newMwEnvironment( {
 
 		this.sandbox.useFakeTimers();
 		// mw.now() doesn't respect the fake clock injected by useFakeTimers
-		this.stub( mw, 'now', ( () => this.sandbox.clock.now ) );
+		this.stub( mw, 'now', ( function () {
+			return this.sandbox.clock.now;
+		} ).bind( this ) );
 	},
 	afterEach: function () {
 		// Restore
@@ -41,8 +43,8 @@ QUnit.module( 'mediawiki.visibleTimeout', QUnit.newMwEnvironment( {
 } ) );
 
 QUnit.test( 'visibleTimeoutId is always a positive integer', function ( assert ) {
-	let called = 0,
-		visibleTimeoutId = this.visibleTimeout.set( () => {
+	var called = 0,
+		visibleTimeoutId = this.visibleTimeout.set( function () {
 			called++;
 		}, 0 );
 
@@ -51,14 +53,14 @@ QUnit.test( 'visibleTimeoutId is always a positive integer', function ( assert )
 	this.visibleTimeout.clear( visibleTimeoutId );
 	assert.strictEqual( called, 0 );
 
-	visibleTimeoutId = this.visibleTimeout.set( () => {
+	visibleTimeoutId = this.visibleTimeout.set( function () {
 		called++;
 	}, 100 );
 	assert.strictEqual( visibleTimeoutId, 2 );
 	this.visibleTimeout.clear( visibleTimeoutId );
 	assert.strictEqual( called, 0 );
 
-	visibleTimeoutId = this.visibleTimeout.set( () => {
+	visibleTimeoutId = this.visibleTimeout.set( function () {
 		called++;
 	}, 0 );
 	assert.strictEqual( visibleTimeoutId, 3 );
@@ -66,7 +68,7 @@ QUnit.test( 'visibleTimeoutId is always a positive integer', function ( assert )
 
 	// VisibleTimeoutId should still be incremented even when
 	// the previous value was not cleared
-	visibleTimeoutId = this.visibleTimeout.set( () => {
+	visibleTimeoutId = this.visibleTimeout.set( function () {
 		called++;
 	}, 0 );
 	assert.strictEqual( visibleTimeoutId, 4 );
@@ -74,9 +76,9 @@ QUnit.test( 'visibleTimeoutId is always a positive integer', function ( assert )
 } );
 
 QUnit.test( 'basic usage when visible', function ( assert ) {
-	let called = 0;
+	var called = 0;
 
-	this.visibleTimeout.set( () => {
+	this.visibleTimeout.set( function () {
 		called++;
 	}, 0 );
 	assert.strictEqual( called, 0 );
@@ -86,7 +88,7 @@ QUnit.test( 'basic usage when visible', function ( assert ) {
 	this.sandbox.clock.tick( 100 );
 	assert.strictEqual( called, 1 );
 
-	this.visibleTimeout.set( () => {
+	this.visibleTimeout.set( function () {
 		called++;
 	}, 10 );
 	this.sandbox.clock.tick( 10 );
@@ -94,16 +96,18 @@ QUnit.test( 'basic usage when visible', function ( assert ) {
 } );
 
 QUnit.test( 'basic usage - fallback assumes visible', function ( assert ) {
-	const mockDoc = {
+	var mockDoc, visible, called;
+
+	mockDoc = {
 		addEventListener: function () {},
 		removeEventListener: function () {}
 	};
-	const visible = require( 'mediawiki.visibleTimeout' );
+	visible = require( 'mediawiki.visibleTimeout' );
 	visible.init( mockDoc );
 
-	let called = 0;
+	called = 0;
 
-	visible.set( () => {
+	visible.set( function () {
 		called++;
 	}, 1 );
 	// expect call after next tick
@@ -115,7 +119,7 @@ QUnit.test( 'basic usage - fallback assumes visible', function ( assert ) {
 	this.sandbox.clock.tick( 100 );
 	assert.strictEqual( called, 1 );
 
-	visible.set( () => {
+	visible.set( function () {
 		called++;
 	}, 10 );
 	// expect call not until after delay has elapsed
@@ -129,8 +133,8 @@ QUnit.test( 'basic usage - fallback assumes visible', function ( assert ) {
 } );
 
 QUnit.test( 'can cancel timeout', function ( assert ) {
-	let called = 0,
-		timeout = this.visibleTimeout.set( () => {
+	var called = 0,
+		timeout = this.visibleTimeout.set( function () {
 			called++;
 		}, 0 );
 
@@ -138,7 +142,7 @@ QUnit.test( 'can cancel timeout', function ( assert ) {
 	this.sandbox.clock.tick( 10 );
 	assert.strictEqual( called, 0 );
 
-	timeout = this.visibleTimeout.set( () => {
+	timeout = this.visibleTimeout.set( function () {
 		called++;
 	}, 100 );
 	this.sandbox.clock.tick( 50 );
@@ -149,10 +153,10 @@ QUnit.test( 'can cancel timeout', function ( assert ) {
 } );
 
 QUnit.test( 'start hidden and become visible', function ( assert ) {
-	let called = 0;
+	var called = 0;
 
 	this.mockDocument.hidden = true;
-	this.visibleTimeout.set( () => {
+	this.visibleTimeout.set( function () {
 		called++;
 	}, 0 );
 	this.sandbox.clock.tick( 10 );
@@ -164,9 +168,9 @@ QUnit.test( 'start hidden and become visible', function ( assert ) {
 } );
 
 QUnit.test( 'timeout is cumulative', function ( assert ) {
-	let called = 0;
+	var called = 0;
 
-	this.visibleTimeout.set( () => {
+	this.visibleTimeout.set( function () {
 		called++;
 	}, 100 );
 	this.sandbox.clock.tick( 50 );

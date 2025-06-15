@@ -22,17 +22,15 @@
 use MediaWiki\Page\PageIdentity;
 use MediaWiki\Page\PageReference;
 use MediaWiki\Page\PageReferenceValue;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleValue;
 
 /**
- * @covers \MediaWiki\Title\TitleValue
+ * @covers TitleValue
  *
  * @group Title
  */
 class TitleValueTest extends \MediaWikiUnitTestCase {
 
-	public static function goodConstructorProvider() {
+	public function goodConstructorProvider() {
 		return [
 			[ NS_MAIN, '', 'fragment', '', true, false ],
 			[ NS_MAIN, '', '', 'interwiki', false, true ],
@@ -55,7 +53,7 @@ class TitleValueTest extends \MediaWikiUnitTestCase {
 
 		$this->assertEquals( $ns, $title->getNamespace() );
 		$this->assertTrue( $title->inNamespace( $ns ) );
-		$this->assertEquals( strtr( $text, ' ', '_' ), $title->getDBkey() );
+		$this->assertEquals( strtr( $text, ' ', '_' ), $title->getDBKey() );
 		$this->assertEquals( strtr( $text, '_', ' ' ), $title->getText() );
 		$this->assertEquals( $fragment, $title->getFragment() );
 		$this->assertEquals( $hasFragment, $title->hasFragment() );
@@ -73,7 +71,7 @@ class TitleValueTest extends \MediaWikiUnitTestCase {
 
 		$this->assertEquals( $ns, $title->getNamespace() );
 		$this->assertTrue( $title->inNamespace( $ns ) );
-		$this->assertEquals( strtr( $text, ' ', '_' ), $title->getDBkey() );
+		$this->assertEquals( strtr( $text, ' ', '_' ), $title->getDBKey() );
 		$this->assertEquals( strtr( $text, '_', ' ' ), $title->getText() );
 		$this->assertEquals( $fragment, $title->getFragment() );
 		$this->assertEquals( $hasFragment, $title->hasFragment() );
@@ -89,7 +87,7 @@ class TitleValueTest extends \MediaWikiUnitTestCase {
 		$this->assertTrue( true ); // we are just checking that no exception is thrown
 	}
 
-	public static function badConstructorNamespaceTypeProvider() {
+	public function badConstructorNamespaceTypeProvider() {
 		return [
 			[ 'foo', 'title', 'fragment', '' ],
 			[ null, 'title', 'fragment', '' ],
@@ -97,7 +95,7 @@ class TitleValueTest extends \MediaWikiUnitTestCase {
 		];
 	}
 
-	public static function badConstructorProvider() {
+	public function badConstructorProvider() {
 		return [
 			[ NS_MAIN, 5, 'fragment', '' ],
 			[ NS_MAIN, null, 'fragment', '' ],
@@ -149,7 +147,7 @@ class TitleValueTest extends \MediaWikiUnitTestCase {
 		TitleValue::assertValidSpec( $ns, $text, $fragment, $interwiki );
 	}
 
-	public static function fragmentTitleProvider() {
+	public function fragmentTitleProvider() {
 		return [
 			[ new TitleValue( NS_MAIN, 'Test' ), 'foo' ],
 			[ new TitleValue( NS_TALK, 'Test', 'foo' ), '' ],
@@ -168,7 +166,7 @@ class TitleValueTest extends \MediaWikiUnitTestCase {
 		$this->assertEquals( $fragment, $fragmentTitle->getFragment() );
 	}
 
-	public static function provideNewFromPage() {
+	public function provideNewFromPage() {
 		yield [ new PageReferenceValue( NS_USER, 'Test', PageIdentity::LOCAL ) ];
 		yield [ new PageReferenceValue( NS_USER, 'Test', 'acme' ) ];
 	}
@@ -188,6 +186,11 @@ class TitleValueTest extends \MediaWikiUnitTestCase {
 		$this->assertSame( '', $title->getInterwiki() );
 		$this->assertFalse( $title->isExternal() );
 		$this->assertFalse( $title->hasFragment() );
+	}
+
+	public function provideCastPageToLinkTarget() {
+		yield [ new PageReferenceValue( NS_USER, 'Test', PageIdentity::LOCAL ) ];
+		yield [ new PageReferenceValue( NS_USER, 'Test', 'acme' ) ];
 	}
 
 	/**
@@ -216,7 +219,7 @@ class TitleValueTest extends \MediaWikiUnitTestCase {
 		$this->assertNull( TitleValue::castPageToLinkTarget( null ) );
 	}
 
-	public static function getTextProvider() {
+	public function getTextProvider() {
 		return [
 			[ 'Foo', 'Foo' ],
 			[ 'Foo_Bar', 'Foo Bar' ],
@@ -232,7 +235,7 @@ class TitleValueTest extends \MediaWikiUnitTestCase {
 		$this->assertEquals( $text, $title->getText() );
 	}
 
-	public static function provideTestToString() {
+	public function provideTestToString() {
 		yield [
 			new TitleValue( 0, 'Foo' ),
 			'0:Foo'
@@ -261,7 +264,7 @@ class TitleValueTest extends \MediaWikiUnitTestCase {
 		);
 	}
 
-	public static function provideIsSameLinkAs() {
+	public function provideIsSameLinkAs() {
 		yield [
 			new TitleValue( 0, 'Foo' ),
 			new TitleValue( 0, 'Foo' ),

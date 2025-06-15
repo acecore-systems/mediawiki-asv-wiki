@@ -24,7 +24,6 @@ use InvalidArgumentException;
 use MediaWiki\Block\Block;
 use MediaWiki\Page\PageIdentity;
 use MediaWiki\User\UserIdentity;
-use Wikimedia\Rdbms\IDBAccessObject;
 
 /**
  * Represents an authority that has a specific set of permissions
@@ -62,22 +61,43 @@ class SimpleAuthority implements Authority {
 		$this->permissions = array_fill_keys( $permissions, true );
 	}
 
-	/** @inheritDoc */
+	/**
+	 * The user identity associated with this authority.
+	 *
+	 * @return UserIdentity
+	 */
 	public function getUser(): UserIdentity {
 		return $this->actor;
 	}
 
-	/** @inheritDoc */
-	public function getBlock( int $freshness = IDBAccessObject::READ_NORMAL ): ?Block {
+	/**
+	 * @param int $freshness
+	 *
+	 * @return ?Block always null
+	 * @since 1.37
+	 */
+	public function getBlock( int $freshness = self::READ_NORMAL ): ?Block {
 		return null;
 	}
 
-	/** @inheritDoc */
-	public function isAllowed( string $permission, ?PermissionStatus $status = null ): bool {
+	/**
+	 * @inheritDoc
+	 *
+	 * @param string $permission
+	 *
+	 * @return bool
+	 */
+	public function isAllowed( string $permission ): bool {
 		return isset( $this->permissions[ $permission ] );
 	}
 
-	/** @inheritDoc */
+	/**
+	 * @inheritDoc
+	 *
+	 * @param string ...$permissions
+	 *
+	 * @return bool
+	 */
 	public function isAllowedAny( ...$permissions ): bool {
 		if ( !$permissions ) {
 			throw new InvalidArgumentException( 'At least one permission must be specified' );
@@ -92,7 +112,13 @@ class SimpleAuthority implements Authority {
 		return false;
 	}
 
-	/** @inheritDoc */
+	/**
+	 * @inheritDoc
+	 *
+	 * @param string ...$permissions
+	 *
+	 * @return bool
+	 */
 	public function isAllowedAll( ...$permissions ): bool {
 		if ( !$permissions ) {
 			throw new InvalidArgumentException( 'At least one permission must be specified' );
@@ -113,54 +139,75 @@ class SimpleAuthority implements Authority {
 		if ( !$ok && $status ) {
 			// TODO: use a message that at includes the permission name
 			$status->fatal( 'permissionserrors' );
-			$status->setPermission( $permission );
 		}
 
 		return $ok;
 	}
 
-	/** @inheritDoc */
+	/**
+	 * @inheritDoc
+	 *
+	 * @param string $action
+	 * @param PageIdentity $target
+	 * @param PermissionStatus|null $status
+	 *
+	 * @return bool
+	 */
 	public function probablyCan(
 		string $action,
 		PageIdentity $target,
-		?PermissionStatus $status = null
+		PermissionStatus $status = null
 	): bool {
 		return $this->checkPermission( $action, $status );
 	}
 
-	/** @inheritDoc */
+	/**
+	 * @inheritDoc
+	 *
+	 * @param string $action
+	 * @param PageIdentity $target
+	 * @param PermissionStatus|null $status
+	 *
+	 * @return bool
+	 */
 	public function definitelyCan(
 		string $action,
 		PageIdentity $target,
-		?PermissionStatus $status = null
+		PermissionStatus $status = null
 	): bool {
 		return $this->checkPermission( $action, $status );
 	}
 
-	/** @inheritDoc */
-	public function isDefinitelyAllowed( string $action, ?PermissionStatus $status = null ): bool {
-		return $this->checkPermission( $action, $status );
-	}
-
-	/** @inheritDoc */
-	public function authorizeAction( string $action, ?PermissionStatus $status = null ): bool {
-		return $this->checkPermission( $action, $status );
-	}
-
-	/** @inheritDoc */
+	/**
+	 * @inheritDoc
+	 *
+	 * @param string $action
+	 * @param PageIdentity $target
+	 * @param PermissionStatus|null $status
+	 *
+	 * @return bool
+	 */
 	public function authorizeRead(
 		string $action,
 		PageIdentity $target,
-		?PermissionStatus $status = null
+		PermissionStatus $status = null
 	): bool {
 		return $this->checkPermission( $action, $status );
 	}
 
-	/** @inheritDoc */
+	/**
+	 * @inheritDoc
+	 *
+	 * @param string $action
+	 * @param PageIdentity $target
+	 * @param PermissionStatus|null $status
+	 *
+	 * @return bool
+	 */
 	public function authorizeWrite(
 		string $action,
 		PageIdentity $target,
-		?PermissionStatus $status = null
+		PermissionStatus $status = null
 	): bool {
 		return $this->checkPermission( $action, $status );
 	}

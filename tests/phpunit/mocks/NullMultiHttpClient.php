@@ -2,7 +2,6 @@
 
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\AssertionFailedError;
-use Wikimedia\Http\MultiHttpClient;
 
 /**
  * A simple {@link MultiHttpClient} implementation that can be used to prevent

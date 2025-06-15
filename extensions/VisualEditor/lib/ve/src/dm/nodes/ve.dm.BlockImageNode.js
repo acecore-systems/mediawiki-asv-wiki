@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel BlockImageNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -9,8 +9,8 @@
  *
  * @class
  * @extends ve.dm.BranchNode
- * @mixes ve.dm.ImageNode
- * @mixes ve.dm.AlignableNode
+ * @mixins ve.dm.ImageNode
+ * @mixins ve.dm.AlignableNode
  *
  * @constructor
  * @param {Object} [element] Reference to element in linear model
@@ -46,7 +46,7 @@ OO.mixinClass( ve.dm.BlockImageNode, ve.dm.AlignableNode );
 ve.dm.BlockImageNode.static.name = 'blockImage';
 
 ve.dm.BlockImageNode.static.preserveHtmlAttributes = function ( attribute ) {
-	const attributes = [ 'class', 'src', 'width', 'height' ];
+	var attributes = [ 'class', 'src', 'width', 'height' ];
 	return attributes.indexOf( attribute ) === -1;
 };
 
@@ -61,14 +61,14 @@ ve.dm.BlockImageNode.static.matchFunction = function ( element ) {
 };
 
 ve.dm.BlockImageNode.static.toDataElement = function ( domElements, converter ) {
-	const figure = domElements[ 0 ];
-	const classAttr = figure.getAttribute( 'class' );
-	const img = figure.children[ 0 ];
-	const width = img.getAttribute( 'width' );
-	const height = img.getAttribute( 'height' );
-	const caption = figure.children[ 1 ];
+	var figure = domElements[ 0 ];
+	var classAttr = figure.getAttribute( 'class' );
+	var img = figure.children[ 0 ];
+	var width = img.getAttribute( 'width' );
+	var height = img.getAttribute( 'height' );
+	var caption = figure.children[ 1 ];
 
-	const attributes = {
+	var attributes = {
 		src: img.getAttribute( 'src' ),
 		width: width !== null && width !== '' ? +width : null,
 		height: height !== null && height !== '' ? +height : null,
@@ -77,7 +77,7 @@ ve.dm.BlockImageNode.static.toDataElement = function ( domElements, converter ) 
 
 	this.setClassAttributes( attributes, classAttr );
 
-	const dataElement = {
+	var dataElement = {
 		type: this.name,
 		attributes: attributes
 	};
@@ -90,10 +90,9 @@ ve.dm.BlockImageNode.static.toDataElement = function ( domElements, converter ) 
 			{ type: '/' + this.name }
 		];
 	} else {
-		return [ dataElement ].concat(
-			converter.getDataFromDomClean( caption, { type: 'imageCaption' } ),
-			{ type: '/' + this.name }
-		);
+		return [ dataElement ]
+			.concat( converter.getDataFromDomClean( caption, { type: 'imageCaption' } ) )
+			.concat( [ { type: '/' + this.name } ] );
 	}
 };
 
@@ -101,7 +100,7 @@ ve.dm.BlockImageNode.static.toDataElement = function ( domElements, converter ) 
 // TODO: At this moment node is not resizable but when it will be then adding defaultSize class
 // should be more conditional.
 ve.dm.BlockImageNode.static.toDomElements = function ( data, doc, converter ) {
-	const dataElement = data[ 0 ],
+	var dataElement = data[ 0 ],
 		figure = doc.createElement( 'figure' ),
 		img = doc.createElement( 'img' );
 
@@ -109,18 +108,18 @@ ve.dm.BlockImageNode.static.toDomElements = function ( data, doc, converter ) {
 
 	figure.appendChild( img );
 
-	const classAttr = this.getClassAttrFromAttributes( dataElement.attributes );
+	var classAttr = this.getClassAttrFromAttributes( dataElement.attributes );
 	if ( classAttr ) {
 		// eslint-disable-next-line mediawiki/class-doc
 		figure.className = classAttr;
 	}
 
-	const captionData = data.slice( 1, -1 );
+	var captionData = data.slice( 1, -1 );
 	// If length of captionData is smaller or equal to 2 it means that there is no caption or that
 	// it is empty - in both cases we are going to skip appending <figcaption>.
 	if ( captionData.length > 2 ) {
-		const wrapper = doc.createElement( 'div' );
-		converter.getDomSubtreeFromData( captionData, wrapper );
+		var wrapper = doc.createElement( 'div' );
+		converter.getDomSubtreeFromData( data.slice( 1, -1 ), wrapper );
 		while ( wrapper.firstChild ) {
 			figure.appendChild( wrapper.firstChild );
 		}
@@ -137,7 +136,7 @@ ve.dm.BlockImageNode.static.toDomElements = function ( data, doc, converter ) {
  * @return {ve.dm.BlockImageCaptionNode|null} Caption node, if present
  */
 ve.dm.BlockImageNode.prototype.getCaptionNode = function () {
-	const node = this.children[ 0 ];
+	var node = this.children[ 0 ];
 	return node instanceof ve.dm.BlockImageCaptionNode ? node : null;
 };
 

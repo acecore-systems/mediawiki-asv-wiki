@@ -4,13 +4,14 @@ namespace Cite\Tests\Unit;
 
 use Cite\ErrorReporter;
 use Cite\ReferenceMessageLocalizer;
-use MediaWiki\Language\Language;
-use MediaWiki\Message\Message;
-use MediaWiki\Parser\Parser;
-use MediaWiki\Parser\ParserOptions;
+use Language;
+use Message;
+use Parser;
+use ParserOptions;
 
 /**
  * @covers \Cite\ErrorReporter
+ *
  * @license GPL-2.0-or-later
  */
 class ErrorReporterTest extends \MediaWikiUnitTestCase {
@@ -21,74 +22,55 @@ class ErrorReporterTest extends \MediaWikiUnitTestCase {
 	public function testPlain(
 		string $key,
 		string $expectedHtml,
-		?string $expectedCategory
+		array $expectedCategories
 	) {
 		$language = $this->createLanguage();
 		$reporter = $this->createReporter( $language );
-		$mockParser = $this->createParser( $language, $expectedCategory );
+		$mockParser = $this->createParser( $language, $expectedCategories );
 		$this->assertSame(
 			$expectedHtml,
 			$reporter->plain( $mockParser, $key, 'first param' ) );
 	}
 
-	public function testDisabledWrapperMessages() {
-		$language = $this->createLanguage();
-		$reporter = $this->createReporter( $language, true );
-		$mockParser = $this->createParser( $language );
-		$this->assertSame(
-			'<span class="warning mw-ext-cite-warning mw-ext-cite-warning-a" lang="qqx" ' .
-				'dir="rtl">(cite_warning_a)</span>',
-			$reporter->plain( $mockParser, 'cite_warning_a' )
-		);
-	}
-
 	public function testHalfParsed() {
 		$language = $this->createLanguage();
 		$reporter = $this->createReporter( $language );
-		$mockParser = $this->createParser( $language );
+		$mockParser = $this->createParser( $language, [] );
 		$this->assertSame(
 			'<span class="warning mw-ext-cite-warning mw-ext-cite-warning-example" lang="qqx" ' .
 				'dir="rtl">[(cite_warning|(cite_warning_example|first param))]</span>',
 			$reporter->halfParsed( $mockParser, 'cite_warning_example', 'first param' ) );
 	}
 
-	public static function provideErrors() {
+	public function provideErrors() {
 		return [
 			'Example error' => [
-				'key' => 'cite_error_example',
-				'expectedHtml' => '<span class="error mw-ext-cite-error" lang="qqx" dir="rtl">' .
+				'cite_error_example',
+				'<span class="error mw-ext-cite-error" lang="qqx" dir="rtl">' .
 					'(cite_error|(cite_error_example|first param))</span>',
-				'expectedCategory' => 'cite-tracking-category-cite-error',
+				[ 'cite-tracking-category-cite-error' ]
 			],
 			'Warning error' => [
-				'key' => 'cite_warning_example',
-				'expectedHtml' => '<span class="warning mw-ext-cite-warning mw-ext-cite-warning-example" lang="qqx" ' .
+				'cite_warning_example',
+				'<span class="warning mw-ext-cite-warning mw-ext-cite-warning-example" lang="qqx" ' .
 					'dir="rtl">(cite_warning|(cite_warning_example|first param))</span>',
-				'expectedCategory' => null,
-			],
-			'Optional support for messages with dashes' => [
-				'key' => 'cite-warning-with-dashes',
-				'expectedHtml' => '<span class="warning mw-ext-cite-warning ' .
-					'mw-ext-cite-warning-with-dashes" lang="qqx" dir="rtl">' .
-					'(cite_warning|(cite-warning-with-dashes|first param))</span>',
-				'expectedCategory' => null,
+				[]
 			],
 		];
 	}
 
 	private function createLanguage(): Language {
-		$language = $this->createNoOpMock( Language::class, [ 'getDir', 'getHtmlCode' ] );
+		$language = $this->createMock( Language::class );
 		$language->method( 'getDir' )->willReturn( 'rtl' );
 		$language->method( 'getHtmlCode' )->willReturn( 'qqx' );
 		return $language;
 	}
 
-	private function createReporter( Language $language, bool $disabled = false ): ErrorReporter {
+	private function createReporter( Language $language ): ErrorReporter {
 		$mockMessageLocalizer = $this->createMock( ReferenceMessageLocalizer::class );
 		$mockMessageLocalizer->method( 'msg' )->willReturnCallback(
-			function ( ...$args ) use ( $language, $disabled ) {
+			function ( ...$args ) use ( $language ) {
 				$message = $this->createMock( Message::class );
-				$message->method( 'isDisabled' )->willReturn( $disabled );
 				$message->method( 'getKey' )->willReturn( $args[0] );
 				$message->method( 'plain' )->willReturn( '(' . implode( '|', $args ) . ')' );
 				$message->method( 'inLanguage' )->with( $language )->willReturnSelf();
@@ -97,20 +79,23 @@ class ErrorReporterTest extends \MediaWikiUnitTestCase {
 			}
 		);
 
+		/** @var ReferenceMessageLocalizer $mockMessageLocalizer */
 		return new ErrorReporter( $mockMessageLocalizer );
 	}
 
-	private function createParser( Language $language, ?string $expectedCategory = null ): Parser {
+	private function createParser( Language $language, array $expectedCategories ): Parser {
 		$parserOptions = $this->createMock( ParserOptions::class );
 		$parserOptions->method( 'getUserLangObj' )->willReturn( $language );
 
-		$parser = $this->createNoOpMock( Parser::class, [ 'addTrackingCategory', 'getOptions', 'recursiveTagParse' ] );
-		$parser->expects( $expectedCategory ? $this->once() : $this->never() )
+		$parser = $this->createMock( Parser::class );
+		$parser->expects( $this->exactly( count( $expectedCategories ) ) )
 			->method( 'addTrackingCategory' )
-			->with( $expectedCategory );
+			->withConsecutive( $expectedCategories );
 		$parser->method( 'getOptions' )->willReturn( $parserOptions );
 		$parser->method( 'recursiveTagParse' )->willReturnCallback(
-			static fn ( $content ) => '[' . $content . ']'
+			static function ( $content ) {
+				return '[' . $content . ']';
+			}
 		);
 		return $parser;
 	}

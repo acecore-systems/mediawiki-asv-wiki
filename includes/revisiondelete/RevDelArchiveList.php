@@ -19,16 +19,11 @@
  * @ingroup RevisionDelete
  */
 
-use MediaWiki\Cache\HTMLCacheUpdater;
-use MediaWiki\Context\IContextSource;
 use MediaWiki\HookContainer\HookContainer;
-use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\PageIdentity;
 use MediaWiki\Revision\RevisionStore;
-use MediaWiki\Status\Status;
-use Wikimedia\Rdbms\IResultWrapper;
+use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\LBFactory;
-use Wikimedia\Rdbms\SelectQueryBuilder;
 
 /**
  * List for archive table items, i.e. revisions deleted via action=delete
@@ -44,8 +39,9 @@ class RevDelArchiveList extends RevDelRevisionList {
 	 * @param array $ids
 	 * @param LBFactory $lbFactory
 	 * @param HookContainer $hookContainer
-	 * @param HTMLCacheUpdater $htmlCacheUpdater
+	 * @param HtmlCacheUpdater $htmlCacheUpdater
 	 * @param RevisionStore $revisionStore
+	 * @param WANObjectCache $wanObjectCache
 	 */
 	public function __construct(
 		IContextSource $context,
@@ -53,8 +49,9 @@ class RevDelArchiveList extends RevDelRevisionList {
 		array $ids,
 		LBFactory $lbFactory,
 		HookContainer $hookContainer,
-		HTMLCacheUpdater $htmlCacheUpdater,
-		RevisionStore $revisionStore
+		HtmlCacheUpdater $htmlCacheUpdater,
+		RevisionStore $revisionStore,
+		WANObjectCache $wanObjectCache
 	) {
 		parent::__construct(
 			$context,
@@ -63,7 +60,8 @@ class RevDelArchiveList extends RevDelRevisionList {
 			$lbFactory,
 			$hookContainer,
 			$htmlCacheUpdater,
-			$revisionStore
+			$revisionStore,
+			$wanObjectCache
 		);
 		$this->revisionStore = $revisionStore;
 	}
@@ -77,8 +75,8 @@ class RevDelArchiveList extends RevDelRevisionList {
 	}
 
 	/**
-	 * @param \Wikimedia\Rdbms\IReadableDatabase $db
-	 * @return IResultWrapper
+	 * @param IDatabase $db
+	 * @return mixed
 	 */
 	public function doQuery( $db ) {
 		$timestamps = [];
@@ -86,18 +84,33 @@ class RevDelArchiveList extends RevDelRevisionList {
 			$timestamps[] = $db->timestamp( $id );
 		}
 
-		$queryBuilder = $this->revisionStore->newArchiveSelectQueryBuilder( $db )
-			->joinComment()
-			->where( [
-				'ar_namespace' => $this->getPage()->getNamespace(),
-				'ar_title' => $this->getPage()->getDBkey(),
-				'ar_timestamp' => $timestamps,
-			] )
-			->orderBy( 'ar_timestamp', SelectQueryBuilder::SORT_DESC );
+		$arQuery = $this->revisionStore->getArchiveQueryInfo();
+		$tables = $arQuery['tables'];
+		$fields = $arQuery['fields'];
+		$conds = [
+			'ar_namespace' => $this->getPage()->getNamespace(),
+			'ar_title' => $this->getPage()->getDBkey(),
+			'ar_timestamp' => $timestamps,
+		];
+		$join_conds = $arQuery['joins'];
+		$options = [ 'ORDER BY' => 'ar_timestamp DESC' ];
 
-		MediaWikiServices::getInstance()->getChangeTagsStore()->modifyDisplayQueryBuilder( $queryBuilder, 'archive' );
+		ChangeTags::modifyDisplayQuery(
+			$tables,
+			$fields,
+			$conds,
+			$join_conds,
+			$options,
+			''
+		);
 
-		return $queryBuilder->caller( __METHOD__ )->fetchResultSet();
+		return $db->select( $tables,
+			$fields,
+			$conds,
+			__METHOD__,
+			$options,
+			$join_conds
+		);
 	}
 
 	public function newItem( $row ) {

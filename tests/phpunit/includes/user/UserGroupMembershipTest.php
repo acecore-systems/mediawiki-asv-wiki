@@ -1,7 +1,5 @@
 <?php
 
-use MediaWiki\User\UserGroupMembership;
-
 class UserGroupMembershipTest extends MediaWikiIntegrationTestCase {
 
 	protected function setUp(): void {
@@ -19,7 +17,7 @@ class UserGroupMembershipTest extends MediaWikiIntegrationTestCase {
 		);
 	}
 
-	public static function provideInstantiationValidation() {
+	public function provideInstantiationValidation() {
 		return [
 			[ 1, null, null, 1, null, null ],
 			[ 1, 'test', null, 1, 'test', null ],
@@ -29,7 +27,7 @@ class UserGroupMembershipTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideInstantiationValidation
-	 * @covers \MediaWiki\User\UserGroupMembership
+	 * @covers UserGroupMembership
 	 */
 	public function testInstantiation( $userId, $group, $expiry, $userId_, $group_, $expiry_ ) {
 		$ugm = new UserGroupMembership( $userId, $group, $expiry );
@@ -48,7 +46,7 @@ class UserGroupMembershipTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\User\UserGroupMembership::equals
+	 * @covers UserGroupMembership::equals
 	 */
 	public function testComparison() {
 		$ugm1 = new UserGroupMembership( 1, 'test', '67890' );
@@ -65,7 +63,7 @@ class UserGroupMembershipTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\User\UserGroupMembership::isExpired
+	 * @covers UserGroupMembership::isExpired
 	 */
 	public function testIsExpired() {
 		$ts = wfTimestamp( TS_MW, time() - 100 );

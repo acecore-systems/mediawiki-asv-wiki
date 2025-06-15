@@ -1,8 +1,8 @@
 {
 	"@metadata": {
 		"authors": [
-			"Kimberli Mäkäräinen (WMNO)",
-			"Yupik"
+			"Yupik",
+			"Kimberli Mäkäräinen (WMNO)"
 		]
 	},
 	"templatedata-doc-desc-empty": "Ii gávdno govvádus.",
@@ -33,8 +33,6 @@
 	"templatedata-doc-param-type-wiki-template-name": "Málle",
 	"templatedata-doc-param-type-wiki-user-name": "Geavaheaddji",
 	"templatedata-doc-params": "Málle paramehterat",
-	"templatedata-editbutton": "Rievdat málledieđuid",
-	"templatedata-helplink": "Lassedieđut málledieđuid birra",
 	"templatedata-invalid-duplicate-value": "Iešvuohta \"$1\" (\"$3\") lea ideanttalaš iešvuođain \"$2\".",
 	"templatedata-invalid-empty-array": "Iešvuođas \"$1\" galgá leat unnimusat okta árvu tabeallas.",
 	"templatedata-invalid-param": "Iešvuođa \"$2\" paramehter \"$1\" lea boastut.",
@@ -67,10 +65,10 @@
 	"templatedata-modal-placeholder-paramkey": "Paramehternamma",
 	"templatedata-modal-placeholder-prompt-map-name": "Čálit kártta nama",
 	"templatedata-modal-search-input-placeholder": "Oza giellanama dahje -koda mielde",
+	"templatedata-modal-table-param-actions": "Doaimmat",
 	"templatedata-modal-table-param-aliases": "Paramehtera lassenamat",
 	"templatedata-modal-table-param-autovalue": "Automáhtalaš árvu",
 	"templatedata-modal-table-param-default": "Dábálaš ($1)",
-	"templatedata-modal-table-param-status": "Dilli",
 	"templatedata-modal-table-param-deprecated": "Boarásnuvvan",
 	"templatedata-modal-table-param-deprecatedValue": "Boarásnuvvan rávven",
 	"templatedata-modal-table-param-description": "Govvádus ($1)",
@@ -81,8 +79,6 @@
 	"templatedata-modal-table-param-required": "Bákkolaš",
 	"templatedata-modal-table-param-suggested": "Evttohuvvon",
 	"templatedata-modal-table-param-suggestedvalues": "Evttohuvvon árvvut",
-	"templatedata-modal-placeholder-multiselect": "Lasit árvvu...",
-	"templatedata-modal-title": "Málledieđuid rievdadanprográmma",
 	"templatedata-modal-title-addparam": "Lasit ođđa paramehtera",
 	"templatedata-modal-title-choose-language": "Vállje giela",
 	"templatedata-modal-title-language": "Giella",

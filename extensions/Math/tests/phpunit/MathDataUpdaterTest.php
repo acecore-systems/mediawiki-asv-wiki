@@ -1,7 +1,6 @@
 <?php
 
 use MediaWiki\Extension\Math\MathDataUpdater;
-use MediaWiki\Parser\ParserOutput;
 use Wikibase\DataModel\Entity\NumericPropertyId;
 use Wikibase\DataModel\Services\Entity\PropertyDataTypeMatcher;
 use Wikibase\DataModel\Snak\PropertyNoValueSnak;
@@ -44,6 +43,7 @@ class MathDataUpdaterTest extends MediaWikiIntegrationTestCase {
 			'addModules',
 			'addModuleStyles',
 		] )->getMock();
+		$parserOutput->expects( $this->never() )->method( 'addModules' );
 		$parserOutput->expects( $this->never() )->method( 'addModuleStyles' );
 		/** @var ParserOutput $parserOutput */
 		$updater->updateParserOutput( $parserOutput );
@@ -58,6 +58,7 @@ class MathDataUpdaterTest extends MediaWikiIntegrationTestCase {
 			'addModules',
 			'addModuleStyles',
 		] )->getMock();
+		$parserOutput->expects( $this->once() )->method( 'addModules' );
 		$parserOutput->expects( $this->once() )->method( 'addModuleStyles' );
 		/** @var ParserOutput $parserOutput */
 		$updater->updateParserOutput( $parserOutput );

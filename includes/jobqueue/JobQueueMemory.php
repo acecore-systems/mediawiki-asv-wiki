@@ -1,5 +1,7 @@
 <?php
 /**
+ * PHP memory-backed job queue code.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -18,16 +20,13 @@
  * @file
  */
 
-use Wikimedia\ObjectCache\HashBagOStuff;
-use Wikimedia\ObjectCache\WANObjectCache;
-
 /**
- * PHP memory-backed job queue storage, for testing.
+ * Class to handle job queues stored in PHP memory for testing
  *
- * JobQueueGroup does not remember every queue instance, so statically track it here.
+ * JobQueueGroup does not remember every queue instance, so statically track it here
  *
- * @since 1.27
  * @ingroup JobQueue
+ * @since 1.27
  */
 class JobQueueMemory extends JobQueue {
 	/** @var array[] */
@@ -112,7 +111,7 @@ class JobQueueMemory extends JobQueue {
 	/**
 	 * @see JobQueue::doPop
 	 *
-	 * @return RunnableJob|false
+	 * @return RunnableJob|bool
 	 */
 	protected function doPop() {
 		if ( $this->doGetSize() == 0 ) {
@@ -125,7 +124,8 @@ class JobQueueMemory extends JobQueue {
 		if ( $this->order === 'random' ) {
 			$key = array_rand( $unclaimed );
 		} else {
-			$key = array_key_first( $unclaimed );
+			reset( $unclaimed );
+			$key = key( $unclaimed );
 		}
 
 		$spec = $unclaimed[$key];
@@ -134,7 +134,8 @@ class JobQueueMemory extends JobQueue {
 
 		$job = $this->jobFromSpecInternal( $spec );
 
-		$job->setMetadata( 'claimId', array_key_last( $claimed ) );
+		end( $claimed );
+		$job->setMetadata( 'claimId', key( $claimed ) );
 
 		return $job;
 	}
@@ -168,7 +169,7 @@ class JobQueueMemory extends JobQueue {
 	/**
 	 * @see JobQueue::getAllQueuedJobs
 	 *
-	 * @return Iterator<RunnableJob> of Job objects.
+	 * @return Iterator of Job objects.
 	 */
 	public function getAllQueuedJobs() {
 		$unclaimed = $this->getQueueData( 'unclaimed' );
@@ -187,7 +188,7 @@ class JobQueueMemory extends JobQueue {
 	/**
 	 * @see JobQueue::getAllAcquiredJobs
 	 *
-	 * @return Iterator<RunnableJob> of Job objects.
+	 * @return Iterator of Job objects.
 	 */
 	public function getAllAcquiredJobs() {
 		$claimed = $this->getQueueData( 'claimed' );

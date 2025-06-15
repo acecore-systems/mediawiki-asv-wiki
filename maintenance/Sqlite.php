@@ -44,11 +44,12 @@ class Sqlite {
 	 * SQLite-compatible during processing.
 	 * Will throw exceptions on SQL errors
 	 * @param array|string $files
+	 * @throws MWException
 	 * @return true|string True if no error or error string in case of errors
 	 */
 	public static function checkSqlSyntax( $files ) {
 		if ( !self::isPresent() ) {
-			throw new RuntimeException( "Can't check SQL syntax: SQLite not found" );
+			throw new MWException( "Can't check SQL syntax: SQLite not found" );
 		}
 		if ( !is_array( $files ) ) {
 			$files = [ $files ];

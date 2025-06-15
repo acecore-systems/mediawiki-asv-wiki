@@ -19,37 +19,45 @@
  */
 namespace Wikimedia\Rdbms;
 
+use BagOStuff;
 use Psr\Log\LoggerAwareInterface;
-use Wikimedia\ObjectCache\BagOStuff;
-use Wikimedia\ObjectCache\WANObjectCache;
-use Wikimedia\Stats\StatsdAwareInterface;
+use StatsdAwareInterface;
+use WANObjectCache;
 
 /**
  * Database load monitoring interface
  *
- * @internal This class should not be called outside of LoadBalancer
  * @ingroup Database
  */
 interface ILoadMonitor extends LoggerAwareInterface, StatsdAwareInterface {
-	public const STATE_UP = 'up';
-	public const STATE_CONN_COUNT = 'conn_count';
-	public const STATE_AS_OF = 'time';
-
 	/**
 	 * Construct a new LoadMonitor with a given LoadBalancer parent
 	 *
 	 * @param ILoadBalancer $lb LoadBalancer this instance serves
 	 * @param BagOStuff $sCache Local server memory cache
 	 * @param WANObjectCache $wCache Local cluster memory cache
-	 * @param array $options Additional parameters include:
-	 *   - maxConnCount: maximum number of connections before circuit breaking to kick in [default: infinity]
+	 * @param array $options Options map
 	 */
-	public function __construct( ILoadBalancer $lb, BagOStuff $sCache, WANObjectCache $wCache, $options );
+	public function __construct(
+		ILoadBalancer $lb, BagOStuff $sCache, WANObjectCache $wCache, array $options = []
+	);
 
 	/**
 	 * Perform load ratio adjustment before deciding which server to use
 	 *
-	 * @param array<int,int|float> &$weightByServer Map of (server index => weight)
+	 * @param int[] &$weightByServer Map of (server index => float weight)
+	 * @param string|false $domain
 	 */
-	public function scaleLoads( array &$weightByServer );
+	public function scaleLoads( array &$weightByServer, $domain );
+
+	/**
+	 * Get an estimate of replication lag (in seconds) for each server
+	 *
+	 * Values may be "false" if replication is too broken to estimate
+	 *
+	 * @param int[] $serverIndexes
+	 * @param string $domain
+	 * @return array Map of (server index => float|int|false)
+	 */
+	public function getLagTimes( array $serverIndexes, $domain );
 }

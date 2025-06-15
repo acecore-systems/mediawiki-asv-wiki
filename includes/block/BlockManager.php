@@ -25,17 +25,15 @@ use MediaWiki\Config\ServiceOptions;
 use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\HookContainer\HookRunner;
 use MediaWiki\MainConfigNames;
-use MediaWiki\MediaWikiServices;
-use MediaWiki\Message\Message;
-use MediaWiki\Request\ProxyLookup;
-use MediaWiki\Request\WebRequest;
-use MediaWiki\Request\WebResponse;
-use MediaWiki\User\User;
+use MediaWiki\Permissions\PermissionManager;
 use MediaWiki\User\UserFactory;
 use MediaWiki\User\UserIdentity;
-use MediaWiki\User\UserIdentityUtils;
+use Message;
 use MWCryptHash;
 use Psr\Log\LoggerInterface;
+use User;
+use WebRequest;
+use WebResponse;
 use Wikimedia\IPSet;
 use Wikimedia\IPUtils;
 
@@ -46,6 +44,15 @@ use Wikimedia\IPUtils;
  * @since 1.34 Refactored from User and Block.
  */
 class BlockManager {
+	/** @var PermissionManager */
+	private $permissionManager;
+
+	/** @var UserFactory */
+	private $userFactory;
+
+	/** @var ServiceOptions */
+	private $options;
+
 	/**
 	 * @internal For use by ServiceWiring
 	 */
@@ -61,37 +68,32 @@ class BlockManager {
 		MainConfigNames::SoftBlockRanges,
 	];
 
-	private ServiceOptions $options;
-	private UserFactory $userFactory;
-	private UserIdentityUtils $userIdentityUtils;
-	private LoggerInterface $logger;
-	private HookRunner $hookRunner;
-	private DatabaseBlockStore $blockStore;
-	private ProxyLookup $proxyLookup;
+	/** @var LoggerInterface */
+	private $logger;
 
-	private BlockCache $userBlockCache;
-	private BlockCache $createAccountBlockCache;
+	/** @var HookRunner */
+	private $hookRunner;
 
+	/**
+	 * @param ServiceOptions $options
+	 * @param PermissionManager $permissionManager
+	 * @param UserFactory $userFactory
+	 * @param LoggerInterface $logger
+	 * @param HookContainer $hookContainer
+	 */
 	public function __construct(
 		ServiceOptions $options,
+		PermissionManager $permissionManager,
 		UserFactory $userFactory,
-		UserIdentityUtils $userIdentityUtils,
 		LoggerInterface $logger,
-		HookContainer $hookContainer,
-		DatabaseBlockStore $blockStore,
-		ProxyLookup $proxyLookup
+		HookContainer $hookContainer
 	) {
 		$options->assertRequiredOptions( self::CONSTRUCTOR_OPTIONS );
 		$this->options = $options;
+		$this->permissionManager = $permissionManager;
 		$this->userFactory = $userFactory;
-		$this->userIdentityUtils = $userIdentityUtils;
 		$this->logger = $logger;
 		$this->hookRunner = new HookRunner( $hookContainer );
-		$this->blockStore = $blockStore;
-		$this->proxyLookup = $proxyLookup;
-
-		$this->userBlockCache = new BlockCache;
-		$this->createAccountBlockCache = new BlockCache;
 	}
 
 	/**
@@ -114,10 +116,7 @@ class BlockManager {
 	 * blocked, and does not determine whether the person using that account is affected
 	 * in practice by any IP address or cookie blocks.
 	 *
-	 * @deprecated since 1.42 Use getBlock(), which is the same except that it expects
-	 *   the caller to do ipblock-exempt permission checking and to set $request to null
-	 *   if the user is exempt from IP blocks.
-	 *
+	 * @internal This should only be called by User::getBlockedStatus
 	 * @param UserIdentity $user
 	 * @param WebRequest|null $request The global request object if the user is the
 	 *  global user (cases #1 and #2), otherwise null (case #3). The IP address and
@@ -135,6 +134,9 @@ class BlockManager {
 		$fromReplica,
 		$disableIpBlockExemptChecking = false
 	) {
+		$fromPrimary = !$fromReplica;
+		$ip = null;
+
 		// If this is the global user, they may be affected by IP blocks (case #1),
 		// or they may be exempt (case #2). If affected, look for additional blocks
 		// against the IP address and referenced in a cookie.
@@ -144,68 +146,21 @@ class BlockManager {
 			// ipblock-exempt when calling getBlock within Autopromote.
 			// See T270145.
 			!$disableIpBlockExemptChecking &&
-			!$this->isIpBlockExempt( $user );
+			!$this->permissionManager->userHasRight( $user, 'ipblock-exempt' );
 
-		return $this->getBlock(
-			$user,
-			$checkIpBlocks ? $request : null,
-			$fromReplica
-		);
-	}
-
-	/**
-	 * Get the blocks that apply to a user. If there is only one, return that, otherwise
-	 * return a composite block that combines the strictest features of the applicable
-	 * blocks.
-	 *
-	 * If the user is exempt from IP blocks, the request should be null.
-	 *
-	 * @since 1.42
-	 * @param UserIdentity $user The user performing the action
-	 * @param WebRequest|null $request The request to use for IP and cookie
-	 *   blocks, or null to skip checking for such blocks. If the user has the
-	 *   ipblock-exempt right, the request should be null.
-	 * @param bool $fromReplica Whether to check the replica DB first.
-	 *   To improve performance, non-critical checks are done against replica DBs.
-	 *   Check when actually saving should be done against primary.
-	 * @return AbstractBlock|null
-	 */
-	public function getBlock(
-		UserIdentity $user,
-		?WebRequest $request,
-		$fromReplica = true
-	): ?AbstractBlock {
-		$fromPrimary = !$fromReplica;
-		$ip = null;
-
-		// TODO: normalise the fromPrimary parameter when replication is not configured.
-		// Maybe DatabaseBlockStore can tell us about the LoadBalancer configuration.
-		$cacheKey = new BlockCacheKey(
-			$request,
-			$user,
-			$fromPrimary
-		);
-		$block = $this->userBlockCache->get( $cacheKey );
-		if ( $block !== null ) {
-			$this->logger->debug( "Block cache hit with key {$cacheKey}" );
-			return $block ?: null;
-		}
-		$this->logger->debug( "Block cache miss with key {$cacheKey}" );
-
-		if ( $request ) {
+		if ( $request && $checkIpBlocks ) {
 
 			// Case #1: checking the global user, including IP blocks
 			$ip = $request->getIP();
-			// For soft blocks, i.e. blocks that don't block logged-in users,
-			// temporary users are treated as anon users, and are blocked.
-			$applySoftBlocks = !$this->userIdentityUtils->isNamed( $user );
+			$isAnon = !$user->isRegistered();
 
 			$xff = $request->getHeader( 'X-Forwarded-For' );
 
+			// TODO: remove dependency on DatabaseBlock (T221075)
 			$blocks = array_merge(
-				$this->blockStore->newListFromTarget( $user, $ip, $fromPrimary ),
-				$this->getSystemIpBlocks( $ip, $applySoftBlocks ),
-				$this->getXffBlocks( $ip, $xff, $applySoftBlocks, $fromPrimary ),
+				DatabaseBlock::newListFromTarget( $user, $ip, $fromPrimary ),
+				$this->getSystemIpBlocks( $ip, $isAnon ),
+				$this->getXffBlocks( $ip, $xff, $isAnon, $fromPrimary ),
 				$this->getCookieBlock( $user, $request )
 			);
 		} else {
@@ -213,7 +168,8 @@ class BlockManager {
 			// Case #2: checking the global user, but they are exempt from IP blocks
 			// and cookie blocks, so we only check for a user account block.
 			// Case #3: checking whether another user's account is blocked.
-			$blocks = $this->blockStore->newListFromTarget( $user, null, $fromPrimary );
+			// TODO: remove dependency on DatabaseBlock (T221075)
+			$blocks = DatabaseBlock::newListFromTarget( $user, null, $fromPrimary );
 
 		}
 
@@ -222,126 +178,7 @@ class BlockManager {
 		$legacyUser = $this->userFactory->newFromUserIdentity( $user );
 		$this->hookRunner->onGetUserBlock( clone $legacyUser, $ip, $block );
 
-		$this->userBlockCache->set( $cacheKey, $block ?: false );
 		return $block;
-	}
-
-	/**
-	 * Clear the cache of any blocks that refer to the specified user
-	 *
-	 * @param UserIdentity $user
-	 */
-	public function clearUserCache( UserIdentity $user ) {
-		$this->userBlockCache->clearUser( $user );
-		$this->createAccountBlockCache->clearUser( $user );
-	}
-
-	/**
-	 * Get the block which applies to a create account action, if there is any
-	 *
-	 * @since 1.42
-	 * @param UserIdentity $user
-	 * @param WebRequest|null $request The request, or null to omit IP address
-	 *   and cookie blocks. If the user has the ipblock-exempt right, null
-	 *   should be passed.
-	 * @param bool $fromReplica
-	 * @return AbstractBlock|null
-	 */
-	public function getCreateAccountBlock(
-		UserIdentity $user,
-		?WebRequest $request,
-		$fromReplica
-	) {
-		$key = new BlockCacheKey( $request, $user, $fromReplica );
-		$cachedBlock = $this->createAccountBlockCache->get( $key );
-		if ( $cachedBlock !== null ) {
-			$this->logger->debug( "Create account block cache hit with key {$key}" );
-			return $cachedBlock ?: null;
-		}
-		$this->logger->debug( "Create account block cache miss with key {$key}" );
-
-		$applicableBlocks = [];
-		$userBlock = $this->getBlock( $user, $request, $fromReplica );
-		if ( $userBlock ) {
-			$applicableBlocks = $userBlock->toArray();
-		}
-
-		// T15611: if the IP address the user is trying to create an account from is
-		// blocked with createaccount disabled, prevent new account creation there even
-		// when the user is logged in
-		if ( $request ) {
-			$ipBlock = $this->blockStore->newFromTarget(
-				null, $request->getIP()
-			);
-			if ( $ipBlock ) {
-				$applicableBlocks = array_merge( $applicableBlocks, $ipBlock->toArray() );
-			}
-		}
-
-		foreach ( $applicableBlocks as $i => $block ) {
-			if ( !$block->appliesToRight( 'createaccount' ) ) {
-				unset( $applicableBlocks[$i] );
-			}
-		}
-		$result = $this->createGetBlockResult(
-			$request ? $request->getIP() : null,
-			$applicableBlocks
-		);
-		$this->createAccountBlockCache->set( $key, $result ?: false );
-		return $result;
-	}
-
-	/**
-	 * Remove elements of a block which fail a callback test.
-	 *
-	 * @since 1.42
-	 * @param Block|null $block The block, or null to pass in zero blocks.
-	 * @param callable $callback The callback, which will be called once for
-	 *   each non-composite component of the block. The only parameter is the
-	 *   non-composite Block. It should return true, to keep that component,
-	 *   or false, to remove that component.
-	 * @return Block|null
-	 *    - If there are zero remaining elements, null will be returned.
-	 *    - If there is one remaining element, a DatabaseBlock or some other
-	 *      non-composite block will be returned.
-	 *    - If there is more than one remaining element, a CompositeBlock will
-	 *      be returned.
-	 */
-	public function filter( ?Block $block, $callback ) {
-		if ( !$block ) {
-			return null;
-		} elseif ( $block instanceof CompositeBlock ) {
-			$blocks = $block->getOriginalBlocks();
-			$originalCount = count( $blocks );
-			foreach ( $blocks as $i => $originalBlock ) {
-				if ( !$callback( $originalBlock ) ) {
-					unset( $blocks[$i] );
-				}
-			}
-			if ( !$blocks ) {
-				return null;
-			} elseif ( count( $blocks ) === 1 ) {
-				return $blocks[ array_key_first( $blocks ) ];
-			} elseif ( count( $blocks ) === $originalCount ) {
-				return $block;
-			} else {
-				return $block->withOriginalBlocks( array_values( $blocks ) );
-			}
-		} elseif ( !$callback( $block ) ) {
-			return null;
-		} else {
-			return $block;
-		}
-	}
-
-	/**
-	 * Determine if a user is exempt from IP blocks
-	 * @param UserIdentity $user
-	 * @return bool
-	 */
-	private function isIpBlockExempt( UserIdentity $user ) {
-		return MediaWikiServices::getInstance()->getPermissionManager()
-			->userHasRight( $user, 'ipblock-exempt' );
 	}
 
 	/**
@@ -358,9 +195,11 @@ class BlockManager {
 		} elseif ( count( $blocks ) === 1 ) {
 			return $blocks[ 0 ];
 		} else {
-			$compositeBlock = CompositeBlock::createFromBlocks( ...$blocks );
-			$compositeBlock->setTarget( $ip );
-			return $compositeBlock;
+			return new CompositeBlock( [
+				'address' => $ip,
+				'reason' => new Message( 'blockedtext-composite-reason' ),
+				'originalBlocks' => $blocks,
+			] );
 		}
 	}
 
@@ -379,7 +218,7 @@ class BlockManager {
 		}
 
 		$blocks = array_merge(
-			$this->blockStore->newListFromTarget( $ip, $ip, !$fromReplica ),
+			DatabaseBlock::newListFromTarget( $ip, $ip, !$fromReplica ),
 			$this->getSystemIpBlocks( $ip, true )
 		);
 
@@ -403,10 +242,10 @@ class BlockManager {
 	 * Get any system blocks against the IP address.
 	 *
 	 * @param string $ip
-	 * @param bool $applySoftBlocks
+	 * @param bool $isAnon Whether the user accessing the wiki from the IP address is logged out
 	 * @return AbstractBlock[]
 	 */
-	private function getSystemIpBlocks( string $ip, bool $applySoftBlocks ): array {
+	private function getSystemIpBlocks( string $ip, bool $isAnon ): array {
 		$blocks = [];
 
 		// Proxy blocking
@@ -418,7 +257,7 @@ class BlockManager {
 					'address' => $ip,
 					'systemBlock' => 'proxy',
 				] );
-			} elseif ( $applySoftBlocks && $this->isDnsBlacklisted( $ip ) ) {
+			} elseif ( $isAnon && $this->isDnsBlacklisted( $ip ) ) {
 				$blocks[] = new SystemBlock( [
 					'reason' => new Message( 'sorbsreason' ),
 					'address' => $ip,
@@ -429,7 +268,7 @@ class BlockManager {
 		}
 
 		// Soft blocking
-		if ( $applySoftBlocks && IPUtils::isInRanges( $ip, $this->options->get( MainConfigNames::SoftBlockRanges ) ) ) {
+		if ( $isAnon && IPUtils::isInRanges( $ip, $this->options->get( MainConfigNames::SoftBlockRanges ) ) ) {
 			$blocks[] = new SystemBlock( [
 				'address' => $ip,
 				'reason' => new Message( 'softblockrangesreason', [ $ip ] ),
@@ -448,23 +287,19 @@ class BlockManager {
 	 *
 	 * @param string $ip
 	 * @param string $xff
-	 * @param bool $applySoftBlocks
+	 * @param bool $isAnon
 	 * @param bool $fromPrimary
 	 * @return AbstractBlock[]
 	 */
-	private function getXffBlocks(
-		string $ip,
-		string $xff,
-		bool $applySoftBlocks,
-		bool $fromPrimary
-	): array {
+	private function getXffBlocks( string $ip, string $xff, bool $isAnon, bool $fromPrimary ): array {
 		// (T25343) Apply IP blocks to the contents of XFF headers, if enabled
 		if ( $this->options->get( MainConfigNames::ApplyIpBlocksToXff )
 			&& !in_array( $ip, $this->options->get( MainConfigNames::ProxyWhitelist ) )
 		) {
 			$xff = array_map( 'trim', explode( ',', $xff ) );
 			$xff = array_diff( $xff, [ $ip ] );
-			$xffblocks = $this->getBlocksForIPList( $xff, $applySoftBlocks, $fromPrimary );
+			// TODO: remove dependency on DatabaseBlock (T221075)
+			$xffblocks = DatabaseBlock::getBlocksForIPList( $xff, $isAnon, $fromPrimary );
 
 			// (T285159) Exclude autoblocks from XFF headers to prevent spoofed
 			// headers uncovering the IPs of autoblocked users
@@ -476,42 +311,6 @@ class BlockManager {
 		}
 
 		return [];
-	}
-
-	/**
-	 * Get all blocks that match any IP from an array of IP addresses
-	 *
-	 * @internal Public to support deprecated method in DatabaseBlock
-	 *
-	 * @param array $ipChain List of IPs (strings), usually retrieved from the
-	 *     X-Forwarded-For header of the request
-	 * @param bool $applySoftBlocks Include soft blocks (anonymous-only blocks). These
-	 *     should only block anonymous and temporary users.
-	 * @param bool $fromPrimary Whether to query the primary or replica DB
-	 * @return DatabaseBlock[]
-	 */
-	public function getBlocksForIPList( array $ipChain, bool $applySoftBlocks, bool $fromPrimary ) {
-		if ( $ipChain === [] ) {
-			return [];
-		}
-
-		$ips = [];
-		foreach ( array_unique( $ipChain ) as $ipaddr ) {
-			// Discard invalid IP addresses. Since XFF can be spoofed and we do not
-			// necessarily trust the header given to us, make sure that we are only
-			// checking for blocks on well-formatted IP addresses (IPv4 and IPv6).
-			// Do not treat private IP spaces as special as it may be desirable for wikis
-			// to block those IP ranges in order to stop misbehaving proxies that spoof XFF.
-			if ( !IPUtils::isValid( $ipaddr ) ) {
-				continue;
-			}
-			// Don't check trusted IPs (includes local CDNs which will be in every request)
-			if ( $this->proxyLookup->isTrustedProxy( $ipaddr ) ) {
-				continue;
-			}
-			$ips[] = $ipaddr;
-		}
-		return $this->blockStore->newListFromIPs( $ips, $applySoftBlocks, $fromPrimary );
 	}
 
 	/**
@@ -555,7 +354,7 @@ class BlockManager {
 	 *
 	 * @param UserIdentity $user
 	 * @param WebRequest $request
-	 * @return DatabaseBlock|false The block object, or false if none could be loaded.
+	 * @return DatabaseBlock|bool The block object, or false if none could be loaded.
 	 */
 	private function getBlockFromCookieValue(
 		UserIdentity $user,
@@ -568,7 +367,8 @@ class BlockManager {
 
 		$blockCookieId = $this->getIdFromCookieValue( $cookieValue );
 		if ( $blockCookieId !== null ) {
-			$block = $this->blockStore->newFromID( $blockCookieId );
+			// TODO: remove dependency on DatabaseBlock (T221075)
+			$block = DatabaseBlock::newFromID( $blockCookieId );
 			if (
 				$block instanceof DatabaseBlock &&
 				$this->shouldApplyCookieBlock( $block, !$user->isRegistered() )
@@ -701,7 +501,7 @@ class BlockManager {
 	 * Wrapper for mocking in tests.
 	 *
 	 * @param string $hostname DNSBL query
-	 * @return string[]|false IPv4 array, or false if the IP is not blacklisted
+	 * @return string[]|bool IPv4 array, or false if the IP is not blacklisted
 	 */
 	protected function checkHost( $hostname ) {
 		return gethostbynamel( $hostname );
@@ -720,19 +520,13 @@ class BlockManager {
 	 *  - If the block is a valid block, but should not be tracked by a cookie, clear the
 	 *    cookie and continue to check whether there is another block that should be tracked.
 	 *
-	 * Must be called after the User object is loaded, and before headers are sent.
-	 *
 	 * @since 1.34
 	 * @param User $user
 	 * @param WebResponse $response The response on which to set the cookie.
+	 * @throws LogicException If called before the User object was loaded.
+	 * @throws LogicException If not called pre-send.
 	 */
 	public function trackBlockWithCookie( User $user, WebResponse $response ) {
-		if ( !$this->options->get( MainConfigNames::CookieSetOnIpBlock ) &&
-			!$this->options->get( MainConfigNames::CookieSetOnAutoblock ) ) {
-			// Cookie blocks are disabled, return early to prevent executing unnecessary logic.
-			return;
-		}
-
 		$request = $user->getRequest();
 
 		if ( $request->getCookie( 'BlockID' ) !== null ) {
@@ -759,13 +553,19 @@ class BlockManager {
 		$isAnon = $user->isAnon();
 
 		if ( $block ) {
-			foreach ( $block->toArray() as $originalBlock ) {
+			if ( $block instanceof CompositeBlock ) {
 				// TODO: Improve on simply tracking the first trackable block (T225654)
-				if ( $originalBlock instanceof DatabaseBlock
-					&& $this->shouldTrackBlockWithCookie( $originalBlock, $isAnon )
-				) {
-					$this->setBlockCookie( $originalBlock, $response );
-					return;
+				foreach ( $block->getOriginalBlocks() as $originalBlock ) {
+					if ( $this->shouldTrackBlockWithCookie( $originalBlock, $isAnon ) ) {
+						'@phan-var DatabaseBlock $originalBlock';
+						$this->setBlockCookie( $originalBlock, $response );
+						return;
+					}
+				}
+			} else {
+				if ( $this->shouldTrackBlockWithCookie( $block, $isAnon ) ) {
+					'@phan-var DatabaseBlock $block';
+					$this->setBlockCookie( $block, $response );
 				}
 			}
 		}
@@ -776,10 +576,12 @@ class BlockManager {
 	 * the same as the block's, to a maximum of 24 hours.
 	 *
 	 * @since 1.34
+	 * @internal Should be private.
+	 *  Left public for backwards compatibility, until DatabaseBlock::setCookie is removed.
 	 * @param DatabaseBlock $block
 	 * @param WebResponse $response The response on which to set the cookie.
 	 */
-	private function setBlockCookie( DatabaseBlock $block, WebResponse $response ) {
+	public function setBlockCookie( DatabaseBlock $block, WebResponse $response ) {
 		// Calculate the default expiry time.
 		$maxExpiryTime = wfTimestamp( TS_MW, (int)wfTimestamp() + ( 24 * 60 * 60 ) );
 
@@ -799,22 +601,25 @@ class BlockManager {
 	/**
 	 * Check if the block should be tracked with a cookie.
 	 *
-	 * @param DatabaseBlock $block
+	 * @param AbstractBlock $block
 	 * @param bool $isAnon The user is logged out
 	 * @return bool The block should be tracked with a cookie
 	 */
-	private function shouldTrackBlockWithCookie( DatabaseBlock $block, $isAnon ) {
-		switch ( $block->getType() ) {
-			case DatabaseBlock::TYPE_IP:
-			case DatabaseBlock::TYPE_RANGE:
-				return $isAnon && $this->options->get( MainConfigNames::CookieSetOnIpBlock );
-			case DatabaseBlock::TYPE_USER:
-				return !$isAnon &&
-					$this->options->get( MainConfigNames::CookieSetOnAutoblock ) &&
-					$block->isAutoblocking();
-			default:
-				return false;
+	private function shouldTrackBlockWithCookie( AbstractBlock $block, $isAnon ) {
+		if ( $block instanceof DatabaseBlock ) {
+			switch ( $block->getType() ) {
+				case DatabaseBlock::TYPE_IP:
+				case DatabaseBlock::TYPE_RANGE:
+					return $isAnon && $this->options->get( MainConfigNames::CookieSetOnIpBlock );
+				case DatabaseBlock::TYPE_USER:
+					return !$isAnon &&
+						$this->options->get( MainConfigNames::CookieSetOnAutoblock ) &&
+						$block->isAutoblocking();
+				default:
+					return false;
+			}
 		}
+		return false;
 	}
 
 	/**
@@ -829,13 +634,15 @@ class BlockManager {
 
 	/**
 	 * Get the stored ID from the 'BlockID' cookie. The cookie's value is usually a combination of
-	 * the ID and a HMAC (see self::getCookieValue), but will sometimes only be the ID.
+	 * the ID and a HMAC (see DatabaseBlock::setCookie), but will sometimes only be the ID.
 	 *
 	 * @since 1.34
+	 * @internal Should be private.
+	 *  Left public for backwards compatibility, until DatabaseBlock::getIdFromCookieValue is removed.
 	 * @param string $cookieValue The string in which to find the ID.
 	 * @return int|null The block ID, or null if the HMAC is present and invalid.
 	 */
-	private function getIdFromCookieValue( $cookieValue ) {
+	public function getIdFromCookieValue( $cookieValue ) {
 		// The cookie value must start with a number
 		if ( !is_numeric( substr( $cookieValue, 0, 1 ) ) ) {
 			return null;
@@ -863,16 +670,20 @@ class BlockManager {
 	 * be the block ID.
 	 *
 	 * @since 1.34
+	 * @internal Should be private.
+	 *  Left public for backwards compatibility, until DatabaseBlock::getCookieValue is removed.
 	 * @param DatabaseBlock $block
 	 * @return string The block ID, probably concatenated with "!" and the HMAC.
 	 */
-	private function getCookieValue( DatabaseBlock $block ) {
+	public function getCookieValue( DatabaseBlock $block ) {
 		$id = (string)$block->getId();
 		if ( !$this->options->get( MainConfigNames::SecretKey ) ) {
 			// If there's no secret key, don't append a HMAC.
 			return $id;
 		}
 		$hmac = MWCryptHash::hmac( $id, $this->options->get( MainConfigNames::SecretKey ), false );
-		return $id . '!' . $hmac;
+		$cookieValue = $id . '!' . $hmac;
+		return $cookieValue;
 	}
+
 }

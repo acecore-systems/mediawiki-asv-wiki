@@ -1,11 +1,10 @@
 <?php
 
 use MediaWiki\MainConfigNames;
-use MediaWiki\Specials\SpecialUpload;
 
 class SpecialUploadTest extends MediaWikiIntegrationTestCase {
 	/**
-	 * @covers \MediaWiki\Specials\SpecialUpload::getInitialPageText
+	 * @covers SpecialUpload::getInitialPageText
 	 * @dataProvider provideGetInitialPageText
 	 */
 	public function testGetInitialPageText( $expected, $inputParams ) {
@@ -14,7 +13,7 @@ class SpecialUploadTest extends MediaWikiIntegrationTestCase {
 		$this->assertEquals( $expected, $result );
 	}
 
-	public static function provideGetInitialPageText() {
+	public function provideGetInitialPageText() {
 		return [
 			[
 				'expect' => "== Summary ==\nthis is a test\n",

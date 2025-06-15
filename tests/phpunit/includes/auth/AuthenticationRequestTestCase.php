@@ -1,17 +1,11 @@
 <?php
 
-namespace MediaWiki\Tests\Auth;
-
-use MediaWiki\Auth\AuthenticationRequest;
-use MediaWiki\Message\Message;
-use MediaWikiIntegrationTestCase;
-use ReflectionMethod;
-use const E_USER_DEPRECATED;
+namespace MediaWiki\Auth;
 
 /**
  * @group AuthManager
  */
-abstract class AuthenticationRequestTestCase extends MediaWikiIntegrationTestCase {
+abstract class AuthenticationRequestTestCase extends \MediaWikiIntegrationTestCase {
 
 	/**
 	 * @param array $args
@@ -31,11 +25,11 @@ abstract class AuthenticationRequestTestCase extends MediaWikiIntegrationTestCas
 			$this->assertIsArray( $data, "Field $field" );
 			$this->assertArrayHasKey( 'type', $data, "Field $field" );
 			$this->assertArrayHasKey( 'label', $data, "Field $field" );
-			$this->assertInstanceOf( Message::class, $data['label'], "Field $field, label" );
+			$this->assertInstanceOf( \Message::class, $data['label'], "Field $field, label" );
 
 			if ( $data['type'] !== 'null' ) {
 				$this->assertArrayHasKey( 'help', $data, "Field $field" );
-				$this->assertInstanceOf( Message::class, $data['help'], "Field $field, help" );
+				$this->assertInstanceOf( \Message::class, $data['help'], "Field $field, help" );
 			}
 
 			if ( isset( $data['optional'] ) ) {
@@ -62,7 +56,7 @@ abstract class AuthenticationRequestTestCase extends MediaWikiIntegrationTestCas
 					$this->assertArrayHasKey( 'options', $data, "Field $field" );
 					$this->assertIsArray( $data['options'], "Field $field, options" );
 					foreach ( $data['options'] as $val => $msg ) {
-						$this->assertInstanceOf( Message::class, $msg, "Field $field, option $val" );
+						$this->assertInstanceOf( \Message::class, $msg, "Field $field, option $val" );
 					}
 					break;
 				case 'checkbox':
@@ -85,7 +79,7 @@ abstract class AuthenticationRequestTestCase extends MediaWikiIntegrationTestCas
 	}
 
 	/**
-	 * @dataProvider provideLoadFromSubmissionStatically
+	 * @dataProvider provideLoadFromSubmission
 	 * @param array $args
 	 * @param array $data
 	 * @param array|bool $expectState
@@ -102,27 +96,5 @@ abstract class AuthenticationRequestTestCase extends MediaWikiIntegrationTestCas
 		}
 	}
 
-	// abstract public static function provideLoadFromSubmission();
-
-	/**
-	 * Tempory override to make provideLoadFromSubmission static.
-	 * See T332865.
-	 */
-	final public static function provideLoadFromSubmissionStatically() {
-		$reflectionMethod = new ReflectionMethod( static::class, 'provideLoadFromSubmission' );
-		if ( $reflectionMethod->isStatic() ) {
-			return $reflectionMethod->invoke( null );
-		}
-
-		trigger_error(
-			'overriding provideLoadFromSubmission as an instance method is deprecated. (' .
-			$reflectionMethod->getFileName() . ':' . $reflectionMethod->getEndLine() . ')',
-			E_USER_DEPRECATED
-		);
-
-		return $reflectionMethod->invoke( new static() );
-	}
+	abstract public function provideLoadFromSubmission();
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( AuthenticationRequestTestCase::class, 'MediaWiki\\Auth\\AuthenticationRequestTestCase' );

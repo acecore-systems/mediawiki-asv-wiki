@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Mostrevisions
+ *
  * Copyright © 2005 Ævar Arnfjörð Bjarmason
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,38 +20,31 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- */
-
-namespace MediaWiki\Specials;
-
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Languages\LanguageConverterFactory;
-use MediaWiki\Title\NamespaceInfo;
-use Wikimedia\Rdbms\IConnectionProvider;
-
-/**
- * Implements Special:Mostrevisions
- *
  * @ingroup SpecialPage
  * @author Ævar Arnfjörð Bjarmason <avarab@gmail.com>
  */
+
+use MediaWiki\Cache\LinkBatchFactory;
+use MediaWiki\Languages\LanguageConverterFactory;
+use Wikimedia\Rdbms\ILoadBalancer;
+
 class SpecialMostRevisions extends SpecialFewestRevisions {
 
 	/**
 	 * @param NamespaceInfo $namespaceInfo
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param LinkBatchFactory $linkBatchFactory
 	 * @param LanguageConverterFactory $languageConverterFactory
 	 */
 	public function __construct(
 		NamespaceInfo $namespaceInfo,
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		LinkBatchFactory $linkBatchFactory,
 		LanguageConverterFactory $languageConverterFactory
 	) {
 		parent::__construct(
 			$namespaceInfo,
-			$dbProvider,
+			$loadBalancer,
 			$linkBatchFactory,
 			$languageConverterFactory
 		);
@@ -64,9 +59,3 @@ class SpecialMostRevisions extends SpecialFewestRevisions {
 		return 'highuse';
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialMostRevisions::class, 'SpecialMostRevisions' );

@@ -20,7 +20,7 @@ class ExpressionTest extends MediaWikiUnitTestCase {
 		);
 	}
 
-	public static function provideExpressions() {
+	public function provideExpressions() {
 		return [
 			[ '1 or 0', '1' ],
 			[ 'not (1 and 0)', '1' ],
@@ -90,7 +90,7 @@ class ExpressionTest extends MediaWikiUnitTestCase {
 		$parser->doExpression( $input );
 	}
 
-	public static function provideExpressionThrows() {
+	public function provideExpressionThrows() {
 		$longExpression = str_repeat( 'ln(', 1001 ) . '1' . str_repeat( ')', 1001 );
 		return [
 			'Expression too long' => [ $longExpression ],

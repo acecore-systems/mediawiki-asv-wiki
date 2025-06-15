@@ -1,8 +1,8 @@
 {
 	"@metadata": {
 		"authors": [
-			"Ajiniyaz Nurniyazov",
-			"Nurlan"
+			"Nurlan",
+			"Ajiniyaz Nurniyazov"
 		]
 	},
 	"captcha-createaccount-fail": "CAPTCHA kodı nadurıs yamasa jazılmaǵan.",

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable ListNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -42,7 +42,7 @@ ve.ce.ListNode.static.removeEmptyLastChildOnEnter = true;
  * @throws {Error} If style is invalid
  */
 ve.ce.ListNode.prototype.getTagName = function () {
-	const style = this.model.getAttribute( 'style' ),
+	var style = this.model.getAttribute( 'style' ),
 		types = { bullet: 'ul', number: 'ol' };
 
 	if ( !Object.prototype.hasOwnProperty.call( types, style ) ) {

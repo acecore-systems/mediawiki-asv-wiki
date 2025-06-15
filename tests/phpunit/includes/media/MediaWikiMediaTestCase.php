@@ -1,8 +1,4 @@
 <?php
-
-use MediaWiki\WikiMap\WikiMap;
-use Wikimedia\FileBackend\FSFileBackend;
-
 /**
  * Specificly for testing Media handlers. Sets up a FileRepo backend
  */
@@ -31,10 +27,7 @@ abstract class MediaWikiMediaTestCase extends MediaWikiIntegrationTestCase {
 			'name' => 'localtesting',
 			'wikiId' => WikiMap::getCurrentWikiId(),
 			'containerPaths' => $containers,
-			'tmpDirectory' => $this->getNewTempDirectory(),
-			'obResetFunc' => static function () {
-				// do nothing, we need the output buffer in tests
-			}
+			'tmpDirectory' => $this->getNewTempDirectory()
 		] );
 		$this->repo = new FileRepo( $this->getRepoOptions() );
 	}

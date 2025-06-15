@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable GeneratedContentNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -32,7 +32,15 @@ OO.initClass( ve.ce.GeneratedContentNode );
 /* Events */
 
 /**
- * @event ve.ce.GeneratedContentNode#rerender
+ * @event setup
+ */
+
+/**
+ * @event teardown
+ */
+
+/**
+ * @event rerender
  */
 
 /* Static members */
@@ -52,12 +60,12 @@ ve.ce.GeneratedContentNode.static.renderHtmlAttributes = false;
  * @return {jQuery.Promise} Promise, resolved when content is generated
  */
 ve.ce.GeneratedContentNode.static.awaitGeneratedContent = function ( view ) {
-	const promises = [];
+	var promises = [];
 
 	function queueNode( node ) {
 		if ( typeof node.generateContents === 'function' ) {
 			if ( node.isGenerating() ) {
-				const promise = ve.createDeferred();
+				var promise = ve.createDeferred();
 				node.once( 'rerender', promise.resolve );
 				promises.push( promise );
 			}
@@ -125,18 +133,18 @@ ve.ce.GeneratedContentNode.prototype.onGeneratedContentNodeUpdate = function ( s
  * @return {HTMLElement[]} Clones of the DOM elements in the right document, with modifications
  */
 ve.ce.GeneratedContentNode.prototype.getRenderedDomElements = function ( domElements ) {
-	const doc = this.getElementDocument();
+	var doc = this.getElementDocument();
 
-	let rendering = this.filterRenderedDomElements(
+	var rendering = this.filterRenderedDomElements(
 		// Clone the elements into the target document
 		ve.copyDomElements( domElements, doc )
 	);
 
 	if ( rendering.length ) {
 		// Span wrap root text nodes so they can be measured
-		rendering = rendering.map( ( node ) => {
+		rendering = rendering.map( function ( node ) {
 			if ( node.nodeType === Node.TEXT_NODE ) {
-				const span = document.createElement( 'span' );
+				var span = document.createElement( 'span' );
 				span.appendChild( node );
 				return span;
 			}
@@ -150,12 +158,6 @@ ve.ce.GeneratedContentNode.prototype.getRenderedDomElements = function ( domElem
 		);
 	} else {
 		rendering = [ document.createElement( 'span' ) ];
-	}
-
-	if ( rendering.every( ve.isVoidElement ) ) {
-		// Should contain at least one non-void element, e.g. for attaching
-		// a visibility button in ve.ce.FocusableNode#updateInvisibleIconSync
-		rendering.push( document.createElement( 'span' ) );
 	}
 
 	return rendering;
@@ -176,15 +178,15 @@ ve.ce.GeneratedContentNode.prototype.filterRenderedDomElements = function ( domE
  *
  * @param {Object|string|Array} generatedContents Generated contents, in the default case an HTMLElement array
  * @param {boolean} [staged] Update happened in staging mode
- * @fires ve.ce.View#setup
- * @fires ve.ce.View#teardown
- * @fires ve.dm.GeneratedContentNode#generatedContentsError
+ * @fires setup
+ * @fires teardown
  */
 ve.ce.GeneratedContentNode.prototype.render = function ( generatedContents, staged ) {
+	var node = this;
 	if ( this.live ) {
 		this.emit( 'teardown' );
 	}
-	const $newElements = $( this.getRenderedDomElements( ve.copyDomElements( generatedContents ) ) );
+	var $newElements = $( this.getRenderedDomElements( ve.copyDomElements( generatedContents ) ) );
 	this.generatedContentsInvalid = !this.validateGeneratedContents( $( generatedContents ) );
 	if ( !staged || !this.generatedContentsInvalid ) {
 		if ( !this.$element[ 0 ].parentNode ) {
@@ -192,16 +194,16 @@ ve.ce.GeneratedContentNode.prototype.render = function ( generatedContents, stag
 			this.$element = $newElements;
 		} else {
 			// Switch out this.$element (which can contain multiple siblings) in place
-			const lengthChange = this.$element.length !== $newElements.length;
+			var lengthChange = this.$element.length !== $newElements.length;
 			this.$element.first().replaceWith( $newElements );
 			this.$element.remove();
 			this.$element = $newElements;
 			if ( lengthChange ) {
 				// Changing the DOM node count can move the cursor, so re-apply
 				// the cursor position from the model (T231094).
-				setTimeout( () => {
-					if ( this.getRoot() && this.getRoot().getSurface() ) {
-						this.getRoot().getSurface().showModelSelection();
+				setTimeout( function () {
+					if ( node.getRoot() && node.getRoot().getSurface() ) {
+						node.getRoot().getSurface().showModelSelection();
 					}
 				} );
 			}
@@ -245,13 +247,13 @@ ve.ce.GeneratedContentNode.prototype.render = function ( generatedContents, stag
  */
 ve.ce.GeneratedContentNode.prototype.preventTabbingInside = function () {
 	// Like OO.ui.findFocusable(), but find *all* such nodes rather than the first one.
-	const selector = 'input, select, textarea, button, object, a, area, [contenteditable], [tabindex]',
+	var selector = 'input, select, textarea, button, object, a, area, [contenteditable], [tabindex]',
 		$focusableCandidates = this.$element.find( selector ).addBack( selector );
 
-	$focusableCandidates.each( ( i, element ) => {
-		const $element = $( element );
-		if ( OO.ui.isFocusableElement( $element ) ) {
-			$element.attr( 'tabindex', -1 );
+	$focusableCandidates.each( function () {
+		var $this = $( this );
+		if ( OO.ui.isFocusableElement( $this ) ) {
+			$this.attr( 'tabindex', -1 );
 		}
 	} );
 };
@@ -261,7 +263,7 @@ ve.ce.GeneratedContentNode.prototype.preventTabbingInside = function () {
  *
  * Nodes may override this method if the rerender event needs to be deferred (e.g. until images have loaded)
  *
- * @fires ve.ce.GeneratedContentNode#rerender
+ * @fires rerender
  */
 ve.ce.GeneratedContentNode.prototype.afterRender = function () {
 	this.emit( 'rerender' );
@@ -287,7 +289,7 @@ ve.ce.GeneratedContentNode.prototype.validateGeneratedContents = function () {
  * @param {boolean} [staged] Update happened in staging mode
  */
 ve.ce.GeneratedContentNode.prototype.update = function ( config, staged ) {
-	const store = this.model.doc.getStore(),
+	var store = this.model.doc.getStore(),
 		contents = store.value( store.hashOfValue( null, OO.getHash( [ this.model.getHashObjectForRendering(), config ] ) ) );
 	if ( contents ) {
 		this.render( contents, staged );
@@ -311,18 +313,19 @@ ve.ce.GeneratedContentNode.prototype.forceUpdate = function ( config, staged ) {
 		this.startGenerating();
 	}
 
+	var node = this;
 	// Create a new promise
-	const promise = this.generatingPromise = this.generateContents( config );
+	var promise = this.generatingPromise = this.generateContents( config );
 	promise
 		// If this promise is no longer the currently pending one, ignore it completely
-		.done( ( generatedContents ) => {
-			if ( this.generatingPromise === promise ) {
-				this.doneGenerating( generatedContents, config, staged );
+		.done( function ( generatedContents ) {
+			if ( node.generatingPromise === promise ) {
+				node.doneGenerating( generatedContents, config, staged );
 			}
 		} )
-		.fail( () => {
-			if ( this.generatingPromise === promise ) {
-				this.failGenerating();
+		.fail( function () {
+			if ( node.generatingPromise === promise ) {
+				node.failGenerating();
 			}
 		} );
 };
@@ -345,7 +348,7 @@ ve.ce.GeneratedContentNode.prototype.startGenerating = function () {
  * that if the promise does get resolved or rejected later, this is ignored.
  */
 ve.ce.GeneratedContentNode.prototype.abortGenerating = function () {
-	const promise = this.generatingPromise;
+	var promise = this.generatingPromise;
 	if ( promise ) {
 		// Unset this.generatingPromise first so that if the promise is resolved or rejected
 		// from within .abort(), this is ignored as it should be
@@ -371,8 +374,8 @@ ve.ce.GeneratedContentNode.prototype.doneGenerating = function ( generatedConten
 	// Because doneGenerating is invoked asynchronously, the model node may have become detached
 	// in the meantime. Handle this gracefully.
 	if ( this.model && this.model.doc ) {
-		const store = this.model.doc.getStore();
-		const hash = OO.getHash( [ this.model.getHashObjectForRendering(), config ] );
+		var store = this.model.doc.getStore();
+		var hash = OO.getHash( [ this.model.getHashObjectForRendering(), config ] );
 		store.hash( generatedContents, hash );
 		this.render( generatedContents, staged );
 	}

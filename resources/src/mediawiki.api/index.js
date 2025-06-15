@@ -1,48 +1,31 @@
 ( function () {
-	/**
-	 * @typedef {Object} mw.Api.Options
-	 * @property {Object} [parameters = { action: 'query', format: 'json' }] Default query
-	 *  parameters for API requests
-	 * @property {Object} [ajax = { url: mw.util.wikiScript( 'api' ), timeout: 30 * 1000, dataType: 'json' }]
-	 *  Default options for jQuery#ajax
-	 * @property {boolean} [useUS] Whether to use U+001F when joining multi-valued
-	 *  parameters (since 1.28). Default is true if ajax.url is not set, false otherwise for
-	 *  compatibility.
-	 */
+	var defaultOptions;
 
 	/**
-	 * @private
-	 * @type {mw.Api.Options}
-	 */
-	let defaultOptions = null;
-
-	/**
-	 * @classdesc Interact with the MediaWiki API. `mw.Api` is a client library for
-	 * the [action API](https://www.mediawiki.org/wiki/Special:MyLanguage/API:Main_page).
-	 * An `mw.Api` object represents the API of a MediaWiki site. For the REST API,
-	 * see {@link mw.Rest}.
+	 * Client library for the action API. See mw.Rest for the REST API.
 	 *
-	 * ```
-	 * var api = new mw.Api();
-	 * api.get( {
-	 *     action: 'query',
-	 *     meta: 'userinfo'
-	 * } ).then( function ( data ) {
-	 *     console.log( data );
-	 * } );
-	 * ```
+	 * See also <https://www.mediawiki.org/wiki/API:Main_page>.
+	 *
+	 * Interact with the API of a particular MediaWiki site. mw.Api objects represent the API of
+	 * one particular MediaWiki site.
+	 *
+	 *     var api = new mw.Api();
+	 *     api.get( {
+	 *         action: 'query',
+	 *         meta: 'userinfo'
+	 *     } ).done( function ( data ) {
+	 *         console.log( data );
+	 *     } );
 	 *
 	 * Since MW 1.25, multiple values for a parameter can be specified using an array:
 	 *
-	 * ```
-	 * var api = new mw.Api();
-	 * api.get( {
-	 *     action: 'query',
-	 *     meta: [ 'userinfo', 'siteinfo' ] // same effect as 'userinfo|siteinfo'
-	 * } ).then( function ( data ) {
-	 *     console.log( data );
-	 * } );
-	 * ```
+	 *     var api = new mw.Api();
+	 *     api.get( {
+	 *         action: 'query',
+	 *         meta: [ 'userinfo', 'siteinfo' ] // same effect as 'userinfo|siteinfo'
+	 *     } ).done( function ( data ) {
+	 *         console.log( data );
+	 *     } );
 	 *
 	 * Since MW 1.26, boolean values for API parameters can be specified natively. Parameter
 	 * values set to `false` or `undefined` will be omitted from the request, as required by
@@ -50,17 +33,15 @@
 	 *
 	 * @class mw.Api
 	 * @constructor
-	 * @description Create an instance of `mw.Api`.
-	 * @param {mw.Api.Options} [options] See {@link mw.Api.Options}. This can also be overridden for
-	 *  each request by passing them to [get()]{@link mw.Api#get} or [post()]{@link mw.Api#post} (or directly to
-	 *  [ajax()]{@link mw.Api#ajax}) later on.
+	 * @param {Object} [options] See #defaultOptions documentation above. Can also be overridden for
+	 *  each individual request by passing them to #get or #post (or directly #ajax) later on.
 	 */
 	mw.Api = function ( options ) {
-		const defaults = Object.assign( {}, options ),
+		var defaults = $.extend( {}, options ),
 			setsUrl = options && options.ajax && options.ajax.url !== undefined;
 
-		defaults.parameters = Object.assign( {}, defaultOptions.parameters, defaults.parameters );
-		defaults.ajax = Object.assign( {}, defaultOptions.ajax, defaults.ajax );
+		defaults.parameters = $.extend( {}, defaultOptions.parameters, defaults.parameters );
+		defaults.ajax = $.extend( {}, defaultOptions.ajax, defaults.ajax );
 
 		// Force a string if we got a mw.Uri object
 		if ( setsUrl ) {
@@ -76,7 +57,13 @@
 
 	/**
 	 * @private
-	 * @type {mw.Api.Options}
+	 * @property {Object} defaultOptions Default options for #ajax calls. Can be overridden by passing
+	 *     `options` to mw.Api constructor.
+	 * @property {Object} defaultOptions.parameters Default query parameters for API requests.
+	 * @property {Object} defaultOptions.ajax Default options for jQuery#ajax.
+	 * @property {boolean} defaultOptions.useUS Whether to use U+001F when joining multi-valued
+	 *     parameters (since 1.28). Default is true if ajax.url is not set, false otherwise for
+	 *     compatibility.
 	 */
 	defaultOptions = {
 		parameters: {
@@ -90,9 +77,12 @@
 		}
 	};
 
+	// Keyed by ajax url and symbolic name for the individual request
+	var promises = {};
+
 	function mapLegacyToken( action ) {
 		// Legacy types for backward-compatibility with API action=tokens.
-		const csrfActions = [
+		var csrfActions = [
 			'edit',
 			'delete',
 			'protect',
@@ -111,27 +101,17 @@
 		return action;
 	}
 
-	function createTokenCache() {
-		const tokenPromises = {};
-
-		// Pre-populate with fake ajax promises to avoid HTTP requests for tokens that
-		// we already have on the page from the embedded user.options module (T36733).
-		tokenPromises[ defaultOptions.ajax.url ] = {};
-		const tokens = mw.user.tokens.get();
-		for ( const tokenKey in tokens ) {
-			const value = tokens[ tokenKey ];
-			// This requires #getToken to use the same key as mw.user.tokens.
-			// Format: token-type + "Token" (eg. csrfToken, patrolToken, watchToken).
-			tokenPromises[ defaultOptions.ajax.url ][ tokenKey ] = $.Deferred()
-				.resolve( value )
-				.promise( { abort: function () {} } );
-		}
-
-		return tokenPromises;
-	}
-
-	// Keyed by ajax url and symbolic name for the individual request
-	let promises = createTokenCache();
+	// Pre-populate with fake ajax promises to avoid HTTP requests for tokens that
+	// we already have on the page from the embedded user.options module (T36733).
+	promises[ defaultOptions.ajax.url ] = {};
+	// eslint-disable-next-line no-jquery/no-each-util
+	$.each( mw.user.tokens.get(), function ( key, value ) {
+		// This requires #getToken to use the same key as mw.user.tokens.
+		// Format: token-type + "Token" (eg. csrfToken, patrolToken, watchToken).
+		promises[ defaultOptions.ajax.url ][ key ] = $.Deferred()
+			.resolve( value )
+			.promise( { abort: function () {} } );
+	} );
 
 	mw.Api.prototype = {
 		/**
@@ -140,7 +120,7 @@
 		 * @method
 		 */
 		abort: function () {
-			this.requests.forEach( ( request ) => {
+			this.requests.forEach( function ( request ) {
 				if ( request ) {
 					request.abort();
 				}
@@ -148,7 +128,7 @@
 		},
 
 		/**
-		 * Perform API get request. See [ajax()]{@link mw.Api#ajax} for details.
+		 * Perform API get request. See #ajax for details.
 		 *
 		 * @param {Object} parameters
 		 * @param {Object} [ajaxOptions]
@@ -161,7 +141,7 @@
 		},
 
 		/**
-		 * Perform API post request. See [ajax()]{@link mw.Api#ajax} for details.
+		 * Perform API post request. See #ajax for details.
 		 *
 		 * @param {Object} parameters
 		 * @param {Object} [ajaxOptions]
@@ -181,10 +161,10 @@
 		 *
 		 * @private
 		 * @param {Object} parameters (modified in-place)
-		 * @param {boolean} useUS Whether to use U+001F when joining multivalued parameters.
+		 * @param {boolean} useUS Whether to use U+001F when joining multi-valued parameters.
 		 */
 		preprocessParameters: function ( parameters, useUS ) {
-			let key;
+			var key;
 			// Handle common MediaWiki API idioms for passing parameters
 			for ( key in parameters ) {
 				// Multiple values are pipe-separated
@@ -204,9 +184,9 @@
 		/**
 		 * Perform the API call.
 		 *
-		 * @param {Object} parameters Parameters to the API. See also {@link mw.Api.Options}
+		 * @param {Object} parameters Parameters to the API. See also #defaultOptions.parameters.
 		 * @param {Object} [ajaxOptions] Parameters to pass to jQuery.ajax. See also
-		 *   {@link mw.Api.Options}
+		 *   #defaultOptions.ajax.
 		 * @return {jQuery.Promise} A promise that settles when the API response is processed.
 		 *   Has an 'abort' method which can be used to abort the request.
 		 *
@@ -228,16 +208,17 @@
 		 *       first line of the server response). For HTTP/2, `exception` is always an empty string.
 		 *     - When the response is not valid JSON but the previous error conditions aren't met,
 		 *       textStatus is "parsererror" and exception is the exception object thrown by
-		 *       {@link JSON.parse}.
+		 *       `JSON.parse`.
 		 */
 		ajax: function ( parameters, ajaxOptions ) {
-			const api = this,
-				apiDeferred = $.Deferred();
+			var token, requestIndex,
+				api = this,
+				apiDeferred = $.Deferred(),
+				xhr, key, formData;
 
-			parameters = Object.assign( {}, this.defaults.parameters, parameters );
-			ajaxOptions = Object.assign( {}, this.defaults.ajax, ajaxOptions );
+			parameters = $.extend( {}, this.defaults.parameters, parameters );
+			ajaxOptions = $.extend( {}, this.defaults.ajax, ajaxOptions );
 
-			let token;
 			// Ensure that token parameter is last (per [[mw:API:Edit#Token]]).
 			if ( parameters.token ) {
 				token = parameters.token;
@@ -253,9 +234,9 @@
 				ajaxOptions.contentType === 'multipart/form-data'
 			) {
 
-				const formData = new FormData();
+				formData = new FormData();
 
-				for ( const key in parameters ) {
+				for ( key in parameters ) {
 					formData.append( key, parameters[ key ] );
 				}
 				// If we extracted a token parameter, add it back in.
@@ -285,10 +266,10 @@
 			}
 
 			// Make the AJAX request
-			const xhr = $.ajax( ajaxOptions )
+			xhr = $.ajax( ajaxOptions )
 				// If AJAX fails, reject API call with error code 'http'
-				// and the details in the second argument.
-				.fail( ( jqXHR, textStatus, exception ) => {
+				// and details in second argument.
+				.fail( function ( jqXHR, textStatus, exception ) {
 					apiDeferred.reject( 'http', {
 						xhr: jqXHR,
 						textStatus: textStatus,
@@ -296,8 +277,8 @@
 					} );
 				} )
 				// AJAX success just means "200 OK" response, also check API error codes
-				.done( ( result, textStatus, jqXHR ) => {
-					let code;
+				.done( function ( result, textStatus, jqXHR ) {
+					var code;
 					if ( result === undefined || result === null || result === '' ) {
 						apiDeferred.reject( 'ok-but-empty',
 							'OK response but empty result (check HTTP headers?)',
@@ -317,13 +298,13 @@
 					}
 				} );
 
-			const requestIndex = this.requests.length;
+			requestIndex = this.requests.length;
 			this.requests.push( xhr );
-			xhr.always( () => {
+			xhr.always( function () {
 				api.requests[ requestIndex ] = null;
 			} );
 			// Return the Promise
-			return apiDeferred.promise( { abort: xhr.abort } ).fail( ( code, details ) => {
+			return apiDeferred.promise( { abort: xhr.abort } ).fail( function ( code, details ) {
 				if ( !( code === 'http' && details && details.textStatus === 'abort' ) ) {
 					mw.log( 'mw.Api error: ', code, details );
 				}
@@ -331,35 +312,34 @@
 		},
 
 		/**
-		 * Post to API with the specified type of token. If we have no token, get one and try to post.
-		 * If we already have a cached token, try using that, and if the request fails using the cached token,
-		 * blank it out and start over.
+		 * Post to API with specified type of token. If we have no token, get one and try to post.
+		 * If we have a cached token try using that, and if it fails, blank out the
+		 * cached token and start over. For example to change an user option you could do:
 		 *
-		 * @example <caption>For example, to change a user option, you could do:</caption>
-		 * new mw.Api().postWithToken( 'csrf', {
-		 *     action: 'options',
-		 *     optionname: 'gender',
-		 *     optionvalue: 'female'
-		 * } );
+		 *     new mw.Api().postWithToken( 'csrf', {
+		 *         action: 'options',
+		 *         optionname: 'gender',
+		 *         optionvalue: 'female'
+		 *     } );
 		 *
 		 * @param {string} tokenType The name of the token, like options or edit.
 		 * @param {Object} params API parameters
 		 * @param {Object} [ajaxOptions]
-		 * @return {jQuery.Promise} See [post()]{@link mw.Api#post}
+		 * @return {jQuery.Promise} See #post
 		 * @since 1.22
 		 */
 		postWithToken: function ( tokenType, params, ajaxOptions ) {
-			const api = this,
+			var api = this,
 				assertParams = {
 					assert: params.assert,
 					assertuser: params.assertuser
 				},
 				abortedPromise = $.Deferred().reject( 'http',
-					{ textStatus: 'abort', exception: 'abort' } ).promise();
-			let abortable,
+					{ textStatus: 'abort', exception: 'abort' } ).promise(),
+				abortable,
 				aborted;
 
-			return api.getToken( tokenType, assertParams ).then( ( token ) => {
+			return api.getToken( tokenType, assertParams ).then( function ( token ) {
 				params.token = token;
 				// Request was aborted while token request was running, but we
 				// don't want to unnecessarily abort token requests, so abort
@@ -376,7 +356,7 @@
 							// Try again, once
 							params.token = undefined;
 							abortable = null;
-							return api.getToken( tokenType, assertParams ).then( ( t ) => {
+							return api.getToken( tokenType, assertParams ).then( function ( t ) {
 								params.token = t;
 								if ( aborted ) {
 									return abortedPromise;
@@ -406,69 +386,68 @@
 		 * @param {string} type Token type
 		 * @param {Object|string} [additionalParams] Additional parameters for the API (since 1.35).
 		 *   When given a string, it's treated as the 'assert' parameter (since 1.25).
-		 * @return {jQuery.Promise<string>} Received token.
+		 * @return {jQuery.Promise} Received token.
 		 */
 		getToken: function ( type, additionalParams ) {
+			var apiPromise, promiseGroup, d, reject;
 			type = mapLegacyToken( type );
+			promiseGroup = promises[ this.defaults.ajax.url ];
+			d = promiseGroup && promiseGroup[ type + 'Token' ];
+
 			if ( typeof additionalParams === 'string' ) {
 				additionalParams = { assert: additionalParams };
 			}
 
-			const cacheKey = type + 'Token';
-			let promiseGroup = promises[ this.defaults.ajax.url ];
 			if ( !promiseGroup ) {
 				promiseGroup = promises[ this.defaults.ajax.url ] = {};
 			}
-			let promise = promiseGroup && promiseGroup[ cacheKey ];
 
-			function reject() {
-				// Clear cache. Do not cache errors.
-				delete promiseGroup[ cacheKey ];
-
-				// Let caller handle the error code
-				return $.Deferred().rejectWith( this, arguments );
-			}
-
-			if ( !promise ) {
-				const apiPromise = this.get( Object.assign( {
+			if ( !d ) {
+				apiPromise = this.get( $.extend( {
 					action: 'query',
 					meta: 'tokens',
 					type: type
 				}, additionalParams ) );
-				promise = apiPromise
-					.then( ( res ) => {
+				reject = function () {
+					// Clear promise. Do not cache errors.
+					delete promiseGroup[ type + 'Token' ];
+
+					// Let caller handle the error code
+					return $.Deferred().rejectWith( this, arguments );
+				};
+				d = apiPromise
+					.then( function ( res ) {
 						if ( !res.query ) {
 							return reject( 'query-missing', res );
 						}
-						// If the token type is unknown, it is omitted from the response
+						// If token type is unknown, it is omitted from the response
 						if ( !res.query.tokens[ type + 'token' ] ) {
 							return $.Deferred().reject( 'token-missing', res );
 						}
 						return res.query.tokens[ type + 'token' ];
 					}, reject )
-					// Preserve abort handler
+					// Attach abort handler
 					.promise( { abort: apiPromise.abort } );
 
-				// Optimization: Store the promise so we can reuse it immediately, even when
-				// other async code requests before this one finishes.
-				promiseGroup[ cacheKey ] = promise;
+				// Store deferred now so that we can use it again even if it isn't ready yet
+				promiseGroup[ type + 'Token' ] = d;
 			}
 
-			return promise;
+			return d;
 		},
 
 		/**
 		 * Indicate that the cached token for a certain action of the API is bad.
 		 *
-		 * Call this if you get a 'badtoken' error when using the token returned by [getToken()]{@link mw.Api#getToken}.
-		 * You may also want to use [postWithToken()]{@link mw.Api#postWithToken} instead, which invalidates bad cached tokens
+		 * Call this if you get a 'badtoken' error when using the token returned by #getToken.
+		 * You may also want to use #postWithToken instead, which invalidates bad cached tokens
 		 * automatically.
 		 *
 		 * @param {string} type Token type
 		 * @since 1.26
 		 */
 		badToken: function ( type ) {
-			const promiseGroup = promises[ this.defaults.ajax.url ];
+			var promiseGroup = promises[ this.defaults.ajax.url ];
 
 			type = mapLegacyToken( type );
 			if ( promiseGroup ) {
@@ -483,27 +462,26 @@
 		 * For better quality of error messages, it's recommended to use the following options in your
 		 * API queries:
 		 *
-		 * ```
-		 * errorformat: 'html',
-		 * errorlang: mw.config.get( 'wgUserLanguage' ),
-		 * errorsuselocal: true,
-		 * ```
+		 *     errorformat: 'html',
+		 *     errorlang: mw.config.get( 'wgUserLanguage' ),
+		 *     errorsuselocal: true,
 		 *
 		 * Error messages, particularly for editing pages, may consist of multiple paragraphs of text.
 		 * Your user interface should have enough space for that.
 		 *
-		 * @example
-		 * var api = new mw.Api();
-		 * // var title = 'Test valid title';
-		 * var title = 'Test invalid title <>';
-		 * api.postWithToken( 'watch', {
-		 *   action: 'watch',
-		 *   title: title
-		 * } ).then( function ( data ) {
-		 *   mw.notify( 'Success!' );
-		 * }, function ( code, data ) {
-		 *   mw.notify( api.getErrorMessage( data ), { type: 'error' } );
-		 * } );
+		 * Example usage:
+		 *
+		 *     var api = new mw.Api();
+		 *     // var title = 'Test valid title';
+		 *     var title = 'Test invalid title <>';
+		 *     api.postWithToken( 'watch', {
+		 *       action: 'watch',
+		 *       title: title
+		 *     } ).then( function ( data ) {
+		 *       mw.notify( 'Success!' );
+		 *     }, function ( code, data ) {
+		 *       mw.notify( api.getErrorMessage( data ), { type: 'error' } );
+		 *     } );
 		 *
 		 * @param {Object} data API response indicating an error
 		 * @return {jQuery} Error messages, each wrapped in a `<div>`
@@ -514,7 +492,7 @@
 				// The #ajax method returns the data like this, it's not my fault...
 				data === 'OK response but empty result (check HTTP headers?)'
 			) {
-				// The server failed so horribly that it did not set a HTTP error status
+				// Server failed so horribly it did not even set a HTTP error status
 				return $( '<div>' ).append( mw.message( 'api-clientside-error-invalidresponse' ).parseDom() );
 
 			} else if ( data.xhr ) {
@@ -522,7 +500,7 @@
 					// Hit the timeout (as defined above in defaultOptions)
 					return $( '<div>' ).append( mw.message( 'api-clientside-error-timeout' ).parseDom() );
 				} else if ( data.textStatus === 'abort' ) {
-					// The request was cancelled by calling the abort() method on the promise
+					// Request cancelled by calling the abort() method on the promise
 					return $( '<div>' ).append( mw.message( 'api-clientside-error-aborted' ).parseDom() );
 				} else if ( data.textStatus === 'parsererror' ) {
 					// Server returned invalid JSON
@@ -545,14 +523,14 @@
 
 			} else if ( data.errors ) {
 				// errorformat: 'html'
-				return $( data.errors.map( ( err ) => {
+				return $( data.errors.map( function ( err ) {
 					// formatversion: 1 / 2
-					const $node = $( '<div>' ).html( err[ '*' ] || err.html );
+					var $node = $( '<div>' ).html( err[ '*' ] || err.html );
 					return $node[ 0 ];
 				} ) );
 
 			} else {
-				// The server returned some valid but bogus JSON that probably doesn't even come from our API,
+				// Server returned some valid but bogus JSON that probably doesn't even come from our API,
 				// or this method was called incorrectly (e.g. with a successful response)
 				mw.log.warn( 'mw.Api#getErrorMessage could not handle the response:', data );
 				return $( '<div>' ).append( mw.message( 'api-clientside-error-invalidresponse' ).parseDom() );
@@ -560,9 +538,4 @@
 		}
 	};
 
-	if ( window.QUnit ) {
-		mw.Api.resetTokenCacheForTest = function () {
-			promises = createTokenCache();
-		};
-	}
 }() );

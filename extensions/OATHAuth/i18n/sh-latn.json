@@ -1,17 +1,18 @@
 {
 	"@metadata": {
 		"authors": [
-			"BadDog",
-			"Winston Sung"
+			"Winston Sung",
+			"BadDog"
 		]
 	},
 	"oathauth-desc": "Omogućuje autentifikaciju korisnika pomoću HMAC-a na temelju jednokratnih lozinki",
 	"disableoathforuser": "Onemogući dvofaktorsku autentifikaciju korisnika",
 	"verifyoathforuser": "Verifikacija statusa dvofaktorske autentifikacije",
+	"specialpages-group-oath": "Dvofaktorska autentifikacija",
 	"oathauth-account": "Ime računa:",
 	"oathauth-secret": "Tajni ključ za dvofaktorsku autentifikaciju:",
 	"oathauth-enable": "Omogućavanje dvofaktorske autentifikacije",
-	"oathauth-recoverycodes": "Ovo je spisak jednokratnih žetona. Mogu se koristiti samo jednom i poslužiti za nepredviđene slučajeve. Zapišite ih i čuvajte na sigurnom mjestu. Ako izgubite telefon, žetoni su jedini način za povratak računa. '''Ovi žetoni se više nikada neće prikazati.'''",
+	"oathauth-token": "Žeton",
 	"oathauth-disable": "Onemogućavanje dvofaktorske autentifikacije",
 	"oathauth-validatedoath": "Ovjereno je dvofaktorsko punomoćje. Sada stupa na snagu.",
 	"oathauth-noscratchforvalidation": "Ne možete koristiti pričuvni kod za potvrđivanje dvofaktorske autentifikacije. Ovi kodovi su slobodni i imaju isključivo namjensku upotrebu. Poslužite s kodom iz Vašeg generatora koda.",
@@ -31,8 +32,6 @@
 	"action-oathauth-disable-for-user": "onemogućavanje dvofaktorske autentifikacije korisnika",
 	"right-oathauth-verify-user": "Provjera je li suradnica/suradnik omogućio dvofaktorsku autentifikaciju",
 	"action-oathauth-verify-user": "provjeru je li suradnica/suradnik omogućio dvofaktorsku autentifikaciju",
-	"right-oathauth-view-log": "Pristup dnevniku promjena dvofaktorske autentifikacije",
-	"action-oathauth-view-log": "pristup dnevniku promjena dvofaktorske autentifikacije",
 	"oathauth-disable-intro": "Sa velikom moći dolazi velika odgovornost",
 	"oathauth-enteruser": "Korisničko ime:",
 	"oathauth-enterdisablereason": "Razlog onemogućavanja:",
@@ -66,6 +65,7 @@
 	"oathauth-enable-generic": "Omogući",
 	"oathauth-disable-generic": "Onemogući",
 	"oathauth-invalid-data-format": "Naveden nevažeći davatelj podataka u ključotu namijenjenom stvaranju izabrane metode potvrde",
+	"oathauth-invalid-key-type": "Ključ zadani korisniku ne odgovara potrebnom tipu za izbor metode potvrde",
 	"oathauth-disable-page-title": "Onemogući $1",
 	"oathauth-enable-page-title": "Omogući $1",
 	"oathauth-action-exclusive-to-2fa": "Radnju mogu izvršiti samo korisnici koji imaju omogućenu dvofaktorsku autentifikaciju.",

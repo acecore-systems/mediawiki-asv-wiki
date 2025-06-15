@@ -1,12 +1,5 @@
 <?php
 
-namespace MediaWiki\HTMLForm\Field;
-
-use InvalidArgumentException;
-use MediaWiki\Html\Html;
-use MediaWiki\Request\WebRequest;
-use MediaWiki\Widget\SelectWithInputWidget;
-
 /**
  * Double field with a dropdown list constructed from a system message in the format
  *     * Optgroup header
@@ -40,7 +33,8 @@ class HTMLSelectAndOtherField extends HTMLSelectField {
 		parent::__construct( $params );
 
 		if ( $this->getOptions() === null ) {
-			throw new InvalidArgumentException( 'HTMLSelectAndOtherField called without any options' );
+			// Sulk
+			throw new MWException( 'HTMLSelectAndOtherField called without any options' );
 		}
 		if ( !in_array( 'other', $this->mOptions, true ) ) {
 			// Have 'other' always as first element
@@ -110,7 +104,7 @@ class HTMLSelectAndOtherField extends HTMLSelectField {
 			'maxlength',
 		];
 
-		$textAttribs += \OOUI\Element::configFromHtmlAttributes(
+		$textAttribs += OOUI\Element::configFromHtmlAttributes(
 			$this->getAttributes( $allowedParams )
 		);
 
@@ -126,7 +120,7 @@ class HTMLSelectAndOtherField extends HTMLSelectField {
 			'disabled',
 		];
 
-		$dropdownInputAttribs += \OOUI\Element::configFromHtmlAttributes(
+		$dropdownInputAttribs += OOUI\Element::configFromHtmlAttributes(
 			$this->getAttributes( $allowedParams )
 		);
 
@@ -154,61 +148,11 @@ class HTMLSelectAndOtherField extends HTMLSelectField {
 	}
 
 	/**
+	 * @inheritDoc
 	 * @stable to override
-	 * @param array $params
-	 * @return \MediaWiki\Widget\SelectWithInputWidget
 	 */
 	public function getInputWidget( $params ) {
-		return new SelectWithInputWidget( $params );
-	}
-
-	public function getInputCodex( $value, $hasErrors ) {
-		$select = parent::getInputCodex( $value[1], $hasErrors );
-
-		// Set up attributes for the text input.
-		$textInputAttribs = [
-			'size' => $this->getSize(),
-			'name' => $this->mName . '-other'
-		];
-
-		if ( isset( $this->mParams['maxlength-unit'] ) ) {
-			$textInputAttribs['data-mw-maxlength-unit'] = $this->mParams['maxlength-unit'];
-		}
-
-		$allowedParams = [
-			'required',
-			'autofocus',
-			'multiple',
-			'disabled',
-			'tabindex',
-			'maxlength', // gets dynamic with javascript, see mediawiki.htmlform.js
-			'maxlength-unit', // 'bytes' or 'codepoints', see mediawiki.htmlform.js
-		];
-
-		$textInputAttribs += $this->getAttributes( $allowedParams );
-
-		// Get text input HTML.
-		$textInput = HTMLTextField::buildCodexComponent(
-			$value[2],
-			$hasErrors,
-			'text',
-			$this->mName . '-other',
-			$textInputAttribs
-		);
-
-		// Set up the wrapper element and return the entire component.
-		$wrapperAttribs = [
-			'id' => $this->mID,
-			'class' => [ self::FIELD_CLASS ]
-		];
-		if ( $this->mClass !== '' ) {
-			$wrapperAttribs['class'][] = $this->mClass;
-		}
-		return Html::rawElement(
-			'div',
-			$wrapperAttribs,
-			"$select<br />\n$textInput"
-		);
+		return new MediaWiki\Widget\SelectWithInputWidget( $params );
 	}
 
 	/**
@@ -229,7 +173,7 @@ class HTMLSelectAndOtherField extends HTMLSelectField {
 			$text = $final;
 			foreach ( $this->mFlatOptions as $option ) {
 				$match = $option . $this->msg( 'colon-separator' )->inContentLanguage()->text();
-				if ( str_starts_with( $final, $match ) ) {
+				if ( strpos( $final, $match ) === 0 ) {
 					$list = $option;
 					$text = substr( $final, strlen( $match ) );
 					break;
@@ -291,6 +235,3 @@ class HTMLSelectAndOtherField extends HTMLSelectField {
 		return true;
 	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( HTMLSelectAndOtherField::class, 'HTMLSelectAndOtherField' );

@@ -18,15 +18,12 @@
  *
  */
 
-namespace Wikimedia\Tests;
-
-use PHPUnit\Framework\TestCase;
 use Wikimedia\StaticArrayWriter;
 
 /**
  * @covers \Wikimedia\StaticArrayWriter
  */
-class StaticArrayWriterTest extends TestCase {
+class StaticArrayWriterTest extends PHPUnit\Framework\TestCase {
 	public function testCreate() {
 		$data = [
 			'foo' => 'bar',
@@ -48,8 +45,8 @@ return [
 	'baz' => 'rawr',
 	'they\'re' => '"quoted properly"',
 	'nested' => [
-		'elements',
-		'work',
+		0 => 'elements',
+		1 => 'work',
 	],
 	'intlike' => [
 		'050' => true,

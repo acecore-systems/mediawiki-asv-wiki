@@ -2,17 +2,17 @@
 
 const { action, assert, utils } = require( 'api-testing' );
 
-describe( 'Page protection', () => {
+describe( 'Page protection', function () {
 	// users
-	let anonymousUser, admin, wikiUser;
+	let admin, wikiUser;
+	const anonymousUser = action.getAnon();
 
-	beforeEach( async () => {
+	before( async () => {
 		admin = await action.mindy();
 		wikiUser = await action.alice();
-		anonymousUser = action.getAnon();
 	} );
 
-	describe( 'permission checks', () => {
+	describe( 'permission checks', function () {
 		it( 'should allow only admins to protect and unprotect an existing page', async () => {
 			const page = utils.title( 'ProtectionTest_' );
 			await admin.edit( page, { text: 'A page to protect' } );
@@ -68,14 +68,14 @@ describe( 'Page protection', () => {
 
 	} );
 
-	describe( 'cascading protection', () => {
+	describe( 'cascading protection', function () {
 		it( 'should prevent regular users from editing templates used on a protected page', async () => {
 			const template = utils.title( 'Template:Protected_' );
 			const page = utils.title( 'Unprotected_' );
 
 			await admin.edit( template, { text: 'Whatever' } );
 
-			await admin.edit( page, { text: `Using {{${ template }}}` } );
+			await admin.edit( page, { text: `Using {{${template}}}` } );
 			await admin.action( 'protect', {
 				title: page,
 				token: await admin.token(),
@@ -93,7 +93,7 @@ describe( 'Page protection', () => {
 		} );
 	} );
 
-	describe( 'levels', () => {
+	describe( 'levels', function () {
 		const protectedPage = utils.title( 'Protected_' );
 		const semiProtectedPage = utils.title( 'SemiProtected_' );
 		const protectedNonexistingPage = utils.title( 'Nonexisting_' );
@@ -208,7 +208,7 @@ describe( 'Page protection', () => {
 		} );
 	} );
 
-	describe( '"expiry" parameter', () => {
+	describe( '"expiry" parameter', function () {
 
 		const testForExpiry = async ( expiry ) => {
 			const adminEditToken = await admin.token();
@@ -253,7 +253,7 @@ describe( 'Page protection', () => {
 		} );
 	} );
 
-	describe( '"watchlist" parameter', () => {
+	describe( '"watchlist" parameter', function () {
 		// users
 		let eve;
 
@@ -295,7 +295,7 @@ describe( 'Page protection', () => {
 			return res.watchlistraw;
 		};
 
-		it( 'should have added the page to the user\'s watchlist by default', async () => {
+		it( 'should have added the page the user\'s watchlist per default', async () => {
 			const list = await eve.action( 'query', {
 				list: 'watchlistraw',
 				wrfromtitle: testWatchlist,

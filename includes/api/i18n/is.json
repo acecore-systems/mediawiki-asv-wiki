@@ -1,8 +1,8 @@
 {
 	"@metadata": {
 		"authors": [
-			"Stefán Örvar Sigmundsson",
-			"Sveinn í Felli"
+			"Sveinn í Felli",
+			"Stefán Örvar Sigmundsson"
 		]
 	},
 	"apihelp-clearhasmsg-summary": "Hreinsar <code>hasmsg</code>-markið fyrir núverandi notanda.",

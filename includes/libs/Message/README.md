@@ -21,8 +21,7 @@ contain **placeholders**, which represents a place in the message where a
 text other than these placeholders and formatting commands, or it might be in a
 **markup language** such as wikitext or Markdown.
 
-A **formatter** is used to convert the message key and parameters
-(that is, a **message specifier**) into a text
+A **formatter** is used to convert the message key and parameters into a text
 representation in a particular language and **output format**.
 
 The library itself imposes few restrictions on all of these concepts; this
@@ -45,12 +44,12 @@ $message = new MessageValue( 'message-key', [
 ] );
 
 // Fluent interface
-$message = MessageValue::new( 'message-key' )
+$message = ( new MessageValue( 'message-key' ) )
     ->params( 'parameter', new MessageValue( 'another-message' ) )
     ->numParams( 12345 );
 
 // Formatting
-$messageFormatter = $serviceContainer->get( 'MessageFormatterFactory' )->getTextFormatter( 'de' );
+$messageFormatter = $serviceContainter->get( 'MessageFormatterFactory' )->getTextFormatter( 'de' );
 $output = $messageFormatter->format( $message );
 </pre>
 
@@ -64,12 +63,6 @@ Messages and their parameters are represented by newable value objects.
 **MessageValue** represents an instance of a message, holding the key and any
 parameters. It is mutable in that parameters can be added to the object after
 creation.
-
-**MessageSpecifier** is an interface implemented by MessageValue (and, outside
-of the Wikimedia\Message namespace, also MediaWiki\Message\Message), which only
-provides getter methods for the key and parameters, and no way to mutate
-the object. It should be used in methods that output or inspect messages,
-but aren't supposed to modify them.
 
 **MessageParam** is an abstract value class representing a parameter to a message.
 It has a type (using constants defined in the **ParamType** class) and a value. It

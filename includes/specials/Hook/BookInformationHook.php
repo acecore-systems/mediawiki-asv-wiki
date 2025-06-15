@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\Output\OutputPage;
+use OutputPage;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

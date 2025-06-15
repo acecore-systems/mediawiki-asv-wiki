@@ -2,20 +2,23 @@
 @import '../../minerva.less/minerva.mixins.less';
 @import 'mediawiki.mixins.less';
 
-a.last-modified-bar {
+.last-modified-bar {
 	display: block;
-	border-bottom: @border-subtle;
-	background-color: @background-color-interactive;
-	color: @color-subtle !important;
-	padding-top: @icon-padding-medium;
-	padding-bottom: @icon-padding-medium;
+	border-bottom: solid 1px @footerBorderColor;
+	background-color: @lastModifiedBarBgColor;
+	color: @lastModifiedBarTextColor;
+	padding-top: @icon-padding-md;
+	padding-bottom: @icon-padding-md;
 	font-size: @font-size-minerva-small;
-	transition-property: background-color, color;
-	transition-duration: @transition-duration-medium;
+	transition: background-color @transition-duration-medium, color @transition-duration-medium;
 
-	.minerva-icon {
-		background-color: @color-subtle;
+	a,
+	a:visited,
+	.last-modified-text-accent {
+		color: @colorGray5;
 	}
+
+	// Note: This can be progressively enhanced in skins.minerva.scripts to provide 'recently edited' state.
 }
 
 .last-modified-bar__content {
@@ -24,16 +27,16 @@ a.last-modified-bar {
 }
 
 .last-modified-bar__text {
-	@end-padding: @width-icon-gutter + @width-icon-gutter + @size-icon;
+	@end-padding: @iconGutterWidth + @iconGutterWidth + @iconSize;
 	padding-right: @end-padding;
-	padding-left: @icon-padding-medium;
+	padding-left: @icon-padding-md;
 	line-height: @line-height-content;
 	vertical-align: middle;
 	flex-grow: 1;
 	.text-overflow( @visible: false );
 }
 
-@media ( max-width: @max-width-breakpoint-mobile ) {
+@media ( max-width: @width-breakpoint-tablet ) {
 	.last-modified-bar__text {
 		padding-right: 1em;
 	}

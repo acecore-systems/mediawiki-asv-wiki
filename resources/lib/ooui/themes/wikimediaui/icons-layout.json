@@ -12,13 +12,13 @@
 			"global": true
 		},
 		"destructive": {
-			"color": "#d73333"
+			"color": "#d33"
 		},
 		"error": {
-			"color": "#d73333"
+			"color": "#d33"
 		},
 		"warning": {
-			"color": "#edab00"
+			"color": "#fc3"
 		},
 		"success": {
 			"color": "#14866d"

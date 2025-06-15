@@ -17,6 +17,8 @@ class AFPData {
 	public const DARRAY = 'array';
 	// Special purpose type for non-initialized stuff
 	public const DUNDEFINED = 'undefined';
+	// Special purpose for creating instances that will be populated later
+	public const DEMPTY = 'empty';
 
 	/**
 	 * Translation table mapping shell-style wildcards to PCRE equivalents.
@@ -37,12 +39,12 @@ class AFPData {
 
 	/**
 	 * @var string One of the D* const from this class
-	 * @internal Use $this->getType() instead
+	 * @private Use $this->getType()
 	 */
 	public $type;
 	/**
 	 * @var mixed|null|AFPData[] The actual data contained in this object
-	 * @internal Use $this->getData() instead
+	 * @private Use $this->getData()
 	 */
 	public $data;
 
@@ -65,9 +67,9 @@ class AFPData {
 	 * @param AFPData[]|mixed|null $val
 	 */
 	public function __construct( $type, $val = null ) {
-		if ( $type === self::DUNDEFINED && $val !== null ) {
+		if ( ( $type === self::DUNDEFINED || $type === self::DEMPTY ) && $val !== null ) {
 			// Sanity
-			throw new InvalidArgumentException( 'DUNDEFINED cannot have a non-null value' );
+			throw new InvalidArgumentException( 'DUNDEFINED and DEMPTY cannot have a non-null value' );
 		}
 		$this->type = $type;
 		$this->data = $val;
@@ -98,7 +100,7 @@ class AFPData {
 				return new AFPData( self::DNULL );
 			default:
 				throw new InternalException(
-					'Data type ' . get_debug_type( $var ) . ' is not supported by AbuseFilter'
+					'Data type ' . gettype( $var ) . ' is not supported by AbuseFilter'
 				);
 		}
 	}
@@ -234,7 +236,8 @@ class AFPData {
 		} elseif ( $this->type === self::DINT ) {
 			return new AFPData( $this->type, -$this->toInt() );
 		} else {
-			return new AFPData( $this->type, -$this->toFloat() );
+			$type = $this->type === self::DEMPTY ? self::DNULL : $this->type;
+			return new AFPData( $type, -$this->toFloat() );
 		}
 	}
 
@@ -442,6 +445,7 @@ class AFPData {
 				return $output;
 			case self::DNULL:
 			case self::DUNDEFINED:
+			case self::DEMPTY:
 				return null;
 			default:
 				// @codeCoverageIgnoreStart

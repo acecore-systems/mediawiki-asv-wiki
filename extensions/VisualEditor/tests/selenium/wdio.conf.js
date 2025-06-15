@@ -7,7 +7,6 @@ exports.config = { ...config,
 	// Learn more at https://webdriver.io/docs/configurationfile/
 	//
 	// Example:
-	// logLevel: 'info',
-
-	maxInstances: 4
+	logLevel: 'info',
+	specFileRetries: 0
 };

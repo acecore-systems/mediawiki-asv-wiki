@@ -1,12 +1,9 @@
 {
 	"@metadata": {
 		"authors": [
-			"Anzx",
-			"~aanzx"
+			"~aanzx",
+			"Anzx"
 		]
 	},
-	"cite_error": "ಉಲ್ಲೇಖ ದೋಷ: $1",
-	"cite-wikieditor-tool-reference": "ಉಲ್ಲೇಖಗಳು",
-	"cite-wikieditor-help-page-references": "ಉಲ್ಲೇಖಗಳು",
-	"cite-wikieditor-help-content-reference-description": "ಉಲ್ಲೇಖಗಳು"
+	"cite_error": "ಉಲ್ಲೇಖ ದೋಷ: $1"
 }

@@ -1,11 +1,5 @@
 <?php
 
-namespace MediaWiki\Tests\Site;
-
-use MediaWiki\MediaWikiServices;
-use MediaWiki\Site\MediaWikiSite;
-use MediaWiki\Site\Site;
-
 /**
  * Holds sites for testing purposes.
  *
@@ -111,11 +105,8 @@ class TestSites {
 	 * @since 0.1
 	 */
 	public static function insertIntoDb() {
-		$sitesTable = MediaWikiServices::getInstance()->getSiteStore();
+		$sitesTable = \MediaWiki\MediaWikiServices::getInstance()->getSiteStore();
 		$sitesTable->clear();
 		$sitesTable->saveSites( self::getSites() );
 	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( TestSites::class, 'TestSites' );

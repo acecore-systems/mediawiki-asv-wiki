@@ -22,8 +22,6 @@
 
 declare( strict_types = 1 );
 
-namespace MediaWiki\Password;
-
 /**
  * The old style of MediaWiki password hashing. It involves
  * running MD5 on the password.
@@ -56,6 +54,3 @@ class MWOldPassword extends ParameterizedPassword {
 		}
 	}
 }
-
-/** @deprecated since 1.43 use MediaWiki\\Password\\MWOldPassword */
-class_alias( MWOldPassword::class, 'MWOldPassword' );

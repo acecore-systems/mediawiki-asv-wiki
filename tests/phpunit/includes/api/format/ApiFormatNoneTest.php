@@ -1,16 +1,11 @@
 <?php
 
-namespace MediaWiki\Tests\Api\Format;
-
-use MediaWiki\Api\ApiResult;
-
 /**
  * @group API
- * @covers MediaWiki\Api\ApiFormatNone
+ * @covers ApiFormatNone
  */
 class ApiFormatNoneTest extends ApiFormatTestBase {
 
-	/** @inheritDoc */
 	protected $printerName = 'none';
 
 	public static function provideGeneralEncoding() {

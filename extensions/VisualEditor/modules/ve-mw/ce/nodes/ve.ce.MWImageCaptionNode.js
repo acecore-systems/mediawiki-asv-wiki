@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable ImageCaptionNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -10,7 +10,7 @@
  *
  * @class
  * @extends ve.ce.BranchNode
- * @mixes ve.ce.ActiveNode
+ * @mixins ve.ce.ActiveNode
  *
  * @constructor
  * @param {ve.dm.MWImageCaptionNode} model Model to observe

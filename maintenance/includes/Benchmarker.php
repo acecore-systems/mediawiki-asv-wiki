@@ -26,8 +26,6 @@
  * @ingroup Benchmark
  */
 
-namespace MediaWiki\Maintenance;
-
 use Wikimedia\RunningStat;
 
 // @codeCoverageIgnoreStart
@@ -40,7 +38,6 @@ require_once __DIR__ . '/../Maintenance.php';
  * @ingroup Benchmark
  */
 abstract class Benchmarker extends Maintenance {
-	/** @var int */
 	protected $defaultCount = 100;
 
 	public function __construct() {
@@ -54,10 +51,8 @@ abstract class Benchmarker extends Maintenance {
 		$count = $this->getOption( 'count', $this->defaultCount );
 		$verbose = $this->hasOption( 'verbose' );
 
-		$normBenchs = [];
-		$shortNames = [];
-
 		// Normalise
+		$normBenchs = [];
 		foreach ( $benchs as $key => $bench ) {
 			// Shortcut for simple functions
 			if ( is_callable( $bench ) ) {
@@ -84,24 +79,19 @@ abstract class Benchmarker extends Maintenance {
 					// @phan-suppress-next-line PhanTypePossiblyInvalidDimOffset False positive
 					$name = strval( $bench['function'] );
 				}
-				$argsText = implode(
-					', ',
-					array_map(
-						static function ( $a ) {
-							return var_export( $a, true );
-						},
-						// @phan-suppress-next-line PhanTypePossiblyInvalidDimOffset False positive
-						$bench['args']
+				$name = sprintf( "%s(%s)",
+					$name,
+					implode(
+						', ',
+						array_map(
+							static function ( $a ) {
+								return var_export( $a, true );
+							},
+							// @phan-suppress-next-line PhanTypePossiblyInvalidDimOffset False positive
+							$bench['args']
+						)
 					)
 				);
-				$index = $shortNames[$name] = ( $shortNames[$name] ?? 0 ) + 1;
-				$shorten = strlen( $argsText ) > 80 || str_contains( $argsText, "\n" );
-				if ( !$shorten ) {
-					$name = "$name($argsText)";
-				}
-				if ( $shorten || $index > 1 ) {
-					$name = "$name@$index";
-				}
 			}
 
 			$normBenchs[$name] = $bench;
@@ -228,12 +218,9 @@ abstract class Benchmarker extends Maintenance {
 	protected function loadFile( $file ) {
 		$content = file_get_contents( $file );
 		// Detect GZIP compression header
-		if ( str_starts_with( $content, "\037\213" ) ) {
+		if ( substr( $content, 0, 2 ) === "\037\213" ) {
 			$content = gzdecode( $content );
 		}
 		return $content;
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( Benchmarker::class, 'Benchmarker' );

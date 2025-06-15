@@ -3,7 +3,7 @@
 
 // style that applies only to minerva footer
 .minerva-footer {
-	border-top: @border-subtle;
+	border-top: solid 1px @footerBorderColor;
 	overflow: auto;
 	padding-bottom: 6px;
 }
@@ -20,8 +20,8 @@
 
 	// links should be separated by same color
 	.hlist {
-		li::after {
-			color: @color-progressive;
+		li:after {
+			color: @color-link;
 		}
 	}
 
@@ -34,40 +34,20 @@
 		}
 
 		.minerva-footer-logo {
-			border-bottom: @border-subtle;
+			border-bottom: solid 1px @footerBorderColor;
 			padding-bottom: 10px;
 			margin-top: 42px;
 			font-size: 1em;
 			font-weight: bold;
-		}
 
-		// No margin top on logo needed if it follows the #p-lang element and nothing has been loaded
-		// above languages e.g. RelatedArticles.
-		/* stylelint-disable selector-max-id */
-		#p-lang:not( :target ):first-child + .minerva-footer-logo {
-			margin-top: 0;
+			&:first-child {
+				margin-top: 0;
+			}
 		}
 
 		.hlist,
 		.license {
 			font-size: 0.875em;
-		}
-	}
-}
-
-// Night mode
-@media screen {
-	html.skin-theme-clientpref-night {
-		.minerva-footer-logo img {
-			.night-mode-invert-image();
-		}
-	}
-}
-
-@media screen and ( prefers-color-scheme: dark ) {
-	html.skin-theme-clientpref-os {
-		.minerva-footer-logo img {
-			.night-mode-invert-image();
 		}
 	}
 }

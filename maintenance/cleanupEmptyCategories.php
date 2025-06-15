@@ -21,11 +21,9 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\Category\Category;
-
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
+
+use MediaWiki\MediaWikiServices;
 
 /**
  * Maintenance script to clean up empty categories in the category table.
@@ -89,13 +87,14 @@ TEXT
 			return false;
 		}
 
-		$dbw = $this->getPrimaryDB();
+		$dbw = $this->getDB( DB_PRIMARY );
+		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
 
 		$throttle = intval( $throttle );
 
 		if ( $mode === 'add' || $mode === 'both' ) {
 			if ( $begin !== '' ) {
-				$where = [ $dbw->expr( 'page_title', '>', $begin ) ];
+				$where = [ 'page_title > ' . $dbw->addQuotes( $begin ) ];
 			} else {
 				$where = [];
 			}
@@ -103,22 +102,29 @@ TEXT
 			$this->output( "Adding empty categories with description pages...\n" );
 			while ( true ) {
 				# Find which category to update
-				$rows = $dbw->newSelectQueryBuilder()
-					->select( 'page_title' )
-					->from( 'page' )
-					->leftJoin( 'category', null, 'page_title = cat_title' )
-					->where( $where )
-					->andWhere( [ 'page_namespace' => NS_CATEGORY, 'cat_title' => null ] )
-					->orderBy( 'page_title' )
-					->limit( $this->getBatchSize() )
-					->caller( __METHOD__ )->fetchResultSet();
+				$rows = $dbw->select(
+					[ 'page', 'category' ],
+					'page_title',
+					array_merge( $where, [
+						'page_namespace' => NS_CATEGORY,
+						'cat_title' => null,
+					] ),
+					__METHOD__,
+					[
+						'ORDER BY' => 'page_title',
+						'LIMIT' => $this->getBatchSize(),
+					],
+					[
+						'category' => [ 'LEFT JOIN', 'page_title = cat_title' ],
+					]
+				);
 				if ( !$rows || $rows->numRows() <= 0 ) {
 					break;
 				}
 
 				foreach ( $rows as $row ) {
 					$name = $row->page_title;
-					$where = [ $dbw->expr( 'page_title', '>', $name ) ];
+					$where = [ 'page_title > ' . $dbw->addQuotes( $name ) ];
 
 					# Use the row to update the category count
 					$cat = Category::newFromName( $name );
@@ -131,7 +137,7 @@ TEXT
 				// @phan-suppress-next-line PhanPossiblyUndeclaredVariable $rows has at at least one item
 				$this->output( "--mode=$mode --begin=$name\n" );
 
-				$this->waitForReplication();
+				$lbFactory->waitForReplication();
 				usleep( $throttle * 1000 );
 			}
 
@@ -140,7 +146,7 @@ TEXT
 
 		if ( $mode === 'remove' || $mode === 'both' ) {
 			if ( $begin !== '' ) {
-				$where = [ $dbw->expr( 'cat_title', '>', $begin ) ];
+				$where = [ 'cat_title > ' . $dbw->addQuotes( $begin ) ];
 			} else {
 				$where = [];
 			}
@@ -148,21 +154,30 @@ TEXT
 			$this->output( "Removing empty categories without description pages...\n" );
 			while ( true ) {
 				# Find which category to update
-				$rows = $dbw->newSelectQueryBuilder()
-					->select( 'cat_title' )
-					->from( 'category' )
-					->leftJoin( 'page', null, [ 'page_namespace' => NS_CATEGORY, 'page_title = cat_title' ] )
-					->where( $where )
-					->andWhere( [ 'page_title' => null, 'cat_pages' => 0 ] )
-					->orderBy( 'cat_title' )
-					->limit( $this->getBatchSize() )
-					->caller( __METHOD__ )->fetchResultSet();
+				$rows = $dbw->select(
+					[ 'category', 'page' ],
+					'cat_title',
+					array_merge( $where, [
+						'page_title' => null,
+						'cat_pages' => 0,
+					] ),
+					__METHOD__,
+					[
+						'ORDER BY' => 'cat_title',
+						'LIMIT' => $this->getBatchSize(),
+					],
+					[
+						'page' => [ 'LEFT JOIN', [
+							'page_namespace' => NS_CATEGORY, 'page_title = cat_title'
+						] ],
+					]
+				);
 				if ( !$rows || $rows->numRows() <= 0 ) {
 					break;
 				}
 				foreach ( $rows as $row ) {
 					$name = $row->cat_title;
-					$where = [ $dbw->expr( 'cat_title', '>', $name ) ];
+					$where = [ 'cat_title > ' . $dbw->addQuotes( $name ) ];
 
 					# Use the row to update the category count
 					$cat = Category::newFromName( $name );
@@ -176,7 +191,7 @@ TEXT
 				// @phan-suppress-next-line PhanPossiblyUndeclaredVariable rows contains at least one item
 				$this->output( "--mode=remove --begin=$name\n" );
 
-				$this->waitForReplication();
+				$lbFactory->waitForReplication();
 				usleep( $throttle * 1000 );
 			}
 		}
@@ -187,7 +202,5 @@ TEXT
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = CleanupEmptyCategories::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

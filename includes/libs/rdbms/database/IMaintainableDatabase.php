@@ -33,6 +33,15 @@ use RuntimeException;
  */
 interface IMaintainableDatabase extends IDatabase {
 	/**
+	 * Returns the size of a text field, or -1 for "unlimited"
+	 *
+	 * @param string $table
+	 * @param string $field
+	 * @return int
+	 */
+	public function textFieldSize( $table, $field );
+
+	/**
 	 * Read and execute SQL commands from a file.
 	 *
 	 * Returns true on success, error string or exception on failure (depending
@@ -50,10 +59,10 @@ interface IMaintainableDatabase extends IDatabase {
 	 */
 	public function sourceFile(
 		$filename,
-		?callable $lineCallback = null,
-		?callable $resultCallback = null,
+		callable $lineCallback = null,
+		callable $resultCallback = null,
 		$fname = false,
-		?callable $inputCallback = null
+		callable $inputCallback = null
 	);
 
 	/**
@@ -65,16 +74,16 @@ interface IMaintainableDatabase extends IDatabase {
 	 * @param resource $fp File handle
 	 * @param callable|null $lineCallback Optional function called before reading each query
 	 * @param callable|null $resultCallback Optional function called for each MySQL result
-	 * @param string $fname Calling function name @phan-mandatory-param
+	 * @param string $fname Calling function name
 	 * @param callable|null $inputCallback Optional function called for each complete query sent
 	 * @return bool|string
 	 */
 	public function sourceStream(
 		$fp,
-		?callable $lineCallback = null,
-		?callable $resultCallback = null,
+		callable $lineCallback = null,
+		callable $resultCallback = null,
 		$fname = __METHOD__,
-		?callable $inputCallback = null
+		callable $inputCallback = null
 	);
 
 	/**
@@ -89,22 +98,59 @@ interface IMaintainableDatabase extends IDatabase {
 	/**
 	 * Delete a table
 	 *
-	 * @param string $table The unqualified name of a table
-	 * @param string $fname @phan-mandatory-param
+	 * @param string $table
+	 * @param string $fname
 	 * @return bool Whether the table already existed
 	 * @throws DBError If an error occurs
 	 */
 	public function dropTable( $table, $fname = __METHOD__ );
 
 	/**
-	 * Delete all data in a table and reset any sequences owned by that table
+	 * Delete all data in a table(s) and reset any sequences owned by that table(s)
 	 *
-	 * @param string $table The unqualified name of a table
-	 * @param string $fname @phan-mandatory-param
+	 * @param string|string[] $tables
+	 * @param string $fname
 	 * @throws DBError If an error occurs
-	 * @since 1.42
+	 * @since 1.35
 	 */
-	public function truncateTable( $table, $fname = __METHOD__ );
+	public function truncate( $tables, $fname = __METHOD__ );
+
+	/**
+	 * Perform a deadlock-prone transaction.
+	 *
+	 * This function invokes a callback function to perform a set of write
+	 * queries. If a deadlock occurs during the processing, the transaction
+	 * will be rolled back and the callback function will be called again.
+	 *
+	 * Avoid using this method outside of Job or Maintenance classes.
+	 *
+	 * Usage:
+	 *   $dbw->deadlockLoop( callback, ... );
+	 *
+	 * Extra arguments are passed through to the specified callback function.
+	 * This method requires that no transactions are already active to avoid
+	 * causing premature commits or exceptions.
+	 *
+	 * Returns whatever the callback function returned on its successful,
+	 * iteration, or false on error, for example if the retry limit was
+	 * reached.
+	 *
+	 * @param mixed ...$args
+	 * @return mixed
+	 * @throws DBUnexpectedError
+	 * @throws Exception
+	 */
+	public function deadlockLoop( ...$args );
+
+	/**
+	 * Lists all the VIEWs in the database
+	 *
+	 * @param string|null $prefix Only show VIEWs with this prefix, eg. unit_test_
+	 * @param string $fname Name of calling function
+	 * @throws RuntimeException
+	 * @return array
+	 */
+	public function listViews( $prefix = null, $fname = __METHOD__ );
 
 	/**
 	 * Creates a new table with structure copied from existing table
@@ -117,7 +163,7 @@ interface IMaintainableDatabase extends IDatabase {
 	 * @param string $oldName Name of table whose structure should be copied
 	 * @param string $newName Name of table to be created
 	 * @param bool $temporary Whether the new table should be temporary
-	 * @param string $fname Calling function name @phan-mandatory-param
+	 * @param string $fname Calling function name
 	 * @return bool True if operation was successful
 	 * @throws RuntimeException
 	 */
@@ -126,22 +172,31 @@ interface IMaintainableDatabase extends IDatabase {
 	);
 
 	/**
-	 * List all tables on the database.
-	 *
-	 * Since MW 1.42, this will no longer include MySQL views.
+	 * List all tables on the database
 	 *
 	 * @param string|null $prefix Only show tables with this prefix, e.g. mw_
-	 * @param string $fname Calling function name @phan-mandatory-param
+	 * @param string $fname Calling function name
 	 * @throws DBError
 	 * @return array
 	 */
 	public function listTables( $prefix = null, $fname = __METHOD__ );
 
 	/**
+	 * Determines if a given index is unique
+	 *
+	 * @param string $table
+	 * @param string $index
+	 * @param string $fname Calling function name
+	 *
+	 * @return bool
+	 */
+	public function indexUnique( $table, $index, $fname = __METHOD__ );
+
+	/**
 	 * Get information about a field
 	 * Returns false if the field doesn't exist
 	 *
-	 * @param string $table The unqualified name of a table
+	 * @param string $table Table name
 	 * @param string $field Field name
 	 *
 	 * @return false|Field
@@ -151,9 +206,9 @@ interface IMaintainableDatabase extends IDatabase {
 	/**
 	 * Determines whether a field exists in a table
 	 *
-	 * @param string $table The unqualified name of a table
+	 * @param string $table Table name
 	 * @param string $field Field to check on that table
-	 * @param string $fname Calling function name @phan-mandatory-param
+	 * @param string $fname Calling function name (optional)
 	 * @return bool Whether $table has field $field
 	 * @throws DBError If an error occurs, {@see query}
 	 */
@@ -162,32 +217,23 @@ interface IMaintainableDatabase extends IDatabase {
 	/**
 	 * Determines whether an index exists
 	 *
-	 * @param string $table The unqualified name of a table
+	 * @param string $table
 	 * @param string $index
-	 * @param string $fname @phan-mandatory-param
-	 * @return bool
+	 * @param string $fname
+	 * @return bool|null
 	 * @throws DBError If an error occurs, {@see query}
 	 */
 	public function indexExists( $table, $index, $fname = __METHOD__ );
 
 	/**
-	 * Determines if a given index is unique
-	 *
-	 * @param string $table The unqualified name of a table
-	 * @param string $index
-	 * @param string $fname Calling function name @phan-mandatory-param
-	 * @return bool|null Returns null if the index does not exist
-	 * @throws DBError If an error occurs, {@see query}
-	 */
-	public function indexUnique( $table, $index, $fname = __METHOD__ );
-
-	/**
 	 * Query whether a given table exists
 	 *
-	 * @param string $table The unqualified name of a table
-	 * @param string $fname @phan-mandatory-param
+	 * @param string $table
+	 * @param string $fname
 	 * @return bool
 	 * @throws DBError If an error occurs, {@see query}
 	 */
 	public function tableExists( $table, $fname = __METHOD__ );
 }
+
+class_alias( IMaintainableDatabase::class, 'IMaintainableDatabase' );

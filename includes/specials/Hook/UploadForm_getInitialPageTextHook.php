@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\Config\Config;
+use Config;
 
 // phpcs:disable Squiz.Classes.ValidClassName.NotCamelCaps
 /**

@@ -4,5 +4,6 @@
 			"Giromin Cangiaxo"
 		]
 	},
+	"apihelp-fancycaptchareload-description": "Otegni un noeuvo FancyCaptcha.",
 	"apihelp-fancycaptchareload-example-1": "Otegni un noeuvo FancyCaptcha."
 }

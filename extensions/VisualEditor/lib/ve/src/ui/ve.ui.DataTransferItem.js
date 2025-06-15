@@ -1,3 +1,5 @@
+/* global Uint8Array */
+
 /**
  * Data transfer item wrapper
  *
@@ -47,7 +49,7 @@ ve.ui.DataTransferItem.static.newFromBlob = function ( blob, htmlStringData ) {
  * @return {ve.ui.DataTransferItem} New data transfer item
  */
 ve.ui.DataTransferItem.static.newFromDataUri = function ( dataUri, htmlStringData ) {
-	const parts = dataUri.split( ',' );
+	var parts = dataUri.split( ',' );
 	return new ve.ui.DataTransferItem( 'file', parts[ 0 ].match( /^data:([^;]+)/ )[ 1 ], { dataUri: parts[ 1 ], htmlStringData: htmlStringData } );
 };
 
@@ -87,10 +89,10 @@ ve.ui.DataTransferItem.prototype.getAsFile = function () {
 	}
 
 	if ( !this.blob && this.data.dataUri ) {
-		const binary = atob( this.data.dataUri );
+		var binary = atob( this.data.dataUri );
 		delete this.data.dataUri;
-		const array = [];
-		for ( let i = 0; i < binary.length; i++ ) {
+		var array = [];
+		for ( var i = 0; i < binary.length; i++ ) {
 			array.push( binary.charCodeAt( i ) );
 		}
 		this.blob = new Blob(

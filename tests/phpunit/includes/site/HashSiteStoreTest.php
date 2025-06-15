@@ -1,13 +1,5 @@
 <?php
 
-namespace MediaWiki\Tests\Site;
-
-use MediaWiki\Site\HashSiteStore;
-use MediaWiki\Site\MediaWikiSite;
-use MediaWiki\Site\Site;
-use MediaWiki\Site\SiteList;
-use MediaWikiIntegrationTestCase;
-
 /**
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,10 +24,10 @@ use MediaWikiIntegrationTestCase;
  *
  * @author Katie Filbert < aude.wiki@gmail.com >
  */
-class HashSiteStoreTest extends MediaWikiIntegrationTestCase {
+class HashSiteStoreTest extends \MediaWikiIntegrationTestCase {
 
 	/**
-	 * @covers \MediaWiki\Site\HashSiteStore::getSites
+	 * @covers HashSiteStore::getSites
 	 */
 	public function testGetSites() {
 		$expectedSites = [];
@@ -51,8 +43,8 @@ class HashSiteStoreTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Site\HashSiteStore::saveSite
-	 * @covers \MediaWiki\Site\HashSiteStore::getSite
+	 * @covers HashSiteStore::saveSite
+	 * @covers HashSiteStore::getSite
 	 */
 	public function testSaveSite() {
 		$store = new HashSiteStore();
@@ -69,7 +61,7 @@ class HashSiteStoreTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Site\HashSiteStore::saveSites
+	 * @covers HashSiteStore::saveSites
 	 */
 	public function testSaveSites() {
 		$store = new HashSiteStore();
@@ -96,7 +88,7 @@ class HashSiteStoreTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Site\HashSiteStore::clear
+	 * @covers HashSiteStore::clear
 	 */
 	public function testClear() {
 		$store = new HashSiteStore();

@@ -1,16 +1,14 @@
 <?php
 
-namespace Wikimedia\Tests\ParamValidator\TypeDef;
+namespace Wikimedia\ParamValidator\TypeDef;
 
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\SimpleCallbacks;
-use Wikimedia\ParamValidator\TypeDef\PasswordDef;
-use Wikimedia\ParamValidator\TypeDef\StringDef;
 
 require_once __DIR__ . '/StringDefTest.php';
 
 /**
- * @covers \Wikimedia\ParamValidator\TypeDef\PasswordDef
+ * @covers Wikimedia\ParamValidator\TypeDef\PasswordDef
  */
 class PasswordDefTest extends StringDefTest {
 

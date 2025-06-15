@@ -1,13 +1,11 @@
-@import 'mediawiki.skin.variables.less';
+@import 'mediawiki.ui/variables.less';
 
 .ext-WikiEditor-realtimepreview-ErrorLayout {
 	display: flex;
 	align-items: center;
 	flex-direction: column;
 	justify-content: center;
-	// TODO: Currently, `#f8f9fa` is only available as `@background-color-interactive-subtle`,
-	// which would be wrongly applied here. Revisit with appropriate Codex token.
-	background-color: #f8f9fa;
+	background-color: @colorGray15;
 	height: 100%;
 	width: 100%;
 	text-align: center;

@@ -31,14 +31,16 @@ use StatusValue;
 class UnicodeConstraint implements IEditConstraint {
 
 	/**
+	 * @var string
 	 * Correct unicode
 	 */
 	public const VALID_UNICODE = 'ℳ𝒲♥𝓊𝓃𝒾𝒸ℴ𝒹ℯ';
 
 	/**
+	 * @var string
 	 * Unicode string provided, to compare
 	 */
-	private string $input;
+	private $input;
 
 	/**
 	 * @param string $inputUnicode

@@ -11,8 +11,8 @@ use GuzzleHttp\Psr7\Response;
  *
  * No actual requests are made herein - all external communications are mocked
  *
- * @covers \GuzzleHttpRequest
- * @covers \MWHttpRequest
+ * @covers GuzzleHttpRequest
+ * @covers MWHttpRequest
  */
 class GuzzleHttpRequestTest extends MediaWikiIntegrationTestCase {
 	/** @var int[] */
@@ -115,8 +115,10 @@ class GuzzleHttpRequestTest extends MediaWikiIntegrationTestCase {
 	public function testBadUrl() {
 		$r = new GuzzleHttpRequest( '', $this->timeoutOptions );
 		$s = $r->execute();
+		$errorMsg = $s->getErrorsByType( 'error' )[0]['message'];
+
 		$this->assertSame( 0, $r->getStatus() );
-		$this->assertStatusMessage( 'http-invalid-url', $s );
+		$this->assertEquals( 'http-invalid-url', $errorMsg );
 	}
 
 	public function testConnectException() {
@@ -126,8 +128,10 @@ class GuzzleHttpRequestTest extends MediaWikiIntegrationTestCase {
 		$r = new GuzzleHttpRequest( $this->exampleUrl,
 			[ 'handler' => $handler ] + $this->timeoutOptions );
 		$s = $r->execute();
+		$errorMsg = $s->getErrorsByType( 'error' )[0]['message'];
+
 		$this->assertSame( 0, $r->getStatus() );
-		$this->assertStatusMessage( 'http-request-error', $s );
+		$this->assertEquals( 'http-request-error', $errorMsg );
 	}
 
 	public function testTimeout() {
@@ -137,8 +141,10 @@ class GuzzleHttpRequestTest extends MediaWikiIntegrationTestCase {
 		$r = new GuzzleHttpRequest( $this->exampleUrl,
 			[ 'handler' => $handler ] + $this->timeoutOptions );
 		$s = $r->execute();
+		$errorMsg = $s->getErrorsByType( 'error' )[0]['message'];
+
 		$this->assertSame( 0, $r->getStatus() );
-		$this->assertStatusMessage( 'http-timed-out', $s );
+		$this->assertEquals( 'http-timed-out', $errorMsg );
 	}
 
 	public function testNotFound() {
@@ -148,8 +154,10 @@ class GuzzleHttpRequestTest extends MediaWikiIntegrationTestCase {
 		$r = new GuzzleHttpRequest( $this->exampleUrl,
 			[ 'handler' => $handler ] + $this->timeoutOptions );
 		$s = $r->execute();
+		$errorMsg = $s->getErrorsByType( 'error' )[0]['message'];
+
 		$this->assertEquals( 404, $r->getStatus() );
-		$this->assertStatusMessage( 'http-bad-status', $s );
+		$this->assertEquals( 'http-bad-status', $errorMsg );
 	}
 
 	/*
@@ -181,6 +189,7 @@ class GuzzleHttpRequestTest extends MediaWikiIntegrationTestCase {
 		$history = Middleware::history( $container );
 		$stack = HandlerStack::create( new MockHandler( [ new Response() ] ) );
 		$stack->push( $history );
+		$boundary = 'boundary';
 		$client = new GuzzleHttpRequest( $this->exampleUrl, [
 				'method' => 'POST',
 				'handler' => $stack,
@@ -201,7 +210,7 @@ class GuzzleHttpRequestTest extends MediaWikiIntegrationTestCase {
 	 * Test that cookies from CookieJar were sent in the outgoing request.
 	 */
 	public function testCookieSent() {
-		$domain = parse_url( $this->exampleUrl, PHP_URL_HOST );
+		$domain = wfParseUrl( $this->exampleUrl )['host'];
 		$expectedCookies = [ 'cookie1' => 'value1', 'anothercookie' => 'secondvalue' ];
 		$jar = new CookieJar;
 		foreach ( $expectedCookies as $key => $val ) {
@@ -237,7 +246,7 @@ class GuzzleHttpRequestTest extends MediaWikiIntegrationTestCase {
 			[ 'handler' => $handler ] + $this->timeoutOptions );
 		$r->execute();
 
-		$domain = parse_url( $this->exampleUrl, PHP_URL_HOST );
+		$domain = wfParseUrl( $this->exampleUrl )['host'];
 		$this->assertEquals( 'cookie1=value1; anothercookie=secondvalue',
 			$r->getCookieJar()->serializeToHttpRequest( '/', $domain ) );
 	}

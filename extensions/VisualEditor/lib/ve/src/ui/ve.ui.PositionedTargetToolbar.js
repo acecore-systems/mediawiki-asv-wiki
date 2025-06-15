@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface PositionedTargetToolbar class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -13,7 +13,7 @@
  * @constructor
  * @param {ve.init.Target} target
  * @param {Object} [config] Configuration options
- * @param {boolean} [config.floatable] Toolbar can float when scrolled off the page
+ * @cfg {boolean} [floatable] Toolbar can float when scrolled off the page
  */
 ve.ui.PositionedTargetToolbar = function VeUiPositionedTargetToolbar( target, config ) {
 	config = config || {};
@@ -48,23 +48,22 @@ OO.inheritClass( ve.ui.PositionedTargetToolbar, ve.ui.TargetToolbar );
  * @inheritdoc
  */
 ve.ui.PositionedTargetToolbar.prototype.setup = function ( groups, surface ) {
+	var toolbarDialogs = surface.getToolbarDialogs();
+
 	// Parent method
 	ve.ui.PositionedTargetToolbar.super.prototype.setup.apply( this, arguments );
 
-	[ 'above', 'below', 'side', 'inline' ].forEach( ( dialogPosition ) => {
-		const toolbarDialogs = surface.getToolbarDialogs( dialogPosition );
-		if ( this.position === 'bottom' ) {
-			this.$bar.prepend( toolbarDialogs.$element );
-		} else {
-			this.$bar.append( toolbarDialogs.$element );
-		}
-		toolbarDialogs.connect( this, {
-			opening: 'onToolbarDialogsOpeningOrClosing',
-			closing: 'onToolbarDialogsOpeningOrClosing'
-		} );
+	if ( this.position === 'bottom' ) {
+		this.$bar.prepend( toolbarDialogs.$element );
+	} else {
+		this.$bar.append( toolbarDialogs.$element );
+	}
+	toolbarDialogs.connect( this, {
+		opening: 'onToolbarDialogsOpeningOrClosing',
+		closing: 'onToolbarDialogsOpeningOrClosing'
 	} );
 	if ( this.isFloatable() ) {
-		this.target.$scrollListener[ 0 ].addEventListener( 'scroll', this.onWindowScrollThrottled, { passive: true } );
+		ve.addPassiveEventListener( this.target.$scrollListener[ 0 ], 'scroll', this.onWindowScrollThrottled );
 	}
 };
 
@@ -74,23 +73,21 @@ ve.ui.PositionedTargetToolbar.prototype.setup = function ( groups, surface ) {
 ve.ui.PositionedTargetToolbar.prototype.detach = function () {
 	// Events
 	if ( this.getSurface() ) {
-		[ 'above', 'below', 'side', 'inline' ].forEach( ( dialogPosition ) => {
-			this.getSurface().getToolbarDialogs( dialogPosition ).disconnect( this );
-			this.getSurface().getToolbarDialogs( dialogPosition ).clearWindows();
-		} );
+		this.getSurface().getToolbarDialogs().disconnect( this );
+		this.getSurface().getToolbarDialogs().clearWindows();
 	}
-	this.target.$scrollListener[ 0 ].removeEventListener( 'scroll', this.onWindowScrollThrottled );
+	ve.removePassiveEventListener( this.target.$scrollListener[ 0 ], 'scroll', this.onWindowScrollThrottled );
 
 	// Parent method
 	ve.ui.PositionedTargetToolbar.super.prototype.detach.apply( this, arguments );
 };
 
 /**
+ * @inheritdoc
+ *
  * While toolbar floating is enabled,
  * the toolbar will stick to the top of the screen unless it would be over or under the last visible
  * branch node in the root of the document being edited, at which point it will stop just above it.
- *
- * @inheritdoc
  */
 ve.ui.PositionedTargetToolbar.prototype.onWindowResize = function () {
 	ve.ui.Toolbar.super.prototype.onWindowResize.call( this );
@@ -200,8 +197,9 @@ ve.ui.PositionedTargetToolbar.prototype.isFloatable = function () {
  * @param {Object} data
  */
 ve.ui.PositionedTargetToolbar.prototype.onToolbarDialogsOpeningOrClosing = function ( win, openingOrClosing ) {
-	const $surface = this.getSurface().$element,
-		transitionDuration = OO.ui.theme.getDialogTransitionDuration();
+	var $surface = this.getSurface().$element,
+		transitionDuration = OO.ui.theme.getDialogTransitionDuration(),
+		toolbar = this;
 
 	// win.isOpened before promise means we are closing
 	if ( win.constructor.static.position === 'side' && win.isOpened() ) {
@@ -213,43 +211,35 @@ ve.ui.PositionedTargetToolbar.prototype.onToolbarDialogsOpeningOrClosing = funct
 		win.$element.css( 'width', '' );
 	}
 
-	openingOrClosing.then( () => {
+	openingOrClosing.then( function () {
 		if ( win.constructor.static.position === 'side' ) {
 			// win.isOpened after promise means we are opening
 			if ( win.isOpened() ) {
-				const margin = $surface.css( 'direction' ) === 'rtl' ? 'margin-left' : 'margin-right';
-				const originalMargin = parseFloat( $surface.css( margin ) );
-				const width = win.getSizeProperties().width;
-				this.getSurface().$element
+				var margin = $surface.css( 'direction' ) === 'rtl' ? 'margin-left' : 'margin-right';
+				var originalMargin = parseFloat( $surface.css( margin ) );
+				var width = win.getSizeProperties().width;
+				toolbar.getSurface().$element
 					.addClass( 've-ui-surface-toolbarDialog-side' )
 					.css( margin, width + originalMargin );
 				win.$element.css( 'width', width );
 			} else {
 				// Second closing transition
-				this.getSurface().$element.removeClass( 've-ui-surface-toolbarDialog-side' );
+				toolbar.getSurface().$element.removeClass( 've-ui-surface-toolbarDialog-side' );
 			}
 
-			this.onViewportResize();
-			setTimeout( () => {
-				this.onViewportResize();
-				this.getSurface().getView().emit( 'position' );
+			toolbar.onViewportResize();
+			setTimeout( function () {
+				toolbar.onViewportResize();
+				toolbar.getSurface().getView().emit( 'position' );
 			}, transitionDuration );
-			this.getSurface().getView().emit( 'position' );
-		} else if (
-			win.constructor.static.position === 'above' ||
-			win.constructor.static.position === 'below'
-		) {
-			setTimeout( () => {
-				this.onViewportResize();
-				this.getSurface().getView().emit( 'position' );
-			}, transitionDuration );
+			toolbar.getSurface().getView().emit( 'position' );
 		}
 		// Wait for window transition
-		setTimeout( () => {
-			if ( this.floating ) {
+		setTimeout( function () {
+			if ( toolbar.floating ) {
 				// Re-calculate height
-				this.unfloat();
-				this.float();
+				toolbar.unfloat();
+				toolbar.float();
 			}
 		}, transitionDuration );
 	} );
@@ -259,18 +249,19 @@ ve.ui.PositionedTargetToolbar.prototype.onToolbarDialogsOpeningOrClosing = funct
  * Handle the visible part of the surface viewport change dimensions
  */
 ve.ui.PositionedTargetToolbar.prototype.onViewportResize = function () {
-	const surface = this.getSurface();
+	var surface = this.getSurface();
 
 	if ( !surface ) {
 		return;
 	}
 
-	const sideWindow = surface.getToolbarDialogs( 'side' ).getCurrentWindow();
+	var toolbarDialogs = surface.getToolbarDialogs();
+	var win = toolbarDialogs.getCurrentWindow();
 
-	if ( sideWindow ) {
-		const viewportDimensions = surface.getViewportDimensions();
+	if ( win && win.constructor.static.position === 'side' ) {
+		var viewportDimensions = surface.getViewportDimensions();
 		if ( viewportDimensions ) {
-			sideWindow.$frame.css(
+			toolbarDialogs.getCurrentWindow().$frame.css(
 				'height', Math.min( surface.getBoundingClientRect().height, viewportDimensions.height )
 			);
 		}

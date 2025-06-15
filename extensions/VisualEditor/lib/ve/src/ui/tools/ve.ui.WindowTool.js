@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface WindowTool class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -41,7 +41,7 @@ ve.ui.WindowTool.static.associatedWindows = null;
  * @inheritdoc
  */
 ve.ui.WindowTool.prototype.onUpdateState = function ( fragment, contextDirection, activeDialogs ) {
-	let myWindowNames = [];
+	var myWindowNames = [];
 
 	// Parent method
 	ve.ui.WindowTool.super.prototype.onUpdateState.apply( this, arguments );
@@ -49,7 +49,7 @@ ve.ui.WindowTool.prototype.onUpdateState = function ( fragment, contextDirection
 	if ( this.constructor.static.associatedWindows !== null ) {
 		myWindowNames = this.constructor.static.associatedWindows;
 	} else {
-		const command = this.getCommand();
+		var command = this.getCommand();
 		if ( command && command.getAction() === 'window' ) {
 			myWindowNames = [ command.getArgs()[ 0 ] ];
 		}
@@ -76,10 +76,11 @@ ve.ui.CommandHelpDialogTool = function VeUiCommandHelpDialogTool() {
 };
 OO.inheritClass( ve.ui.CommandHelpDialogTool, ve.ui.WindowTool );
 ve.ui.CommandHelpDialogTool.static.name = 'commandHelp';
-ve.ui.CommandHelpDialogTool.static.group = 'help';
-ve.ui.CommandHelpDialogTool.static.icon = 'keyboard';
+ve.ui.CommandHelpDialogTool.static.group = 'dialog';
+ve.ui.CommandHelpDialogTool.static.icon = 'help';
 ve.ui.CommandHelpDialogTool.static.title =
 	OO.ui.deferMsg( 'visualeditor-dialog-command-help-title' );
 ve.ui.CommandHelpDialogTool.static.autoAddToCatchall = false;
+ve.ui.CommandHelpDialogTool.static.autoAddToGroup = false;
 ve.ui.CommandHelpDialogTool.static.commandName = 'commandHelp';
 ve.ui.toolFactory.register( ve.ui.CommandHelpDialogTool );

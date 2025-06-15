@@ -30,7 +30,7 @@ use MediaWikiUnitTestCase;
  */
 class TextboxBuilderTest extends MediaWikiUnitTestCase {
 
-	public static function provideAddNewLineAtEnd() {
+	public function provideAddNewLineAtEnd() {
 		return [
 			[ '', '' ],
 			[ 'foo', "foo\n" ],
@@ -45,7 +45,7 @@ class TextboxBuilderTest extends MediaWikiUnitTestCase {
 		$this->assertSame( $expected, $builder->addNewLineAtEnd( $input ) );
 	}
 
-	public static function provideMergeClassesIntoAttributes() {
+	public function provideMergeClassesIntoAttributes() {
 		return [
 			[
 				[],

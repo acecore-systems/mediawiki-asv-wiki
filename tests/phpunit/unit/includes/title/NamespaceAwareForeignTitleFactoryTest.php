@@ -19,17 +19,14 @@
  * @author This, that and the other
  */
 
-use MediaWiki\Title\ForeignTitle;
-use MediaWiki\Title\NamespaceAwareForeignTitleFactory;
-
 /**
- * @covers \MediaWiki\Title\NamespaceAwareForeignTitleFactory
+ * @covers NamespaceAwareForeignTitleFactory
  *
  * @group Title
  */
 class NamespaceAwareForeignTitleFactoryTest extends \MediaWikiUnitTestCase {
 
-	public static function basicProvider() {
+	public function basicProvider() {
 		return [
 			[
 				'MainNamespaceArticle', 0,

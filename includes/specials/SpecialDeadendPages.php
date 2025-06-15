@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Deadenpages
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,40 +18,38 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
-
-namespace MediaWiki\Specials;
 
 use MediaWiki\Cache\LinkBatchFactory;
 use MediaWiki\Languages\LanguageConverterFactory;
-use MediaWiki\SpecialPage\PageQueryPage;
-use MediaWiki\Title\NamespaceInfo;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
- * List of pages that contain no links to other pages.
+ * A special page that list pages that contain no link to other pages
  *
  * @ingroup SpecialPage
  */
 class SpecialDeadendPages extends PageQueryPage {
 
-	private NamespaceInfo $namespaceInfo;
+	/** @var NamespaceInfo */
+	private $namespaceInfo;
 
 	/**
 	 * @param NamespaceInfo $namespaceInfo
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param LinkBatchFactory $linkBatchFactory
 	 * @param LanguageConverterFactory $languageConverterFactory
 	 */
 	public function __construct(
 		NamespaceInfo $namespaceInfo,
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		LinkBatchFactory $linkBatchFactory,
 		LanguageConverterFactory $languageConverterFactory
 	) {
 		parent::__construct( 'Deadendpages' );
 		$this->namespaceInfo = $namespaceInfo;
-		$this->setDatabaseProvider( $dbProvider );
+		$this->setDBLoadBalancer( $loadBalancer );
 		$this->setLinkBatchFactory( $linkBatchFactory );
 		$this->setLanguageConverter( $languageConverterFactory->getLanguageConverter( $this->getContentLanguage() ) );
 	}
@@ -86,7 +86,7 @@ class SpecialDeadendPages extends PageQueryPage {
 				'title' => 'page_title',
 			],
 			'conds' => [
-				'pl_from' => null,
+				'pl_from IS NULL',
 				'page_namespace' => $this->namespaceInfo->getContentNamespaces(),
 				'page_is_redirect' => 0
 			],
@@ -113,6 +113,3 @@ class SpecialDeadendPages extends PageQueryPage {
 		return 'maintenance';
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialDeadendPages::class, 'SpecialDeadendPages' );

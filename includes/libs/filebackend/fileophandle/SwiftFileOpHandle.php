@@ -22,13 +22,8 @@
  * @author Russ Nelson
  */
 
-namespace Wikimedia\FileBackend\FileOpHandle;
-
-use Closure;
-use Wikimedia\FileBackend\SwiftFileBackend;
-
 class SwiftFileOpHandle extends FileBackendStoreOpHandle {
-	/** @var array[] List of HTTP request maps for SwiftFileBackend::requestWithAuth */
+	/** @var array[] List of HTTP request maps for MultiHttpClient */
 	public $httpOp;
 	/** @var Closure Function to run after each HTTP request finishes */
 	public $callback;
@@ -50,7 +45,7 @@ class SwiftFileOpHandle extends FileBackendStoreOpHandle {
 	 *
 	 * @param SwiftFileBackend $backend
 	 * @param Closure $callback
-	 * @param array $httpOp Request to send via SwiftFileBackend::requestWithAuth()
+	 * @param array $httpOp MultiHttpClient op
 	 */
 	public function __construct( SwiftFileBackend $backend, Closure $callback, array $httpOp ) {
 		$this->backend = $backend;
@@ -58,6 +53,3 @@ class SwiftFileOpHandle extends FileBackendStoreOpHandle {
 		$this->httpOp = $httpOp;
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( SwiftFileOpHandle::class, 'SwiftFileOpHandle' );

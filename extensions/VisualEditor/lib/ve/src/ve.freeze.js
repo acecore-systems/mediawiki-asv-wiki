@@ -1,15 +1,17 @@
 /*!
  * VisualEditor Object freeze utilities.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
+/* global Set */
+
 ( function () {
-	const freezeProxyHandler = {
-		set: ( obj, name ) => {
+	var freezeProxyHandler = {
+		set: function ( obj, name ) {
 			throw new Error( 'Object is frozen, can\'t set property: ' + name );
 		},
-		deleteProperty: ( obj, name ) => {
+		deleteProperty: function ( obj, name ) {
 			throw new Error( 'Object is frozen, can\'t delete property: ' + name );
 		}
 	};
@@ -17,7 +19,7 @@
 	if ( !window.Proxy || !window.Set ) {
 		return;
 	}
-	let deepFreeze;
+	var deepFreeze;
 	/**
 	 * Deep freeze an object, making it immutable
 	 *
@@ -33,9 +35,9 @@
 			seen = new Set();
 			seen.add( object );
 		}
-		for ( const name in object ) {
+		for ( var name in object ) {
 			if ( Object.prototype.hasOwnProperty.call( object, name ) ) {
-				const value = object[ name ];
+				var value = object[ name ];
 				if (
 					// Truth check so we don't try to freeze null
 					value &&

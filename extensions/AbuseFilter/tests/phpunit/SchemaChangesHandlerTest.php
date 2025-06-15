@@ -1,70 +1,60 @@
 <?php
 
 use MediaWiki\Extension\AbuseFilter\Hooks\Handlers\SchemaChangesHandler;
-use MediaWiki\Installer\DatabaseUpdater;
-use MediaWiki\User\User;
-use MediaWiki\User\UserFactory;
 use MediaWiki\User\UserGroupManager;
 
 /**
- * @group Database
- * @covers \MediaWiki\Extension\AbuseFilter\Hooks\Handlers\SchemaChangesHandler
+ * @coversDefaultClass \MediaWiki\Extension\AbuseFilter\Hooks\Handlers\SchemaChangesHandler
  * @todo Make this a unit test once User::newSystemUser is moved to a service
  */
 class SchemaChangesHandlerTest extends MediaWikiIntegrationTestCase {
 
+	/**
+	 * @covers ::__construct
+	 */
 	public function testConstruct() {
 		$this->assertInstanceOf(
 			SchemaChangesHandler::class,
 			new SchemaChangesHandler(
 				$this->createMock( MessageLocalizer::class ),
-				$this->createMock( UserGroupManager::class ),
-				$this->createMock( UserFactory::class )
+				$this->createMock( UserGroupManager::class )
 			)
 		);
 	}
 
-	public function testCreateAbuseFilterUser_invalidUserName() {
+	public function provideAbuseFilterUser(): Generator {
 		$noRowUpdater = $this->createMock( DatabaseUpdater::class );
 		$noRowUpdater->method( 'updateRowExists' )->willReturn( false );
 		$invalidML = $this->createMock( MessageLocalizer::class );
 		$invalidML->method( 'msg' )->with( 'abusefilter-blocker' )->willReturn( $this->getMockMessage( '' ) );
-		$userFactory = $this->createMock( UserFactory::class );
-		$userFactory->method( 'newFromName' )->willReturn( null );
-		$handler = new SchemaChangesHandler(
-			$invalidML,
-			$this->createNoOpMock( UserGroupManager::class ),
-			$userFactory
-		);
-		$this->assertFalse( $handler->createAbuseFilterUser( $noRowUpdater ) );
-	}
+		$handler = new SchemaChangesHandler( $invalidML, $this->createMock( UserGroupManager::class ) );
+		yield 'invalid username' => [ $handler, $noRowUpdater, false ];
 
-	public function testCreateAbuseFilterUser_alreadyCreated() {
 		$rowExistsUpdater = $this->createMock( DatabaseUpdater::class );
 		$rowExistsUpdater->method( 'updateRowExists' )->willReturn( true );
 		$validML = $this->createMock( MessageLocalizer::class );
 		$validML->method( 'msg' )->with( 'abusefilter-blocker' )->willReturn( $this->getMockMessage( 'Foo' ) );
-		$userFactory = $this->createMock( UserFactory::class );
-		$userFactory->method( 'newFromName' )->willReturn( $this->createMock( User::class ) );
-		$handler = new SchemaChangesHandler(
-			$validML,
-			$this->createNoOpMock( UserGroupManager::class ),
-			$userFactory
-		);
-		$this->assertFalse( $handler->createAbuseFilterUser( $rowExistsUpdater ) );
-	}
+		$handler = new SchemaChangesHandler( $validML, $this->createMock( UserGroupManager::class ) );
+		yield 'already created' => [ $handler, $rowExistsUpdater, false ];
 
-	public function testCreateAbuseFilterUser_success() {
-		$noRowUpdater = $this->createMock( DatabaseUpdater::class );
-		$noRowUpdater->method( 'updateRowExists' )->willReturn( false );
-		$validML = $this->createMock( MessageLocalizer::class );
-		$validML->method( 'msg' )->with( 'abusefilter-blocker' )->willReturn( $this->getMockMessage( 'Foo' ) );
 		$ugm = $this->createMock( UserGroupManager::class );
 		$ugm->expects( $this->once() )->method( 'addUserToGroup' );
-		$userFactory = $this->createMock( UserFactory::class );
-		$userFactory->method( 'newFromName' )->willReturn( $this->createMock( User::class ) );
-		$okHandler = new SchemaChangesHandler( $validML, $ugm, $userFactory );
-		$this->assertTrue( $okHandler->createAbuseFilterUser( $noRowUpdater ) );
+		$okHandler = new SchemaChangesHandler( $validML, $ugm );
+		yield 'success' => [ $okHandler, $noRowUpdater, true ];
 	}
 
+	/**
+	 * @param SchemaChangesHandler $handler
+	 * @param DatabaseUpdater $updater
+	 * @param bool $expected
+	 * @covers ::createAbuseFilterUser
+	 * @dataProvider provideAbuseFilterUser
+	 */
+	public function testCreateAbuseFilterUser(
+		SchemaChangesHandler $handler,
+		DatabaseUpdater $updater,
+		bool $expected
+	) {
+		$this->assertSame( $expected, $handler->createAbuseFilterUser( $updater ) );
+	}
 }

@@ -1,20 +1,13 @@
 <?php
 
 use MediaWiki\Json\JsonCodec;
-use MediaWiki\Parser\ParserCache;
-use MediaWiki\Parser\ParserOptions;
-use MediaWiki\Parser\ParserOutput;
-use MediaWiki\PoolCounter\PoolWorkArticleViewCurrent;
 use MediaWiki\Revision\RevisionRecord;
-use MediaWiki\Status\Status;
 use Psr\Log\NullLogger;
-use Wikimedia\ObjectCache\HashBagOStuff;
-use Wikimedia\Rdbms\ChronologyProtector;
-use Wikimedia\Stats\StatsFactory;
+use Wikimedia\Rdbms\LBFactory;
 use Wikimedia\TestingAccessWrapper;
 
 /**
- * @covers \MediaWiki\PoolCounter\PoolWorkArticleViewCurrent
+ * @covers PoolWorkArticleViewCurrent
  * @group Database
  */
 class PoolWorkArticleViewCurrentTest extends PoolWorkArticleViewTest {
@@ -31,7 +24,7 @@ class PoolWorkArticleViewCurrentTest extends PoolWorkArticleViewTest {
 	 */
 	protected function newPoolWorkArticleView(
 		WikiPage $page,
-		?RevisionRecord $rev = null,
+		RevisionRecord $rev = null,
 		$options = null
 	) {
 		if ( !$options ) {
@@ -43,16 +36,17 @@ class PoolWorkArticleViewCurrentTest extends PoolWorkArticleViewTest {
 		}
 
 		$parserCache = $this->parserCache ?: $this->installParserCache();
+		$lbFactory = $this->getServiceContainer()->getDBLoadBalancerFactory();
+		$revisionRenderer = $this->getServiceContainer()->getRevisionRenderer();
 
 		return new PoolWorkArticleViewCurrent(
 			'test:' . $rev->getId(),
 			$page,
 			$rev,
 			$options,
-			$this->getServiceContainer()->getRevisionRenderer(),
+			$revisionRenderer,
 			$parserCache,
-			$this->getServiceContainer()->getConnectionProvider(),
-			$this->getServiceContainer()->getChronologyProtector(),
+			$lbFactory,
 			$this->getLoggerSpi(),
 			$this->getServiceContainer()->getWikiPageFactory()
 		);
@@ -65,11 +59,10 @@ class PoolWorkArticleViewCurrentTest extends PoolWorkArticleViewTest {
 			'',
 			$this->getServiceContainer()->getHookContainer(),
 			new JsonCodec(),
-			StatsFactory::newNull(),
+			$this->getServiceContainer()->getStatsdDataFactory(),
 			new NullLogger(),
 			$this->getServiceContainer()->getTitleFactory(),
-			$this->getServiceContainer()->getWikiPageFactory(),
-			$this->getServiceContainer()->getGlobalIdGenerator()
+			$this->getServiceContainer()->getWikiPageFactory()
 		);
 
 		return $this->parserCache;
@@ -85,11 +78,11 @@ class PoolWorkArticleViewCurrentTest extends PoolWorkArticleViewTest {
 		$work = $this->newPoolWorkArticleView( $page, null, $options );
 		/** @var Status $status */
 		$status = $work->execute();
-		$this->assertStatusGood( $status );
+		$this->assertTrue( $status->isGood() );
 
 		$cachedOutput = $parserCache->get( $page, $options );
 		$this->assertNotEmpty( $cachedOutput );
-		$this->assertSame( $status->getValue()->getRawText(), $cachedOutput->getRawText() );
+		$this->assertSame( $status->getValue()->getText(), $cachedOutput->getText() );
 	}
 
 	/**
@@ -111,7 +104,7 @@ class PoolWorkArticleViewCurrentTest extends PoolWorkArticleViewTest {
 		$work2 = $this->newPoolWorkArticleView( $page, null, $options );
 		/** @var Status $status2 */
 		$status2 = $work2->execute();
-		$this->assertStatusGood( $status2 );
+		$this->assertTrue( $status2->isGood() );
 
 		// The parser output cached but $work2 should now be also visible to $work1
 		$status1 = $work1->getCachedWork();
@@ -124,8 +117,8 @@ class PoolWorkArticleViewCurrentTest extends PoolWorkArticleViewTest {
 		$lastWrite = 10;
 		$outdated = $lastWrite;
 
-		$chronologyProtector = $this->createNoOpMock( ChronologyProtector::class, [ 'getTouched' ] );
-		$chronologyProtector->method( 'getTouched' )->willReturn( $lastWrite );
+		$lbFactory = $this->createNoOpMock( LBFactory::class, [ 'getChronologyProtectorTouched' ] );
+		$lbFactory->method( 'getChronologyProtectorTouched' )->willReturn( $lastWrite );
 
 		$output = $this->createNoOpMock( ParserOutput::class, [ 'getCacheTime' ] );
 		$output->method( 'getCacheTime' )->willReturn( $outdated );
@@ -136,13 +129,14 @@ class PoolWorkArticleViewCurrentTest extends PoolWorkArticleViewTest {
 			$this->createMock( WikiPage::class ),
 			$this->createMock( RevisionRecord::class )
 		);
-		TestingAccessWrapper::newFromObject( $work )->chronologyProtector = $chronologyProtector;
+		TestingAccessWrapper::newFromObject( $work )->lbFactory = $lbFactory;
 
 		$this->assertFalse( $work->fallback( true ) );
 
 		$status = $work->fallback( false );
+		$this->assertTrue( $status->isOK() );
 		$this->assertInstanceOf( ParserOutput::class, $status->getValue() );
-		$this->assertStatusWarning( 'view-pool-overload', $status );
+		$this->assertTrue( $status->hasMessage( 'view-pool-overload' ) );
 	}
 
 	public function testFallbackFromMoreRecentParserCache() {
@@ -150,8 +144,8 @@ class PoolWorkArticleViewCurrentTest extends PoolWorkArticleViewTest {
 		$lastWrite = 10;
 		$moreRecent = $lastWrite + 1;
 
-		$chronologyProtector = $this->createNoOpMock( ChronologyProtector::class, [ 'getTouched' ] );
-		$chronologyProtector->method( 'getTouched' )->willReturn( $lastWrite );
+		$lbFactory = $this->createNoOpMock( LBFactory::class, [ 'getChronologyProtectorTouched' ] );
+		$lbFactory->method( 'getChronologyProtectorTouched' )->willReturn( $lastWrite );
 
 		$output = $this->createNoOpMock( ParserOutput::class, [ 'getCacheTime' ] );
 		$output->method( 'getCacheTime' )->willReturn( $moreRecent );
@@ -162,15 +156,17 @@ class PoolWorkArticleViewCurrentTest extends PoolWorkArticleViewTest {
 			$this->createMock( WikiPage::class ),
 			$this->createMock( RevisionRecord::class )
 		);
-		TestingAccessWrapper::newFromObject( $work )->chronologyProtector = $chronologyProtector;
+		TestingAccessWrapper::newFromObject( $work )->lbFactory = $lbFactory;
 
 		$status = $work->fallback( true );
+		$this->assertTrue( $status->isOK() );
 		$this->assertInstanceOf( ParserOutput::class, $status->getValue() );
-		$this->assertStatusWarning( 'view-pool-contention', $status );
+		$this->assertTrue( $status->hasMessage( 'view-pool-contention' ) );
 
 		$status = $work->fallback( false );
+		$this->assertTrue( $status->isOK() );
 		$this->assertInstanceOf( ParserOutput::class, $status->getValue() );
-		$this->assertStatusWarning( 'view-pool-overload', $status );
+		$this->assertTrue( $status->hasMessage( 'view-pool-overload' ) );
 	}
 
 }

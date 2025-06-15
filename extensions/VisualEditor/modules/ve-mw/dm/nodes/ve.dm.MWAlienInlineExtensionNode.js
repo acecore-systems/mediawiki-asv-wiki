@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel MWAlienInlineExtensionNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -11,7 +11,7 @@
  * @class
  * @abstract
  * @extends ve.dm.MWInlineExtensionNode
- * @mixes ve.dm.MWAlienExtensionNode
+ * @mixins ve.dm.MWAlienExtensionNode
  *
  * @constructor
  * @param {Object} [element] Reference to element in linear model

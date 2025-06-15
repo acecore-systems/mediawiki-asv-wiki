@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel MWExtensionNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -11,8 +11,8 @@
  * @class
  * @abstract
  * @extends ve.dm.LeafNode
- * @mixes ve.dm.FocusableNode
- * @mixes ve.dm.GeneratedContentNode
+ * @mixins ve.dm.FocusableNode
+ * @mixins ve.dm.GeneratedContentNode
  *
  * @constructor
  */
@@ -68,10 +68,10 @@ ve.dm.MWExtensionNode.static.getMatchRdfaTypes = function () {
  * @param {string} [type] Type to give dataElement, defaults to static.name
  */
 ve.dm.MWExtensionNode.static.toDataElement = function ( domElements, converter, type ) {
-	const mwDataJSON = domElements[ 0 ].getAttribute( 'data-mw' ),
+	var mwDataJSON = domElements[ 0 ].getAttribute( 'data-mw' ),
 		mwData = mwDataJSON ? JSON.parse( mwDataJSON ) : {};
 
-	const dataElement = {
+	var dataElement = {
 		type: type || this.name,
 		attributes: {
 			mw: mwData,
@@ -90,15 +90,15 @@ ve.dm.MWExtensionNode.static.toDataElement = function ( domElements, converter, 
  */
 ve.dm.MWExtensionNode.static.cloneElement = function () {
 	// Parent method
-	const clone = ve.dm.MWExtensionNode.super.static.cloneElement.apply( this, arguments );
+	var clone = ve.dm.MWExtensionNode.super.static.cloneElement.apply( this, arguments );
 	delete clone.attributes.originalMw;
 	return clone;
 };
 
 ve.dm.MWExtensionNode.static.toDomElements = function ( dataElement, doc, converter ) {
-	const originalMw = dataElement.attributes.originalMw;
+	var originalMw = dataElement.attributes.originalMw;
 
-	let els;
+	var els;
 	// If the transclusion is unchanged just send back the
 	// original DOM elements so selser can skip over it
 	if (
@@ -108,8 +108,8 @@ ve.dm.MWExtensionNode.static.toDomElements = function ( dataElement, doc, conver
 		// originalDomElements is also used for CE rendering so return a copy
 		els = ve.copyDomElements( converter.getStore().value( dataElement.originalDomElementsHash ), doc );
 	} else {
-		const store = converter.getStore();
-		let value;
+		var store = converter.getStore();
+		var value;
 		if (
 			converter.doesModeNeedRendering() &&
 			// Use getHashObjectForRendering to get the rendering from the store
@@ -119,7 +119,7 @@ ve.dm.MWExtensionNode.static.toDomElements = function ( dataElement, doc, conver
 			// meaningful to paste into external applications
 			els = ve.copyDomElements( value, doc );
 		} else {
-			const el = doc.createElement( this.tagName );
+			var el = doc.createElement( this.tagName );
 			el.setAttribute( 'typeof', 'mw:Extension/' + this.getExtensionName( dataElement ) );
 			el.setAttribute( 'data-mw', JSON.stringify( dataElement.attributes.mw ) );
 			els = [ el ];
@@ -149,13 +149,13 @@ ve.dm.MWExtensionNode.static.getExtensionName = function () {
 };
 
 ve.dm.MWExtensionNode.static.describeChanges = function ( attributeChanges, attributes, element ) {
-	const descriptions = [],
+	var descriptions = [],
 		fromBody = attributeChanges.mw.from.body,
 		toBody = attributeChanges.mw.to.body;
 
 	if ( attributeChanges.mw ) {
 		// HACK: Try to generate an '<Extension> has changed' message using the associated tool's title
-		const tools = ve.ui.toolFactory.getRelatedItems( [ ve.dm.nodeFactory.createFromElement( element ) ] );
+		var tools = ve.ui.toolFactory.getRelatedItems( [ ve.dm.nodeFactory.createFromElement( element ) ] );
 		if ( tools.length ) {
 			descriptions.push( ve.msg( 'visualeditor-changedesc-unknown',
 				OO.ui.resolveMsg( ve.ui.toolFactory.lookup( tools[ 0 ].name ).static.title )
@@ -163,7 +163,7 @@ ve.dm.MWExtensionNode.static.describeChanges = function ( attributeChanges, attr
 		}
 		// Compare body - default behaviour in #describeChange does nothing
 		if ( !ve.compare( fromBody, toBody ) ) {
-			const change = this.describeChange( 'body', {
+			var change = this.describeChange( 'body', {
 				from: fromBody && fromBody.extsrc,
 				to: toBody && toBody.extsrc
 			} );

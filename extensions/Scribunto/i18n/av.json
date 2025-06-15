@@ -1,8 +1,8 @@
 {
 	"@metadata": {
 		"authors": [
-			"Augustus A C",
-			"Gazimagomedov"
+			"Gazimagomedov",
+			"Augustus A C"
 		]
 	},
 	"scribunto-lua-error": "ГъалатӀ Lua: $2.",

@@ -7,7 +7,7 @@
 ( function () {
 
 	/**
-	 * @classdesc Namespaces multiselect widget.
+	 * Creates an mw.widgets.NamespacesMultiselectWidget object
 	 *
 	 * TODO: A lot of this is duplicated in mw.widgets.UsersMultiselectWidget
 	 * and mw.widgets.TitlesMultiselectWidget. These classes should be
@@ -17,15 +17,15 @@
 	 * @extends OO.ui.MenuTagMultiselectWidget
 	 *
 	 * @constructor
-	 * @description Create an mw.widgets.NamespacesMultiselectWidget object.
 	 * @param {Object} [config] Configuration options
 	 */
 	mw.widgets.NamespacesMultiselectWidget = function MwWidgetsNamespacesMultiselectWidget( config ) {
-		const namespaces = {},
+		var i, ilen, option,
+			namespaces = {},
 			options = mw.widgets.NamespaceInputWidget.static.getNamespaceDropdownOptions( {} );
 
-		for ( let i = 0, ilen = options.length; i < ilen; i++ ) {
-			const option = options[ i ];
+		for ( i = 0, ilen = options.length; i < ilen; i++ ) {
+			option = options[ i ];
 			namespaces[ option.data ] = option.label;
 		}
 
@@ -34,18 +34,23 @@
 		}, config );
 
 		// Parent constructor
-		mw.widgets.NamespacesMultiselectWidget.super.call( this, $.extend( true,
+		mw.widgets.NamespacesMultiselectWidget.parent.call( this, $.extend( true,
 			{
+				clearInputOnChoose: true,
+				inputPosition: 'inline',
+				allowEditTags: false,
 				menu: {
 					filterMode: 'substring'
 				}
 			},
 			config,
 			{
-				selected: config && config.selected ? config.selected.map( ( id ) => ( {
-					data: id,
-					label: namespaces[ id ]
-				} ) ) : undefined
+				selected: config && config.selected ? config.selected.map( function ( id ) {
+					return {
+						data: id,
+						label: namespaces[ id ]
+					};
+				} ) : undefined
 			}
 		) );
 
@@ -63,13 +68,17 @@
 				.appendTo( this.$element );
 			// Update with preset values
 			// Set the default value (it might be different from just being empty)
-			this.$hiddenInput.prop( 'defaultValue', this.getItems().map( ( item ) => item.getData() ).join( '\n' ) );
-			this.on( 'change', ( items ) => {
-				this.$hiddenInput.val( items.map( ( item ) => item.getData() ).join( '\n' ) );
+			this.$hiddenInput.prop( 'defaultValue', this.getItems().map( function ( item ) {
+				return item.getData();
+			} ).join( '\n' ) );
+			this.on( 'change', function ( items ) {
+				this.$hiddenInput.val( items.map( function ( item ) {
+					return item.getData();
+				} ).join( '\n' ) );
 				// Trigger a 'change' event as if a user edited the text
 				// (it is not triggered when changing the value from JS code).
 				this.$hiddenInput.trigger( 'change' );
-			} );
+			}.bind( this ) );
 		}
 	};
 

@@ -3,18 +3,8 @@
 namespace Wikimedia\Rdbms;
 
 class PostgresField implements Field {
-	private string $name;
-	private string $tablename;
-	private string $type;
-	private bool $nullable;
-	/** @var int */
-	private $max_length;
-	private bool $deferred;
-	private bool $deferrable;
-	private ?string $conname;
-	private bool $has_default;
-	/** @var mixed */
-	private $default;
+	private $name, $tablename, $type, $nullable, $max_length, $deferred, $deferrable, $conname,
+		$has_default, $default;
 
 	/**
 	 * @param DatabasePostgres $db
@@ -28,8 +18,8 @@ SELECT
  attnotnull, attlen, conname AS conname,
  atthasdef,
  pg_get_expr(adbin, adrelid) AS adsrc,
- COALESCE(condeferred, FALSE) AS deferred,
- COALESCE(condeferrable, FALSE) AS deferrable,
+ COALESCE(condeferred, 'f') AS deferred,
+ COALESCE(condeferrable, 'f') AS deferrable,
  CASE WHEN typname = 'int2' THEN 'smallint'
   WHEN typname = 'int4' THEN 'integer'
   WHEN typname = 'int8' THEN 'bigint'
@@ -62,14 +52,14 @@ SQL;
 			}
 			$n = new PostgresField;
 			$n->type = $row->typname;
-			$n->nullable = !$row->attnotnull;
+			$n->nullable = ( $row->attnotnull == 'f' );
 			$n->name = $field;
 			$n->tablename = $table;
 			$n->max_length = $row->attlen;
-			$n->deferrable = (bool)$row->deferrable;
-			$n->deferred = (bool)$row->deferred;
+			$n->deferrable = ( $row->deferrable == 't' );
+			$n->deferred = ( $row->deferred == 't' );
 			$n->conname = $row->conname;
-			$n->has_default = (bool)$row->atthasdef;
+			$n->has_default = ( $row->atthasdef === 't' );
 			$n->default = $row->adsrc;
 
 			return $n;

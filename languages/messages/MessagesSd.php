@@ -1,6 +1,8 @@
 <?php
 /** Sindhi (سنڌي)
  *
+ * To improve a translation please visit https://translatewiki.net
+ *
  * @file
  * @ingroup Languages
  *
@@ -128,7 +130,7 @@ $magicWords = [
 	'img_right'                 => [ '1', 'ساڄو', 'right' ],
 	'img_top'                   => [ '1', 'سِرُ', 'top' ],
 	'img_width'                 => [ '1', '$1 عڪسلون', '$1px' ],
-	'language'                  => [ '0', '#ٻولي', '#LANGUAGE' ],
+	'language'                  => [ '0', '#ٻولي:', '#LANGUAGE:' ],
 	'localday'                  => [ '1', 'مقاميڏينهن', 'LOCALDAY' ],
 	'localday2'                 => [ '1', 'مقاميڏينهن2', 'LOCALDAY2' ],
 	'localdayname'              => [ '1', 'مقاميڏينهننالو', 'LOCALDAYNAME' ],

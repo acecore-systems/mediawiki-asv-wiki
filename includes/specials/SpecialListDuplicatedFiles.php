@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:ListDuplicatedFiles
+ *
  * Copyright © 2013 Brian Wolff
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,39 +20,32 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
+ * @author Brian Wolff
  */
 
-namespace MediaWiki\Specials;
-
 use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\SpecialPage\QueryPage;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Title\Title;
-use Skin;
-use stdClass;
-use Wikimedia\Rdbms\IConnectionProvider;
 use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\ILoadBalancer;
 use Wikimedia\Rdbms\IResultWrapper;
 
 /**
- * List all files where the current version is a duplicate of the current
- * version of another file.
- *
+ * Special:ListDuplicatedFiles Lists all files where the current version is
+ *   a duplicate of the current version of some other file.
  * @ingroup SpecialPage
- * @author Brian Wolff
  */
 class SpecialListDuplicatedFiles extends QueryPage {
 
 	/**
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param LinkBatchFactory $linkBatchFactory
 	 */
 	public function __construct(
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		LinkBatchFactory $linkBatchFactory
 	) {
 		parent::__construct( 'ListDuplicatedFiles' );
-		$this->setDatabaseProvider( $dbProvider );
+		$this->setDBLoadBalancer( $loadBalancer );
 		$this->setLinkBatchFactory( $linkBatchFactory );
 	}
 
@@ -126,6 +121,3 @@ class SpecialListDuplicatedFiles extends QueryPage {
 		return 'media';
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialListDuplicatedFiles::class, 'SpecialListDuplicatedFiles' );

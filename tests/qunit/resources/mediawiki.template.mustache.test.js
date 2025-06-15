@@ -1,27 +1,32 @@
-QUnit.module( 'mediawiki.template.mustache', ( hooks ) => {
+( function () {
 
-	hooks.beforeEach( function () {
-		// Stub register some templates
-		this.sandbox.stub( mw.templates, 'get' ).returns( {
-			'test_greeting.mustache': '<div>{{foo}}{{>suffix}}</div>',
-			'test_greeting_suffix.mustache': ' goodbye'
-		} );
+	QUnit.module( 'mediawiki.template.mustache', {
+		beforeEach: function () {
+			// Stub register some templates
+			this.sandbox.stub( mw.templates, 'get' ).returns( {
+				'test_greeting.mustache': '<div>{{foo}}{{>suffix}}</div>',
+				'test_greeting_suffix.mustache': ' goodbye'
+			} );
+		}
 	} );
 
-	QUnit.test( 'render', ( assert ) => {
-		const template = mw.template.get( 'stub', 'test_greeting.mustache' );
-		const partial = mw.template.get( 'stub', 'test_greeting_suffix.mustache' );
-		const data = {
+	QUnit.test( 'render', function ( assert ) {
+		var html, htmlPartial, data, partials,
+			template = mw.template.get( 'stub', 'test_greeting.mustache' ),
+			partial = mw.template.get( 'stub', 'test_greeting_suffix.mustache' );
+
+		data = {
 			foo: 'Hello'
 		};
-		const partials = {
+		partials = {
 			suffix: partial
 		};
 
-		const html = template.render( data ).html();
-		assert.strictEqual( html, 'Hello', 'Render without partial' );
+		html = template.render( data ).html();
+		htmlPartial = template.render( data, partials ).html();
 
-		const htmlPartial = template.render( data, partials ).html();
+		assert.strictEqual( html, 'Hello', 'Render without partial' );
 		assert.strictEqual( htmlPartial, 'Hello goodbye', 'Render with partial' );
 	} );
-} );
+
+}() );

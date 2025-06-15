@@ -1,15 +1,15 @@
 /*!
  * VisualEditor UserInterface Actions FormatAction tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ui.FormatAction' );
 
 /* Tests */
 
-QUnit.test( 'convert', ( assert ) => {
-	const cases = [
+QUnit.test( 'convert', function ( assert ) {
+	var cases = [
 		{
 			rangeOrSelection: new ve.Range( 14, 16 ),
 			type: 'heading',
@@ -98,54 +98,27 @@ QUnit.test( 'convert', ( assert ) => {
 		},
 		{
 			html: '<p>a</p><p></p>',
-			rangeOrSelection: new ve.Range( 4 ),
+			rangeOrSelection: new ve.Range( 4, 4 ),
 			type: 'heading',
 			attributes: { level: 2 },
-			expectedRangeOrSelection: new ve.Range( 4 ),
+			expectedRangeOrSelection: new ve.Range( 4, 4 ),
 			expectedData: function ( data ) {
 				data.splice( 3, 1, { type: 'heading', attributes: { level: 2 } } );
 				data.splice( 4, 1, { type: '/heading' } );
 			},
 			undo: true,
 			msg: 'converting empty paragraph to heading'
-		},
-		{
-			html: '<p>foo</p><p>bar</p>',
-			rangeOrSelection: new ve.Range( 1, 6 ),
-			type: 'heading',
-			attributes: { level: 2 },
-			expectedRangeOrSelection: new ve.Range( 1, 6 ),
-			expectedData: function ( data ) {
-				data.splice( 0, 1, { type: 'heading', attributes: { level: 2 } } );
-				data.splice( 4, 1, { type: '/heading' } );
-			},
-			undo: true,
-			msg: 'covering first paragraph but empty in the second paragraph: only converts first paragraph'
-		},
-		{
-			html: '<p>foo</p><p>bar</p>',
-			rangeOrSelection: new ve.Range( 2 ),
-			type: 'heading',
-			attributes: { level: 2 },
-			expectedRangeOrSelection: new ve.Range( 2 ),
-			expectedData: function ( data ) {
-				data.splice( 0, 1, { type: 'heading', attributes: { level: 2 } } );
-				data.splice( 4, 1, { type: '/heading' } );
-			},
-			undo: true,
-			msg: 'collapsed in paragraph'
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		ve.test.utils.runActionTest(
-			assert,
+			'format', assert, caseItem.html || ve.dm.example.isolationHtml, false, 'convert',
+			[ caseItem.type, caseItem.attributes ], caseItem.rangeOrSelection, caseItem.msg,
 			{
-				actionName: 'format',
-				method: 'convert',
-				html: ve.dm.example.isolationHtml,
-				args: [ caseItem.type, caseItem.attributes ],
-				...caseItem
+				expectedData: caseItem.expectedData,
+				expectedRangeOrSelection: caseItem.expectedRangeOrSelection,
+				undo: caseItem.undo
 			}
 		);
 	} );

@@ -2,20 +2,21 @@
 
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Title\Title;
 
 /**
- * @covers \Skin
- * @covers \SkinTemplate
  * @group Skin
- * @group Database
  */
 class SideBarTest extends MediaWikiLangTestCase {
-	/** @var SkinTemplate */
+
+	/**
+	 * A skin template, reinitialized before each test
+	 * @var SkinTemplate
+	 */
 	private $skin;
 	/** @var string[][] Local cache for sidebar messages */
 	private $messages;
 
+	/** Build $this->messages array */
 	private function initMessagesHref() {
 		# List of default messages for the sidebar. The sidebar doesn't care at
 		# all whether they are full URLs, interwiki links or local titles.
@@ -111,6 +112,7 @@ class SideBarTest extends MediaWikiLangTestCase {
 	}
 
 	/**
+	 * @covers SkinTemplate::addToSidebarPlain
 	 * @dataProvider provideSidebars
 	 */
 	public function testAddToSidebarPlain( $expected, $text, $message = '' ) {
@@ -119,6 +121,9 @@ class SideBarTest extends MediaWikiLangTestCase {
 		$this->assertEquals( $expected, $bar, $message );
 	}
 
+	/**
+	 * @covers SkinTemplate::addToSidebarPlain
+	 */
 	public function testExternalUrlsRequireADescription() {
 		$this->overrideConfigValues( [
 			MainConfigNames::NoFollowLinks => true,
@@ -150,34 +155,7 @@ class SideBarTest extends MediaWikiLangTestCase {
 		);
 	}
 
-	public function testProtocolRelativeExternalUrl() {
-		$this->overrideConfigValues( [
-			MainConfigNames::NoFollowLinks => true,
-			MainConfigNames::NoFollowDomainExceptions => [],
-			MainConfigNames::NoFollowNsExceptions => [],
-		] );
-
-		$bar = [];
-		$text = '* Title
-** //www.mediawiki.org/| Home
-';
-		$this->skin->addToSidebarPlain( $bar, $text );
-		$this->assertEquals(
-			[ 'Title' => [
-				# ** //www.mediawiki.org/| Home
-				[
-					'text' => 'Home',
-					'href' => '//www.mediawiki.org/', // not /wiki///www.mediawiki.org/ (T364539)
-					'id' => 'n-Home',
-					'active' => null,
-					'icon' => null,
-					'rel' => 'nofollow',
-				],
-			] ],
-			$bar
-		);
-	}
-
+	#### Attributes for external links ##########################
 	private function getAttribs() {
 		# Sidebar text we will use everytime
 		$text = '* Title
@@ -190,7 +168,7 @@ class SideBarTest extends MediaWikiLangTestCase {
 	}
 
 	/**
-	 * Test our assertAttribs() helper function
+	 * Simple test to verify our helper assertAttribs() is functional
 	 * @coversNothing
 	 */
 	public function testTestAttributesAssertionHelper() {
@@ -210,6 +188,7 @@ class SideBarTest extends MediaWikiLangTestCase {
 
 	/**
 	 * Test $wgNoFollowLinks in sidebar
+	 * @covers Skin::addToSidebarPlain
 	 */
 	public function testRespectWgnofollowlinks() {
 		$this->overrideConfigValue( MainConfigNames::NoFollowLinks, false );
@@ -223,6 +202,7 @@ class SideBarTest extends MediaWikiLangTestCase {
 	/**
 	 * Test $wgExternaLinkTarget in sidebar
 	 * @dataProvider dataRespectExternallinktarget
+	 * @covers Skin::addToSidebarPlain
 	 */
 	public function testRespectExternallinktarget( $externalLinkTarget ) {
 		$this->overrideConfigValue( MainConfigNames::ExternalLinkTarget, $externalLinkTarget );

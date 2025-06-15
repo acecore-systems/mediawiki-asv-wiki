@@ -1,26 +1,27 @@
 ( function () {
 	'use strict';
-	let ApiSandbox = null, Util = null,
+	var ApiSandbox, Util, WidgetMethods, Validators,
 		windowManager,
 		formatDropdown,
+		api = new mw.Api(),
+		bookletPages = [],
+		availableFormats = {},
 		resultPage = null,
 		suppressErrors = true,
 		updatingBooklet = false,
-		baseRequestParams = {},
-		pages = {};
-	const api = new mw.Api(),
-		bookletPages = [],
-		availableFormats = {},
+		pages = {},
 		moduleInfoCache = {},
+		baseRequestParams = {},
 		OptionalParamWidget = require( './OptionalParamWidget.js' ),
 		ParamLabelWidget = require( './ParamLabelWidget.js' ),
 		BooleanToggleSwitchParamWidget = require( './BooleanToggleSwitchParamWidget.js' ),
 		DateTimeParamWidget = require( './DateTimeParamWidget.js' ),
+		IntegerParamWidget = require( './IntegerParamWidget.js' ),
 		LimitParamWidget = require( './LimitParamWidget.js' ),
 		PasswordParamWidget = require( './PasswordParamWidget.js' ),
 		UploadSelectFileParamWidget = require( './UploadSelectFileParamWidget.js' );
 
-	const WidgetMethods = {
+	WidgetMethods = {
 		textInputWidget: {
 			getApiValue: function () {
 				return this.getValue();
@@ -32,8 +33,12 @@
 				this.setValue( v );
 			},
 			apiCheckValid: function ( shouldSuppressErrors ) {
-				const widget = this;
-				return this.getValidity().then( () => $.Deferred().resolve( true ).promise(), () => $.Deferred().resolve( false ).promise() ).done( ( ok ) => {
+				var widget = this;
+				return this.getValidity().then( function () {
+					return $.Deferred().resolve( true ).promise();
+				}, function () {
+					return $.Deferred().resolve( false ).promise();
+				} ).done( function ( ok ) {
 					ok = ok || shouldSuppressErrors;
 					widget.setIcon( ok ? null : 'alert' );
 					widget.setTitle( ok ? '' : mw.message( 'apisandbox-alert-field' ).plain() );
@@ -75,14 +80,14 @@
 
 		dropdownWidget: {
 			getApiValue: function () {
-				const selected = this.getMenu().findFirstSelectedItem();
-				return selected ? selected.getData() : undefined;
+				var item = this.getMenu().findSelectedItem();
+				return item === null ? undefined : item.getData();
 			},
 			setApiValue: function ( v ) {
 				if ( v === undefined ) {
 					v = this.paramInfo.default;
 				}
-				const menu = this.getMenu();
+				var menu = this.getMenu();
 				if ( v === undefined ) {
 					menu.selectItem();
 				} else {
@@ -90,7 +95,7 @@
 				}
 			},
 			apiCheckValid: function ( shouldSuppressErrors ) {
-				const ok = this.getApiValue() !== undefined || shouldSuppressErrors;
+				var ok = this.getApiValue() !== undefined || shouldSuppressErrors;
 				this.setIcon( ok ? null : 'alert' );
 				this.setTitle( ok ? '' : mw.message( 'apisandbox-alert-field' ).plain() );
 				return $.Deferred().resolve( ok ).promise();
@@ -114,7 +119,7 @@
 				return this.isDisabled() ? this.parseApiValue( this.paramInfo.default ) : this.getValue();
 			},
 			getApiValue: function () {
-				const items = this.getValue();
+				var items = this.getValue();
 				if ( items.join( '' ).indexOf( '|' ) === -1 ) {
 					return items.join( '|' );
 				} else {
@@ -128,9 +133,9 @@
 				this.setValue( this.parseApiValue( v ) );
 			},
 			apiCheckValid: function ( shouldSuppressErrors ) {
-				let ok = true;
+				var ok = true;
 				if ( !shouldSuppressErrors ) {
-					const pi = this.paramInfo;
+					var pi = this.paramInfo;
 					ok = this.getApiValue() !== undefined && !(
 						pi.allspecifier !== undefined &&
 						this.getValue().length > 1 &&
@@ -143,7 +148,7 @@
 				return $.Deferred().resolve( ok ).promise();
 			},
 			createTagItemWidget: function ( data, label ) {
-				const item = OO.ui.TagMultiselectWidget.prototype.createTagItemWidget.call( this, data, label );
+				var item = OO.ui.TagMultiselectWidget.prototype.createTagItemWidget.call( this, data, label );
 				if ( this.paramInfo.deprecatedvalues &&
 					this.paramInfo.deprecatedvalues.indexOf( data ) >= 0
 				) {
@@ -160,18 +165,20 @@
 
 		submoduleWidget: {
 			single: function () {
-				const v = this.isDisabled() ? this.paramInfo.default : this.getApiValue();
+				var v = this.isDisabled() ? this.paramInfo.default : this.getApiValue();
 				return v === undefined ? [] : [ { value: v, path: this.paramInfo.submodules[ v ] } ];
 			},
 			multi: function () {
-				const map = this.paramInfo.submodules,
+				var map = this.paramInfo.submodules,
 					v = this.isDisabled() ? this.paramInfo.default : this.getApiValue();
-				return v === undefined || v === '' ? [] : String( v ).split( '|' ).map( ( val ) => ( { value: val, path: map[ val ] } ) );
+				return v === undefined || v === '' ? [] : String( v ).split( '|' ).map( function ( val ) {
+					return { value: val, path: map[ val ] };
+				} );
 			}
 		}
 	};
 
-	const Validators = {
+	Validators = {
 		generic: function () {
 			return !Util.apiBool( this.paramInfo.required ) || this.getApiValue() !== '';
 		}
@@ -189,25 +196,25 @@
 		 * @return {jQuery.Promise}
 		 */
 		fetchModuleInfo: function ( module ) {
-			const deferred = $.Deferred();
+			var deferred = $.Deferred();
 
 			if ( Object.prototype.hasOwnProperty.call( moduleInfoCache, module ) ) {
 				return deferred
 					.resolve( moduleInfoCache[ module ] )
 					.promise( { abort: function () {} } );
 			} else {
-				const apiPromise = api.post( {
+				var apiPromise = api.post( {
 					action: 'paraminfo',
 					modules: module,
 					helpformat: 'html',
 					uselang: mw.config.get( 'wgUserLanguage' )
-				} ).done( ( data ) => {
+				} ).done( function ( data ) {
 					if ( data.warnings && data.warnings.paraminfo ) {
 						deferred.reject( '???', data.warnings.paraminfo[ '*' ] );
 						return;
 					}
 
-					const info = data.paraminfo.modules;
+					var info = data.paraminfo.modules;
 					if ( !info || info.length !== 1 || info[ 0 ].path !== module ) {
 						deferred.reject( '???', 'No module data returned' );
 						return;
@@ -215,7 +222,7 @@
 
 					moduleInfoCache[ module ] = info[ 0 ];
 					deferred.resolve( info[ 0 ] );
-				} ).fail( ( code, details ) => {
+				} ).fail( function ( code, details ) {
 					if ( code === 'http' ) {
 						details = 'HTTP error: ' + details.exception;
 					} else if ( details.error ) {
@@ -232,18 +239,18 @@
 		 * Mark all currently-in-use tokens as bad
 		 */
 		markTokensBad: function () {
-			const checkPages = [ pages.main ];
+			var checkPages = [ pages.main ];
 
 			while ( checkPages.length ) {
-				const page = checkPages.shift();
+				var page = checkPages.shift();
 
 				if ( page.tokenWidget ) {
 					api.badToken( page.tokenWidget.paramInfo.tokentype );
 				}
 
-				const subpages = page.getSubpages();
+				var subpages = page.getSubpages();
 				// eslint-disable-next-line no-loop-func
-				subpages.forEach( ( subpage ) => {
+				subpages.forEach( function ( subpage ) {
 					if ( Object.prototype.hasOwnProperty.call( pages, subpage.key ) ) {
 						checkPages.push( pages[ subpage.key ] );
 					}
@@ -254,7 +261,7 @@
 		/**
 		 * Test an API boolean
 		 *
-		 * @param {any} value
+		 * @param {Mixed} value
 		 * @return {boolean}
 		 */
 		apiBool: function ( value ) {
@@ -269,13 +276,13 @@
 		 * @return {OO.ui.Widget}
 		 */
 		createWidgetForParameter: function ( pi, opts ) {
-			let multiModeButton = null,
+			var multiModeButton = null,
 				multiModeInput = null,
 				multiModeAllowed = false;
 
 			opts = opts || {};
 
-			let widget, items;
+			var widget, items;
 			switch ( pi.type ) {
 				case 'boolean':
 					widget = new BooleanToggleSwitchParamWidget();
@@ -299,9 +306,9 @@
 							required: Util.apiBool( pi.required )
 						} );
 						widget.paramInfo = pi;
-						Object.assign( widget, WidgetMethods.textInputWidget );
+						$.extend( widget, WidgetMethods.textInputWidget );
 						widget.setValidation( Validators.generic );
-						Object.assign( widget, WidgetMethods.tokenWidget );
+						$.extend( widget, WidgetMethods.tokenWidget );
 						break;
 					}
 					// intentional fall through
@@ -314,13 +321,13 @@
 							$overlay: true
 						} );
 						widget.paramInfo = pi;
-						Object.assign( widget, WidgetMethods.tagWidget );
+						$.extend( widget, WidgetMethods.tagWidget );
 					} else {
 						widget = new OO.ui.TextInputWidget( {
 							required: Util.apiBool( pi.required )
 						} );
 						widget.paramInfo = pi;
-						Object.assign( widget, WidgetMethods.textInputWidget );
+						$.extend( widget, WidgetMethods.textInputWidget );
 						widget.setValidation( Validators.generic );
 					}
 					break;
@@ -331,7 +338,7 @@
 						required: Util.apiBool( pi.required )
 					} );
 					widget.paramInfo = pi;
-					Object.assign( widget, WidgetMethods.textInputWidget );
+					$.extend( widget, WidgetMethods.textInputWidget );
 					widget.setValidation( Validators.generic );
 					break;
 
@@ -346,14 +353,11 @@
 					break;
 
 				case 'integer':
-					widget = new OO.ui.NumberInputWidget( {
-						step: 1,
-						min: pi.min || -Infinity,
-						max: pi.max || Infinity,
+					widget = new IntegerParamWidget( {
 						required: Util.apiBool( pi.required )
 					} );
 					widget.paramInfo = pi;
-					Object.assign( widget, WidgetMethods.textInputWidget );
+					widget.setRange( pi.min || -Infinity, pi.max || Infinity );
 					multiModeAllowed = true;
 					multiModeInput = widget;
 					break;
@@ -384,12 +388,14 @@
 
 				case 'namespace':
 					// eslint-disable-next-line no-jquery/no-map-util
-					items = $.map( mw.config.get( 'wgFormattedNamespaces' ), ( name, ns ) => {
+					items = $.map( mw.config.get( 'wgFormattedNamespaces' ), function ( name, ns ) {
 						if ( ns === '0' ) {
 							name = mw.msg( 'blanknamespace' );
 						}
 						return new OO.ui.MenuOptionWidget( { data: ns, label: name } );
-					} ).sort( ( a, b ) => a.data - b.data );
+					} ).sort( function ( a, b ) {
+						return a.data - b.data;
+					} );
 					if ( Util.apiBool( pi.multi ) ) {
 						if ( pi.allspecifier !== undefined ) {
 							items.unshift( new OO.ui.MenuOptionWidget( {
@@ -403,14 +409,14 @@
 							$overlay: true
 						} );
 						widget.paramInfo = pi;
-						Object.assign( widget, WidgetMethods.tagWidget );
+						$.extend( widget, WidgetMethods.tagWidget );
 					} else {
 						widget = new OO.ui.DropdownWidget( {
 							menu: { items: items },
 							$overlay: true
 						} );
 						widget.paramInfo = pi;
-						Object.assign( widget, WidgetMethods.dropdownWidget );
+						$.extend( widget, WidgetMethods.dropdownWidget );
 					}
 					break;
 
@@ -425,7 +431,7 @@
 							tagLimit: pi.limit || undefined
 						} );
 						widget.paramInfo = pi;
-						Object.assign( widget, WidgetMethods.tagWidget );
+						$.extend( widget, WidgetMethods.tagWidget );
 					} else {
 						widget = new mw.widgets.TitleInputWidget( {
 							required: Util.apiBool( pi.required ),
@@ -436,7 +442,7 @@
 							addQueryInput: !Util.apiBool( pi.mustExist )
 						} );
 						widget.paramInfo = pi;
-						Object.assign( widget, WidgetMethods.textInputWidget );
+						$.extend( widget, WidgetMethods.textInputWidget );
 					}
 					break;
 
@@ -445,8 +451,8 @@
 						throw new Error( 'Unknown parameter type ' + pi.type );
 					}
 
-					items = pi.type.map( ( v ) => {
-						const optionWidget = new OO.ui.MenuOptionWidget( {
+					items = pi.type.map( function ( v ) {
+						var optionWidget = new OO.ui.MenuOptionWidget( {
 							data: String( v ),
 							label: String( v )
 						} );
@@ -463,7 +469,9 @@
 							);
 						}
 						return optionWidget;
-					} ).sort( ( a, b ) => a.label < b.label ? -1 : ( a.label > b.label ? 1 : 0 ) );
+					} ).sort( function ( a, b ) {
+						return a.label < b.label ? -1 : ( a.label > b.label ? 1 : 0 );
+					} );
 					if ( Util.apiBool( pi.multi ) ) {
 						if ( pi.allspecifier !== undefined ) {
 							items.unshift( new OO.ui.MenuOptionWidget( {
@@ -477,7 +485,7 @@
 							$overlay: true
 						} );
 						widget.paramInfo = pi;
-						Object.assign( widget, WidgetMethods.tagWidget );
+						$.extend( widget, WidgetMethods.tagWidget );
 						if ( Util.apiBool( pi.submodules ) ) {
 							widget.getSubmodules = WidgetMethods.submoduleWidget.multi;
 							widget.on( 'change', ApiSandbox.updateUI );
@@ -488,7 +496,7 @@
 							$overlay: true
 						} );
 						widget.paramInfo = pi;
-						Object.assign( widget, WidgetMethods.dropdownWidget );
+						$.extend( widget, WidgetMethods.dropdownWidget );
 						if ( Util.apiBool( pi.submodules ) ) {
 							widget.getSubmodules = WidgetMethods.submoduleWidget.single;
 							widget.getMenu().on( 'select', ApiSandbox.updateUI );
@@ -515,12 +523,12 @@
 			}
 
 			if ( Util.apiBool( pi.multi ) && multiModeAllowed ) {
-				const innerWidget = widget;
+				var innerWidget = widget;
 
 				multiModeButton = new OO.ui.ButtonWidget( {
 					label: mw.msg( 'apisandbox-add-multi' )
 				} );
-				const $content = innerWidget.$element.add( multiModeButton.$element );
+				var $content = innerWidget.$element.add( multiModeButton.$element );
 
 				widget = new OO.ui.PopupTagMultiselectWidget( {
 					allowArbitrary: true,
@@ -533,11 +541,11 @@
 					}
 				} );
 				widget.paramInfo = pi;
-				Object.assign( widget, WidgetMethods.tagWidget );
+				$.extend( widget, WidgetMethods.tagWidget );
 
-				const func = function () {
+				var func = function () {
 					if ( !innerWidget.isDisabled() ) {
-						innerWidget.apiCheckValid( suppressErrors ).done( ( ok ) => {
+						innerWidget.apiCheckValid( suppressErrors ).done( function ( ok ) {
 							if ( ok ) {
 								widget.addTag( innerWidget.getApiValue() );
 								innerWidget.setApiValue( undefined );
@@ -553,7 +561,7 @@
 				multiModeButton.on( 'click', func );
 			}
 
-			let finalWidget;
+			var finalWidget;
 			if ( Util.apiBool( pi.required ) || opts.nooptional ) {
 				finalWidget = widget;
 			} else {
@@ -561,7 +569,7 @@
 				finalWidget.paramInfo = pi;
 				if ( widget.getSubmodules ) {
 					finalWidget.getSubmodules = widget.getSubmodules.bind( widget );
-					finalWidget.on( 'disable', () => {
+					finalWidget.on( 'disable', function () {
 						setTimeout( ApiSandbox.updateUI );
 					} );
 				}
@@ -583,7 +591,7 @@
 		 * @return {jQuery}
 		 */
 		parseHTML: function ( html ) {
-			const $ret = $( $.parseHTML( html ) );
+			var $ret = $( $.parseHTML( html ) );
 			return Util.fixupHTML( $ret );
 		},
 
@@ -594,9 +602,8 @@
 		 * @param {...Mixed} parameters Values for $N replacements
 		 * @return {jQuery}
 		 */
-		parseMsg: function ( key, ...parameters ) {
-			// eslint-disable-next-line mediawiki/msg-doc
-			const $ret = mw.message( key, ...parameters ).parseDom();
+		parseMsg: function () {
+			var $ret = mw.message.apply( mw.message, arguments ).parseDom();
 			return Util.fixupHTML( $ret );
 		},
 
@@ -621,73 +628,70 @@
 		 *
 		 * @param {Object} displayParams Query parameters, sanitized for display.
 		 * @param {Object} rawParams Query parameters. You should probably use displayParams instead.
-		 * @param {string} method HTTP method that must be used for this request: 'get' or 'post'
-		 * @param {Object} ajaxOptions Extra options that must be used for this request, in the format
-		 *   expected by jQuery#ajax.
 		 * @return {OO.ui.MenuOptionWidget[]} Each item's data should be an OO.ui.FieldLayout
 		 */
-		formatRequest: function ( displayParams, rawParams, method, ajaxOptions ) {
-			let jsonLayout, phpLayout;
-			const apiUrl = new URL( mw.util.wikiScript( 'api' ), location.origin ).toString();
-			const items = [
-				new OO.ui.MenuOptionWidget( {
-					label: Util.parseMsg( 'apisandbox-request-format-url-label' ),
-					data: new mw.widgets.CopyTextLayout( {
-						label: Util.parseMsg( 'apisandbox-request-url-label' ),
-						copyText: apiUrl + '?' + $.param( displayParams )
+		formatRequest: function ( displayParams, rawParams ) {
+			var jsonLayout, phpLayout,
+				apiUrl = new mw.Uri( mw.util.wikiScript( 'api' ) ).toString(),
+				items = [
+					new OO.ui.MenuOptionWidget( {
+						label: Util.parseMsg( 'apisandbox-request-format-url-label' ),
+						data: new mw.widgets.CopyTextLayout( {
+							label: Util.parseMsg( 'apisandbox-request-url-label' ),
+							copyText: apiUrl + '?' + $.param( displayParams )
+						} )
+					} ),
+					new OO.ui.MenuOptionWidget( {
+						label: Util.parseMsg( 'apisandbox-request-format-json-label' ),
+						data: jsonLayout = new mw.widgets.CopyTextLayout( {
+							label: Util.parseMsg( 'apisandbox-request-json-label' ),
+							copyText: JSON.stringify( displayParams, null, '\t' ),
+							multiline: true,
+							textInput: {
+								classes: [ 'mw-apisandbox-textInputCode' ],
+								autosize: true,
+								maxRows: 6
+							}
+						} ).on( 'toggle', function ( visible ) {
+							if ( visible ) {
+								// Call updatePosition instead of adjustSize
+								// because the latter has weird caching
+								// behavior and the former bypasses it.
+								jsonLayout.textInput.updatePosition();
+							}
+						} )
+					} ),
+					new OO.ui.MenuOptionWidget( {
+						label: Util.parseMsg( 'apisandbox-request-format-php-label' ),
+						data: phpLayout = new mw.widgets.CopyTextLayout( {
+							label: Util.parseMsg( 'apisandbox-request-php-label' ),
+							copyText: '[\n' +
+								Object.keys( displayParams ).map( function ( param ) {
+									// displayParams is a dictionary of strings or numbers
+									return '\t' +
+										JSON.stringify( param ) +
+										' => ' +
+										JSON.stringify( displayParams[ param ] ).replace( /\$/g, '\\$' );
+								} ).join( ',\n' ) +
+								'\n]',
+							multiline: true,
+							textInput: {
+								classes: [ 'mw-apisandbox-textInputCode' ],
+								autosize: true,
+								maxRows: 6
+							}
+						} ).on( 'toggle', function ( visible ) {
+							if ( visible ) {
+								// Call updatePosition instead of adjustSize
+								// because the latter has weird caching
+								// behavior and the former bypasses it.
+								phpLayout.textInput.updatePosition();
+							}
+						} )
 					} )
-				} ),
-				new OO.ui.MenuOptionWidget( {
-					label: Util.parseMsg( 'apisandbox-request-format-json-label' ),
-					data: jsonLayout = new mw.widgets.CopyTextLayout( {
-						label: Util.parseMsg( 'apisandbox-request-json-label' ),
-						copyText: JSON.stringify( displayParams, null, '\t' ),
-						multiline: true,
-						textInput: {
-							classes: [ 'mw-apisandbox-textInputCode' ],
-							autosize: true,
-							maxRows: 6
-						}
-					} ).on( 'toggle', ( visible ) => {
-						if ( visible ) {
-							// Call updatePosition instead of adjustSize
-							// because the latter has weird caching
-							// behavior and the former bypasses it.
-							jsonLayout.textInput.updatePosition();
-						}
-					} )
-				} ),
-				new OO.ui.MenuOptionWidget( {
-					label: Util.parseMsg( 'apisandbox-request-format-php-label' ),
-					data: phpLayout = new mw.widgets.CopyTextLayout( {
-						label: Util.parseMsg( 'apisandbox-request-php-label' ),
-						copyText: '[\n' +
-							Object.keys( displayParams ).map(
-								// displayParams is a dictionary of strings or numbers
-								( param ) => '\t' +
-									JSON.stringify( param ) +
-									' => ' +
-									JSON.stringify( displayParams[ param ] ).replace( /\$/g, '\\$' )
-							).join( ',\n' ) +
-							'\n]',
-						multiline: true,
-						textInput: {
-							classes: [ 'mw-apisandbox-textInputCode' ],
-							autosize: true,
-							maxRows: 6
-						}
-					} ).on( 'toggle', ( visible ) => {
-						if ( visible ) {
-							// Call updatePosition instead of adjustSize
-							// because the latter has weird caching
-							// behavior and the former bypasses it.
-							phpLayout.textInput.updatePosition();
-						}
-					} )
-				} )
-			];
+				];
 
-			mw.hook( 'apisandbox.formatRequest' ).fire( items, displayParams, rawParams, method, ajaxOptions );
+			mw.hook( 'apisandbox.formatRequest' ).fire( items, displayParams, rawParams );
 
 			return items;
 		},
@@ -696,22 +700,21 @@
 		 * Event handler for when formatDropdown's selection changes
 		 */
 		onFormatDropdownChange: function () {
-			const menu = formatDropdown.getMenu(),
-				selected = menu.findFirstSelectedItem(),
-				selectedField = selected ? selected.getData() : null;
+			var menu = formatDropdown.getMenu(),
+				items = menu.getItems(),
+				selectedField = menu.findSelectedItem() ? menu.findSelectedItem().getData() : null;
 
-			menu.getItems().forEach( ( item ) => {
+			items.forEach( function ( item ) {
 				item.getData().toggle( item.getData() === selectedField );
 			} );
 		}
 	};
 
-	let booklet, panel, oldhash;
+	var booklet, panel, oldhash;
 	/**
-	 * Interface to ApiSandbox UI.
+	 * Interface to ApiSandbox UI
 	 *
 	 * @class mw.special.ApiSandbox
-	 * @ignore
 	 */
 	ApiSandbox = {
 		/**
@@ -721,12 +724,12 @@
 		 */
 		init: function () {
 			windowManager = new OO.ui.WindowManager();
-			$( OO.ui.getTeleportTarget() ).append( windowManager.$element );
+			$( document.body ).append( windowManager.$element );
 			windowManager.addWindows( {
 				errorAlert: new OO.ui.MessageDialog()
 			} );
 
-			const $toolbar = $( '<div>' )
+			var $toolbar = $( '<div>' )
 				.addClass( 'mw-apisandbox-toolbar' )
 				.append(
 					new OO.ui.ButtonWidget( {
@@ -776,22 +779,22 @@
 		 * @return {boolean} Successful
 		 */
 		loadFromHash: function () {
-			let fragment = location.hash;
+			var hash = location.hash;
 
-			if ( oldhash === fragment ) {
+			if ( oldhash === hash ) {
 				return false;
 			}
-			oldhash = fragment;
-			if ( fragment === '' ) {
+			oldhash = hash;
+			if ( hash === '' ) {
 				return false;
 			}
 
 			// I'm surprised this doesn't seem to exist in jQuery or mw.util.
-			const params = {};
-			fragment = fragment.replace( /\+/g, '%20' );
-			const pattern = /([^&=#]+)=?([^&#]*)/g;
-			let match;
-			while ( ( match = pattern.exec( fragment ) ) ) {
+			var params = {};
+			hash = hash.replace( /\+/g, '%20' );
+			var pattern = /([^&=#]+)=?([^&#]*)/g;
+			var match;
+			while ( ( match = pattern.exec( hash ) ) ) {
 				params[ decodeURIComponent( match[ 1 ] ) ] = decodeURIComponent( match[ 2 ] );
 			}
 
@@ -805,7 +808,7 @@
 		 * @param {Object} [params] Optional query parameters to load
 		 */
 		updateUI: function ( params ) {
-			const addPages = [];
+			var addPages = [];
 
 			if ( !$.isPlainObject( params ) ) {
 				params = undefined;
@@ -825,11 +828,11 @@
 				}
 				pages.main.apiCheckValid();
 
-				let i = 0;
+				var i = 0;
 				while ( addPages.length ) {
-					const page = addPages.shift();
+					var page = addPages.shift();
 					if ( bookletPages[ i ] !== page ) {
-						for ( let j = i; j < bookletPages.length; j++ ) {
+						for ( var j = i; j < bookletPages.length; j++ ) {
 							if ( bookletPages[ j ].getName() === page.getName() ) {
 								bookletPages.splice( j, 1 );
 							}
@@ -840,9 +843,9 @@
 					i++;
 
 					if ( page.getSubpages ) {
-						const subpages = page.getSubpages();
+						var subpages = page.getSubpages();
 						// eslint-disable-next-line no-loop-func
-						subpages.forEach( ( subpage, k ) => {
+						subpages.forEach( function ( subpage, k ) {
 							if ( !Object.prototype.hasOwnProperty.call( pages, subpage.key ) ) {
 								subpage.indentLevel = page.indentLevel + 1;
 								pages[ subpage.key ] = new ApiSandbox.PageLayout( subpage );
@@ -857,7 +860,7 @@
 				}
 
 				if ( bookletPages.length > i ) {
-					const removePages = bookletPages.splice( i, bookletPages.length - i );
+					var removePages = bookletPages.splice( i, bookletPages.length - i );
 					booklet.removePages( removePages );
 				}
 
@@ -888,17 +891,15 @@
 		 *   The form fields will be updated to match.
 		 */
 		sendRequest: function ( params ) {
-			let method = 'get';
-			const paramsAreForced = !!params,
-				deferreds = [],
+			var deferreds = [],
+				paramsAreForced = !!params,
 				displayParams = {},
-				ajaxOptions = {},
 				tokenWidgets = [],
 				checkPages = [ pages.main ];
 
 			// Blur any focused widget before submit, because
 			// OO.ui.ButtonWidget doesn't take focus itself (T128054)
-			const $focus = $( '#mw-apisandbox-ui' ).find( document.activeElement );
+			var $focus = $( '#mw-apisandbox-ui' ).find( document.activeElement );
 			if ( $focus.length ) {
 				$focus[ 0 ].blur();
 			}
@@ -911,18 +912,15 @@
 			}
 			params = {};
 			while ( checkPages.length ) {
-				const checkPage = checkPages.shift();
+				var checkPage = checkPages.shift();
 				if ( checkPage.tokenWidget ) {
 					tokenWidgets.push( checkPage.tokenWidget );
 				}
-				deferreds.push( checkPage.apiCheckValid() );
-				checkPage.getQueryParams( params, displayParams, ajaxOptions );
-				if ( checkPage.paramInfo.mustbeposted !== undefined ) {
-					method = 'post';
-				}
-				const subpages = checkPage.getSubpages();
+				deferreds = deferreds.concat( checkPage.apiCheckValid() );
+				checkPage.getQueryParams( params, displayParams );
+				var subpages = checkPage.getSubpages();
 				// eslint-disable-next-line no-loop-func
-				subpages.forEach( ( subpage ) => {
+				subpages.forEach( function ( subpage ) {
 					if ( Object.prototype.hasOwnProperty.call( pages, subpage.key ) ) {
 						checkPages.push( pages[ subpage.key ] );
 					}
@@ -931,14 +929,14 @@
 
 			if ( !paramsAreForced ) {
 				// forced params means we are continuing a query; the base query should be preserved
-				baseRequestParams = Object.assign( {}, params );
+				baseRequestParams = $.extend( {}, params );
 			}
 
-			$.when( ...deferreds ).done( function () {
+			$.when.apply( $, deferreds ).done( function () {
 				// Count how many times `value` occurs in `array`.
 				function countValues( value, array ) {
-					let count = 0;
-					for ( let n = 0; n < array.length; n++ ) {
+					var count = 0;
+					for ( var n = 0; n < array.length; n++ ) {
 						if ( array[ n ] === value ) {
 							count++;
 						}
@@ -946,23 +944,25 @@
 					return count;
 				}
 
-				const errorCount = countValues( false, arguments );
+				var errorCount = countValues( false, arguments );
 				if ( errorCount > 0 ) {
-					const actions = [
+					var actions = [
 						{
 							action: 'accept',
 							label: OO.ui.msg( 'ooui-dialog-process-dismiss' ),
 							flags: 'primary'
 						}
 					];
-					let deferred;
+					var deferred;
 					if ( tokenWidgets.length ) {
 						// Check all token widgets' validity separately
-						deferred = $.when( ...tokenWidgets.map( ( w ) => w.apiCheckValid( suppressErrors ) ) );
+						deferred = $.when.apply( $, tokenWidgets.map( function ( w ) {
+							return w.apiCheckValid( suppressErrors );
+						} ) );
 
 						deferred.done( function () {
 							// If only the tokens are invalid, offer to fix them
-							const tokenErrorCount = countValues( false, arguments );
+							var tokenErrorCount = countValues( false, arguments );
 							if ( tokenErrorCount === errorCount ) {
 								delete actions[ 0 ].flags;
 								actions.push( {
@@ -975,12 +975,12 @@
 					} else {
 						deferred = $.Deferred().resolve();
 					}
-					deferred.always( () => {
+					deferred.always( function () {
 						windowManager.openWindow( 'errorAlert', {
 							title: Util.parseMsg( 'apisandbox-submit-invalid-fields-title' ),
 							message: Util.parseMsg( 'apisandbox-submit-invalid-fields-message' ),
 							actions: actions
-						} ).closed.then( ( data ) => {
+						} ).closed.then( function ( data ) {
 							if ( data && data.action === 'fix' ) {
 								ApiSandbox.fixTokenAndResend();
 							}
@@ -989,9 +989,9 @@
 					return;
 				}
 
-				const query = $.param( displayParams );
+				var query = $.param( displayParams );
 
-				const formatItems = Util.formatRequest( displayParams, params, method, ajaxOptions );
+				var formatItems = Util.formatRequest( displayParams, params );
 
 				// Force a 'fm' format with wrappedhtml=1, if available
 				if ( params.format !== undefined ) {
@@ -1003,16 +1003,16 @@
 					}
 				}
 
-				let progressLoading = false;
-				const $progressText = $( '<span>' ).text( mw.msg( 'apisandbox-sending-request' ) );
-				const progress = new OO.ui.ProgressBarWidget( {
+				var progressLoading = false;
+				var $progressText = $( '<span>' ).text( mw.msg( 'apisandbox-sending-request' ) );
+				var progress = new OO.ui.ProgressBarWidget( {
 					progress: false
 				} );
 
-				const $result = $( '<div>' )
+				var $result = $( '<div>' )
 					.append( $progressText, progress.$element );
 
-				const page = resultPage = new OO.ui.PageLayout( '|results|', { expanded: false } );
+				var page = resultPage = new OO.ui.PageLayout( '|results|', { expanded: false } );
 				page.setupOutlineItem = function () {
 					this.outlineItem.setLabel( mw.msg( 'apisandbox-results' ) );
 				};
@@ -1025,8 +1025,8 @@
 					formatDropdown.getMenu().on( 'select', Util.onFormatDropdownChange );
 				}
 
-				const menu = formatDropdown.getMenu();
-				let selectedLabel = menu.findSelectedItem() ? menu.findSelectedItem().getLabel() : '';
+				var menu = formatDropdown.getMenu();
+				var selectedLabel = menu.findSelectedItem() ? menu.findSelectedItem().getLabel() : '';
 				if ( typeof selectedLabel !== 'string' ) {
 					selectedLabel = selectedLabel.text();
 				}
@@ -1043,42 +1043,22 @@
 								label: Util.parseMsg( 'apisandbox-request-selectformat-label' )
 							}
 						).$element,
-						formatItems.map( ( item ) => item.getData().$element )
+						formatItems.map( function ( item ) {
+							return item.getData().$element;
+						} ),
+						$result
 					);
-
-				if ( method === 'post' ) {
-					page.$element.append( new OO.ui.LabelWidget( {
-						label: mw.message( 'apisandbox-request-post' ).parseDom(),
-						classes: [ 'oo-ui-inline-help' ]
-					} ).$element );
-				}
-				if ( ajaxOptions.contentType === 'multipart/form-data' ) {
-					page.$element.append( new OO.ui.LabelWidget( {
-						label: mw.message( 'apisandbox-request-formdata' ).parseDom(),
-						classes: [ 'oo-ui-inline-help' ]
-					} ).$element );
-				}
-
-				page.$element.append( $result );
-
 				ApiSandbox.updateUI();
 				booklet.setPage( '|results|' );
 
-				const selected = menu.findFirstSelectedItem();
-				if ( selected ) {
-					const textInput = selected.getData().textInput;
-					if ( textInput instanceof OO.ui.MultilineTextInputWidget ) {
-						textInput.updatePosition();
-					}
-				}
-
 				location.href = oldhash = '#' + query;
 
-				api[ method ]( params, Object.assign( ajaxOptions, {
+				api.post( params, {
+					contentType: 'multipart/form-data',
 					dataType: 'text',
 					xhr: function () {
-						const xhr = new window.XMLHttpRequest();
-						xhr.upload.addEventListener( 'progress', ( e ) => {
+						var xhr = new window.XMLHttpRequest();
+						xhr.upload.addEventListener( 'progress', function ( e ) {
 							if ( !progressLoading ) {
 								if ( e.lengthComputable ) {
 									progress.setProgress( e.loaded * 100 / e.total );
@@ -1087,7 +1067,7 @@
 								}
 							}
 						} );
-						xhr.addEventListener( 'progress', ( e ) => {
+						xhr.addEventListener( 'progress', function ( e ) {
 							if ( !progressLoading ) {
 								progressLoading = true;
 								$progressText.text( mw.msg( 'apisandbox-loading-results' ) );
@@ -1100,9 +1080,9 @@
 						} );
 						return xhr;
 					}
-				} ) )
+				} )
 					.catch( function ( code, data, result, jqXHR ) {
-						const d = $.Deferred();
+						var d = $.Deferred();
 
 						if ( code !== 'http' ) {
 							// Not really an error, work around mw.Api thinking it is.
@@ -1113,8 +1093,8 @@
 						}
 						return d.promise();
 					} )
-					.then( ( data, jqXHR ) => {
-						const ct = jqXHR.getResponseHeader( 'Content-Type' ),
+					.then( function ( data, jqXHR ) {
+						var ct = jqXHR.getResponseHeader( 'Content-Type' ),
 							loginSuppressed = jqXHR.getResponseHeader( 'MediaWiki-Login-Suppressed' ) || 'false';
 
 						$result.empty();
@@ -1124,7 +1104,7 @@
 								.append( Util.parseMsg( 'apisandbox-results-login-suppressed' ) )
 								.appendTo( $result );
 						}
-						let loadTime, match;
+						var loadTime, match;
 						if ( /^text\/mediawiki-api-prettyprint-wrapped(?:;|$)/.test( ct ) ) {
 							try {
 								data = JSON.parse( data );
@@ -1155,17 +1135,17 @@
 								.appendTo( $result );
 						}
 						if ( paramsAreForced || data.continue ) {
-							let clear;
+							var clear;
 							$result.append(
 								$( '<div>' ).append(
 									new OO.ui.ButtonWidget( {
 										label: mw.msg( 'apisandbox-continue' )
-									} ).on( 'click', () => {
-										ApiSandbox.sendRequest( Object.assign( {}, baseRequestParams, data.continue ) );
+									} ).on( 'click', function () {
+										ApiSandbox.sendRequest( $.extend( {}, baseRequestParams, data.continue ) );
 									} ).setDisabled( !data.continue ).$element,
 									( clear = new OO.ui.ButtonWidget( {
 										label: mw.msg( 'apisandbox-continue-clear' )
-									} ).on( 'click', () => {
+									} ).on( 'click', function () {
 										ApiSandbox.updateUI( baseRequestParams );
 										clear.setDisabled( true );
 										booklet.setPage( '|results|' );
@@ -1196,15 +1176,15 @@
 						if ( jqXHR.getResponseHeader( 'MediaWiki-API-Error' ) === 'badtoken' ) {
 							// Flush all saved tokens in case one of them is the bad one.
 							Util.markTokensBad();
-							const button = new OO.ui.ButtonWidget( {
+							var button = new OO.ui.ButtonWidget( {
 								label: mw.msg( 'apisandbox-results-fixtoken' )
 							} );
 							button.on( 'click', ApiSandbox.fixTokenAndResend )
 								.on( 'click', button.setDisabled, [ true ], button )
 								.$element.appendTo( $result );
 						}
-					}, ( code, data ) => {
-						const details = 'HTTP error: ' + data.exception;
+					}, function ( code, data ) {
+						var details = 'HTTP error: ' + data.exception;
 						$result.empty()
 							.append(
 								new OO.ui.LabelWidget( {
@@ -1223,8 +1203,8 @@
 		 * pages and then re-submits the query.
 		 */
 		fixTokenAndResend: function () {
-			let ok = true;
-			const tokenWait = { dummy: true },
+			var ok = true,
+				tokenWait = { dummy: true },
 				checkPages = [ pages.main ],
 				success = function ( k ) {
 					delete tokenWait[ k ];
@@ -1238,19 +1218,19 @@
 				};
 
 			while ( checkPages.length ) {
-				const page = checkPages.shift();
+				var page = checkPages.shift();
 
 				if ( page.tokenWidget ) {
-					const key = page.apiModule + page.tokenWidget.paramInfo.name;
+					var key = page.apiModule + page.tokenWidget.paramInfo.name;
 					tokenWait[ key ] = page.tokenWidget.fetchToken();
 					tokenWait[ key ]
 						.done( success.bind( page.tokenWidget, key ) )
 						.fail( failure.bind( page.tokenWidget, key ) );
 				}
 
-				const subpages = page.getSubpages();
+				var subpages = page.getSubpages();
 				// eslint-disable-next-line no-loop-func
-				subpages.forEach( ( subpage ) => {
+				subpages.forEach( function ( subpage ) {
 					if ( Object.prototype.hasOwnProperty.call( pages, subpage.key ) ) {
 						checkPages.push( pages[ subpage.key ] );
 					}
@@ -1264,14 +1244,14 @@
 		 * Reset validity indicators for all widgets
 		 */
 		updateValidityIndicators: function () {
-			const checkPages = [ pages.main ];
+			var checkPages = [ pages.main ];
 
 			while ( checkPages.length ) {
-				const page = checkPages.shift();
+				var page = checkPages.shift();
 				page.apiCheckValid();
-				const subpages = page.getSubpages();
+				var subpages = page.getSubpages();
 				// eslint-disable-next-line no-loop-func
-				subpages.forEach( ( subpage ) => {
+				subpages.forEach( function ( subpage ) {
 					if ( Object.prototype.hasOwnProperty.call( pages, subpage.key ) ) {
 						checkPages.push( pages[ subpage.key ] );
 					}
@@ -1290,7 +1270,7 @@
 	 * @param {Object} [config] Configuration options
 	 */
 	ApiSandbox.PageLayout = function ( config ) {
-		config = Object.assign( { prefix: '', expanded: false }, config );
+		config = $.extend( { prefix: '', expanded: false }, config );
 		this.displayText = config.key;
 		this.apiModule = config.path;
 		this.prefix = config.prefix;
@@ -1317,7 +1297,7 @@
 	};
 
 	function widgetLabelOnClick() {
-		const f = this.getField();
+		var f = this.getField();
 		if ( typeof f.setDisabled === 'function' ) {
 			f.setDisabled( false );
 		}
@@ -1338,7 +1318,7 @@
 	 * @return {OO.ui.FieldLayout} return.helpField
 	 */
 	ApiSandbox.PageLayout.prototype.makeWidgetFieldLayouts = function ( ppi, name ) {
-		const widget = Util.createWidgetForParameter( ppi );
+		var widget = Util.createWidgetForParameter( ppi );
 		if ( ppi.tokentype ) {
 			this.tokenWidget = widget;
 		}
@@ -1346,25 +1326,28 @@
 			widget.on( 'change', this.updateTemplatedParameters, [ null ], this );
 		}
 
-		const helpLabel = new ParamLabelWidget();
+		var helpLabel = new ParamLabelWidget();
 
-		let $tmp = Util.parseHTML( ppi.description );
+		var $tmp = Util.parseHTML( ppi.description );
 		$tmp.filter( 'dl' ).makeCollapsible( {
 			collapsed: true
 		} ).children( '.mw-collapsible-toggle' ).each( function () {
-			const $this = $( this );
+			var $this = $( this );
 			$this.parent().prev( 'p' ).append( $this );
 		} );
 		helpLabel.addDescription( $tmp );
 
 		if ( ppi.info && ppi.info.length ) {
-			for ( let i = 0; i < ppi.info.length; i++ ) {
-				helpLabel.addInfo( Util.parseHTML( ppi.info[ i ].text ) );
+			for ( var i = 0; i < ppi.info.length; i++ ) {
+				helpLabel.$element.append( $( '<div>' )
+					.addClass( 'info' )
+					.append( Util.parseHTML( ppi.info[ i ] ) )
+				);
 			}
 		}
-		let flag = true;
-		let count = Infinity;
-		let tmp;
+		var flag = true;
+		var count = Infinity;
+		var tmp;
 		switch ( ppi.type ) {
 			case 'namespace':
 				flag = false;
@@ -1372,14 +1355,14 @@
 				break;
 
 			case 'limit':
-				tmp = [
-					mw.message(
+				helpLabel.addInfo(
+					Util.parseMsg(
 						'paramvalidator-help-type-number-minmax', 1,
 						widget.paramInfo.min, widget.paramInfo.apiSandboxMax
-					).parse(),
-					mw.message( 'apisandbox-param-limit' ).parse()
-				];
-				helpLabel.addInfo( Util.parseHTML( tmp.join( mw.msg( 'word-separator' ) ) ) );
+					),
+					' ',
+					Util.parseMsg( 'apisandbox-param-limit' )
+				);
 				break;
 
 			case 'integer':
@@ -1424,7 +1407,7 @@
 				);
 			}
 			if ( tmp.length ) {
-				helpLabel.addInfo( Util.parseHTML( tmp.join( mw.msg( 'word-separator' ) ) ) );
+				helpLabel.addInfo( Util.parseHTML( tmp.join( ' ' ) ) );
 			}
 		}
 		if ( 'maxbytes' in ppi ) {
@@ -1435,7 +1418,7 @@
 		}
 		if ( ppi.usedTemplateVars && ppi.usedTemplateVars.length ) {
 			$tmp = $();
-			for ( let j = 0, l = ppi.usedTemplateVars.length; j < l; j++ ) {
+			for ( var j = 0, l = ppi.usedTemplateVars.length; j < l; j++ ) {
 				$tmp = $tmp.add( $( '<var>' ).text( ppi.usedTemplateVars[ j ] ) );
 				if ( j === l - 2 ) {
 					$tmp = $tmp.add( mw.message( 'and' ).parseDom() );
@@ -1456,7 +1439,7 @@
 		// TODO: Consder adding more options for the position of helpInline
 		// so that this can become part of the widgetField, instead of
 		// having to use a separate field.
-		const helpField = new OO.ui.FieldLayout(
+		var helpField = new OO.ui.FieldLayout(
 			helpLabel,
 			{
 				align: 'top',
@@ -1464,15 +1447,15 @@
 			}
 		);
 
-		const layoutConfig = {
+		var layoutConfig = {
 			align: 'left',
 			classes: [ 'mw-apisandbox-widget-field' ],
 			label: name
 		};
 
-		let widgetField;
+		var widgetField;
 		if ( ppi.tokentype ) {
-			const button = new OO.ui.ButtonWidget( {
+			var button = new OO.ui.ButtonWidget( {
 				label: mw.msg( 'apisandbox-fetch-token' )
 			} );
 			button.on( 'click', widget.fetchToken, [], widget );
@@ -1508,7 +1491,7 @@
 	 * @param {Object} [params] Query parameters for initializing the widgets
 	 */
 	ApiSandbox.PageLayout.prototype.updateTemplatedParameters = function ( params ) {
-		const layout = this,
+		var layout = this,
 			pi = this.paramInfo,
 			prefix = layout.prefix + pi.prefix;
 
@@ -1520,9 +1503,9 @@
 			params = null;
 		}
 
-		let toRemove = {};
+		var toRemove = {};
 		// eslint-disable-next-line no-jquery/no-each-util
-		$.each( this.templatedItemsCache, ( k, el ) => {
+		$.each( this.templatedItemsCache, function ( k, el ) {
 			if ( el.widget.isElementAttached() ) {
 				toRemove[ k ] = el;
 			}
@@ -1530,14 +1513,16 @@
 
 		// This bit duplicates the PHP logic in ApiBase::extractRequestParams().
 		// If you update this, see if that needs updating too.
-		const toProcess = pi.templatedparameters.map( ( info ) => ( {
-			name: prefix + info.name,
-			info: info,
-			vars: Object.assign( {}, info.templatevars ),
-			usedVars: []
-		} ) );
-		let p;
-		const doProcess = function ( placeholder, target ) {
+		var toProcess = pi.templatedparameters.map( function ( info ) {
+			return {
+				name: prefix + info.name,
+				info: info,
+				vars: $.extend( {}, info.templatevars ),
+				usedVars: []
+			};
+		} );
+		var p;
+		var doProcess = function ( placeholder, target ) {
 			target = prefix + target;
 
 			if ( !layout.widgets[ target ] ) {
@@ -1551,7 +1536,7 @@
 				return false;
 			}
 
-			const values = layout.widgets[ target ].getApiValueForTemplates();
+			var values = layout.widgets[ target ].getApiValueForTemplates();
 			if ( !Array.isArray( values ) || !values.length ) {
 				// The target was processed but has no (valid) values.
 				// That means it has no expansions.
@@ -1562,34 +1547,34 @@
 			// then requeue if there are more targets left or create the widget
 			// and add it to the form if all are done.
 			delete p.vars[ placeholder ];
-			const usedVars = p.usedVars.concat( [ target ] );
+			var usedVars = p.usedVars.concat( [ target ] );
 			placeholder = '{' + placeholder + '}';
-			const done = $.isEmptyObject( p.vars );
-			let index, container;
+			var done = $.isEmptyObject( p.vars );
+			var index, container;
 			if ( done ) {
 				container = Util.apiBool( p.info.deprecated ) ? layout.deprecatedItemsFieldset : layout.itemsFieldset;
-				const items = container.getItems();
-				for ( let i = 0; i < items.length; i++ ) {
+				var items = container.getItems();
+				for ( var i = 0; i < items.length; i++ ) {
 					if ( items[ i ].apiParamIndex !== undefined && items[ i ].apiParamIndex > p.info.index ) {
 						index = i;
 						break;
 					}
 				}
 			}
-			values.forEach( ( value ) => {
+			values.forEach( function ( value ) {
 				if ( !/^[^{}]*$/.exec( value ) ) {
 					// Skip values that make invalid parameter names
 					return;
 				}
 
-				const name = p.name.replace( placeholder, value );
+				var name = p.name.replace( placeholder, value );
 				if ( done ) {
-					let tmp;
+					var tmp;
 					if ( layout.templatedItemsCache[ name ] ) {
 						tmp = layout.templatedItemsCache[ name ];
 					} else {
 						tmp = layout.makeWidgetFieldLayouts(
-							Object.assign( {}, p.info, { usedTemplateVars: usedVars } ), name
+							$.extend( {}, p.info, { usedTemplateVars: usedVars } ), name
 						);
 						layout.templatedItemsCache[ name ] = tmp;
 					}
@@ -1605,9 +1590,9 @@
 						tmp.widget.setApiValue( Object.prototype.hasOwnProperty.call( params, name ) ? params[ name ] : undefined );
 					}
 				} else {
-					const newVars = {};
+					var newVars = {};
 					// eslint-disable-next-line no-jquery/no-each-util
-					$.each( p.vars, ( k, v ) => {
+					$.each( p.vars, function ( k, v ) {
 						newVars[ k ] = v.replace( placeholder, value );
 					} );
 					toProcess.push( {
@@ -1627,7 +1612,7 @@
 		}
 
 		// eslint-disable-next-line no-jquery/no-map-util
-		toRemove = $.map( toRemove, ( el, name ) => {
+		toRemove = $.map( toRemove, function ( el, name ) {
 			delete layout.widgets[ name ];
 			return [ el.widgetField, el.helpField ];
 		} );
@@ -1641,15 +1626,15 @@
 	 * Fetch module information for this page's module, then create UI
 	 */
 	ApiSandbox.PageLayout.prototype.loadParamInfo = function () {
-		let dynamicFieldset, dynamicParamNameWidget;
-		const layout = this,
+		var dynamicFieldset, dynamicParamNameWidget,
+			layout = this,
 			removeDynamicParamWidget = function ( name, item ) {
 				dynamicFieldset.removeItems( [ item ] );
 				delete layout.widgets[ name ];
 			},
 			addDynamicParamWidget = function () {
 				// Check name is filled in
-				const name = dynamicParamNameWidget.getValue().trim();
+				var name = dynamicParamNameWidget.getValue().trim();
 				if ( name === '' ) {
 					dynamicParamNameWidget.focus();
 					return;
@@ -1669,18 +1654,18 @@
 					return;
 				}
 
-				const widget = Util.createWidgetForParameter( {
+				var widget = Util.createWidgetForParameter( {
 					name: name,
 					type: 'string',
 					default: ''
 				}, {
 					nooptional: true
 				} );
-				const button = new OO.ui.ButtonWidget( {
+				var button = new OO.ui.ButtonWidget( {
 					icon: 'trash',
 					flags: 'destructive'
 				} );
-				const actionFieldLayout = new OO.ui.ActionFieldLayout(
+				var actionFieldLayout = new OO.ui.ActionFieldLayout(
 					widget,
 					button,
 					{
@@ -1705,8 +1690,8 @@
 			);
 
 		Util.fetchModuleInfo( this.apiModule )
-			.done( ( pi ) => {
-				const items = [],
+			.done( function ( pi ) {
+				var items = [],
 					deprecatedItems = [],
 					buttons = [],
 					filterFmModules = function ( v ) {
@@ -1719,14 +1704,14 @@
 				// and for 'format' we also want to simplify the dropdown since
 				// we always send the 'fm' variant.
 				if ( layout.apiModule === 'main' ) {
-					pi.parameters.forEach( ( parameter ) => {
+					pi.parameters.forEach( function ( parameter ) {
 						if ( parameter.name === 'action' ) {
 							parameter.required = true;
 							delete parameter.default;
 						}
 						if ( parameter.name === 'format' ) {
-							const types = parameter.type;
-							types.forEach( ( type ) => {
+							var types = parameter.type;
+							types.forEach( function ( type ) {
 								availableFormats[ type ] = true;
 							} );
 							parameter.type = types.filter( filterFmModules );
@@ -1737,22 +1722,15 @@
 				}
 
 				// Hide the 'wrappedhtml' parameter on format modules
-				// and make formatversion default to the latest version for humans
-				// (even though machines get a different default for b/c)
 				if ( pi.group === 'format' ) {
-					pi.parameters = pi.parameters.filter( ( p ) => p.name !== 'wrappedhtml' ).map( ( p ) => {
-						if ( p.name === 'formatversion' ) {
-							// Use the highest numeric value
-							p.default = p.type.reduce( ( prev, current ) => !isNaN( current ) ? Math.max( prev, current ) : prev );
-							p.required = true;
-						}
-						return p;
+					pi.parameters = pi.parameters.filter( function ( p ) {
+						return p.name !== 'wrappedhtml';
 					} );
 				}
 
 				layout.paramInfo = pi;
 
-				let $desc = Util.parseHTML( pi.description );
+				var $desc = Util.parseHTML( pi.description );
 				if ( pi.deprecated !== undefined ) {
 					$desc = $( '<span>' ).addClass( 'apihelp-deprecated' ).text( mw.msg( 'api-help-param-deprecated' ) )
 						.add( document.createTextNode( mw.msg( 'word-separator' ) ) ).add( $desc );
@@ -1777,10 +1755,12 @@
 							width: 'auto',
 							padded: true,
 							classes: [ 'mw-apisandbox-popup-help' ],
-							$content: $( '<ul>' ).append( pi.helpurls.map( ( link ) => $( '<li>' ).append( $( '<a>' )
-								.attr( { href: link, target: '_blank' } )
-								.text( link )
-							) ) )
+							$content: $( '<ul>' ).append( pi.helpurls.map( function ( link ) {
+								return $( '<li>' ).append( $( '<a>' )
+									.attr( { href: link, target: '_blank' } )
+									.text( link )
+								);
+							} ) )
 						}
 					} ) );
 				}
@@ -1794,8 +1774,8 @@
 							width: 'auto',
 							padded: true,
 							classes: [ 'mw-apisandbox-popup-help' ],
-							$content: $( '<ul>' ).append( pi.examples.map( ( example ) => {
-								const $a = $( '<a>' )
+							$content: $( '<ul>' ).append( pi.examples.map( function ( example ) {
+								var $a = $( '<a>' )
 									.attr( 'href', '#' + example.query )
 									.html( example.description );
 								$a.find( 'a' ).contents().unwrap(); // Can't nest links
@@ -1814,9 +1794,9 @@
 				}
 
 				if ( pi.parameters.length ) {
-					const prefix = layout.prefix + pi.prefix;
-					pi.parameters.forEach( ( parameter ) => {
-						const tmpLayout = layout.makeWidgetFieldLayouts( parameter, prefix + parameter.name );
+					var prefix = layout.prefix + pi.prefix;
+					pi.parameters.forEach( function ( parameter ) {
+						var tmpLayout = layout.makeWidgetFieldLayouts( parameter, prefix + parameter.name );
 						layout.widgets[ prefix + parameter.name ] = tmpLayout.widget;
 						if ( Util.apiBool( parameter.deprecated ) ) {
 							deprecatedItems.push( tmpLayout.widgetField, tmpLayout.helpField );
@@ -1876,7 +1856,7 @@
 				}
 
 				layout.deprecatedItemsFieldset = new OO.ui.FieldsetLayout().addItems( deprecatedItems ).toggle( false );
-				const $tmp = $( '<fieldset>' )
+				var $tmp = $( '<fieldset>' )
 					.toggle( !layout.deprecatedItemsFieldset.isEmpty() )
 					.append(
 						$( '<legend>' ).append(
@@ -1896,7 +1876,7 @@
 
 				// Load stored params, if any, then update the booklet if we
 				// have subpages (or else just update our valid-indicator).
-				const tmp = layout.loadFromQueryParams;
+				var tmp = layout.loadFromQueryParams;
 				layout.loadFromQueryParams = null;
 				if ( $.isPlainObject( tmp ) ) {
 					layout.loadQueryParams( tmp );
@@ -1908,7 +1888,7 @@
 				} else {
 					layout.apiCheckValid();
 				}
-			} ).fail( ( code, detail ) => {
+			} ).fail( function ( code, detail ) {
 				layout.$element.empty()
 					.append(
 						new OO.ui.LabelWidget( {
@@ -1928,17 +1908,21 @@
 	 * @return {jQuery.Promise[]} One promise for each widget, resolved with `false` if invalid
 	 */
 	ApiSandbox.PageLayout.prototype.apiCheckValid = function () {
+		var layout = this;
+
 		if ( this.paramInfo === null ) {
 			return [];
 		} else {
 			// eslint-disable-next-line no-jquery/no-map-util
-			const promises = $.map( this.widgets, ( widget ) => widget.apiCheckValid( suppressErrors ) );
-			$.when( ...promises ).then( ( ...results ) => {
-				this.apiIsValid = results.indexOf( false ) === -1;
-				if ( this.getOutlineItem() ) {
-					this.getOutlineItem().setIcon( this.apiIsValid || suppressErrors ? null : 'alert' );
-					this.getOutlineItem().setTitle(
-						this.apiIsValid || suppressErrors ? '' : mw.message( 'apisandbox-alert-page' ).plain()
+			var promises = $.map( this.widgets, function ( widget ) {
+				return widget.apiCheckValid( suppressErrors );
+			} );
+			$.when.apply( $, promises ).then( function () {
+				layout.apiIsValid = Array.prototype.indexOf.call( arguments, false ) === -1;
+				if ( layout.getOutlineItem() ) {
+					layout.getOutlineItem().setIcon( layout.apiIsValid || suppressErrors ? null : 'alert' );
+					layout.getOutlineItem().setTitle(
+						layout.apiIsValid || suppressErrors ? '' : mw.message( 'apisandbox-alert-page' ).plain()
 					);
 				}
 			} );
@@ -1956,8 +1940,8 @@
 			this.loadFromQueryParams = params;
 		} else {
 			// eslint-disable-next-line no-jquery/no-each-util
-			$.each( this.widgets, ( name, widget ) => {
-				const v = Object.prototype.hasOwnProperty.call( params, name ) ? params[ name ] : undefined;
+			$.each( this.widgets, function ( name, widget ) {
+				var v = Object.prototype.hasOwnProperty.call( params, name ) ? params[ name ] : undefined;
 				widget.setApiValue( v );
 			} );
 			this.updateTemplatedParameters( params );
@@ -1969,22 +1953,17 @@
 	 *
 	 * @param {Object} params Write query parameters into this object
 	 * @param {Object} displayParams Write query parameters for display into this object
-	 * @param {Object} ajaxOptions Write options for the API request into this object, in the format
-	 *   expected by jQuery#ajax.
 	 */
-	ApiSandbox.PageLayout.prototype.getQueryParams = function ( params, displayParams, ajaxOptions ) {
+	ApiSandbox.PageLayout.prototype.getQueryParams = function ( params, displayParams ) {
 		// eslint-disable-next-line no-jquery/no-each-util
-		$.each( this.widgets, ( name, widget ) => {
-			let value = widget.getApiValue();
+		$.each( this.widgets, function ( name, widget ) {
+			var value = widget.getApiValue();
 			if ( value !== undefined ) {
 				params[ name ] = value;
 				if ( typeof widget.getApiValueForDisplay === 'function' ) {
 					value = widget.getApiValueForDisplay();
 				}
 				displayParams[ name ] = value;
-				if ( typeof widget.requiresFormData === 'function' && widget.requiresFormData() ) {
-					ajaxOptions.contentType = 'multipart/form-data';
-				}
 			}
 		} );
 	};
@@ -1995,11 +1974,11 @@
 	 * @return {Array}
 	 */
 	ApiSandbox.PageLayout.prototype.getSubpages = function () {
-		const ret = [];
+		var ret = [];
 		// eslint-disable-next-line no-jquery/no-each-util
-		$.each( this.widgets, ( name, widget ) => {
+		$.each( this.widgets, function ( name, widget ) {
 			if ( typeof widget.getSubmodules === 'function' ) {
-				widget.getSubmodules().forEach( ( submodule ) => {
+				widget.getSubmodules().forEach( function ( submodule ) {
 					ret.push( {
 						key: name + '=' + submodule.value,
 						path: submodule.path,

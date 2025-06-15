@@ -19,8 +19,6 @@
  * @author Niklas Laxström
  */
 
-use MediaWiki\Language\Language;
-
 /**
  * Khmer (ភាសាខ្មែរ)
  *
@@ -29,13 +27,12 @@ use MediaWiki\Language\Language;
 class LanguageKm extends Language {
 
 	/**
-	 * @param string|int|float $number
-	 *
+	 * @param string $number
+	 * @param bool|null $noSeparators
 	 * @return string
 	 */
-	public function formatNum( $number ) {
-		/**
-		 * NO-op for Khmer. Cannot use
+	public function formatNum( $number, $noSeparators = null ) {
+		/* NO-op for Khmer. Cannot use
 		 * $separatorTransformTable = [ ',' => '' ]
 		 * That would break when parsing and doing strstr '' => 'foo';
 		 */

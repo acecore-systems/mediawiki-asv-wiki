@@ -20,10 +20,7 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
 use MediaWiki\Session\BotPasswordSessionProvider;
-use MediaWiki\Session\SessionManager;
 
 /**
  * API module to allow users to log out of the wiki. API equivalent of
@@ -34,7 +31,7 @@ use MediaWiki\Session\SessionManager;
 class ApiLogout extends ApiBase {
 
 	public function execute() {
-		$session = SessionManager::getGlobalSession();
+		$session = MediaWiki\Session\SessionManager::getGlobalSession();
 
 		// Handle bot password logout specially
 		if ( $session->getProvider() instanceof BotPasswordSessionProvider ) {
@@ -54,13 +51,6 @@ class ApiLogout extends ApiBase {
 		}
 
 		$user = $this->getUser();
-
-		if ( $user->isAnon() ) {
-			// Cannot logout a anon user, so add a warning and return early.
-			$this->addWarning( 'apierror-mustbeloggedin-generic', 'notloggedin' );
-			return;
-		}
-
 		$oldName = $user->getName();
 		$user->logout();
 
@@ -75,13 +65,6 @@ class ApiLogout extends ApiBase {
 
 	public function needsToken() {
 		return 'csrf';
-	}
-
-	public function isWriteMode() {
-		// While core is optimized by default to not require DB writes on log out,
-		// these are authenticated POST requests and extensions (eg. CheckUser) are
-		// allowed to perform DB writes here without warnings.
-		return true;
 	}
 
 	protected function getWebUITokenSalt( array $params ) {
@@ -103,6 +86,3 @@ class ApiLogout extends ApiBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Logout';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiLogout::class, 'ApiLogout' );

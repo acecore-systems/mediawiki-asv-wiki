@@ -11,9 +11,13 @@ use MediaWikiUnitTestCase;
 /**
  * @group Test
  * @group AbuseFilter
- * @covers \MediaWiki\Extension\AbuseFilter\Filter\HistoryFilter
+ * @coversDefaultClass \MediaWiki\Extension\AbuseFilter\Filter\HistoryFilter
  */
 class HistoryFilterTest extends MediaWikiUnitTestCase {
+	/**
+	 * @covers ::__construct
+	 * @covers ::getHistoryID
+	 */
 	public function testGetID() {
 		$historyID = 163;
 		$filter = new HistoryFilter(
@@ -22,7 +26,9 @@ class HistoryFilterTest extends MediaWikiUnitTestCase {
 			[],
 			$this->createMock( LastEditInfo::class ),
 			1,
-			$historyID
+			$historyID,
+			null,
+			null
 		);
 
 		$this->assertSame( $historyID, $filter->getHistoryID() );

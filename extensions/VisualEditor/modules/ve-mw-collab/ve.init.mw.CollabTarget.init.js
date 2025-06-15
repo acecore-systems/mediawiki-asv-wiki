@@ -1,16 +1,16 @@
 /*!
  * VisualEditor MediaWiki CollabTarget init.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
 /* eslint-disable no-jquery/no-global-selector */
 
 ( function () {
-	let target,
-		$padTab = $( '#ca-pad' );
-	const $specialTab = $( '#ca-nstab-special' ),
+	var target,
+		$specialTab = $( '#ca-nstab-special' ),
+		$padTab = $( '#ca-pad' ),
 		conf = mw.config.get( 'wgVisualEditorConfig' ),
 		pageName = mw.config.get( 'collabPadPageName' ) || '',
 		pageTitle = mw.Title.newFromText( pageName ),
@@ -44,7 +44,7 @@
 	}
 
 	function showPage( title, importTitle ) {
-		const specialTitle = mw.Title.newFromText( 'Special:CollabPad/' + title.toString() );
+		var specialTitle = mw.Title.newFromText( 'Special:CollabPad/' + title.toString() );
 
 		setTitle( mw.msg( 'collabpad-doctitle', title.getPrefixedText() ) );
 
@@ -62,10 +62,10 @@
 		progressBar.toggle( true );
 		form.toggle( false );
 
-		modulePromise.done( () => {
+		modulePromise.done( function () {
 			target = ve.init.mw.targetFactory.create( 'collab', title, conf.rebaserUrl, { importTitle: importTitle } );
 			// If the target emits a 'close' event (via the toolbar back button on mobile) then go to the landing page.
-			target.once( 'close', () => {
+			target.once( 'close', function () {
 				showForm( true );
 			} );
 
@@ -77,12 +77,12 @@
 			$( '#firstHeading' ).addClass( 've-init-mw-desktopArticleTarget-uneditableContent' );
 
 			// Add a dummy surface while the doc is loading
-			const dummySurface = target.addSurface( ve.dm.converter.getModelFromDom( ve.createDocumentFromHtml( '' ) ) );
+			var dummySurface = target.addSurface( ve.dm.converter.getModelFromDom( ve.createDocumentFromHtml( '' ) ) );
 			dummySurface.setReadOnly( true );
 
 			// TODO: Create the correct model surface type (ve.ui.Surface#createModel)
-			let surfaceModel = new ve.dm.Surface( ve.dm.converter.getModelFromDom( ve.createDocumentFromHtml( '' ) ) );
-			const username = mw.user.getName();
+			var surfaceModel = new ve.dm.Surface( ve.dm.converter.getModelFromDom( ve.createDocumentFromHtml( '' ) ) );
+			var username = mw.user.getName();
 			surfaceModel.createSynchronizer(
 				mw.config.get( 'wgWikiID' ) + '/' + title.toString(),
 				{
@@ -94,52 +94,52 @@
 				}
 			);
 
-			const progressDeferred = ve.createDeferred();
+			var progressDeferred = ve.createDeferred();
 			dummySurface.createProgress( progressDeferred.promise(), ve.msg( 'visualeditor-rebase-client-connecting' ), true );
 
-			surfaceModel.synchronizer.once( 'initDoc', ( error ) => {
-				let initPromise;
+			surfaceModel.synchronizer.once( 'initDoc', function ( error ) {
+				var initPromise;
 
 				progressDeferred.resolve();
 				// Resolving the progress bar doesn't close the window in this cycle,
 				// so wait until we call clearSurfaces which destroys the window manager.
-				setTimeout( () => {
+				setTimeout( function () {
 					target.clearSurfaces();
 					// Don't add the surface until the history has been applied
 					target.addSurface( surfaceModel );
 					if ( error ) {
-						const $errorMsg = ve.htmlMsg( 'visualeditor-rebase-corrupted-document-error', $( '<pre>' ).text( error.stack ) );
+						var $errorMsg = ve.htmlMsg( 'visualeditor-rebase-corrupted-document-error', $( '<pre>' ).text( error.stack ) );
 						OO.ui.alert(
 							$( '<p>' ).append( $errorMsg ),
 							{ title: ve.msg( 'visualeditor-rebase-corrupted-document-title' ), size: 'large' }
-						).then( () => {
+						).then( function () {
 							showForm( true );
 						} );
 						return;
 					}
-					target.once( 'surfaceReady', () => {
-						initPromise.then( () => {
+					target.once( 'surfaceReady', function () {
+						initPromise.then( function () {
 							target.getSurface().getView().selectFirstSelectableContentOffset();
-							const isNewAuthor = !ve.init.platform.sessionStorage.get( 've-collab-author' );
+							var isNewAuthor = !ve.init.platform.sessionStorage.get( 've-collab-author' );
 							// For new anon users, open the author list so they can set their name
 							if ( isNewAuthor && !username ) {
 								// Something (an animation?) steals focus during load, so wait a bit
 								// before opening and focusing the authorList.
-								setTimeout( () => {
-									target.toolbar.tools.authorList.onSelect();
+								setTimeout( function () {
+									target.actionsToolbar.tools.authorList.onSelect();
 								}, 500 );
 							}
 						} );
 					} );
 
 					if ( target.importTitle && !surfaceModel.getDocument().getCompleteHistoryLength() ) {
-						initPromise = mw.libs.ve.targetLoader.requestParsoidData( target.importTitle.toString(), { targetName: 'collabpad' } ).then( ( response ) => {
-							const data = response.visualeditor;
+						initPromise = mw.libs.ve.targetLoader.requestParsoidData( target.importTitle.toString(), { targetName: 'collabpad' } ).then( function ( response ) {
+							var data = response.visualeditor;
 
 							if ( data && data.content ) {
-								const doc = target.constructor.static.parseDocument( data.content );
-								const dmDoc = target.constructor.static.createModelFromDom( doc );
-								const fragment = surfaceModel.getLinearFragment( new ve.Range( 0, 2 ) );
+								var doc = target.constructor.static.parseDocument( data.content );
+								var dmDoc = target.constructor.static.createModelFromDom( doc );
+								var fragment = surfaceModel.getLinearFragment( new ve.Range( 0, 2 ) );
 								fragment.insertDocument( dmDoc );
 
 								target.etag = data.etag;
@@ -174,8 +174,8 @@
 
 						// Look for import metadata in document
 						surfaceModel = target.getSurface().getModel();
-						surfaceModel.getDocument().getMetaList().getItemsInGroup( 'misc' ).some( ( item ) => {
-							const importedDocument = item.getAttribute( 'importedDocument' );
+						surfaceModel.getMetaList().getItemsInGroup( 'misc' ).some( function ( item ) {
+							var importedDocument = item.getAttribute( 'importedDocument' );
 							if ( importedDocument ) {
 								target.importTitle = mw.Title.newFromText( importedDocument.title );
 								target.etag = importedDocument.etag;
@@ -187,28 +187,28 @@
 							return false;
 						} );
 					}
-					initPromise.fail( ( err ) => {
-						setTimeout( () => {
+					initPromise.fail( function ( err ) {
+						setTimeout( function () {
 							throw new Error( err );
 						} );
 					} );
-					initPromise.always( () => {
+					initPromise.always( function () {
 						progressDeferred.resolve();
 					} );
 				} );
 			} );
 
-		} ).always( () => {
+		} ).always( function () {
 			form.toggle( false );
 			progressBar.toggle( false );
-		} ).fail( ( err ) => {
+		} ).fail( function ( err ) {
 			mw.log.error( err );
 			showForm( true );
 		} );
 	}
 
 	function showForm( pushState ) {
-		const specialTitle = mw.Title.newFromText( 'Special:CollabPad' );
+		var specialTitle = mw.Title.newFromText( 'Special:CollabPad' );
 
 		if ( pushState ) {
 			history.pushState( { tag: 'collabTarget' }, '', specialTitle.getUrl() );
@@ -235,10 +235,14 @@
 	}
 
 	function loadTitle( title, importTitle ) {
-		const specialTitle = mw.Title.newFromText( 'Special:CollabPad/' + title.toString() );
-		// TODO: Handle popstate
-		history.pushState( { tag: 'collabTarget', title: title.toString() }, '', specialTitle.getUrl() );
-		showPage( title, importTitle );
+		var specialTitle = mw.Title.newFromText( 'Special:CollabPad/' + title.toString() );
+		if ( history.pushState ) {
+			// TODO: Handle popstate
+			history.pushState( { tag: 'collabTarget', title: title.toString() }, '', specialTitle.getUrl() );
+			showPage( title, importTitle );
+		} else {
+			location.href = specialTitle.getUrl( { import: importTitle } );
+		}
 	}
 
 	function getRandomTitle() {
@@ -246,16 +250,16 @@
 	}
 
 	function onNameChange() {
-		documentNameInput.getValidity().then( () => {
+		documentNameInput.getValidity().then( function () {
 			documentNameButton.setDisabled( false );
-		}, () => {
+		}, function () {
 			documentNameButton.setDisabled( true );
 		} );
 	}
 
 	function loadFromName() {
-		documentNameInput.getValidity().then( () => {
-			const title = mw.Title.newFromText(
+		documentNameInput.getValidity().then( function () {
+			var title = mw.Title.newFromText(
 				documentNameInput.getValue().trim() || getRandomTitle()
 			);
 
@@ -267,8 +271,10 @@
 		} );
 	}
 
-	// Empty input will create a random document name, otherwise must be valid
-	documentNameInput.setValidation( ( value ) => value === '' || !!mw.Title.newFromText( value ) );
+	documentNameInput.setValidation( function ( value ) {
+		// Empty input will create a random document name, otherwise must be valid
+		return value === '' || !!mw.Title.newFromText( value );
+	} );
 	documentNameButton.setDisabled( false );
 
 	documentNameInput.on( 'change', onNameChange );
@@ -277,16 +283,16 @@
 	onNameChange();
 
 	function onImportChange() {
-		importInput.getValidity().then( () => {
+		importInput.getValidity().then( function () {
 			importButton.setDisabled( false );
-		}, () => {
+		}, function () {
 			importButton.setDisabled( true );
 		} );
 	}
 
 	function onImportSubmit() {
-		importInput.getValidity().then( () => {
-			const title = mw.Title.newFromText( importInput.getValue().trim() );
+		importInput.getValidity().then( function () {
+			var title = mw.Title.newFromText( importInput.getValue().trim() );
 
 			if ( title ) {
 				loadTitle( mw.Title.newFromText( getRandomTitle() ), title );
@@ -296,30 +302,34 @@
 		} );
 	}
 
-	// TODO: Check page exists?
-	importInput.setValidation( ( value ) => !!mw.Title.newFromText( value ) );
+	importInput.setValidation( function ( value ) {
+		// TODO: Check page exists?
+		return !!mw.Title.newFromText( value );
+	} );
 	importInput.on( 'change', onImportChange );
 	importInput.on( 'enter', onImportSubmit );
 	importButton.on( 'click', onImportSubmit );
 	onImportChange();
 
 	if ( pageTitle ) {
-		const url = new URL( location.href ),
-			importTitleText = url.searchParams.get( 'import' ),
+		var uri = new mw.Uri( location.href ),
+			importTitleText = uri.query.import,
 			importTitleParam = ( importTitleText ? mw.Title.newFromText( importTitleText ) : null );
 		showPage( pageTitle, importTitleParam );
 	} else {
 		showForm();
 	}
 
-	$specialTab.on( 'click', ( e ) => {
+	$specialTab.on( 'click', function ( e ) {
 		showForm( true );
 		e.preventDefault();
 	} );
 
 	// Tag current state
-	history.replaceState( { tag: 'collabTarget', title: pageName }, '', location.href );
-	window.addEventListener( 'popstate', ( e ) => {
+	if ( history.replaceState ) {
+		history.replaceState( { tag: 'collabTarget', title: pageName }, '', location.href );
+	}
+	window.addEventListener( 'popstate', function ( e ) {
 		if ( e.state && e.state.tag === 'collabTarget' ) {
 			if ( e.state.title ) {
 				showPage( mw.Title.newFromText( e.state.title ) );

@@ -24,13 +24,13 @@ use MediaWiki\Page\PageReferenceValue;
 use Wikimedia\Assert\ParameterAssertionException;
 
 /**
- * @covers \MediaWiki\Page\PageReferenceValue
+ * @covers MediaWiki\Page\PageReferenceValue
  *
  * @group Title
  */
 class PageReferenceValueTest extends MediaWikiUnitTestCase {
 
-	public static function goodConstructorProvider() {
+	public function goodConstructorProvider() {
 		return [
 			[ NS_MAIN, 'Test', false ],
 			[ NS_MAIN, 'Test', false ],
@@ -51,7 +51,7 @@ class PageReferenceValueTest extends MediaWikiUnitTestCase {
 		$this->assertSame( $dbKey, $pageReference->getDBkey() );
 	}
 
-	public static function badConstructorProvider() {
+	public function badConstructorProvider() {
 		return [
 			[ NS_MAIN, 'Test', 2.3 ],
 		];
@@ -65,7 +65,7 @@ class PageReferenceValueTest extends MediaWikiUnitTestCase {
 		new PageReferenceValue( $namespace, $dbKey, $wikiId );
 	}
 
-	public static function provideToString() {
+	public function provideToString() {
 		yield [
 			new PageReferenceValue( 0, 'Foo', PageReference::LOCAL ),
 			'[0:Foo]'
@@ -90,7 +90,7 @@ class PageReferenceValueTest extends MediaWikiUnitTestCase {
 		);
 	}
 
-	public static function provideIsSamePageAs() {
+	public function provideIsSamePageAs() {
 		yield [
 			new PageReferenceValue( 0, 'Foo', PageReference::LOCAL ),
 			new PageReferenceValue( 0, 'Foo', PageReference::LOCAL ),

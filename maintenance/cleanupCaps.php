@@ -6,7 +6,7 @@
  * Options:
  *   --dry-run  don't actually try moving them
  *
- * Copyright © 2005 Brooke Vibber <bvibber@wikimedia.org>
+ * Copyright © 2005 Brion Vibber <brion@pobox.com>
  * https://www.mediawiki.org/
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,16 +25,13 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- * @author Brooke Vibber <bvibber@wikimedia.org>
+ * @author Brion Vibber <brion at pobox.com>
  * @ingroup Maintenance
  */
 
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
+use MediaWiki\MediaWikiServices;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/TableCleanup.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script to clean up broken page links when somebody turns
@@ -44,9 +41,7 @@ require_once __DIR__ . '/TableCleanup.php';
  */
 class CleanupCaps extends TableCleanup {
 
-	/** @var User */
 	private $user;
-	/** @var int */
 	private $namespace;
 
 	public function __construct() {
@@ -61,7 +56,7 @@ class CleanupCaps extends TableCleanup {
 		$this->namespace = intval( $this->getOption( 'namespace', 0 ) );
 
 		if (
-			$this->getServiceContainer()->getNamespaceInfo()->
+			MediaWikiServices::getInstance()->getNamespaceInfo()->
 				isCapitalized( $this->namespace )
 		) {
 			$this->output( "Will be moving pages to first letter capitalized titles" );
@@ -84,12 +79,11 @@ class CleanupCaps extends TableCleanup {
 		$current = Title::makeTitle( $row->page_namespace, $row->page_title );
 		$display = $current->getPrefixedText();
 		$lower = $row->page_title;
-		$upper = $this->getServiceContainer()->getContentLanguage()->ucfirst( $row->page_title );
+		$upper = MediaWikiServices::getInstance()->getContentLanguage()->ucfirst( $row->page_title );
 		if ( $upper == $lower ) {
 			$this->output( "\"$display\" already uppercase.\n" );
 
-			$this->progress( 0 );
-			return;
+			return $this->progress( 0 );
 		}
 
 		$target = Title::makeTitle( $row->page_namespace, $upper );
@@ -110,25 +104,23 @@ class CleanupCaps extends TableCleanup {
 				$talk = $target->getTalkPage();
 				$row->page_namespace = $talk->getNamespace();
 				if ( $talk->exists() ) {
-					$this->processRowToUppercase( $row );
-					return;
+					return $this->processRowToUppercase( $row );
 				}
 			}
 		}
 
-		$this->progress( 0 );
+		return $this->progress( 0 );
 	}
 
 	protected function processRowToLowercase( $row ) {
 		$current = Title::makeTitle( $row->page_namespace, $row->page_title );
 		$display = $current->getPrefixedText();
 		$upper = $row->page_title;
-		$lower = $this->getServiceContainer()->getContentLanguage()->lcfirst( $row->page_title );
+		$lower = MediaWikiServices::getInstance()->getContentLanguage()->lcfirst( $row->page_title );
 		if ( $upper == $lower ) {
 			$this->output( "\"$display\" already lowercase.\n" );
 
-			$this->progress( 0 );
-			return;
+			return $this->progress( 0 );
 		}
 
 		$target = Title::makeTitle( $row->page_namespace, $lower );
@@ -136,8 +128,7 @@ class CleanupCaps extends TableCleanup {
 			$targetDisplay = $target->getPrefixedText();
 			$this->output( "\"$display\" skipped; \"$targetDisplay\" already exists\n" );
 
-			$this->progress( 0 );
-			return;
+			return $this->progress( 0 );
 		}
 
 		$ok = $this->movePage( $current, $target, 'Converting page titles to lowercase', true );
@@ -147,13 +138,12 @@ class CleanupCaps extends TableCleanup {
 				$talk = $target->getTalkPage();
 				$row->page_namespace = $talk->getNamespace();
 				if ( $talk->exists() ) {
-					$this->processRowToLowercase( $row );
-					return;
+					return $this->processRowToLowercase( $row );
 				}
 			}
 		}
 
-		$this->progress( 0 );
+		return $this->progress( 0 );
 	}
 
 	/**
@@ -171,21 +161,16 @@ class CleanupCaps extends TableCleanup {
 			$this->output( "\"$display\" -> \"$targetDisplay\": DRY RUN, NOT MOVED\n" );
 			$ok = 'OK';
 		} else {
-			$mp = $this->getServiceContainer()->getMovePageFactory()
+			$mp = MediaWikiServices::getInstance()->getMovePageFactory()
 				->newMovePage( $current, $target );
 			$status = $mp->move( $this->user, $reason, $createRedirect );
-			$ok = $status->isOK() ? 'OK' : 'FAILED';
+			$ok = $status->isOK() ? 'OK' : $status->getMessage( false, false, 'en' )->text();
 			$this->output( "\"$display\" -> \"$targetDisplay\": $ok\n" );
-			if ( !$status->isOK() ) {
-				$this->error( $status );
-			}
 		}
 
 		return $ok === 'OK';
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = CleanupCaps::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

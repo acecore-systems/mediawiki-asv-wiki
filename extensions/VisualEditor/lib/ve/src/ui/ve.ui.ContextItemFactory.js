@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface ContextItemFactory class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -9,7 +9,7 @@
  *
  * @class
  * @extends OO.Factory
- * @mixes ve.ui.ModeledFactory
+ * @mixins ve.ui.ModeledFactory
  *
  * @constructor
  */

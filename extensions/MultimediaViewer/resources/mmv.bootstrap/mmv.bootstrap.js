@@ -15,24 +15,34 @@
  * along with MultimediaViewer.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const Config = require( './mmv.Config.js' );
-const LightboxImage = require( './mmv.lightboximage.js' );
-const { extensions } = require( './config.json' );
-const mwRouter = require( 'mediawiki.router' );
+( function () {
+	var MMVB;
 
-// We pass this to history.pushState/replaceState to indicate that we're controlling the page URL.
-// Then we look for this marker on page load so that if the page is refreshed, we don't generate an
-// extra history entry.
-const MANAGED_STATE = 'MMV was here!';
-
-/**
- * Bootstrap code listening to thumb clicks checking the initial location.hash
- * Loads the mmv and opens it if necessary
- */
-class MultimediaViewerBootstrap {
-	constructor() {
+	/**
+	 * Bootstrap code listening to thumb clicks checking the initial location.hash
+	 * Loads the mmv and opens it if necessary
+	 *
+	 * @class mw.mmv.MultimediaViewerBootstrap
+	 */
+	function MultimediaViewerBootstrap() {
 		// Exposed for tests
 		this.hoverWaitDuration = 200;
+
+		// TODO lazy-load config and htmlUtils
+
+		/** @property {mw.mmv.Config} config - */
+		this.config = new mw.mmv.Config(
+			mw.config.get( 'wgMultimediaViewer', {} ),
+			mw.config,
+			mw.user,
+			new mw.Api(),
+			mw.storage
+		);
+
+		this.validExtensions = this.config.extensions();
+
+		/** @property {mw.mmv.HtmlUtils} htmlUtils - */
+		this.htmlUtils = new mw.mmv.HtmlUtils();
 
 		/**
 		 * This flag is set to true when we were unable to load the viewer.
@@ -42,9 +52,6 @@ class MultimediaViewerBootstrap {
 		this.viewerIsBroken = false;
 
 		this.thumbsReadyDeferred = $.Deferred();
-		/**
-		 * @property {LightboxImage[]}
-		 */
 		this.thumbs = [];
 		this.$thumbs = null; // will be set by processThumbs
 		this.$parsoidThumbs = null; // will be set in processThumbs
@@ -53,48 +60,9 @@ class MultimediaViewerBootstrap {
 		// this will run initially and then every time the content changes,
 		// e.g. via a VE edit or pagination in a multipage file
 		mw.hook( 'wikipage.content' ).add( this.processThumbs.bind( this ) );
-
-		// Setup the router
-		this.setupRouter( mwRouter );
 	}
 
-	/**
-	 * Routes to a given file.
-	 *
-	 * @param {string} fileName
-	 */
-	route( fileName ) {
-		this.loadViewer( true ).then( ( viewer ) => {
-			let fileTitle;
-			viewer.comingFromHashChange = true;
-			try {
-				let position = fileName.match( Config.POSITION_REGEXP );
-				if ( position ) {
-					position = +position[ 1 ];
-					fileName = fileName.replace( Config.POSITION_REGEXP, '' );
-				} else {
-					position = undefined;
-				}
-				fileName = decodeURIComponent( fileName );
-				fileTitle = new mw.Title( fileName );
-				viewer.loadImageByTitle( fileTitle, position );
-			} catch ( err ) {
-				// ignore routes to invalid titles
-				mw.log.warn( err );
-			}
-		} );
-	}
-
-	/**
-	 * Sets up the route handlers
-	 *
-	 * @param {OO.Router} router
-	 */
-	setupRouter( router ) {
-		router.addRoute( Config.ROUTE_REGEXP, this.route.bind( this ) );
-		router.addRoute( Config.LEGACY_ROUTE_REGEXP, this.route.bind( this ) );
-		this.router = router;
-	}
+	MMVB = MultimediaViewerBootstrap.prototype;
 
 	/**
 	 * Loads the mmv module asynchronously and passes the thumb data to it
@@ -102,10 +70,11 @@ class MultimediaViewerBootstrap {
 	 * @param {boolean} [setupOverlay]
 	 * @return {jQuery.Promise}
 	 */
-	loadViewer( setupOverlay ) {
-		const deferred = $.Deferred();
-		let viewer;
-		let message;
+	MMVB.loadViewer = function ( setupOverlay ) {
+		var deferred = $.Deferred(),
+			bs = this,
+			viewer,
+			message;
 
 		// Don't load if someone has specifically stopped us from doing so
 		if ( mw.config.get( 'wgMediaViewer' ) !== true ) {
@@ -122,57 +91,55 @@ class MultimediaViewerBootstrap {
 		// the overlay is not needed on all of those; this logic really should
 		// not be here.
 		if ( setupOverlay ) {
-			this.setupOverlay();
+			bs.setupOverlay();
 		}
 
-		mw.loader.using( 'mmv', ( req ) => {
+		mw.loader.using( 'mmv', function () {
 			try {
-				viewer = this.getViewer( req );
+				viewer = bs.getViewer();
 			} catch ( e ) {
 				message = e.message;
 				if ( e.stack ) {
-					message += `\n${ e.stack }`;
+					message += '\n' + e.stack;
 				}
 				deferred.reject( message );
 				return;
 			}
 			deferred.resolve( viewer );
-		}, ( error ) => {
+		}, function ( error ) {
 			deferred.reject( error.message );
 		} );
 
 		return deferred.promise()
 			.then(
-				( viewer2 ) => {
-					if ( !this.viewerInitialized ) {
-						if ( this.thumbs.length ) {
-							viewer2.initWithThumbs( this.thumbs );
+				function ( viewer2 ) {
+					if ( !bs.viewerInitialized ) {
+						if ( bs.thumbs.length ) {
+							viewer2.initWithThumbs( bs.thumbs );
 						}
 
-						this.viewerInitialized = true;
+						bs.viewerInitialized = true;
 					}
 					return viewer2;
 				},
-				( message2 ) => {
+				function ( message2 ) {
 					mw.log.warn( message2 );
-					this.cleanupOverlay();
-					this.viewerIsBroken = true;
-					mw.notify( `Error loading MediaViewer: ${ message2 }` );
+					bs.cleanupOverlay();
+					bs.viewerIsBroken = true;
+					mw.notify( 'Error loading MediaViewer: ' + message2 );
 					return $.Deferred().reject( message2 );
 				}
-			).always( () => {
-				if ( this.$loadBar ) {
-					this.$loadBar.remove();
-				}
-			} );
-	}
+			);
+	};
 
 	/**
 	 * Processes all thumbs found on the page
 	 *
 	 * @param {jQuery} $content Element to search for thumbs
 	 */
-	processThumbs( $content ) {
+	MMVB.processThumbs = function ( $content ) {
+		var bs = this;
+
 		// MMVB.processThumbs() is a callback for `wikipage.content` hook (see constructor)
 		// which as state in the documentation can be fired when content is added to the DOM
 		// https://doc.wikimedia.org/mediawiki-core/master/js/#!/api/mw.hook
@@ -180,7 +147,13 @@ class MultimediaViewerBootstrap {
 		// process correctly and add the thumbs array, so it's necessary to invalidate the
 		// viewer initialization state if this happens to let the MMVB.loadViewer() to process
 		// new images correctly
-		this.viewerInitialized = false;
+		bs.viewerInitialized = false;
+
+		this.$thumbs = $content.find(
+			'.gallery .image img, ' +
+			'a.image img, ' +
+			'#file a img'
+		);
 
 		this.$parsoidThumbs = $content.find(
 			'[typeof*="mw:File"] a.mw-file-description img, ' +
@@ -189,23 +162,20 @@ class MultimediaViewerBootstrap {
 			'[typeof*="mw:Image"] a.mw-file-description img'
 		);
 
-		this.$thumbs = $content
-			.find(
-				'.gallery .image img, ' +
-				'a.image img, ' +
-				'a.mw-file-description img, ' +
-				'#file a img'
-			)
-			// Skip duplicates that are actually Parsoid thumbs
-			.not( this.$parsoidThumbs );
-
 		try {
-			this.$thumbs.each( ( i, thumb ) => this.processThumb( thumb ) );
-			this.$parsoidThumbs.each( ( i, thumb ) => this.processParsoidThumb( thumb ) );
+			this.$thumbs.each( function ( i, thumb ) {
+				bs.processThumb( thumb );
+			} );
+			this.$parsoidThumbs.each( function ( i, thumb ) {
+				bs.processParsoidThumb( thumb );
+			} );
 		} finally {
 			this.thumbsReadyDeferred.resolve();
+			// now that we have set up our real click handler we can we can remove the temporary
+			// handler added in mmv.head.js which just replays clicks to the real handler
+			$( document ).off( 'click.mmv-head' );
 		}
-	}
+	};
 
 	/**
 	 * Check if this thumbnail should be handled by MediaViewer
@@ -213,8 +183,8 @@ class MultimediaViewerBootstrap {
 	 * @param {jQuery} $thumb the thumbnail (an `<img>` element) in question
 	 * @return {boolean}
 	 */
-	isAllowedThumb( $thumb ) {
-		const selectors = [
+	MMVB.isAllowedThumb = function ( $thumb ) {
+		var selectors = [
 			'.metadata', // this is inside an informational template like {{refimprove}} on enwiki.
 			'.noviewer', // MediaViewer has been specifically disabled for this image
 			'.noarticletext', // we are on an error page for a non-existing article, the image is part of some template
@@ -223,15 +193,15 @@ class MultimediaViewerBootstrap {
 		];
 		return $thumb.closest( selectors.join( ', ' ) ).length === 0;
 
-	}
+	};
 
 	/**
 	 * @param {mw.Title|null} title
 	 * @return {boolean}
 	 */
-	isValidExtension( title ) {
-		return title && title.getExtension() && ( title.getExtension().toLowerCase() in extensions );
-	}
+	MMVB.isValidExtension = function ( title ) {
+		return title && title.getExtension() && ( title.getExtension().toLowerCase() in this.validExtensions );
+	};
 
 	/**
 	 * Preload JS/CSS when the mouse cursor hovers the thumb container
@@ -239,37 +209,41 @@ class MultimediaViewerBootstrap {
 	 *
 	 * @param {jQuery} $thumbContainer
 	 */
-	preloadAssets( $thumbContainer ) {
+	MMVB.preloadAssets = function ( $thumbContainer ) {
+		var bs = this;
 		$thumbContainer.on( {
-			mouseenter: () => {
+			mouseenter: function () {
 				// There is no point preloading if clicking the thumb won't open Media Viewer
-				if ( !Config.isMediaViewerEnabledOnClick() ) {
+				if ( !bs.config.isMediaViewerEnabledOnClick() ) {
 					return;
 				}
-				this.preloadOnHoverTimer = setTimeout( () => {
+				bs.preloadOnHoverTimer = setTimeout( function () {
 					mw.loader.load( 'mmv' );
-				}, this.hoverWaitDuration );
+				}, bs.hoverWaitDuration );
 			},
-			mouseleave: () => {
-				if ( this.preloadOnHoverTimer ) {
-					clearTimeout( this.preloadOnHoverTimer );
+			mouseleave: function () {
+				if ( bs.preloadOnHoverTimer ) {
+					clearTimeout( bs.preloadOnHoverTimer );
 				}
 			}
 		} );
-	}
+	};
 
 	/**
 	 * Processes a thumb
 	 *
 	 * @param {Object} thumb
 	 */
-	processThumb( thumb ) {
-		let title;
-		const $thumb = $( thumb );
-		const $link = $thumb.closest( 'a.image, a.mw-file-description' );
-		const $thumbContainer = $link.closest( '.thumb' );
-		const $enlarge = $thumbContainer.find( '.magnify a' );
-		const isFilePageMainThumb = $thumb.closest( '#file' ).length > 0;
+	MMVB.processThumb = function ( thumb ) {
+		var title,
+			bs = this,
+			$thumb = $( thumb ),
+			$link = $thumb.closest( 'a.image' ),
+			$thumbContainer = $link.closest( '.thumb' ),
+			$enlarge = $thumbContainer.find( '.magnify a' ),
+			link = $link.prop( 'href' ),
+			alt = $thumb.attr( 'alt' ),
+			isFilePageMainThumb = $thumb.closest( '#file' ).length > 0;
 
 		if ( isFilePageMainThumb ) {
 			// main thumbnail (file preview area) of a file page
@@ -281,18 +255,18 @@ class MultimediaViewerBootstrap {
 			title = mw.Title.newFromImg( $thumb );
 		}
 
-		if ( !this.isValidExtension( title ) ) {
+		if ( !bs.isValidExtension( title ) ) {
 			// Short-circuit event handler and interface setup, because
 			// we can't do anything for this filetype
 			return;
 		}
 
-		if ( !this.isAllowedThumb( $thumb ) ) {
+		if ( !bs.isAllowedThumb( $thumb ) ) {
 			return;
 		}
 
 		if ( $thumbContainer.length ) {
-			this.preloadAssets( $thumbContainer );
+			bs.preloadAssets( $thumbContainer );
 		}
 
 		if ( isFilePageMainThumb ) {
@@ -301,70 +275,71 @@ class MultimediaViewerBootstrap {
 		}
 
 		// This is the data that will be passed onto the mmv
-		const image = new LightboxImage(
-			$thumb.prop( 'src' ),
-			title,
-			this.thumbs.length,
-			this.thumbs.filter( ( t ) => t.filePageTitle.getPrefixedText() === title.getPrefixedText() ).length + 1,
-			$thumb[ 0 ],
-			this.findCaption( $thumbContainer, $link )
-		);
-		this.thumbs.push( image );
+		this.thumbs.push( {
+			thumb: thumb,
+			$thumb: $thumb,
+			title: title,
+			link: link,
+			alt: alt,
+			caption: this.findCaption( $thumbContainer, $link ) } );
 
-		$link.add( $enlarge ).on( 'click', ( e ) => this.click( e, image ) );
-	}
+		$link.add( $enlarge ).on( 'click', function ( e ) {
+			return bs.click( this, e, title );
+		} );
+	};
 
 	/**
 	 * Processes a Parsoid thumb, making use of the specified structure,
 	 *   https://www.mediawiki.org/wiki/Specs/HTML#Media
 	 *
+	 * Active formatting elements are sometimes re-opened inside
+	 * the structure and accounted for using .closest()
+	 *
 	 * @param {Object} thumb
 	 */
-	processParsoidThumb( thumb ) {
-		const $thumb = $( thumb );
-		const $link = $thumb.closest( 'a.mw-file-description' );
-		const $thumbContainer = $link.closest(
-			'[typeof*="mw:File"], ' +
-			// TODO: Remove mw:Image when version 2.4.0 of the content is
-			// no longer supported
-			'[typeof*="mw:Image"]'
-		);
-		const title = mw.Title.newFromImg( $thumb );
-		let caption;
+	MMVB.processParsoidThumb = function ( thumb ) {
+		var bs = this,
+			$thumb = $( thumb ),
+			$link = $thumb.closest( 'a.mw-file-description' ),
+			$thumbContainer = $link.closest(
+				'[typeof*="mw:File"], ' +
+				// TODO: Remove mw:Image when version 2.4.0 of the content is
+				// no longer supported
+				'[typeof*="mw:Image"]'
+			),
+			link = $link.prop( 'href' ),
+			alt = $thumb.attr( 'alt' ),
+			title = mw.Title.newFromImg( $thumb );
 
-		if ( !this.isValidExtension( title ) ) {
+		if ( !bs.isValidExtension( title ) ) {
 			// Short-circuit event handler and interface setup, because
 			// we can't do anything for this filetype
 			return;
 		}
 
-		if ( !this.isAllowedThumb( $thumb ) ) {
+		if ( !bs.isAllowedThumb( $thumb ) ) {
 			return;
 		}
 
 		if ( $thumbContainer.length ) {
-			this.preloadAssets( $thumbContainer );
-		}
-
-		if ( ( $thumbContainer.prop( 'tagName' ) || '' ).toLowerCase() === 'figure' ) {
-			caption = $thumbContainer.find( 'figcaption' ).html() || '';
-		} else {
-			caption = $link.prop( 'title' ) || undefined;
+			bs.preloadAssets( $thumbContainer );
 		}
 
 		// This is the data that will be passed onto the mmv
-		const image = new LightboxImage(
-			$thumb.prop( 'src' ),
-			title,
-			this.thumbs.length,
-			this.thumbs.filter( ( t ) => t.filePageTitle.getPrefixedText() === title.getPrefixedText() ).length + 1,
-			$thumb[ 0 ],
-			caption
-		);
-		this.thumbs.push( image );
+		this.thumbs.push( {
+			thumb: thumb,
+			$thumb: $thumb,
+			title: title,
+			link: link,
+			alt: alt,
+			// FIXME: findCaption can further make use of Parsoid's regularity
+			caption: this.findCaption( $thumbContainer, $link )
+		} );
 
-		$link.on( 'click', ( e ) => this.click( e, image ) );
-	}
+		$link.on( 'click', function ( e ) {
+			return bs.click( this, e, title );
+		} );
+	};
 
 	/**
 	 * Processes the main thumbnail of a file page by adding some buttons
@@ -373,65 +348,112 @@ class MultimediaViewerBootstrap {
 	 * @param {jQuery} $thumb
 	 * @param {mw.Title} title
 	 */
-	processFilePageThumb( $thumb, title ) {
+	MMVB.processFilePageThumb = function ( $thumb, title ) {
+		var $link,
+			$icon,
+			$label,
+			$configLink,
+			$configIcon,
+			$configLabel,
+			$filepageButtons,
+			bs = this,
+			link = $thumb.closest( 'a' ).prop( 'href' );
+
 		// remove the buttons (and the clearing element) if they are already there
 		// this should not happen (at least until we support paged media) but just in case
 		// eslint-disable-next-line no-jquery/no-global-selector
-		$( '.mw-mmv-view-expanded' ).remove();
+		$( '.mw-mmv-filepage-buttons' ).next().addBack().remove();
 
-		const $mmvButton = $( '<button>' )
-			.addClass( 'mw-mmv-view-expanded cdx-button' )
-			.append( $( '<span>' ).addClass( 'cdx-button__icon' ) )
-			.append( ' ' )
-			.append( mw.msg( 'multimediaviewer-view-expanded' ) );
+		$icon = $( '<span>' ).addClass( 'mw-ui-icon mw-ui-icon-before' );
+
+		$link = $( '<a>' )
+			// It won't matter because we catch the click event anyway, but
+			// give the user some URL to see.
+			.prop( 'href', link )
+			.addClass( 'mw-mmv-view-expanded mw-ui-button' );
+
+		$label = $( '<span>' )
+			.text( mw.message( 'multimediaviewer-view-expanded' ).text() );
+
+		$icon.append( $label ).appendTo( $link );
+
+		$configLink = $( '<a>' )
+			.prop( 'href', $thumb.closest( 'a' ).prop( 'href' ) )
+			.addClass( 'mw-mmv-view-config mw-ui-button' );
+
+		$configLabel = $( '<span>' )
+			.text( mw.message( 'multimediaviewer-view-config' ).text() );
+
+		$configIcon = $( '<span>' )
+			.addClass( 'mw-ui-icon mw-ui-icon-before' )
+			.append( $configLabel )
+			.appendTo( $configLink );
+
+		$configIcon.append( $configLabel ).appendTo( $configLink );
+
+		$filepageButtons = $( '<div>' )
+			.addClass( 'mw-ui-button-group mw-mmv-filepage-buttons' )
+			.append( $link, $configLink );
 
 		// eslint-disable-next-line no-jquery/no-global-selector
-		$( '.fullMedia' ).append( $mmvButton );
-
-		const image = new LightboxImage(
-			$thumb.prop( 'src' ),
-			title,
-			this.thumbs.length,
-			1,
-			$thumb[ 0 ],
-			''
+		$( '.fullMedia' ).append(
+			$filepageButtons,
+			$( '<div>' )
+				.css( 'clear', 'both' )
 		);
-		this.thumbs.push( image );
 
-		$mmvButton.on( 'click', () => this.openImage( image ) );
+		this.thumbs.push( {
+			thumb: $thumb.get( 0 ),
+			$thumb: $thumb,
+			title: title,
+			link: link
+		} );
 
-		if ( Config.shouldShowStatusInfo() ) {
-			Config.disableStatusInfo();
+		$link.on( 'click', function () {
+			if ( bs.statusInfoDialog ) {
+				bs.statusInfoDialog.close();
+			}
+			bs.openImage( this, title );
+			return false;
+		} );
+
+		$configLink.on( 'click', function () {
+			if ( bs.statusInfoDialog ) {
+				bs.statusInfoDialog.close();
+			}
+			bs.openImage( this, title ).then( function () {
+				$( document ).trigger( 'mmv-options-open' );
+			} );
+			return false;
+		} );
+
+		if ( this.config.shouldShowStatusInfo() ) {
+			this.config.disableStatusInfo();
 			this.showStatusInfo();
 		}
-	}
+	};
 
 	/**
 	 * Shows a popup notifying the user
 	 */
-	showStatusInfo() {
-		mw.loader.using( 'oojs-ui-core' ).done( () => {
-			const content = document.createElement( 'div' );
-			content.textContent = mw.msg( 'multimediaviewer-disable-info' );
+	MMVB.showStatusInfo = function () {
+		var bs = this;
 
-			const popupWidget = new OO.ui.PopupWidget( {
-				label: mw.msg( 'multimediaviewer-disable-info-title' ),
-				$content: $( content ),
-				padded: true,
-				head: true,
-				anchor: true,
-				align: 'center',
-				position: 'above',
-				autoFlip: false,
-				horizontalPosition: 'start',
-				// eslint-disable-next-line no-jquery/no-global-selector
-				$floatableContainer: $( '.mw-mmv-view-expanded' )
-			} );
-			popupWidget.$element.appendTo( document.body );
-			popupWidget.toggleClipping( true );
-			popupWidget.toggle( true );
+		mw.loader.using( 'mmv.ui.tipsyDialog' ).done( function () {
+			/** @property {mw.mmv.ui.TipsyDialog} statusInfoDialog popup on the file page explaining how to re-enable */
+			// eslint-disable-next-line no-jquery/no-global-selector
+			bs.statusInfoDialog = new mw.mmv.ui.TipsyDialog( $( '.mw-mmv-view-expanded' ), { gravity: 'sw' } );
+			bs.statusInfoDialog.setContent(
+				mw.message( 'multimediaviewer-disable-info-title' ).plain(),
+				mw.message( 'multimediaviewer-disable-info' ).escaped()
+			);
+			// tipsy mispositions the tooltip, probably because it does the positioning before the buttons are
+			// displayed and the page is reflown. Adding some delay seems to help.
+			setTimeout( function () {
+				bs.statusInfoDialog.open();
+			}, 1000 );
 		} );
-	}
+	};
 
 	/**
 	 * Finds the caption for an image.
@@ -440,13 +462,17 @@ class MultimediaViewerBootstrap {
 	 * @param {jQuery} $link The link that encompasses the thumbnail.
 	 * @return {string|undefined} Unsafe HTML may be present - caution
 	 */
-	findCaption( $thumbContainer, $link ) {
+	MMVB.findCaption = function ( $thumbContainer, $link ) {
+		var $thumbCaption, $potentialCaptions;
+
 		if ( !$thumbContainer.length ) {
 			return $link.prop( 'title' ) || undefined;
 		}
 
-		let $thumbCaption = $thumbContainer.find( '.thumbcaption' );
-		if ( $thumbCaption.length > 1 ) {
+		$potentialCaptions = $thumbContainer.find( '.thumbcaption, figcaption' );
+		if ( $potentialCaptions.length < 2 ) {
+			$thumbCaption = $potentialCaptions.eq( 0 );
+		} else {
 			// Template:Multiple_image or some such; try to find closest caption to the image
 			// eslint-disable-next-line no-jquery/no-sizzle
 			$thumbCaption = $link.closest( ':has(> .thumbcaption)', $thumbContainer )
@@ -456,13 +482,13 @@ class MultimediaViewerBootstrap {
 		if ( !$thumbCaption.length ) { // gallery, maybe
 			$thumbCaption = $thumbContainer
 				.closest( '.gallerybox' )
-				.not(
+				.not( function () {
 					// do not treat categories as galleries - the autogenerated caption they have is not helpful
-					() => $thumbContainer.closest( '#mw-category-media' ).length
-				)
-				.not( () => {
+					return $thumbContainer.closest( '#mw-category-media' ).length;
+				} )
+				.not( function () {
 					// do not treat special file related pages as galleries
-					const $specialFileRelatedPages = $(
+					var $specialFileRelatedPages = $(
 						'.page-Special_NewFiles, ' +
 						'.page-Special_MostLinkedFiles,' +
 						'.page-Special_MostGloballyLinkedFiles, ' +
@@ -479,37 +505,41 @@ class MultimediaViewerBootstrap {
 			$thumbCaption.find( '.magnify' ).remove();
 		}
 
-		return $thumbCaption.html() || '';
-	}
+		return this.htmlUtils.htmlToTextWithTags( $thumbCaption.html() || '' );
+	};
 
 	/**
 	 * Opens MediaViewer and loads the given thumbnail. Requires processThumb() to be called first.
 	 *
-	 * @param {LightboxImage} image Image
+	 * @param {HTMLElement} element Clicked element
+	 * @param {mw.Title} title File title
+	 * @return {jQuery.Promise}
 	 */
-	openImage( image ) {
+	MMVB.openImage = function ( element, title ) {
 		this.ensureEventHandlersAreSetUp();
-		const hash = Config.getMediaHash( image.filePageTitle, image.position );
-		location.hash = hash;
-		history.replaceState( MANAGED_STATE, null, hash );
-	}
+
+		return this.loadViewer( true ).then( function ( viewer ) {
+			viewer.loadImageByTitle( title, false );
+		} );
+	};
 
 	/**
 	 * Handles a click event on a link
 	 *
+	 * @param {HTMLElement} element Clicked element
 	 * @param {jQuery.Event} e jQuery event object
-	 * @param {LightboxImage} image Image
+	 * @param {mw.Title} title File title
 	 * @return {boolean} a value suitable for an event handler (ie. true if the click should be handled
 	 *  by the browser).
 	 */
-	click( e, image ) {
+	MMVB.click = function ( element, e, title ) {
 		// Do not interfere with non-left clicks or if modifier keys are pressed.
 		if ( ( e.button !== 0 && e.which !== 1 ) || e.altKey || e.ctrlKey || e.shiftKey || e.metaKey ) {
 			return true;
 		}
 
 		// Don't load if someone has specifically stopped us from doing so
-		if ( !Config.isMediaViewerEnabledOnClick() ) {
+		if ( !this.config.isMediaViewerEnabledOnClick() ) {
 			return true;
 		}
 
@@ -518,14 +548,13 @@ class MultimediaViewerBootstrap {
 			return true;
 		}
 
-		// Mark the state so that if the page is refreshed, we don't generate an extra history entry
-		this.openImage( image );
+		this.openImage( element, title );
 
 		// calling this late so that in case of errors users at least get to the file page
 		e.preventDefault();
 
 		return false;
-	}
+	};
 
 	/**
 	 * Returns true if the hash part of the current URL is one that's owned by MMV.
@@ -533,89 +562,91 @@ class MultimediaViewerBootstrap {
 	 * @return {boolean}
 	 * @private
 	 */
-	isViewerHash() {
-		const path = location.hash.slice( 1 );
-		return path.match( Config.ROUTE_REGEXP ) || path.match( Config.LEGACY_ROUTE_REGEXP );
-	}
+	MMVB.isViewerHash = function () {
+		var path = location.hash.slice( 1 );
+		return path.match( mw.mmv.ROUTE_REGEXP ) || path.match( mw.mmv.LEGACY_ROUTE_REGEXP );
+	};
 
 	/**
 	 * Handles the browser location hash on pageload or hash change
 	 */
-	hash() {
-		const isViewerHash = this.isViewerHash();
+	MMVB.hash = function () {
+		var bootstrap = this;
 
 		// There is no point loading the mmv if it isn't loaded yet for hash changes unrelated to the mmv
 		// Such as anchor links on the page
-		if ( !this.viewerInitialized && !isViewerHash ) {
+		if ( !this.viewerInitialized && !this.isViewerHash() ) {
 			return;
 		}
 
-		const hash = location.hash;
-		if ( window.history.state !== MANAGED_STATE ) {
-			// First replace the current URL with a URL with a hash.
-			history.replaceState( null, null, '#' );
-			history.pushState( MANAGED_STATE, null, hash );
-		}
-		this.router.checkRoute();
-	}
+		this.loadViewer( this.isViewerHash() ).then( function ( viewer ) {
+			viewer.router.checkRoute();
+			// this is an ugly temporary fix to avoid a black screen of death when
+			// the page is loaded with an invalid MMV url
+			if ( !viewer.isOpen ) {
+				bootstrap.cleanupOverlay();
+			}
+		} );
+	};
 
 	/**
 	 * Instantiates a new viewer if necessary
 	 *
-	 * @param {Function} localRequire
-	 * @return {MultimediaViewer}
+	 * @return {mw.mmv.MultimediaViewer}
 	 */
-	getViewer( localRequire ) {
+	MMVB.getViewer = function () {
 		if ( this.viewer === undefined ) {
-			const { MultimediaViewer } = localRequire( 'mmv' );
-			this.viewer = new MultimediaViewer();
+			this.viewer = new mw.mmv.MultimediaViewer( this.config );
 			this.viewer.setupEventHandlers();
+			mw.mmv.viewer = this.viewer;
 		}
 
 		return this.viewer;
-	}
+	};
 
 	/**
 	 * Listens to events on the window/document
 	 */
-	setupEventHandlers() {
+	MMVB.setupEventHandlers = function () {
+		var self = this;
+
 		/** @property {boolean} eventHandlersHaveBeenSetUp tracks domready event handler state */
 		this.eventHandlersHaveBeenSetUp = true;
 
 		// Interpret any hash that might already be in the url
-		this.hash( true );
+		self.hash( true );
 
-		$( document ).on( 'mmv-setup-overlay', () => {
-			this.setupOverlay();
-		} ).on( 'mmv-cleanup-overlay', () => {
-			this.cleanupOverlay();
+		$( document ).on( 'mmv-setup-overlay', function () {
+			self.setupOverlay();
+		} ).on( 'mmv-cleanup-overlay', function () {
+			self.cleanupOverlay();
 		} );
-	}
+	};
 
 	/**
 	 * Cleans up event handlers, used for tests
 	 */
-	cleanupEventHandlers() {
+	MMVB.cleanupEventHandlers = function () {
 		$( document ).off( 'mmv-setup-overlay mmv-cleanup-overlay' );
 		this.eventHandlersHaveBeenSetUp = false;
-	}
+	};
 
 	/**
 	 * Makes sure event handlers are set up properly via MultimediaViewerBootstrap.setupEventHandlers().
 	 * Called before loading the main mmv module. At this point, event handers for MultimediaViewerBootstrap
 	 * should have been set up, but due to bug 70756 it cannot be guaranteed.
 	 */
-	ensureEventHandlersAreSetUp() {
+	MMVB.ensureEventHandlersAreSetUp = function () {
 		if ( !this.eventHandlersHaveBeenSetUp ) {
 			this.setupEventHandlers();
 		}
-	}
+	};
 
 	/**
 	 * Sets up the overlay while the viewer loads
 	 */
-	setupOverlay() {
-		const $body = $( document.body );
+	MMVB.setupOverlay = function () {
+		var $body = $( document.body );
 
 		// There are situations where we can call setupOverlay while the overlay is already there,
 		// such as inside this.hash(). In that case, do nothing
@@ -625,28 +656,21 @@ class MultimediaViewerBootstrap {
 
 		if ( !this.$overlay ) {
 			this.$overlay = $( '<div>' )
-				// Dark overlay should stay dark in dark mode
-				.addClass( 'mw-mmv-overlay mw-no-invert' );
-
-			this.$loadBar = $( '<div>' )
-				.addClass( 'cdx-progress-bar' )
-				.attr( {
-					role: 'progressbar',
-					'aria-label': mw.msg( 'multimediaviewer-loading' )
-				} ).append( $( '<div>' ).addClass( 'cdx-progress-bar__bar' ) );
-			this.$overlay.append( this.$loadBar );
+				.addClass( 'mw-mmv-overlay' );
 		}
 
 		this.savedScrollTop = $( window ).scrollTop();
 
 		$body.addClass( 'mw-mmv-lightbox-open' )
 			.append( this.$overlay );
-	}
+	};
 
 	/**
 	 * Cleans up the overlay
 	 */
-	cleanupOverlay() {
+	MMVB.cleanupOverlay = function () {
+		var bootstrap = this;
+
 		$( document.body ).removeClass( 'mw-mmv-lightbox-open' );
 
 		if ( this.$overlay ) {
@@ -655,16 +679,16 @@ class MultimediaViewerBootstrap {
 
 		if ( this.savedScrollTop !== undefined ) {
 			// setTimeout because otherwise Chrome will scroll back to top after the popstate event handlers run
-			setTimeout( () => {
-				$( window ).scrollTop( this.savedScrollTop );
-				this.savedScrollTop = undefined;
+			setTimeout( function () {
+				$( window ).scrollTop( bootstrap.savedScrollTop );
+				bootstrap.savedScrollTop = undefined;
 			} );
 		}
-	}
+	};
 
-	whenThumbsReady() {
+	MMVB.whenThumbsReady = function () {
 		return this.thumbsReadyDeferred.promise();
-	}
-}
+	};
 
-module.exports = MultimediaViewerBootstrap;
+	mw.mmv.MultimediaViewerBootstrap = MultimediaViewerBootstrap;
+}() );

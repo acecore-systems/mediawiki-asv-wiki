@@ -10,7 +10,7 @@ use MediaWiki\Extension\OATHAuth\Key\TOTPKey;
 class TOTPKeyTest extends \MediaWikiIntegrationTestCase {
 	public function testDeserialization() {
 		$key = TOTPKey::newFromRandom();
-		$deserialized = TOTPKey::newFromArray( json_decode( json_encode( $key ), true ) );
+		$deserialized = TOTPKey::newFromString( json_encode( $key ) );
 		$this->assertSame( $key->getSecret(), $deserialized->getSecret() );
 		$this->assertSame( $key->getScratchTokens(), $deserialized->getScratchTokens() );
 	}

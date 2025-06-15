@@ -1,33 +1,12 @@
 <?php
 
-namespace MediaWiki\Tests\Api\Query;
-
-use ISearchResultSet;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Revision\RevisionLookup;
-use MediaWiki\Tests\Api\ApiTestCase;
-use MediaWiki\Title\Title;
-use MockSearchEngine;
-use MockSearchResult;
-use MockSearchResultSet;
 
 /**
  * @group medium
- * @covers MediaWiki\Api\ApiQuerySearch
+ * @covers ApiQuerySearch
  */
 class ApiQuerySearchTest extends ApiTestCase {
-
-	protected function setUp(): void {
-		parent::setUp();
-		MockSearchEngine::clearMockResults();
-		$this->registerMockSearchEngine();
-		$this->setService( 'RevisionLookup', $this->createMock( RevisionLookup::class ) );
-	}
-
-	private function registerMockSearchEngine() {
-		$this->overrideConfigValue( MainConfigNames::SearchType, MockSearchEngine::class );
-	}
-
 	public function provideSearchResults() {
 		return [
 			'empty search result' => [ [], [] ],
@@ -59,7 +38,7 @@ class ApiQuerySearchTest extends ApiTestCase {
 	 */
 	public function testSearchResults( $expect, $hits, array $params = [] ) {
 		MockSearchEngine::addMockResults( 'my query', $hits );
-		[ $response, $request ] = $this->doApiRequest( $params + [
+		list( $response, $request ) = $this->doApiRequest( $params + [
 			'action' => 'query',
 			'list' => 'search',
 			'srsearch' => 'my query',
@@ -92,7 +71,7 @@ class ApiQuerySearchTest extends ApiTestCase {
 	 */
 	public function testInterwikiResults( $expect, $hits, array $params = [] ) {
 		MockSearchEngine::setMockInterwikiResults( $hits );
-		[ $response, $request ] = $this->doApiRequest( $params + [
+		list( $response, $request ) = $this->doApiRequest( $params + [
 			'action' => 'query',
 			'list' => 'search',
 			'srsearch' => 'my query',
@@ -113,6 +92,16 @@ class ApiQuerySearchTest extends ApiTestCase {
 		$this->assertEquals( $expect, $results );
 	}
 
+	protected function setUp(): void {
+		parent::setUp();
+		MockSearchEngine::clearMockResults();
+		$this->registerMockSearchEngine();
+	}
+
+	private function registerMockSearchEngine() {
+		$this->overrideConfigValue( MainConfigNames::SearchType, MockSearchEngine::class );
+	}
+
 	/**
 	 * Returns a closure that evaluates to a MockSearchResult, to be resolved by
 	 * MockSearchEngine::addMockResults() or MockresultSet::extractResults().
@@ -121,15 +110,13 @@ class ApiQuerySearchTest extends ApiTestCase {
 	 * since they load revisions. This would hit the "real" database instead of the mock
 	 * database, which in turn may cause cache pollution and other inconsistencies, see T202641.
 	 *
-	 * @param string $titleText
+	 * @param string $title
 	 * @param array $setters
 	 * @return callable function(): MockSearchResult
 	 */
-	private function mockResultClosure( $titleText, $setters = [] ) {
-		return static function () use ( $titleText, $setters ) {
-			$title = Title::newFromText( $titleText );
-			$title->resetArticleID( 0 );
-			$result = new MockSearchResult( $title );
+	private function mockResultClosure( $title, $setters = [] ) {
+		return static function () use ( $title, $setters ){
+			$result = new MockSearchResult( Title::newFromText( $title ) );
 
 			foreach ( $setters as $method => $param ) {
 				$result->$method( $param );

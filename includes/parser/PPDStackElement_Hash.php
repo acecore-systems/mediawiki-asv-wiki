@@ -19,8 +19,6 @@
  * @ingroup Parser
  */
 
-namespace MediaWiki\Parser;
-
 /**
  * @ingroup Parser
  *
@@ -110,7 +108,7 @@ class PPDStackElement_Hash {
 	/**
 	 * Get the accumulator that would result if the close is not found.
 	 *
-	 * @param int|false $openingCount
+	 * @param int|bool $openingCount
 	 * @return array
 	 */
 	public function breakSyntax( $openingCount = false ) {
@@ -149,6 +147,3 @@ class PPDStackElement_Hash {
 		return $accum;
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( PPDStackElement_Hash::class, 'PPDStackElement_Hash' );

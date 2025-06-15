@@ -23,13 +23,11 @@
  * @ingroup Maintenance
  */
 
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\SlotRecord;
-use MediaWiki\Title\Title;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script that outputs page text to stdout.
@@ -59,7 +57,7 @@ class GetTextMaint extends Maintenance {
 
 		$revId = (int)$this->getOption( 'revision', $title->getLatestRevID() );
 
-		$rev = $this->getServiceContainer()
+		$rev = MediaWikiServices::getInstance()
 			->getRevisionLookup()
 			->getRevisionByTitle( $title, $revId );
 
@@ -87,7 +85,5 @@ class GetTextMaint extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = GetTextMaint::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

@@ -12,7 +12,6 @@ abstract class CaptchaTriggers {
 	public const SENDEMAIL = 'sendemail';
 	public const ADD_URL = 'addurl';
 	public const CREATE_ACCOUNT = 'createaccount';
-	public const LOGIN_ATTEMPT = 'loginattempt';
 	public const BAD_LOGIN = 'badlogin';
 	public const BAD_LOGIN_PER_USER = 'badloginperuser';
 

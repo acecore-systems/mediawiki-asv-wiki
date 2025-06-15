@@ -23,16 +23,9 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
 use MediaWiki\Revision\RevisionStore;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleFactory;
-use MediaWiki\Title\TitleFormatter;
-use MediaWiki\Watchlist\WatchedItemStoreInterface;
 use Wikimedia\ParamValidator\ParamValidator;
-use Wikimedia\Rdbms\IConnectionProvider;
-use Wikimedia\Rdbms\IDBAccessObject;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * API interface for setting the wl_notificationtimestamp field
@@ -40,31 +33,36 @@ use Wikimedia\Rdbms\IDBAccessObject;
  */
 class ApiSetNotificationTimestamp extends ApiBase {
 
-	/** @var ApiPageSet|null */
 	private $mPageSet = null;
 
-	private RevisionStore $revisionStore;
-	private IConnectionProvider $dbProvider;
-	private WatchedItemStoreInterface $watchedItemStore;
-	private TitleFormatter $titleFormatter;
-	private TitleFactory $titleFactory;
+	/** @var RevisionStore */
+	private $revisionStore;
 
+	/** @var ILoadBalancer */
+	private $loadBalancer;
+
+	/** @var WatchedItemStoreInterface */
+	private $watchedItemStore;
+
+	/**
+	 * @param ApiMain $main
+	 * @param string $action
+	 * @param ILoadBalancer $loadBalancer
+	 * @param RevisionStore $revisionStore
+	 * @param WatchedItemStoreInterface $watchedItemStore
+	 */
 	public function __construct(
 		ApiMain $main,
-		string $action,
-		IConnectionProvider $dbProvider,
+		$action,
+		ILoadBalancer $loadBalancer,
 		RevisionStore $revisionStore,
-		WatchedItemStoreInterface $watchedItemStore,
-		TitleFormatter $titleFormatter,
-		TitleFactory $titleFactory
+		WatchedItemStoreInterface $watchedItemStore
 	) {
 		parent::__construct( $main, $action );
 
-		$this->dbProvider = $dbProvider;
+		$this->loadBalancer = $loadBalancer;
 		$this->revisionStore = $revisionStore;
 		$this->watchedItemStore = $watchedItemStore;
-		$this->titleFormatter = $titleFormatter;
-		$this->titleFactory = $titleFactory;
 	}
 
 	public function execute() {
@@ -93,7 +91,7 @@ class ApiSetNotificationTimestamp extends ApiBase {
 			);
 		}
 
-		$dbw = $this->dbProvider->getPrimaryDatabase();
+		$dbw = $this->loadBalancer->getConnectionRef( DB_PRIMARY );
 
 		$timestamp = null;
 		if ( isset( $params['timestamp'] ) ) {
@@ -108,7 +106,7 @@ class ApiSetNotificationTimestamp extends ApiBase {
 			if ( $params['entirewatchlist'] || $pageSet->getGoodTitleCount() > 1 ) {
 				$this->dieWithError( [ 'apierror-multpages', $this->encodeParamName( 'torevid' ) ] );
 			}
-			$titles = $pageSet->getGoodPages();
+			$titles = $pageSet->getGoodTitles();
 			$title = reset( $titles );
 			if ( $title ) {
 				// XXX $title isn't actually used, can we just get rid of the previous six lines?
@@ -126,18 +124,18 @@ class ApiSetNotificationTimestamp extends ApiBase {
 			if ( $params['entirewatchlist'] || $pageSet->getGoodTitleCount() > 1 ) {
 				$this->dieWithError( [ 'apierror-multpages', $this->encodeParamName( 'newerthanrevid' ) ] );
 			}
-			$titles = $pageSet->getGoodPages();
+			$titles = $pageSet->getGoodTitles();
 			$title = reset( $titles );
 			if ( $title ) {
 				$timestamp = null;
 				$currRev = $this->revisionStore->getRevisionById(
 					$params['newerthanrevid'],
-					IDBAccessObject::READ_LATEST
+					Title::READ_LATEST
 				);
 				if ( $currRev ) {
 					$nextRev = $this->revisionStore->getNextRevision(
 						$currRev,
-						IDBAccessObject::READ_LATEST
+						Title::READ_LATEST
 					);
 					if ( $nextRev ) {
 						$timestamp = $dbw->timestamp( $nextRev->getTimestamp() );
@@ -176,33 +174,31 @@ class ApiSetNotificationTimestamp extends ApiBase {
 				$result[] = $rev;
 			}
 
-			$pages = $pageSet->getPages();
-			if ( $pages ) {
+			if ( $pageSet->getPages() ) {
 				// Now process the valid titles
 				$this->watchedItemStore->setNotificationTimestampsForUser(
 					$user,
 					$timestamp,
-					$pages
+					$pageSet->getPages()
 				);
 
 				// Query the results of our update
 				$timestamps = $this->watchedItemStore->getNotificationTimestampsBatch(
 					$user,
-					$pages
+					$pageSet->getPages()
 				);
 
 				// Now, put the valid titles into the result
-				/** @var \MediaWiki\Page\PageIdentity $page */
-				foreach ( $pages as $page ) {
-					$ns = $page->getNamespace();
-					$dbkey = $page->getDBkey();
+				/** @var Title $title */
+				foreach ( $pageSet->getTitles() as $title ) {
+					$ns = $title->getNamespace();
+					$dbkey = $title->getDBkey();
 					$r = [
 						'ns' => $ns,
-						'title' => $this->titleFormatter->getPrefixedText( $page ),
+						'title' => $title->getPrefixedText(),
 					];
-					if ( !$page->exists() ) {
+					if ( !$title->exists() ) {
 						$r['missing'] = true;
-						$title = $this->titleFactory->newFromPageIdentity( $page );
 						if ( $title->isKnown() ) {
 							$r['known'] = true;
 						}
@@ -234,7 +230,9 @@ class ApiSetNotificationTimestamp extends ApiBase {
 	 * @return ApiPageSet
 	 */
 	private function getPageSet() {
-		$this->mPageSet ??= new ApiPageSet( $this );
+		if ( $this->mPageSet === null ) {
+			$this->mPageSet = new ApiPageSet( $this );
+		}
 
 		return $this->mPageSet;
 	}
@@ -297,6 +295,3 @@ class ApiSetNotificationTimestamp extends ApiBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:SetNotificationTimestamp';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiSetNotificationTimestamp::class, 'ApiSetNotificationTimestamp' );

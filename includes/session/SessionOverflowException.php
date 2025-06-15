@@ -2,8 +2,6 @@
 
 namespace MediaWiki\Session;
 
-use InvalidArgumentException;
-
 /**
  * OverflowException specific to the SessionManager, used when the request had multiple possible
  * sessions tied for top priority.
@@ -21,7 +19,7 @@ class SessionOverflowException extends \OverflowException {
 	 */
 	public function __construct( array $sessionInfos, $msg ) {
 		if ( count( $sessionInfos ) < 2 ) {
-			throw new InvalidArgumentException( 'Expected at least two SessionInfo objects.' );
+			throw new \InvalidArgumentException( 'Expected at least two SessionInfo objects.' );
 		}
 		parent::__construct( $msg );
 		$this->sessionInfos = $sessionInfos;

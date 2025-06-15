@@ -22,6 +22,5 @@
 	"titleblacklist-override-help": "Os usuarios con privilexios suficientes poden configurar isto para ignoraren as comprobacións da lista de títulos non permitidos.",
 	"titleblacklist-warning": "<strong>Aviso: Só os administradores e os usuarios co privilexio <code>tboverride</code> poden editar esta páxina porque coincide coa seguinte entrada da lista de títulos non permitidos:</strong><br /><code>$1</code>",
 	"right-tboverride": "Ignorar a lista de títulos ou nomes de usuario non permitidos",
-	"right-tboverride-account": "Ignorar a lista de nomes de usuario non permitidos",
-	"right-titleblacklistlog": "Ver o rexistro da lista de títulos non permitidos"
+	"right-tboverride-account": "Ignorar a lista de nomes de usuario non permitidos"
 }

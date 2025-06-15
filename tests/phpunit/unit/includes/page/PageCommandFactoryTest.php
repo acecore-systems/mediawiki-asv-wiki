@@ -2,12 +2,10 @@
 
 namespace MediaWiki\Tests\Unit\Page;
 
-use MediaWiki\Config\HashConfig;
-use MediaWiki\Content\ContentModelChange;
+use ContentModelChange;
+use HashConfig;
 use MediaWiki\MainConfigNames;
 use MediaWiki\Page\DeletePage;
-use MediaWiki\Page\MergeHistory;
-use MediaWiki\Page\MovePage;
 use MediaWiki\Page\PageCommandFactory;
 use MediaWiki\Page\PageIdentity;
 use MediaWiki\Page\PageIdentityValue;
@@ -16,9 +14,12 @@ use MediaWiki\Page\RollbackPage;
 use MediaWiki\Page\UndeletePage;
 use MediaWiki\Permissions\Authority;
 use MediaWiki\Tests\Unit\MockServiceDependenciesTrait;
-use MediaWiki\Title\Title;
 use MediaWiki\User\UserIdentity;
 use MediaWikiUnitTestCase;
+use MergeHistory;
+use MovePage;
+use Title;
+use WikiPage;
 
 /**
  * @covers \MediaWiki\Page\PageCommandFactory
@@ -55,7 +56,7 @@ class PageCommandFactoryTest extends MediaWikiUnitTestCase {
 	public function testContentModelChange() {
 		$contentModelChange = $this->getFactory()->newContentModelChange(
 			$this->createMock( Authority::class ),
-			$this->createMock( PageIdentity::class ),
+			$this->createMock( WikiPage::class ),
 			CONTENT_MODEL_TEXT
 		);
 		$this->assertInstanceOf(

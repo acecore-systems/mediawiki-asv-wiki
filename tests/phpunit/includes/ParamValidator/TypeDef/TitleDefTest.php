@@ -1,26 +1,27 @@
 <?php
 
-namespace MediaWiki\Tests\ParamValidator\TypeDef;
+namespace MediaWiki\ParamValidator\TypeDef;
 
+use CommentStoreComment;
 use MediaWiki\MainConfigNames;
-use MediaWiki\ParamValidator\TypeDef\TitleDef;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleValue;
-use Wikimedia\Message\DataMessageValue;
+use MediaWiki\MediaWikiServices;
+use MediaWiki\Revision\SlotRecord;
+use Title;
+use TitleValue;
+use User;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\SimpleCallbacks;
-use Wikimedia\ParamValidator\ValidationException;
+use WikitextContent;
 
 /**
  * @covers \MediaWiki\ParamValidator\TypeDef\TitleDef
- * @group Database
  */
 class TitleDefTest extends TypeDefIntegrationTestCase {
 	protected function getInstance( SimpleCallbacks $callbacks, array $options ) {
 		$this->overrideConfigValue( MainConfigNames::LanguageCode, 'en' );
 		return new TitleDef(
 			$callbacks,
-			$this->getServiceContainer()->getTitleFactory()
+			MediaWikiServices::getInstance()->getTitleFactory()
 		);
 	}
 
@@ -32,8 +33,12 @@ class TitleDefTest extends TypeDefIntegrationTestCase {
 		$value, $expect, array $settings = [], array $options = [], array $expectConds = []
 	) {
 		if ( $this->dataName() === 'must exist (success)' ) {
-			$status = $this->editPage( Title::makeTitle( NS_MAIN, 'Exists' ), 'exists' );
-			$this->assertTrue( $status->isOK() );
+			$updater = MediaWikiServices::getInstance()->getWikiPageFactory()
+				->newFromTitle( Title::makeTitle( NS_MAIN, 'Exists' ) )
+				->newPageUpdater( new User )
+				->setContent( SlotRecord::MAIN, new WikitextContent( 'exists' ) );
+			$updater->saveRevision( CommentStoreComment::newUnsavedComment( 'test' ) );
+			$this->assertTrue( $updater->getStatus()->isOK() );
 		}
 		parent::testValidate( $value, $expect, $settings, $options, $expectConds );
 	}
@@ -80,13 +85,6 @@ class TitleDefTest extends TypeDefIntegrationTestCase {
 				'expect' => $this->getValidationException( 'missingtitle', 'does not exist',
 					[ TitleDef::PARAM_MUST_EXIST => true ] ),
 				'settings' => [ TitleDef::PARAM_MUST_EXIST => true ],
-			],
-			'Not a string' => [
-				[ 1, 2, 3 ],
-				new ValidationException(
-					DataMessageValue::new( 'paramvalidator-needstring', [], 'needstring' ),
-					'test', '', []
-				)
 			],
 		];
 	}

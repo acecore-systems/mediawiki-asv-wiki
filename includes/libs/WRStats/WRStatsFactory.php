@@ -3,7 +3,7 @@
 namespace Wikimedia\WRStats;
 
 /**
- * The main entry point to WRStats, for creating readers and writers.
+ * A factory for WRStats readers and writers.
  *
  * Readers and writers should generally be used for a batch and then discarded.
  * Factory objects can be retained indefinitely.

@@ -1,13 +1,8 @@
 <?php
 
-use MediaWiki\Password\BcryptPassword;
-use MediaWiki\Password\LayeredParameterizedPassword;
-use MediaWiki\Password\ParameterizedPassword;
-use MediaWiki\Password\Pbkdf2PasswordUsingHashExtension;
-
 /**
- * @covers \MediaWiki\Password\LayeredParameterizedPassword
- * @covers \MediaWiki\Password\Password
+ * @covers LayeredParameterizedPassword
+ * @covers Password
  */
 class LayeredParameterizedPasswordTest extends PasswordTestCase {
 	protected function getTypeConfigs() {
@@ -23,7 +18,7 @@ class LayeredParameterizedPasswordTest extends PasswordTestCase {
 				],
 			],
 			'testLargeLayeredBottom' => [
-				'class' => Pbkdf2PasswordUsingHashExtension::class,
+				'class' => Pbkdf2Password::class,
 				'algo' => 'sha512',
 				'cost' => 1024,
 				'length' => 512,
@@ -50,6 +45,9 @@ class LayeredParameterizedPasswordTest extends PasswordTestCase {
 		// phpcs:enable
 	}
 
+	/**
+	 * @covers LayeredParameterizedPassword::partialCrypt
+	 */
 	public function testLargeLayeredPartialUpdate() {
 		/** @var ParameterizedPassword $partialPassword */
 		$partialPassword = $this->passwordFactory->newFromType( 'testLargeLayeredBottom' );

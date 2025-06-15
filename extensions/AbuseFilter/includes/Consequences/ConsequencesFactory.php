@@ -2,7 +2,9 @@
 
 namespace MediaWiki\Extension\AbuseFilter\Consequences;
 
+use BagOStuff;
 use MediaWiki\Block\BlockUserFactory;
+use MediaWiki\Block\DatabaseBlock;
 use MediaWiki\Block\DatabaseBlockStore;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\Extension\AbuseFilter\BlockAutopromoteStore;
@@ -18,14 +20,11 @@ use MediaWiki\Extension\AbuseFilter\Consequences\Consequence\Warn;
 use MediaWiki\Extension\AbuseFilter\FilterUser;
 use MediaWiki\Extension\AbuseFilter\Variables\VariableHolder;
 use MediaWiki\Session\Session;
-use MediaWiki\Session\SessionManager;
 use MediaWiki\User\UserEditTracker;
 use MediaWiki\User\UserFactory;
 use MediaWiki\User\UserGroupManager;
-use MediaWiki\User\UserIdentityUtils;
 use MessageLocalizer;
 use Psr\Log\LoggerInterface;
-use Wikimedia\ObjectCache\BagOStuff;
 
 class ConsequencesFactory {
 	public const SERVICE_NAME = 'AbuseFilterConsequencesFactory';
@@ -64,6 +63,9 @@ class ConsequencesFactory {
 	/** @var FilterUser */
 	private $filterUser;
 
+	/** @var Session */
+	private $session;
+
 	/** @var MessageLocalizer */
 	private $messageLocalizer;
 
@@ -73,11 +75,8 @@ class ConsequencesFactory {
 	/** @var UserFactory */
 	private $userFactory;
 
-	/** @var UserIdentityUtils */
-	private $userIdentityUtils;
-
-	/** @var ?Session */
-	private $session;
+	/** @var string */
+	private $requestIP;
 
 	/**
 	 * @todo This might drag in unwanted dependencies. The alternative is to use ObjectFactory, but that's harder
@@ -91,10 +90,11 @@ class ConsequencesFactory {
 	 * @param ChangeTagger $changeTagger
 	 * @param BlockAutopromoteStore $blockAutopromoteStore
 	 * @param FilterUser $filterUser
+	 * @param Session $session
 	 * @param MessageLocalizer $messageLocalizer
 	 * @param UserEditTracker $userEditTracker
 	 * @param UserFactory $userFactory
-	 * @param UserIdentityUtils $userIdentityUtils
+	 * @param string $requestIP
 	 */
 	public function __construct(
 		ServiceOptions $options,
@@ -106,10 +106,11 @@ class ConsequencesFactory {
 		ChangeTagger $changeTagger,
 		BlockAutopromoteStore $blockAutopromoteStore,
 		FilterUser $filterUser,
+		Session $session,
 		MessageLocalizer $messageLocalizer,
 		UserEditTracker $userEditTracker,
 		UserFactory $userFactory,
-		UserIdentityUtils $userIdentityUtils
+		string $requestIP
 	) {
 		$options->assertRequiredOptions( self::CONSTRUCTOR_OPTIONS );
 		$this->options = $options;
@@ -121,10 +122,11 @@ class ConsequencesFactory {
 		$this->changeTagger = $changeTagger;
 		$this->blockAutopromoteStore = $blockAutopromoteStore;
 		$this->filterUser = $filterUser;
+		$this->session = $session;
 		$this->messageLocalizer = $messageLocalizer;
 		$this->userEditTracker = $userEditTracker;
 		$this->userFactory = $userFactory;
-		$this->userIdentityUtils = $userIdentityUtils;
+		$this->requestIP = $requestIP;
 	}
 
 	// Each class has its factory method for better type inference and static analysis
@@ -142,6 +144,8 @@ class ConsequencesFactory {
 			$preventsTalk,
 			$this->blockUserFactory,
 			$this->databaseBlockStore,
+			// FIXME This is a hack until DI is possible here (T255433).
+			[ DatabaseBlock::class, 'newFromTarget' ],
 			$this->filterUser,
 			$this->messageLocalizer,
 			$this->logger
@@ -162,7 +166,8 @@ class ConsequencesFactory {
 			$this->messageLocalizer,
 			$this->logger,
 			$this->options->get( 'AbuseFilterRangeBlockSize' ),
-			$this->options->get( 'BlockCIDRLimit' )
+			$this->options->get( 'BlockCIDRLimit' ),
+			$this->requestIP
 		);
 	}
 
@@ -172,14 +177,7 @@ class ConsequencesFactory {
 	 * @return Degroup
 	 */
 	public function newDegroup( Parameters $params, VariableHolder $vars ): Degroup {
-		return new Degroup(
-			$params,
-			$vars,
-			$this->userGroupManager,
-			$this->userIdentityUtils,
-			$this->filterUser,
-			$this->messageLocalizer
-		);
+		return new Degroup( $params, $vars, $this->userGroupManager, $this->filterUser, $this->messageLocalizer );
 	}
 
 	/**
@@ -188,8 +186,7 @@ class ConsequencesFactory {
 	 * @return BlockAutopromote
 	 */
 	public function newBlockAutopromote( Parameters $params, int $duration ): BlockAutopromote {
-		return new BlockAutopromote( $params, $duration, $this->blockAutopromoteStore, $this->messageLocalizer,
-			$this->userIdentityUtils );
+		return new BlockAutopromote( $params, $duration, $this->blockAutopromoteStore, $this->messageLocalizer );
 	}
 
 	/**
@@ -206,6 +203,7 @@ class ConsequencesFactory {
 			$this->userEditTracker,
 			$this->userFactory,
 			$this->logger,
+			$this->requestIP,
 			$this->options->get( 'AbuseFilterIsCentral' ),
 			$this->options->get( 'AbuseFilterCentralDB' )
 		);
@@ -217,7 +215,7 @@ class ConsequencesFactory {
 	 * @return Warn
 	 */
 	public function newWarn( Parameters $params, string $message ): Warn {
-		return new Warn( $params, $message, $this->getSession() );
+		return new Warn( $params, $message, $this->session );
 	}
 
 	/**
@@ -231,29 +229,11 @@ class ConsequencesFactory {
 
 	/**
 	 * @param Parameters $params
+	 * @param string|null $accountName
 	 * @param string[] $tags
 	 * @return Tag
 	 */
-	public function newTag( Parameters $params, array $tags ): Tag {
-		return new Tag( $params, $tags, $this->changeTagger );
-	}
-
-	/**
-	 * @param Session $session
-	 * @return void
-	 */
-	public function setSession( Session $session ): void {
-		$this->session = $session;
-	}
-
-	/**
-	 * @return Session
-	 */
-	private function getSession(): Session {
-		if ( $this->session === null ) {
-			$this->session = SessionManager::getGlobalSession();
-		}
-
-		return $this->session;
+	public function newTag( Parameters $params, ?string $accountName, array $tags ): Tag {
+		return new Tag( $params, $accountName, $tags, $this->changeTagger );
 	}
 }

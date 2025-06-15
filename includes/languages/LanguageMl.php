@@ -18,9 +18,6 @@
  * @file
  */
 
-use MediaWiki\Language\Language;
-use MediaWiki\Languages\Data\NormalizeMl;
-
 /**
  * Malayalam (മലയാളം)
  *
@@ -43,6 +40,7 @@ class LanguageMl extends Language {
 	 */
 	public function normalize( $s ) {
 		$s = parent::normalize( $s );
-		return $this->transformUsingPairFile( NormalizeMl::class, $s );
+		$s = $this->transformUsingPairFile( MediaWiki\Languages\Data\NormalizeMl::class, $s );
+		return $s;
 	}
 }

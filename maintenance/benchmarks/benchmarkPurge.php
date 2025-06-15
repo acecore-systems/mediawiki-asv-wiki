@@ -21,11 +21,7 @@
  * @ingroup Benchmark
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/../includes/Benchmarker.php';
-// @codeCoverageIgnoreEnd
-
-use MediaWiki\Deferred\CdnCacheUpdate;
 
 /**
  * Maintenance script that benchmarks CDN purge.
@@ -119,7 +115,5 @@ class BenchmarkPurge extends Benchmarker {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = BenchmarkPurge::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

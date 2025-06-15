@@ -20,24 +20,14 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
-use MediaWiki\CommentFormatter\CommentFormatter;
 use MediaWiki\Content\IContentHandlerFactory;
 use MediaWiki\Content\Renderer\ContentRenderer;
 use MediaWiki\Content\Transform\ContentTransformer;
 use MediaWiki\MainConfigNames;
-use MediaWiki\MediaWikiServices;
 use MediaWiki\ParamValidator\TypeDef\UserDef;
-use MediaWiki\Parser\ParserFactory;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\RevisionStore;
 use MediaWiki\Revision\SlotRoleRegistry;
-use MediaWiki\Title\NamespaceInfo;
-use MediaWiki\Title\Title;
-use MediaWiki\User\ActorMigration;
-use MediaWiki\User\TempUser\TempUserCreator;
-use MediaWiki\User\UserFactory;
 use Wikimedia\ParamValidator\ParamValidator;
 
 /**
@@ -48,13 +38,30 @@ use Wikimedia\ParamValidator\ParamValidator;
  */
 class ApiQueryAllRevisions extends ApiQueryRevisionsBase {
 
-	private RevisionStore $revisionStore;
-	private ActorMigration $actorMigration;
-	private NamespaceInfo $namespaceInfo;
+	/** @var RevisionStore */
+	private $revisionStore;
 
+	/** @var ActorMigration */
+	private $actorMigration;
+
+	/** @var NamespaceInfo */
+	private $namespaceInfo;
+
+	/**
+	 * @param ApiQuery $query
+	 * @param string $moduleName
+	 * @param RevisionStore $revisionStore
+	 * @param IContentHandlerFactory $contentHandlerFactory
+	 * @param ParserFactory $parserFactory
+	 * @param SlotRoleRegistry $slotRoleRegistry
+	 * @param ActorMigration $actorMigration
+	 * @param NamespaceInfo $namespaceInfo
+	 * @param ContentRenderer $contentRenderer
+	 * @param ContentTransformer $contentTransformer
+	 */
 	public function __construct(
 		ApiQuery $query,
-		string $moduleName,
+		$moduleName,
 		RevisionStore $revisionStore,
 		IContentHandlerFactory $contentHandlerFactory,
 		ParserFactory $parserFactory,
@@ -62,10 +69,7 @@ class ApiQueryAllRevisions extends ApiQueryRevisionsBase {
 		ActorMigration $actorMigration,
 		NamespaceInfo $namespaceInfo,
 		ContentRenderer $contentRenderer,
-		ContentTransformer $contentTransformer,
-		CommentFormatter $commentFormatter,
-		TempUserCreator $tempUserCreator,
-		UserFactory $userFactory
+		ContentTransformer $contentTransformer
 	) {
 		parent::__construct(
 			$query,
@@ -76,10 +80,7 @@ class ApiQueryAllRevisions extends ApiQueryRevisionsBase {
 			$parserFactory,
 			$slotRoleRegistry,
 			$contentRenderer,
-			$contentTransformer,
-			$commentFormatter,
-			$tempUserCreator,
-			$userFactory
+			$contentTransformer
 		);
 		$this->revisionStore = $revisionStore;
 		$this->actorMigration = $actorMigration;
@@ -90,7 +91,7 @@ class ApiQueryAllRevisions extends ApiQueryRevisionsBase {
 	 * @param ApiPageSet|null $resultPageSet
 	 * @return void
 	 */
-	protected function run( ?ApiPageSet $resultPageSet = null ) {
+	protected function run( ApiPageSet $resultPageSet = null ) {
 		$db = $this->getDB();
 		$params = $this->extractRequestParams( false );
 
@@ -121,30 +122,37 @@ class ApiQueryAllRevisions extends ApiQueryRevisionsBase {
 
 		if ( $resultPageSet === null ) {
 			$this->parseParameters( $params );
-			$queryBuilder = $this->revisionStore->newSelectQueryBuilder( $db )
-				->joinComment()
-				->joinPage();
-			$this->getQueryBuilder()->merge( $queryBuilder );
+			$revQuery = $this->revisionStore->getQueryInfo( [ 'page' ] );
 		} else {
 			$this->limit = $this->getParameter( 'limit' ) ?: 10;
-			$this->addTables( [ 'revision' ] );
-			$this->addFields( [ 'rev_timestamp', 'rev_id' ] );
+			$revQuery = [
+				'tables' => [ 'revision' ],
+				'fields' => [ 'rev_timestamp', 'rev_id' ],
+				'joins' => [],
+			];
 
 			if ( $params['generatetitles'] ) {
-				$this->addFields( [ 'rev_page' ] );
+				$revQuery['fields'][] = 'rev_page';
 			}
 
 			if ( $params['user'] !== null || $params['excludeuser'] !== null ) {
-				$this->getQueryBuilder()->join( 'actor', 'actor_rev_user', 'actor_rev_user.actor_id = rev_actor' );
+				$actorQuery = $this->actorMigration->getJoin( 'rev_user' );
+				$revQuery['tables'] += $actorQuery['tables'];
+				$revQuery['joins'] += $actorQuery['joins'];
 			}
 
 			if ( $needPageTable ) {
-				$this->getQueryBuilder()->join( 'page', null, [ "$pageField = page_id" ] );
+				$revQuery['tables'][] = 'page';
+				$revQuery['joins']['page'] = [ 'JOIN', [ "$pageField = page_id" ] ];
 				if ( (bool)$miser_ns ) {
-					$this->addFields( [ 'page_namespace' ] );
+					$revQuery['fields'][] = 'page_namespace';
 				}
 			}
 		}
+
+		$this->addTables( $revQuery['tables'] );
+		$this->addFields( $revQuery['fields'] );
+		$this->addJoinConds( $revQuery['joins'] );
 
 		// Seems to be needed to avoid a planner bug (T113901)
 		$this->addOption( 'STRAIGHT_JOIN' );
@@ -153,10 +161,7 @@ class ApiQueryAllRevisions extends ApiQueryRevisionsBase {
 		$this->addTimestampWhereRange( $tsField, $dir, $params['start'], $params['end'] );
 
 		if ( $this->fld_tags ) {
-			$this->addFields( [
-				'ts_tags' => MediaWikiServices::getInstance()->getChangeTagsStore()
-					->makeTagSummarySubquery( 'revision' )
-			] );
+			$this->addFields( [ 'ts_tags' => ChangeTags::makeTagSummarySubquery( 'revision' ) ] );
 		}
 
 		if ( $params['user'] !== null ) {
@@ -171,7 +176,8 @@ class ApiQueryAllRevisions extends ApiQueryRevisionsBase {
 			// Paranoia: avoid brute force searches (T19342)
 			if ( !$this->getAuthority()->isAllowed( 'deletedhistory' ) ) {
 				$bitmask = RevisionRecord::DELETED_USER;
-			} elseif ( !$this->getAuthority()->isAllowedAny( 'suppressrevision', 'viewsuppressed' ) ) {
+			} elseif ( !$this->getAuthority()->isAllowedAny( 'suppressrevision', 'viewsuppressed' )
+			) {
 				$bitmask = RevisionRecord::DELETED_USER | RevisionRecord::DELETED_RESTRICTED;
 			} else {
 				$bitmask = 0;
@@ -182,12 +188,15 @@ class ApiQueryAllRevisions extends ApiQueryRevisionsBase {
 		}
 
 		if ( $params['continue'] !== null ) {
-			$op = ( $dir == 'newer' ? '>=' : '<=' );
-			$cont = $this->parseContinueParamOrDie( $params['continue'], [ 'timestamp', 'int' ] );
-			$this->addWhere( $db->buildComparison( $op, [
-				$tsField => $db->timestamp( $cont[0] ),
-				$idField => $cont[1],
-			] ) );
+			$op = ( $dir == 'newer' ? '>' : '<' );
+			$cont = explode( '|', $params['continue'] );
+			$this->dieContinueUsageIf( count( $cont ) != 2 );
+			$ts = $db->addQuotes( $db->timestamp( $cont[0] ) );
+			$rev_id = (int)$cont[1];
+			$this->dieContinueUsageIf( strval( $rev_id ) !== $cont[1] );
+			$this->addWhere( "$tsField $op $ts OR " .
+				"($tsField = $ts AND " .
+				"$idField $op= $rev_id)" );
 		}
 
 		$this->addOption( 'LIMIT', $this->limit + 1 );
@@ -279,7 +288,7 @@ class ApiQueryAllRevisions extends ApiQueryRevisionsBase {
 		$ret = parent::getAllowedParams() + [
 			'user' => [
 				ParamValidator::PARAM_TYPE => 'user',
-				UserDef::PARAM_ALLOWED_USER_TYPES => [ 'name', 'ip', 'temp', 'id', 'interwiki' ],
+				UserDef::PARAM_ALLOWED_USER_TYPES => [ 'name', 'ip', 'id', 'interwiki' ],
 				UserDef::PARAM_RETURN_OBJECT => true,
 			],
 			'namespace' => [
@@ -307,7 +316,7 @@ class ApiQueryAllRevisions extends ApiQueryRevisionsBase {
 			],
 			'excludeuser' => [
 				ParamValidator::PARAM_TYPE => 'user',
-				UserDef::PARAM_ALLOWED_USER_TYPES => [ 'name', 'ip', 'temp', 'id', 'interwiki' ],
+				UserDef::PARAM_ALLOWED_USER_TYPES => [ 'name', 'ip', 'id', 'interwiki' ],
 				UserDef::PARAM_RETURN_OBJECT => true,
 			],
 			'continue' => [
@@ -340,6 +349,3 @@ class ApiQueryAllRevisions extends ApiQueryRevisionsBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Allrevisions';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiQueryAllRevisions::class, 'ApiQueryAllRevisions' );

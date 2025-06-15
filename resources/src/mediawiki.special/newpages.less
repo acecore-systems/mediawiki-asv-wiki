@@ -1,21 +1,20 @@
+/* stylelint-disable selector-class-pattern */
+
 /*!
  * Styles for Special:NewPages
  */
 
-@import 'mediawiki.skin.variables.less';
+// OOUIHTMLForm styles
+@ooui-font-size-browser: 16; // assumed browser default of `16px`
+@ooui-font-size-base: 0.875 / 1em; // equals `14px` at browser default of `16px`
 
-/* stylelint-disable selector-class-pattern */
+@ooui-spacing-medium: 12 / @ooui-font-size-browser / @ooui-font-size-base; // equals `0.8571429em`≈`12px`
+@ooui-spacing-large: 16 / @ooui-font-size-browser / @ooui-font-size-base; // equals `1.1428571em`≈`16px`
 
 .mw-htmlform-ooui .mw-htmlform-submit-buttons + div {
-	margin-top: @spacing-75;
+	margin-top: @ooui-spacing-medium;
 }
 
 .not-patrolled {
-	background-color: @background-color-warning-subtle;
-}
-
-body.mw-special-Newpages {
-	.mw-index-pager-list-header {
-		display: none;
-	}
+	background-color: #ffa;
 }

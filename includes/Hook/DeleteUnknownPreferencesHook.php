@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Hook;
 
-use Wikimedia\Rdbms\IReadableDatabase;
+use Wikimedia\Rdbms\IDatabase;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.
@@ -23,10 +23,9 @@ interface DeleteUnknownPreferencesHook {
 	 * @since 1.35
 	 *
 	 * @param array &$where Array that will be passed as the $cond parameter to
-	 *   IReadableDatabase::select() to determine what will be deleted from the user_properties
+	 *   IDatabase::select() to determine what will be deleted from the user_properties
 	 *   table
-	 * @param IReadableDatabase $db IReadableDatabase object,
-	 *  useful for accessing $db->expr() to build expressions with IExpression::LIKE and LikeValue
+	 * @param IDatabase $db IDatabase object, useful for accessing $db->buildLike() etc.
 	 * @return bool|void True or no return value to continue or false to abort
 	 */
 	public function onDeleteUnknownPreferences( &$where, $db );

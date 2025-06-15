@@ -20,15 +20,15 @@
 
 namespace MediaWiki\Tests\EditPage;
 
+use Language;
 use MediaWiki\EditPage\TextboxBuilder;
-use MediaWiki\Language\Language;
 use MediaWiki\MainConfigNames;
 use MediaWiki\Page\PageIdentityValue;
 use MediaWiki\Permissions\RestrictionStore;
-use MediaWiki\Title\Title;
-use MediaWiki\User\Options\StaticUserOptionsLookup;
+use MediaWiki\User\StaticUserOptionsLookup;
 use MediaWiki\User\UserIdentityValue;
 use MediaWikiIntegrationTestCase;
+use Title;
 
 /**
  * See also unit tests at \MediaWiki\Tests\Unit\EditPage\TextboxBuilderTest
@@ -37,7 +37,7 @@ use MediaWikiIntegrationTestCase;
  */
 class TextboxBuilderTest extends MediaWikiIntegrationTestCase {
 
-	public static function provideGetTextboxProtectionCSSClasses() {
+	public function provideGetTextboxProtectionCSSClasses() {
 		return [
 			[
 				[ '' ],

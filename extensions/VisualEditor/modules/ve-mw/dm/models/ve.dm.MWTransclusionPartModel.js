@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel MWTransclusionPartModel class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -14,7 +14,7 @@
  *
  * @abstract
  * @class
- * @mixes OO.EventEmitter
+ * @mixins OO.EventEmitter
  *
  * @constructor
  * @param {ve.dm.MWTransclusionModel} transclusion
@@ -38,7 +38,7 @@ OO.mixinClass( ve.dm.MWTransclusionPartModel, OO.EventEmitter );
  * Emitted when anything changed in the content the part represents, e.g. a parameter was added to a
  * template, or a value edited.
  *
- * @event ve.dm.MWTransclusionPartModel#change
+ * @event change
  */
 
 /* Methods */

@@ -22,14 +22,7 @@
  * @since 1.25
  */
 
-use MediaWiki\Api\ApiResult;
-use MediaWiki\Language\Language;
-use MediaWiki\Linker\Linker;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Message\Message;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
 
 /**
  * This class formats block log entries.
@@ -73,7 +66,6 @@ class BlockLogFormatter extends LogFormatter {
 				(int)wfTimestamp( TS_UNIX, $this->entry->getTimestamp() )
 			);
 			if ( $this->plaintext ) {
-				// @phan-suppress-next-line SecurityCheck-XSS Unlikely positive, only if language format is bad
 				$params[4] = Message::rawParam( $blockExpiry );
 			} else {
 				$params[4] = Message::rawParam(
@@ -89,14 +81,12 @@ class BlockLogFormatter extends LogFormatter {
 			// block restrictions
 			if ( isset( $params[6] ) ) {
 				$pages = $params[6]['pages'] ?? [];
-				$pageLinks = [];
-				foreach ( $pages as $page ) {
-					$pageLinks[] = $this->makePageLink( Title::newFromText( $page ) );
-				}
+				$pages = array_map( function ( $page ) {
+					return $this->makePageLink( Title::newFromText( $page ) );
+				}, $pages );
 
-				$rawNamespaces = $params[6]['namespaces'] ?? [];
-				$namespaces = [];
-				foreach ( $rawNamespaces as $ns ) {
+				$namespaces = $params[6]['namespaces'] ?? [];
+				$namespaces = array_map( function ( $ns ) {
 					$text = (int)$ns === NS_MAIN
 						? $this->msg( 'blanknamespace' )->escaped()
 						: htmlspecialchars( $this->context->getLanguage()->getFormattedNsText( $ns ) );
@@ -104,27 +94,26 @@ class BlockLogFormatter extends LogFormatter {
 						// Because the plaintext cannot link to the Special:AllPages
 						// link that is linked to in non-plaintext mode, just return
 						// the name of the namespace.
-						$namespaces[] = $text;
+						return $text;
 					} else {
-						$namespaces[] = $this->makePageLink(
+						return $this->makePageLink(
 							SpecialPage::getTitleFor( 'Allpages' ),
 							[ 'namespace' => $ns ],
 							$text
 						);
 					}
-				}
+				}, $namespaces );
 
-				$rawActions = $params[6]['actions'] ?? [];
-				$actions = [];
-				foreach ( $rawActions as $action ) {
-					$actions[] = $this->msg( 'ipb-action-' . $action )->escaped();
-				}
+				$actions = $params[6]['actions'] ?? [];
+				$actions = array_map( function ( $actions ) {
+					return $this->msg( 'ipb-action-' . $actions )->escaped();
+				}, $actions );
 
 				$restrictions = [];
-				if ( $pageLinks ) {
+				if ( $pages ) {
 					$restrictions[] = $this->msg( 'logentry-partialblock-block-page' )
-						->numParams( count( $pageLinks ) )
-						->rawParams( $this->context->getLanguage()->listToText( $pageLinks ) )->escaped();
+						->numParams( count( $pages ) )
+						->rawParams( $this->context->getLanguage()->listToText( $pages ) )->escaped();
 				}
 
 				if ( $namespaces ) {

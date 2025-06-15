@@ -2,23 +2,24 @@
 
 namespace MediaWiki\Page;
 
+use DBAccessObjectUtils;
 use EmptyIterator;
 use InvalidArgumentException;
 use Iterator;
-use MediaWiki\Cache\LinkCache;
+use LinkCache;
+use Liuggio\StatsdClient\Factory\StatsdDataFactoryInterface;
+use MalformedTitleException;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\DAO\WikiAwareEntity;
+use MediaWiki\Linker\LinkTarget;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Title\MalformedTitleException;
-use MediaWiki\Title\NamespaceInfo;
-use MediaWiki\Title\TitleParser;
+use NamespaceInfo;
+use NullStatsdDataFactory;
 use stdClass;
+use TitleParser;
 use Wikimedia\Assert\Assert;
-use Wikimedia\Parsoid\Core\LinkTarget as ParsoidLinkTarget;
-use Wikimedia\Rdbms\IDBAccessObject;
+use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\ILoadBalancer;
-use Wikimedia\Rdbms\IReadableDatabase;
-use Wikimedia\Stats\StatsFactory;
 
 /**
  * @since 1.36
@@ -26,12 +27,24 @@ use Wikimedia\Stats\StatsFactory;
  */
 class PageStore implements PageLookup {
 
-	private ServiceOptions $options;
-	private ILoadBalancer $dbLoadBalancer;
-	private NamespaceInfo $namespaceInfo;
-	private TitleParser $titleParser;
-	private ?LinkCache $linkCache;
-	private StatsFactory $stats;
+	/** @var ServiceOptions */
+	private $options;
+
+	/** @var ILoadBalancer */
+	private $dbLoadBalancer;
+
+	/** @var NamespaceInfo */
+	private $namespaceInfo;
+
+	/** @var TitleParser */
+	private $titleParser;
+
+	/** @var LinkCache|null */
+	private $linkCache;
+
+	/** @var StatsdDataFactoryInterface */
+	private $stats;
+
 	/** @var string|false */
 	private $wikiId;
 
@@ -48,7 +61,7 @@ class PageStore implements PageLookup {
 	 * @param NamespaceInfo $namespaceInfo
 	 * @param TitleParser $titleParser
 	 * @param ?LinkCache $linkCache
-	 * @param StatsFactory $stats
+	 * @param ?StatsdDataFactoryInterface $stats
 	 * @param false|string $wikiId
 	 */
 	public function __construct(
@@ -57,7 +70,7 @@ class PageStore implements PageLookup {
 		NamespaceInfo $namespaceInfo,
 		TitleParser $titleParser,
 		?LinkCache $linkCache,
-		StatsFactory $stats,
+		?StatsdDataFactoryInterface $stats,
 		$wikiId = WikiAwareEntity::LOCAL
 	) {
 		$options->assertRequiredOptions( self::CONSTRUCTOR_OPTIONS );
@@ -68,7 +81,7 @@ class PageStore implements PageLookup {
 		$this->titleParser = $titleParser;
 		$this->wikiId = $wikiId;
 		$this->linkCache = $linkCache;
-		$this->stats = $stats;
+		$this->stats = $stats ?: new NullStatsdDataFactory();
 
 		if ( $wikiId !== WikiAwareEntity::LOCAL && $linkCache ) {
 			// LinkCache currently doesn't support cross-wiki PageReferences.
@@ -79,36 +92,21 @@ class PageStore implements PageLookup {
 	}
 
 	/**
-	 * Increment a cache hit or miss counter for LinkCache.
-	 * Possible reason labels are:
-	 * - `good`: The page was found in LinkCache and was complete.
-	 * - `bad_early`: The page was known by LinkCache to not exist.
-	 * - `bad_late`: The page was not found in LinkCache and did not exist.
-	 * - `incomplete_loaded`: The page was found in LinkCache but was incomplete.
-	 * - `incomplete_missing`: Incomplete page data was found in LinkCache, and the page did not exist.
-	 *
-	 * @param string $hitOrMiss 'hit' or 'miss'
-	 * @param string $reason Well-known reason string
-	 * @return void
+	 * @param string $metric
 	 */
-	private function incrementLinkCacheHitOrMiss( $hitOrMiss, $reason ) {
-		$legacyReason = strtr( $reason, '_', '.' );
-		$this->stats->getCounter( 'pagestore_linkcache_accesses_total' )
-			->setLabel( 'reason', $reason )
-			->setLabel( 'status', $hitOrMiss )
-			->copyToStatsdAt( "LinkCache.$hitOrMiss.$legacyReason" )
-			->increment();
+	private function incrementStats( string $metric ) {
+		$this->stats->increment( "PageStore.{$metric}" );
 	}
 
 	/**
-	 * @param ParsoidLinkTarget $link
+	 * @param LinkTarget $link
 	 * @param int $queryFlags
 	 *
 	 * @return ProperPageIdentity
 	 */
 	public function getPageForLink(
-		ParsoidLinkTarget $link,
-		int $queryFlags = IDBAccessObject::READ_NORMAL
+		LinkTarget $link,
+		int $queryFlags = self::READ_NORMAL
 	): ProperPageIdentity {
 		Assert::parameter( !$link->isExternal(), '$link', 'must not be external' );
 		Assert::parameter( $link->getDBkey() !== '', '$link', 'must not be relative' );
@@ -141,7 +139,7 @@ class PageStore implements PageLookup {
 	public function getPageByName(
 		int $namespace,
 		string $dbKey,
-		int $queryFlags = IDBAccessObject::READ_NORMAL
+		int $queryFlags = self::READ_NORMAL
 	): ?ExistingPageRecord {
 		Assert::parameter( $dbKey !== '', '$dbKey', 'must not be empty' );
 		Assert::parameter( !strpos( $dbKey, ' ' ), '$dbKey', 'must not contain spaces' );
@@ -169,15 +167,15 @@ class PageStore implements PageLookup {
 	private function getPageByNameViaLinkCache(
 		int $namespace,
 		string $dbKey,
-		int $queryFlags = IDBAccessObject::READ_NORMAL
+		int $queryFlags = self::READ_NORMAL
 	): ?ExistingPageRecord {
 		$conds = [
 			'page_namespace' => $namespace,
 			'page_title' => $dbKey,
 		];
 
-		if ( $queryFlags === IDBAccessObject::READ_NORMAL && $this->linkCache->isBadLink( $conds ) ) {
-			$this->incrementLinkCacheHitOrMiss( 'hit', 'bad_early' );
+		if ( $queryFlags === self::READ_NORMAL && $this->linkCache->isBadLink( $conds ) ) {
+			$this->incrementStats( "LinkCache.hit.bad.early" );
 			return null;
 		}
 
@@ -189,7 +187,7 @@ class PageStore implements PageLookup {
 		$row = $this->linkCache->getGoodLinkRow(
 			$namespace,
 			$dbKey,
-			function ( IReadableDatabase $dbr, $ns, $dbkey, array $options )
+			function ( IDatabase $dbr, $ns, $dbkey, array $options )
 				use ( $conds, $caller, &$hitOrMiss )
 			{
 				$hitOrMiss = 'miss';
@@ -214,7 +212,7 @@ class PageStore implements PageLookup {
 				$page = $this->newPageRecordFromRow( $row );
 
 				// We were able to use the row we got from link cache.
-				$this->incrementLinkCacheHitOrMiss( $hitOrMiss, 'good' );
+				$this->incrementStats( "LinkCache.{$hitOrMiss}.good" );
 			} catch ( InvalidArgumentException $e ) {
 				// The cached row was incomplete or corrupt,
 				// just keep going and load from the database.
@@ -222,18 +220,18 @@ class PageStore implements PageLookup {
 
 				if ( $page ) {
 					// PageSelectQueryBuilder should have added the full row to the LinkCache now.
-					$this->incrementLinkCacheHitOrMiss( $hitOrMiss, 'incomplete_loaded' );
+					$this->incrementStats( "LinkCache.{$hitOrMiss}.incomplete.loaded" );
 				} else {
 					// If we get here, an incomplete row was cached, but we failed to
 					// load the full row from the database. This should only happen
 					// if the page was deleted under out feet, which should be very rare.
 					// Update the LinkCache to reflect the new situation.
 					$this->linkCache->addBadLinkObj( $conds );
-					$this->incrementLinkCacheHitOrMiss( $hitOrMiss, 'incomplete_missing' );
+					$this->incrementStats( "LinkCache.{$hitOrMiss}.incomplete.missing" );
 				}
 			}
 		} else {
-			$this->incrementLinkCacheHitOrMiss( $hitOrMiss, 'bad_late' );
+			$this->incrementStats( "LinkCache.{$hitOrMiss}.bad.late" );
 			$page = null;
 		}
 
@@ -244,7 +242,7 @@ class PageStore implements PageLookup {
 	 * @since 1.37
 	 *
 	 * @param string $text
-	 * @param int $defaultNamespace Namespace to assume by default (usually NS_MAIN)
+	 * @param int $defaultNamespace Namespace to assume per default (usually NS_MAIN)
 	 * @param int $queryFlags
 	 *
 	 * @return ProperPageIdentity|null
@@ -252,7 +250,7 @@ class PageStore implements PageLookup {
 	public function getPageByText(
 		string $text,
 		int $defaultNamespace = NS_MAIN,
-		int $queryFlags = IDBAccessObject::READ_NORMAL
+		int $queryFlags = self::READ_NORMAL
 	): ?ProperPageIdentity {
 		try {
 			$title = $this->titleParser->parseTitle( $text, $defaultNamespace );
@@ -268,7 +266,7 @@ class PageStore implements PageLookup {
 	 * @since 1.37
 	 *
 	 * @param string $text
-	 * @param int $defaultNamespace Namespace to assume by default (usually NS_MAIN)
+	 * @param int $defaultNamespace Namespace to assume per default (usually NS_MAIN)
 	 * @param int $queryFlags
 	 *
 	 * @return ExistingPageRecord|null
@@ -276,7 +274,7 @@ class PageStore implements PageLookup {
 	public function getExistingPageByText(
 		string $text,
 		int $defaultNamespace = NS_MAIN,
-		int $queryFlags = IDBAccessObject::READ_NORMAL
+		int $queryFlags = self::READ_NORMAL
 	): ?ExistingPageRecord {
 		$pageIdentity = $this->getPageByText( $text, $defaultNamespace, $queryFlags );
 		if ( !$pageIdentity ) {
@@ -293,7 +291,7 @@ class PageStore implements PageLookup {
 	 */
 	public function getPageById(
 		int $pageId,
-		int $queryFlags = IDBAccessObject::READ_NORMAL
+		int $queryFlags = self::READ_NORMAL
 	): ?ExistingPageRecord {
 		Assert::parameter( $pageId > 0, '$pageId', 'must be greater than zero' );
 
@@ -314,12 +312,12 @@ class PageStore implements PageLookup {
 	 */
 	public function getPageByReference(
 		PageReference $page,
-		int $queryFlags = IDBAccessObject::READ_NORMAL
+		int $queryFlags = self::READ_NORMAL
 	): ?ExistingPageRecord {
 		$page->assertWiki( $this->wikiId );
 		Assert::parameter( $page->getNamespace() >= 0, '$page', 'namespace must not be virtual' );
 
-		if ( $page instanceof ExistingPageRecord && $queryFlags === IDBAccessObject::READ_NORMAL ) {
+		if ( $page instanceof ExistingPageRecord && $queryFlags === self::READ_NORMAL ) {
 			return $page;
 		}
 		if ( $page instanceof PageIdentity ) {
@@ -336,7 +334,7 @@ class PageStore implements PageLookup {
 	 */
 	private function loadPageFromConditions(
 		array $conds,
-		int $queryFlags = IDBAccessObject::READ_NORMAL
+		int $queryFlags = self::READ_NORMAL
 	): ?ExistingPageRecord {
 		$queryBuilder = $this->newSelectQueryBuilder( $queryFlags )
 			->conds( $conds )
@@ -393,28 +391,34 @@ class PageStore implements PageLookup {
 	}
 
 	/**
-	 * @param IReadableDatabase|int $dbOrFlags The database connection to use, or a READ_XXX constant
+	 * @unstable
+	 *
+	 * @param IDatabase|int $dbOrFlags The database connection to use, or a READ_XXX constant
 	 *        indicating what kind of database connection to use.
 	 *
 	 * @return PageSelectQueryBuilder
 	 */
-	public function newSelectQueryBuilder( $dbOrFlags = IDBAccessObject::READ_NORMAL ): PageSelectQueryBuilder {
-		if ( $dbOrFlags instanceof IReadableDatabase ) {
+	public function newSelectQueryBuilder( $dbOrFlags = self::READ_NORMAL ): PageSelectQueryBuilder {
+		if ( $dbOrFlags instanceof IDatabase ) {
 			$db = $dbOrFlags;
-			$flags = IDBAccessObject::READ_NORMAL;
+			$options = [];
 		} else {
-			if ( ( $dbOrFlags & IDBAccessObject::READ_LATEST ) == IDBAccessObject::READ_LATEST ) {
-				$db = $this->dbLoadBalancer->getConnection( DB_PRIMARY, [], $this->wikiId );
-			} else {
-				$db = $this->dbLoadBalancer->getConnection( DB_REPLICA, [], $this->wikiId );
-			}
-			$flags = $dbOrFlags;
+			[ $mode, $options ] = DBAccessObjectUtils::getDBOptions( $dbOrFlags );
+			$db = $this->getDBConnectionRef( $mode );
 		}
 
 		$queryBuilder = new PageSelectQueryBuilder( $db, $this, $this->linkCache );
-		$queryBuilder->recency( $flags );
+		$queryBuilder->options( $options );
 
 		return $queryBuilder;
+	}
+
+	/**
+	 * @param int $mode DB_PRIMARY or DB_REPLICA
+	 * @return IDatabase
+	 */
+	private function getDBConnectionRef( int $mode = DB_REPLICA ): IDatabase {
+		return $this->dbLoadBalancer->getConnectionRef( $mode, [], $this->wikiId );
 	}
 
 	/**
@@ -434,7 +438,7 @@ class PageStore implements PageLookup {
 		return $this->newSelectQueryBuilder()
 			->whereTitlePrefix( $page->getNamespace(), $page->getDBkey() . '/' )
 			->orderByTitle()
-			->limit( $limit )
+			->options( [ 'LIMIT' => $limit ] )
 			->caller( __METHOD__ )
 			->fetchPageRecords();
 	}

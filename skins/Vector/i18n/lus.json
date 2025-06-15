@@ -1,8 +1,8 @@
 {
 	"@metadata": {
 		"authors": [
-			"Jokomarel",
-			"RMizo"
+			"RMizo",
+			"Jokomarel"
 		]
 	},
 	"vector-languages": "Ṭawngte",
@@ -21,9 +21,5 @@
 	"vector-view-viewsource": "A hnar enna",
 	"vector-more-actions": "Belh",
 	"vector-searchsuggest-containing": "<strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong> awmna phek zawng tur",
-	"vector-toc-label": "A chhunga thu awmte",
-	"vector-toc-beginning": "A ṭan",
-	"vector-page-tools-label": "Hmanruate",
-	"vector-page-tools-general-label": "Tlangpui",
-	"vector-unpin-element-label": "tihbona"
+	"vector-toc-beginning": "A ṭan"
 }

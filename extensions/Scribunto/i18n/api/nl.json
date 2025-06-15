@@ -2,8 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"Mainframe98",
-			"McDutchie",
-			"Robin van der Vliet"
+			"Robin van der Vliet",
+			"McDutchie"
 		]
 	},
 	"apihelp-scribunto-console-summary": "Interne module voor het afhandelen van XHR-verzoeken vanaf de Scribunto-console.",

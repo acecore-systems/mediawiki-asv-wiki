@@ -22,9 +22,9 @@
 	"cite-ve-citationneeded-title": "Citation ka ba bɔɔd",
 	"cite-ve-dialog-reference-editing-reused": "Ba dikɛ la viisegɔ lɔgerɔ tuna tum {{PLURAL:$1|once|2=twice|$1times}} lakir nwa ni.",
 	"cite-ve-dialog-reference-editing-reused-long": "Viisegɔ lɔgerɔ wa tum mɛ {{PLURAL:$1|once|2=twice|$1 times}} bɛ lakir nwa ni. Tiasig banɛ naam kpɛ la, ba na zaŋi li niŋ zin'i kanɛ ka vɛɛnsig la'ad nwa na tun'oe tʋm.",
-	"cite-ve-dialog-reference-editing-extends": "Nɛŋa nwa anɛ vɛɛnsig la'ad paasig ya'as",
 	"cite-ve-dialog-reference-options-group-label": "Zaŋim tigir kaŋa tʋm",
 	"cite-ve-dialog-reference-options-group-placeholder": "Vɛɛnsig la'ad wʋsa ni",
+	"cite-ve-dialog-reference-options-name-label": "Lɛn zaŋ yʋ'ʋr kaŋa nwa tʋm",
 	"cite-ve-dialog-reference-options-responsive-label": "Tʋm nɛ siakir column la'asieba",
 	"cite-ve-dialog-reference-options-section": "Gamisʋg",
 	"cite-ve-dialog-reference-placeholder": "Sɔm bɛɛ fʋ zaŋi fʋ vɛɛnsig la'ad la tabil kpɛla, bɛɛ kpɛn'ɛs citation template pʋʋgin",
@@ -43,7 +43,6 @@
 	"cite-ve-referenceslist-isempty": "Vɛɛnsig la'ad pʋ bɛ tigir $1 nwa lakir kaŋa ni linɛ na sʋŋi naae yʋda nwaa.",
 	"cite-ve-referenceslist-missingref": "Vɛɛnsig la'ad nwa bɛɛ pa'alnɛ paas sieba gu'ub ka nananna nwa na nyaŋi tiak nɛ li zinkin.",
 	"cite-ve-referenceslist-missingref-in-list": "Vɛɛnsig la'ad nwa bɛnɛ pa'al paas bɛɛ sieba tisid ka nananna nwa li na nyaŋi zaŋi dɛŋi pa'an yiiga pa'alʋg li zin'igin.",
-	"cite-ve-referenceslist-missingreflist": "Vɛɛnsig la'ad yʋda nwa anɛ maalɛ nɛ template.",
 	"cite-ve-toolbar-group-label": "Makim",
 	"cite-ve-othergroup-item": "$1 vɛɛnsig la'ad"
 }

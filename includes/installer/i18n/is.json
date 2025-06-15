@@ -3,9 +3,9 @@
 		"authors": [
 			"Danniel07",
 			"Snævar",
-			"Stefán Örvar Sigmundsson",
 			"Sveinn í Felli",
-			"Þjarkur"
+			"Þjarkur",
+			"Stefán Örvar Sigmundsson"
 		]
 	},
 	"config-desc": "Uppsetningarforrit fyrir MediaWiki",
@@ -42,6 +42,7 @@
 	"config-env-bad": "Umhverfið hefur verið athugað.\nÞú getur ekki hlaðið niður MediaWiki.",
 	"config-env-php": "PHP $1 er uppsett.",
 	"config-apc": "[https://www.php.net/apc APC] er uppsett",
+	"config-wincache": "[https://www.iis.net/downloads/microsoft/wincache-extension WinCache] er uppsett",
 	"config-diff3-bad": "GNU diff3 textasamanburðartólið fannst ekki. Þú getur hunsað þetta núna, en þú gætir lent oftar í breytingaárekstrum.",
 	"config-using-server": "Nota \"<nowiki>$1</nowiki>\" sem heiti á þjóni.",
 	"config-using-uri": "Nota \"<nowiki>$1$2</nowiki>\" sem slóð á þjón.",
@@ -87,10 +88,12 @@
 	"config-license-cc-0": "Creative Commons Zero leyfi (almenningseign)",
 	"config-license-gfdl": "Frjálsa GNU-handbókarleyfið, útgáfa 1.3 eða nýrri",
 	"config-license-pd": "Almenningseign (Public Domain)",
+	"config-license-cc-choose": "Veldu sérsniðið Creative Commons notkunarleyfi",
 	"config-extensions": "Viðbætur",
 	"config-skins": "Skinn",
 	"config-install-step-done": "lokið",
 	"config-install-step-failed": "mistókst",
+	"config-install-pg-commit": "Virkja breytingar",
 	"config-install-tables": "Bý til töflur, fyrsta þrep",
 	"config-download-localsettings": "Ná í <code>LocalSettings.php</code>",
 	"config-help": "hjálp",

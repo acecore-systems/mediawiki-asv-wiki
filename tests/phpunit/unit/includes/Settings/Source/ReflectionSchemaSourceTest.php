@@ -57,11 +57,6 @@ class ReflectionSchemaSourceTest extends TestCase {
 		]
 	];
 
-	public const TEST_OBSOLETE = [
-		'type' => 'string',
-		'obsolete' => 'should be excluded',
-	];
-
 	public static function getDefaultTEST_DYNAMIC_DEFAULT_AUTO() {
 		// noop
 	}
@@ -74,20 +69,15 @@ class ReflectionSchemaSourceTest extends TestCase {
 		// noop
 	}
 
-	public function testLoadAsComponents() {
+	public function testLoad() {
 		$source = new ReflectionSchemaSource( self::class );
-		$settings = $source->loadAsComponents();
-
-		$this->assertSame( $source->load(), $settings );
+		$settings = $source->load();
 
 		$this->assertArrayHasKey( 'config-schema', $settings );
 		$schemas = $settings['config-schema'];
 
 		$this->assertArrayNotHasKey( 'NOT_PUBLIC', $schemas );
 		$this->assertArrayNotHasKey( 'NOT_A_SCHEMA', $schemas );
-
-		$this->assertArrayNotHasKey( 'TEST_OBSOLETE', $schemas );
-		$this->assertArrayHasKey( 'TEST_OBSOLETE', $settings['obsolete-config'] );
 
 		$this->assertArrayHasKey( 'TEST_INTEGER', $schemas );
 		$this->assertArrayHasKey( 'default', $schemas['TEST_INTEGER'] );
@@ -109,33 +99,6 @@ class ReflectionSchemaSourceTest extends TestCase {
 			'number',
 			$schemas['TEST_MAP_TYPE']['additionalProperties']['items']['type']
 		);
-	}
-
-	public function testLoadAsSchema() {
-		$expectedProperties = [
-			'TEST_INTEGER' => [
-				'type' => 'integer',
-				'default' => 7,
-			],
-			'TEST_MAP_TYPE' => [
-				'type' => [ 'object', 'null' ],
-				'additionalProperties' => [
-					'type' => [ 'string', 'array' ],
-					'items' => [
-						'type' => 'number',
-					]
-				],
-				'default' => null,
-			],
-		];
-
-		$source = new ReflectionSchemaSource( self::class );
-		$schema = $source->loadAsSchema();
-		$this->assertEquals( [ 'type', 'properties' ], array_keys( $schema ) );
-		$this->assertSame( 'object', $schema['type'] );
-		foreach ( $expectedProperties as $expectedPropertyName => $expectedProperty ) {
-			$this->assertEquals( $expectedProperty, $schema['properties'][$expectedPropertyName] );
-		}
 	}
 
 	public function testDynamicDefault() {

@@ -1,9 +1,4 @@
 <?php
-
-use Wikimedia\ObjectCache\APCUBagOStuff;
-use Wikimedia\ObjectCache\BagOStuff;
-use Wikimedia\ObjectCache\EmptyBagOStuff;
-
 /**
  * Generate hash digests of file contents to help with cache invalidation.
  *

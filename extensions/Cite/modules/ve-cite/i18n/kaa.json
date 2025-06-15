@@ -1,9 +1,9 @@
 {
 	"@metadata": {
 		"authors": [
-			"Ajiniyaz Nurniyazov",
 			"Inabat Allanova",
-			"Nurlan"
+			"Nurlan",
+			"Ajiniyaz Nurniyazov"
 		]
 	},
 	"visualeditor-cite-tool-name-book": "Kitap",
@@ -18,6 +18,7 @@
 	"cite-ve-citationneeded-title": "Derek kerek",
 	"cite-ve-dialog-reference-options-group-label": "Mına topardı qollanıw",
 	"cite-ve-dialog-reference-options-group-placeholder": "Ulıwma siltemeler",
+	"cite-ve-dialog-reference-options-name-label": "Usı attı qaytadan paydalanıw",
 	"cite-ve-dialog-reference-options-section": "Opciyalar",
 	"cite-ve-dialog-reference-title": "Derekler",
 	"cite-ve-dialog-reference-useexisting-tool": "Qaytadan paydalanıw",
@@ -30,5 +31,7 @@
 	"cite-ve-dialogbutton-referenceslist-tooltip": "Derekler dizimi",
 	"cite-ve-referenceslist-isempty-default": "Bul bette bul dizimge kirgizetuǵın derekler joq.",
 	"cite-ve-toolbar-group-label": "Citata keltiriw",
-	"cite-ve-othergroup-item": "$1 deregi"
+	"cite-ve-othergroup-item": "$1 deregi",
+	"visualeditor-internal-list-diff-default-group-name-mwreference": "Derekler",
+	"visualeditor-internal-list-diff-group-name-mwreference": "Derek toparı atı: \"$1\""
 }

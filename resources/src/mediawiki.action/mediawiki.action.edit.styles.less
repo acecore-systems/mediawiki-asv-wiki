@@ -1,7 +1,6 @@
 /*!
  * Styles for elements of the editing form.
  */
-@import 'mediawiki.skin.variables.less';
 
 /* stylelint-disable selector-class-pattern */
 
@@ -79,10 +78,12 @@
 	}
 
 	.editOptions {
-		border-radius: 0 0 @border-radius-base @border-radius-base;
+		border-radius: 0 0 2px 2px;
 	}
 
-	.editButtons {
+	// Use buttonElement to include ButtonInputWidget and ButtonWidget
+	.editButtons .oo-ui-buttonElement,
+	.editHelp {
 		margin-top: 0.5em;
 	}
 
@@ -99,9 +100,9 @@
 }
 
 .editOptions {
-	background-color: @background-color-neutral;
-	color: @color-base;
-	border: @border-subtle;
+	background-color: #eaecf0;
+	color: #202122;
+	border: 1px solid #c8ccd1;
 	border-top: 0;
 	padding: 1em 1em 1.5em 1em;
 	margin-bottom: 2em;

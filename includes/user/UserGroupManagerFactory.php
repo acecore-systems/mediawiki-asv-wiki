@@ -20,6 +20,7 @@
 
 namespace MediaWiki\User;
 
+use ConfiguredReadOnlyMode;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\JobQueue\JobQueueGroupFactory;
@@ -27,7 +28,6 @@ use MediaWiki\Permissions\GroupPermissionsLookup;
 use MediaWiki\User\TempUser\TempUserConfig;
 use Psr\Log\LoggerInterface;
 use Wikimedia\Rdbms\ILBFactory;
-use Wikimedia\Rdbms\ReadOnlyMode;
 
 /**
  * Factory service for UserGroupManager instances. This allows UserGroupManager to be created for
@@ -36,28 +36,39 @@ use Wikimedia\Rdbms\ReadOnlyMode;
  * @since 1.35
  */
 class UserGroupManagerFactory {
-	private ServiceOptions $options;
-	private ReadOnlyMode $readOnlyMode;
-	private ILBFactory $dbLoadBalancerFactory;
-	private UserEditTracker $userEditTracker;
-	private GroupPermissionsLookup $groupPermissionLookup;
-	private JobQueueGroupFactory $jobQueueGroupFactory;
-	private LoggerInterface $logger;
+	/** @var ServiceOptions */
+	private $options;
+
+	/** @var ConfiguredReadOnlyMode */
+	private $configuredReadOnlyMode;
+
+	/** @var ILBFactory */
+	private $dbLoadBalancerFactory;
+
+	/** @var UserEditTracker */
+	private $userEditTracker;
+
+	/** @var GroupPermissionsLookup */
+	private $groupPermissionLookup;
+
+	/** @var JobQueueGroupFactory */
+	private $jobQueueGroupFactory;
+
+	/** @var LoggerInterface */
+	private $logger;
 
 	/** @var callable[] */
 	private $clearCacheCallbacks;
 
-	private HookContainer $hookContainer;
-	private TempUserConfig $tempUserConfig;
+	/** @var HookContainer */
+	private $hookContainer;
 
-	/**
-	 * @var UserGroupManager[] User group manager instances indexed by wiki
-	 */
-	private $instances = [];
+	/** @var TempUserConfig */
+	private $tempUserConfig;
 
 	/**
 	 * @param ServiceOptions $options
-	 * @param ReadOnlyMode $readOnlyMode
+	 * @param ConfiguredReadOnlyMode $configuredReadOnlyMode
 	 * @param ILBFactory $dbLoadBalancerFactory
 	 * @param HookContainer $hookContainer
 	 * @param UserEditTracker $userEditTracker
@@ -69,7 +80,7 @@ class UserGroupManagerFactory {
 	 */
 	public function __construct(
 		ServiceOptions $options,
-		ReadOnlyMode $readOnlyMode,
+		ConfiguredReadOnlyMode $configuredReadOnlyMode,
 		ILBFactory $dbLoadBalancerFactory,
 		HookContainer $hookContainer,
 		UserEditTracker $userEditTracker,
@@ -80,7 +91,7 @@ class UserGroupManagerFactory {
 		array $clearCacheCallbacks = []
 	) {
 		$this->options = $options;
-		$this->readOnlyMode = $readOnlyMode;
+		$this->configuredReadOnlyMode = $configuredReadOnlyMode;
 		$this->dbLoadBalancerFactory = $dbLoadBalancerFactory;
 		$this->hookContainer = $hookContainer;
 		$this->userEditTracker = $userEditTracker;
@@ -92,29 +103,23 @@ class UserGroupManagerFactory {
 	}
 
 	/**
-	 * @param string|false $wikiId
+	 * @param string|bool $dbDomain
 	 * @return UserGroupManager
 	 */
-	public function getUserGroupManager( $wikiId = UserIdentity::LOCAL ): UserGroupManager {
-		if ( is_string( $wikiId ) && $this->dbLoadBalancerFactory->getLocalDomainID() === $wikiId ) {
-			$wikiId = UserIdentity::LOCAL;
-		}
-		$key = (string)$wikiId;
-		if ( !isset( $this->instances[$key] ) ) {
-			$this->instances[$key] = new UserGroupManager(
-				$this->options,
-				$this->readOnlyMode,
-				$this->dbLoadBalancerFactory,
-				$this->hookContainer,
-				$this->userEditTracker,
-				$this->groupPermissionLookup,
-				$this->jobQueueGroupFactory->makeJobQueueGroup( $wikiId ),
-				$this->logger,
-				$this->tempUserConfig,
-				$this->clearCacheCallbacks,
-				$wikiId
-			);
-		}
-		return $this->instances[$key];
+	public function getUserGroupManager( $dbDomain = false ): UserGroupManager {
+		// TODO: Once UserRightsProxy is removed, cache the instance per domain.
+		return new UserGroupManager(
+			$this->options,
+			$this->configuredReadOnlyMode,
+			$this->dbLoadBalancerFactory,
+			$this->hookContainer,
+			$this->userEditTracker,
+			$this->groupPermissionLookup,
+			$this->jobQueueGroupFactory->makeJobQueueGroup( $dbDomain ),
+			$this->logger,
+			$this->tempUserConfig,
+			$this->clearCacheCallbacks,
+			$dbDomain
+		);
 	}
 }

@@ -4,28 +4,20 @@ use MediaWiki\MainConfigNames;
 use MediaWiki\MainConfigSchema;
 
 /**
- * @covers \PageLangLogFormatter
+ * @covers PageLangLogFormatter
  */
 class PageLangLogFormatterTest extends LogFormatterTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
 
-		// Clear all hooks to disable cldr extension
-		$this->clearHooks();
-
+		// Disable cldr extension
+		$this->setMwGlobals( 'wgHooks', [] );
 		// Register LogHandler, see $wgPageLanguageUseDB in Setup.php
 		$this->overrideConfigValue(
 			MainConfigNames::LogActionsHandlers,
 			MainConfigSchema::getDefaultValue( MainConfigNames::LogActionsHandlers ) +
-			[
-				'pagelang/pagelang' => [
-					'class' => PageLangLogFormatter::class,
-					'services' => [
-						'LanguageNameUtils',
-					]
-				]
-			]
+			[ 'pagelang/pagelang' => PageLangLogFormatter::class ]
 		);
 	}
 

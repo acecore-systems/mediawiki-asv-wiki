@@ -24,7 +24,7 @@
  * @ingroup Languages
  */
 class UzConverter extends LanguageConverter {
-	private const TO_LATIN = [
+	public $toLatin = [
 		'а' => 'a', 'А' => 'A',
 		'б' => 'b', 'Б' => 'B',
 		'д' => 'd', 'Д' => 'D',
@@ -62,7 +62,7 @@ class UzConverter extends LanguageConverter {
 		'ъ' => 'ʼ',
 	];
 
-	private const TO_CYRILLIC = [
+	public $toCyrillic = [
 		'a' => 'а', 'A' => 'А',
 		'b' => 'б', 'B' => 'Б',
 		'd' => 'д', 'D' => 'Д',
@@ -101,14 +101,32 @@ class UzConverter extends LanguageConverter {
 		'ʼ' => 'ъ',
 	];
 
+	/**
+	 * Get Main language code.
+	 * @since 1.36
+	 *
+	 * @return string
+	 */
 	public function getMainCode(): string {
 		return 'uz';
 	}
 
+	/**
+	 * Get supported variants of the language.
+	 * @since 1.36
+	 *
+	 * @return array
+	 */
 	public function getLanguageVariants(): array {
 		return [ 'uz', 'uz-latn', 'uz-cyrl' ];
 	}
 
+	/**
+	 * Get language variants fallbacks.
+	 * @since 1.36
+	 *
+	 * @return array
+	 */
 	public function getVariantsFallbacks(): array {
 		return [
 			'uz' => 'uz-latn',
@@ -117,14 +135,19 @@ class UzConverter extends LanguageConverter {
 		];
 	}
 
-	protected function loadDefaultTables(): array {
-		return [
-			'uz-cyrl' => new ReplacementArray( self::TO_CYRILLIC ),
-			'uz-latn' => new ReplacementArray( self::TO_LATIN ),
+	protected function loadDefaultTables() {
+		$this->mTables = [
+			'uz-cyrl' => new ReplacementArray( $this->toCyrillic ),
+			'uz-latn' => new ReplacementArray( $this->toLatin ),
 			'uz' => new ReplacementArray()
 		];
 	}
 
+	/**
+	 * @param string $text
+	 * @param string $toVariant
+	 * @return string
+	 */
 	public function translate( $text, $toVariant ) {
 		if ( $toVariant == 'uz-cyrl' ) {
 			$text = str_replace( 'ye', 'е', $text );

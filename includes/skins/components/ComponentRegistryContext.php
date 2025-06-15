@@ -18,8 +18,8 @@
 
 namespace MediaWiki\Skin;
 
-use MediaWiki\Config\Config;
-use MediaWiki\Title\Title;
+use Config;
+use Title;
 
 /**
  * @internal for use inside Skin and SkinTemplate classes only

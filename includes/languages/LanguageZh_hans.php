@@ -19,39 +19,59 @@
  */
 // phpcs:ignoreFile Squiz.Classes.ValidClassName.NotCamelCaps
 
-use MediaWiki\Language\Language;
-
 /**
  * Simplified Chinese
  *
  * @ingroup Languages
  */
 class LanguageZh_hans extends Language {
-
-	private const WORD_SEGMENTATION_REGEX = '/([\xc0-\xff][\x80-\xbf]*)/';
-
+	/**
+	 * @return bool
+	 */
 	public function hasWordBreaks() {
 		return false;
 	}
 
 	/**
+	 * Eventually this should be a word segmentation;
+	 * for now just treat each character as a word.
 	 * @todo FIXME: Only do this for Han characters...
 	 *
-	 * @inheritDoc
+	 * @param string $string
+	 *
+	 * @return string
 	 */
 	public function segmentByWord( $string ) {
-		return self::insertSpace( $string, self::WORD_SEGMENTATION_REGEX );
+		$reg = "/([\\xc0-\\xff][\\x80-\\xbf]*)/";
+		$s = self::insertSpace( $string, $reg );
+		return $s;
 	}
 
+	/**
+	 * @param string $s
+	 * @return string
+	 */
 	public function normalizeForSearch( $s ) {
 		// Double-width roman characters
 		$s = parent::normalizeForSearch( $s );
 		$s = trim( $s );
-		return $this->segmentByWord( $s );
+		$s = $this->segmentByWord( $s );
+
+		return $s;
 	}
 
+	/**
+	 * Takes a number of seconds and turns it into a text using values such as hours and minutes.
+	 *
+	 * @since 1.21
+	 *
+	 * @param int $seconds The amount of seconds.
+	 * @param array $chosenIntervals The intervals to enable.
+	 *
+	 * @return string
+	 */
 	public function formatDuration( $seconds, array $chosenIntervals = [] ) {
-		if ( !$chosenIntervals ) {
+		if ( empty( $chosenIntervals ) ) {
 			$chosenIntervals = [ 'centuries', 'years', 'days', 'hours', 'minutes', 'seconds' ];
 		}
 

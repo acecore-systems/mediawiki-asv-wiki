@@ -1,4 +1,3 @@
-@import 'mediawiki.skin.variables.less';
 @import '../../../../minerva.less/minerva.variables.less';
 
 @smallIconSize: 24px;
@@ -8,24 +7,21 @@
 	margin: 0;
 	padding: 0;
 	font-size: @font-size-minerva-smallest;
-	color: @color-subtle;
+	color: @colorGray7;
 }
 
 // overlay styles
 .overlay-issues {
-	ul.cleanup {
-		list-style: none;
-
+	.cleanup {
 		> li {
-			border-bottom: @border-subtle;
+			border-bottom: solid 1px @grayLight;
 
 			.issue-notice {
 				padding: @smallIconSize @smallIconSize @smallIconSize 0;
 
-				.minerva-ambox-icon {
+				.mw-ui-icon {
 					float: left;
-					position: relative;
-					left: ( @padding-content / 2 ) + @spacing-horizontal-button;
+					left: @contentPadding/2;
 				}
 			}
 
@@ -44,21 +40,17 @@
 	.issue-details {
 		// This should match the icon width for the overlay close icon
 		//  which is derived from these two variables:
-		padding-left: @size-icon + ( 2 * @width-icon-gutter );
+		padding-left: @iconSize + ( 2 * @iconGutterWidth );
 
 		// align the first line to the top of the element
 		// but line-height should be normal for text that follows (T190469)
-		> ::first-line {
+		> :first-line {
 			line-height: 1;
-		}
-
-		p {
-			margin: 0;
 		}
 
 		// assume date
 		small i {
-			color: @color-subtle;
+			color: @colorGray7;
 		}
 	}
 }

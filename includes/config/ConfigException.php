@@ -20,10 +20,6 @@
  * @file
  */
 
-namespace MediaWiki\Config;
-
-use LogicException;
-
 /**
  * Exceptions for config failures
  *
@@ -32,6 +28,3 @@ use LogicException;
  */
 class ConfigException extends LogicException {
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( ConfigException::class, 'ConfigException' );

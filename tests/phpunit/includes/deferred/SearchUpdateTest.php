@@ -1,11 +1,7 @@
 <?php
 
-use MediaWiki\Deferred\SearchUpdate;
-use MediaWiki\Page\PageIdentityValue;
-
 /**
  * @group Search
- * @covers \MediaWiki\Deferred\SearchUpdate
  */
 class SearchUpdateTest extends MediaWikiIntegrationTestCase {
 
@@ -16,7 +12,7 @@ class SearchUpdateTest extends MediaWikiIntegrationTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$pageIdentity = new PageIdentityValue( 42, NS_MAIN, 'Main_Page', PageIdentityValue::LOCAL );
+		$pageIdentity = Title::newMainPage()->toPageIdentity();
 		$this->su = new SearchUpdate( 0, $pageIdentity );
 	}
 
@@ -24,6 +20,9 @@ class SearchUpdateTest extends MediaWikiIntegrationTestCase {
 		return trim( $this->su->updateText( $text ) );
 	}
 
+	/**
+	 * @covers SearchUpdate::updateText
+	 */
 	public function testUpdateText() {
 		$this->assertEquals(
 			'test',
@@ -57,7 +56,9 @@ EOT
 	}
 
 	/**
-	 * T34712: Test if unicode quotes in article links make its search index empty
+	 * @covers SearchUpdate::updateText
+	 * Test T34712
+	 * Test if unicode quotes in article links make its search index empty
 	 */
 	public function testUnicodeLinkSearchIndexError() {
 		$text = "text „http://example.com“ text";

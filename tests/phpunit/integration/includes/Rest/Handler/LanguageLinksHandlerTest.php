@@ -11,8 +11,7 @@ use MediaWiki\Rest\Handler\LanguageLinksHandler;
 use MediaWiki\Rest\LocalizedHttpException;
 use MediaWiki\Rest\RequestData;
 use MediaWiki\Tests\Unit\DummyServicesTrait;
-use MediaWiki\Title\Title;
-use MediaWikiIntegrationTestCase;
+use Title;
 use Wikimedia\Message\MessageValue;
 
 /**
@@ -20,7 +19,7 @@ use Wikimedia\Message\MessageValue;
  *
  * @group Database
  */
-class LanguageLinksHandlerTest extends MediaWikiIntegrationTestCase {
+class LanguageLinksHandlerTest extends \MediaWikiIntegrationTestCase {
 	use DummyServicesTrait;
 	use HandlerTestTrait;
 
@@ -49,24 +48,20 @@ class LanguageLinksHandlerTest extends MediaWikiIntegrationTestCase {
 		$languageNameUtils = new LanguageNameUtils(
 			new ServiceOptions(
 				LanguageNameUtils::CONSTRUCTOR_OPTIONS,
-				[
-					MainConfigNames::ExtraLanguageNames => [],
-					MainConfigNames::UsePigLatinVariant => false,
-					MainConfigNames::UseXssLanguage => false,
-				]
+				[ 'ExtraLanguageNames' => [], 'UsePigLatinVariant' => false ]
 			),
 			$this->getServiceContainer()->getHookContainer()
 		);
 
+		// DummyServicesTrait::getDummyMediaWikiTitleCodec
 		$titleCodec = $this->getDummyMediaWikiTitleCodec();
 
 		return new LanguageLinksHandler(
-			$this->getServiceContainer()->getConnectionProvider(),
+			$this->getServiceContainer()->getDBLoadBalancer(),
 			$languageNameUtils,
 			$titleCodec,
 			$titleCodec,
-			$this->getServiceContainer()->getPageStore(),
-			$this->getServiceContainer()->getPageRestHelperFactory()
+			$this->getServiceContainer()->getPageStore()
 		);
 	}
 
@@ -111,7 +106,7 @@ class LanguageLinksHandlerTest extends MediaWikiIntegrationTestCase {
 
 	public function testCacheControl() {
 		$title = Title::newFromText( __METHOD__ );
-		$this->editPage( $title, 'First' );
+		$this->editPage( $title->getPrefixedDBkey(), 'First' );
 
 		$request = new RequestData( [ 'pathParams' => [ 'title' => $title->getPrefixedDBkey() ] ] );
 
@@ -124,7 +119,7 @@ class LanguageLinksHandlerTest extends MediaWikiIntegrationTestCase {
 			$response->getHeaderLine( 'Last-Modified' )
 		);
 
-		$this->editPage( $title, 'Second' );
+		$this->editPage( $title->getPrefixedDBkey(), 'Second' );
 
 		Title::clearCaches();
 		$handler = $this->newHandler();

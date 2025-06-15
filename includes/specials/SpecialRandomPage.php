@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Randompage
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,41 +18,41 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- */
-
-namespace MediaWiki\Specials;
-
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Title\NamespaceInfo;
-use MediaWiki\Title\Title;
-use Wikimedia\Rdbms\IConnectionProvider;
-
-/**
- * Redirect to a random page
- *
  * @ingroup SpecialPage
  * @author Rob Church <robchur@gmail.com>, Ilmari Karonen
  */
-class SpecialRandomPage extends SpecialPage {
-	/** @var int[] namespaces to select pages from */
-	private $namespaces;
-	/** @var bool should the result be a redirect? */
-	protected $isRedir = false;
-	/** @var array Extra SQL statements */
-	protected $extra = [];
 
-	private IConnectionProvider $dbProvider;
+use MediaWiki\MediaWikiServices;
+use Wikimedia\Rdbms\ILoadBalancer;
+
+/**
+ * Special page to direct the user to a random page
+ *
+ * @ingroup SpecialPage
+ */
+class SpecialRandomPage extends SpecialPage {
+	private $namespaces; // namespaces to select pages from
+	protected $isRedir = false; // should the result be a redirect?
+	protected $extra = []; // Extra SQL statements
+
+	/** @var ILoadBalancer */
+	private $loadBalancer;
 
 	/**
-	 * @param IConnectionProvider $dbProvider
-	 * @param NamespaceInfo $nsInfo
+	 * @param ILoadBalancer|string|null $loadBalancer
+	 * @param NamespaceInfo|null $nsInfo
 	 */
 	public function __construct(
-		IConnectionProvider $dbProvider,
-		NamespaceInfo $nsInfo
+		$loadBalancer = null,
+		NamespaceInfo $nsInfo = null
 	) {
-		parent::__construct( 'Randompage' );
-		$this->dbProvider = $dbProvider;
+		parent::__construct( is_string( $loadBalancer ) ? $loadBalancer : 'Randompage' );
+		// This class is extended and therefor fallback to global state - T265308
+		$services = MediaWikiServices::getInstance();
+		$this->loadBalancer = $loadBalancer instanceof ILoadBalancer
+			? $loadBalancer
+			: $services->getDBLoadBalancer();
+		$nsInfo = $nsInfo ?? $services->getNamespaceInfo();
 		$this->namespaces = $nsInfo->getContentNamespaces();
 	}
 
@@ -59,14 +61,10 @@ class SpecialRandomPage extends SpecialPage {
 	}
 
 	public function setNamespace( $ns ) {
-		if ( !$this->isValidNS( $ns ) ) {
+		if ( !$ns || $ns < NS_MAIN ) {
 			$ns = NS_MAIN;
 		}
 		$this->namespaces = [ $ns ];
-	}
-
-	private function isValidNS( $ns ) {
-		return $ns !== false && $ns >= 0;
 	}
 
 	// select redirects instead of normal pages?
@@ -75,7 +73,11 @@ class SpecialRandomPage extends SpecialPage {
 	}
 
 	public function execute( $par ) {
-		$this->parsePar( $par );
+		if ( is_string( $par ) ) {
+			// Testing for stringiness since we want to catch
+			// the empty string to mean main namespace only.
+			$this->setNamespace( $this->getContentLanguage()->getNsIndex( $par ) );
+		}
 
 		$title = $this->getRandomTitle();
 
@@ -92,43 +94,6 @@ class SpecialRandomPage extends SpecialPage {
 		$query = array_merge( $this->getRequest()->getValues(), $redirectParam );
 		unset( $query['title'] );
 		$this->getOutput()->redirect( $title->getFullURL( $query ) );
-	}
-
-	/**
-	 * Parse the subpage parameter that specifies namespaces
-	 *
-	 * @param string $par Subpage to special page
-	 */
-	private function parsePar( $par ) {
-		// Testing for stringiness since we want to catch
-		// the empty string to mean main namespace only.
-		if ( is_string( $par ) ) {
-			$ns = $this->getContentLanguage()->getNsIndex( $par );
-			if ( $ns === false && strpos( $par, ',' ) !== false ) {
-				$nsList = [];
-				// Comma separated list
-				$parSplit = explode( ',', $par );
-				foreach ( $parSplit as $potentialNs ) {
-					$ns = $this->getContentLanguage()->getNsIndex( $potentialNs );
-					if ( $this->isValidNS( $ns ) ) {
-						$nsList[] = $ns;
-					}
-					// Remove duplicate values, and re-index array
-					$nsList = array_unique( $nsList );
-					$nsList = array_values( $nsList );
-					if ( $nsList !== [] ) {
-						$this->namespaces = $nsList;
-					}
-				}
-			} else {
-				// Note, that the case of $par being something
-				// like "main" which is not a namespace, falls
-				// through to here, and sets NS_MAIN, allowing
-				// Special:Random/main or Special:Random/article
-				// to work as expected.
-				$this->setNamespace( $this->getContentLanguage()->getNsIndex( $par ) );
-			}
-		}
 	}
 
 	/**
@@ -176,7 +141,7 @@ class SpecialRandomPage extends SpecialPage {
 		 * causes anyway.  Trust me, I'm a mathematician. :)
 		 */
 		if ( !$row ) {
-			$row = $this->selectRandomPageFromDB( 0, __METHOD__ );
+			$row = $this->selectRandomPageFromDB( "0", __METHOD__ );
 		}
 
 		if ( $row ) {
@@ -187,13 +152,12 @@ class SpecialRandomPage extends SpecialPage {
 	}
 
 	protected function getQueryInfo( $randstr ) {
-		$dbr = $this->dbProvider->getReplicaDatabase();
 		$redirect = $this->isRedirect() ? 1 : 0;
 		$tables = [ 'page' ];
 		$conds = array_merge( [
 			'page_namespace' => $this->namespaces,
 			'page_is_redirect' => $redirect,
-			$dbr->expr( 'page_random', '>=', $randstr ),
+			'page_random >= ' . $randstr
 		], $this->extra );
 		$joinConds = [];
 
@@ -212,14 +176,20 @@ class SpecialRandomPage extends SpecialPage {
 		];
 	}
 
-	private function selectRandomPageFromDB( $randstr, $fname ) {
-		$dbr = $this->dbProvider->getReplicaDatabase();
+	private function selectRandomPageFromDB( $randstr, $fname = __METHOD__ ) {
+		$dbr = $this->loadBalancer->getConnectionRef( ILoadBalancer::DB_REPLICA );
 
 		$query = $this->getQueryInfo( $randstr );
-		return $dbr->newSelectQueryBuilder()
-			->queryInfo( $query )
-			->caller( $fname )
-			->fetchRow();
+		$res = $dbr->select(
+			$query['tables'],
+			$query['fields'],
+			$query['conds'],
+			$fname,
+			$query['options'],
+			$query['join_conds']
+		);
+
+		return $res->fetchObject();
 	}
 
 	protected function getGroupName() {
@@ -229,6 +199,6 @@ class SpecialRandomPage extends SpecialPage {
 
 /**
  * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
+ * @deprecated since 1.37
  */
-class_alias( SpecialRandomPage::class, 'SpecialRandomPage' );
+class_alias( SpecialRandomPage::class, 'RandomPage' );

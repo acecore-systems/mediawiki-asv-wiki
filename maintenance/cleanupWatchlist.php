@@ -6,7 +6,7 @@
  * Options:
  *   --fix  Actually remove entries; without will only report.
  *
- * Copyright © 2005,2006 Brooke Vibber <bvibber@wikimedia.org>
+ * Copyright © 2005,2006 Brion Vibber <brion@pobox.com>
  * https://www.mediawiki.org/
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,16 +25,14 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- * @author Brooke Vibber <bvibber@wikimedia.org>
+ * @author Brion Vibber <brion at pobox.com>
  * @ingroup Maintenance
  */
 
 use MediaWiki\MainConfigNames;
-use MediaWiki\Title\Title;
+use MediaWiki\MediaWikiServices;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/TableCleanup.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script to remove broken, unparseable titles in the watchlist table.
@@ -42,7 +40,6 @@ require_once __DIR__ . '/TableCleanup.php';
  * @ingroup Maintenance
  */
 class CleanupWatchlist extends TableCleanup {
-	/** @inheritDoc */
 	protected $defaultParams = [
 		'table' => 'watchlist',
 		'index' => [ 'wl_id' ],
@@ -66,7 +63,7 @@ class CleanupWatchlist extends TableCleanup {
 	protected function processRow( $row ) {
 		$current = Title::makeTitle( $row->wl_namespace, $row->wl_title );
 		$display = $current->getPrefixedText();
-		$verified = $this->getServiceContainer()->getContentLanguage()->normalize( $display );
+		$verified = MediaWikiServices::getInstance()->getContentLanguage()->normalize( $display );
 		$title = Title::newFromText( $verified );
 
 		if ( $row->wl_user == 0 || $title === null || !$title->equals( $current ) ) {
@@ -82,18 +79,18 @@ class CleanupWatchlist extends TableCleanup {
 
 	private function removeWatch( $row ) {
 		if ( !$this->dryrun && $this->hasOption( 'fix' ) ) {
-			$dbw = $this->getPrimaryDB();
-			$dbw->newDeleteQueryBuilder()
-				->deleteFrom( 'watchlist' )
-				->where( [ 'wl_id' => $row->wl_id ] )
-				->caller( __METHOD__ )
-				->execute();
+			$dbw = $this->getDB( DB_PRIMARY );
+			$dbw->delete(
+				'watchlist',
+				[ 'wl_id' => $row->wl_id ],
+				__METHOD__
+			);
 			if ( $this->getConfig()->get( MainConfigNames::WatchlistExpiry ) ) {
-				$dbw->newDeleteQueryBuilder()
-					->deleteFrom( 'watchlist_expiry' )
-					->where( [ 'we_item' => $row->wl_id ] )
-					->caller( __METHOD__ )
-					->execute();
+				$dbw->delete(
+					'watchlist_expiry',
+					[ 'we_item' => $row->wl_id ],
+					__METHOD__
+				);
 			}
 
 			$this->output( "- removed\n" );
@@ -105,7 +102,5 @@ class CleanupWatchlist extends TableCleanup {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = CleanupWatchlist::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

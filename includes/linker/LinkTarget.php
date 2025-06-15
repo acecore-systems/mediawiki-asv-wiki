@@ -20,17 +20,10 @@
  */
 namespace MediaWiki\Linker;
 
-use Stringable;
-use Wikimedia\Parsoid\Core\LinkTarget as ParsoidLinkTarget;
-
 /**
- * Represents the target of a wiki link.
- *
- * @see https://www.mediawiki.org/wiki/Manual:Modeling_pages
- *
  * @since 1.27
  */
-interface LinkTarget extends Stringable, ParsoidLinkTarget {
+interface LinkTarget {
 
 	/**
 	 * Get the namespace index.
@@ -128,10 +121,10 @@ interface LinkTarget extends Stringable, ParsoidLinkTarget {
 	 * are in the same namespace, have the same main part, and the same fragment.
 	 *
 	 * @since 1.36
-	 * @param ParsoidLinkTarget $other
+	 * @param LinkTarget $other
 	 * @return bool
 	 */
-	public function isSameLinkAs( ParsoidLinkTarget $other ): bool;
+	public function isSameLinkAs( LinkTarget $other ): bool;
 
 	/**
 	 * Return an informative human-readable representation of the link target,

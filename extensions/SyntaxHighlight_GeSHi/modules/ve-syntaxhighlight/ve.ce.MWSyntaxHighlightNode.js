@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable MWSyntaxHighlightNode class.
  *
- * @copyright VisualEditor Team and others
+ * @copyright 2011-2015 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -28,10 +28,12 @@ ve.ce.MWSyntaxHighlightNode.static.name = 'mwSyntaxHighlight';
 
 // Inherits from ve.ce.GeneratedContentNode
 ve.ce.MWSyntaxHighlightNode.prototype.generateContents = function () {
-	return mw.loader.using( 'ext.pygments' ).then(
-		// Parent method
-		() => ve.ce.MWExtensionNode.prototype.generateContents.apply( this, arguments )
-	);
+	var node = this,
+		args = arguments;
+	// Parent method
+	return mw.loader.using( 'ext.pygments' ).then( function () {
+		return ve.ce.MWExtensionNode.prototype.generateContents.apply( node, args );
+	} );
 };
 
 // Inherits from ve.ce.BranchNode

@@ -11,7 +11,7 @@ use MediaWiki\Rest\SimpleHandler;
 use RepoGroup;
 use Wikimedia\Message\MessageValue;
 use Wikimedia\ParamValidator\ParamValidator;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * Handler class for Core REST API endpoints that perform operations on revisions
@@ -22,21 +22,31 @@ class MediaLinksHandler extends SimpleHandler {
 	/** int The maximum number of media links to return */
 	private const MAX_NUM_LINKS = 100;
 
-	private IConnectionProvider $dbProvider;
-	private RepoGroup $repoGroup;
-	private PageLookup $pageLookup;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
+
+	/** @var RepoGroup */
+	private $repoGroup;
+
+	/** @var PageLookup */
+	private $pageLookup;
 
 	/**
 	 * @var ExistingPageRecord|false|null
 	 */
 	private $page = false;
 
+	/**
+	 * @param ILoadBalancer $loadBalancer
+	 * @param RepoGroup $repoGroup
+	 * @param PageLookup $pageLookup
+	 */
 	public function __construct(
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		RepoGroup $repoGroup,
 		PageLookup $pageLookup
 	) {
-		$this->dbProvider = $dbProvider;
+		$this->loadBalancer = $loadBalancer;
 		$this->repoGroup = $repoGroup;
 		$this->pageLookup = $pageLookup;
 	}
@@ -76,12 +86,12 @@ class MediaLinksHandler extends SimpleHandler {
 
 		// @todo: add continuation if too many links are found
 		$results = $this->getDbResults( $page->getId() );
-		if ( count( $results ) > $this->getMaxNumLinks() ) {
+		if ( count( $results ) > self::MAX_NUM_LINKS ) {
 			throw new LocalizedHttpException(
 				MessageValue::new( 'rest-media-too-many-links' )
 					->plaintextParams( $title )
-					->numParams( $this->getMaxNumLinks() ),
-				400
+					->numParams( self::MAX_NUM_LINKS ),
+				500
 			);
 		}
 		$response = $this->processDbResults( $results );
@@ -93,13 +103,17 @@ class MediaLinksHandler extends SimpleHandler {
 	 * @return array the results
 	 */
 	private function getDbResults( int $pageId ) {
-		return $this->dbProvider->getReplicaDatabase()->newSelectQueryBuilder()
-			->select( 'il_to' )
-			->from( 'imagelinks' )
-			->where( [ 'il_from' => $pageId ] )
-			->orderBy( 'il_to' )
-			->limit( $this->getMaxNumLinks() + 1 )
-			->caller( __METHOD__ )->fetchFieldValues();
+		$dbr = $this->loadBalancer->getConnectionRef( DB_REPLICA );
+		return $dbr->selectFieldValues(
+			'imagelinks',
+			'il_to',
+			[ 'il_from' => $pageId ],
+			__METHOD__,
+			[
+				'ORDER BY' => 'il_to',
+				'LIMIT' => self::MAX_NUM_LINKS + 1,
+			]
+		);
 	}
 
 	/**
@@ -118,7 +132,7 @@ class MediaLinksHandler extends SimpleHandler {
 		}, $results );
 
 		$files = $this->repoGroup->findFiles( $findTitles );
-		[ $maxWidth, $maxHeight ] = self::getImageLimitsFromOption(
+		list( $maxWidth, $maxHeight ) = self::getImageLimitsFromOption(
 			$this->getAuthority()->getUser(),
 			'imagesize'
 		);
@@ -174,7 +188,11 @@ class MediaLinksHandler extends SimpleHandler {
 	 */
 	protected function getLastModified(): ?string {
 		$page = $this->getPage();
-		return $page ? $page->getTouched() : null;
+		if ( !$page ) {
+			return null;
+		}
+
+		return $page->getTouched();
 	}
 
 	/**
@@ -182,14 +200,5 @@ class MediaLinksHandler extends SimpleHandler {
 	 */
 	protected function hasRepresentation() {
 		return (bool)$this->getPage();
-	}
-
-	/**
-	 * For testing
-	 *
-	 * @unstable
-	 */
-	protected function getMaxNumLinks(): int {
-		return self::MAX_NUM_LINKS;
 	}
 }

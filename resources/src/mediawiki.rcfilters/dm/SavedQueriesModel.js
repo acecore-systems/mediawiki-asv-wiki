@@ -1,18 +1,19 @@
-const SavedQueryItemModel = require( './SavedQueryItemModel.js' );
+var SavedQueryItemModel = require( './SavedQueryItemModel.js' ),
+	SavedQueriesModel;
 
 /**
- * View model for saved queries.
+ * View model for saved queries
  *
  * @class mw.rcfilters.dm.SavedQueriesModel
- * @ignore
- * @mixes OO.EventEmitter
- * @mixes OO.EmitterList
+ * @mixins OO.EventEmitter
+ * @mixins OO.EmitterList
  *
+ * @constructor
  * @param {mw.rcfilters.dm.FiltersViewModel} filtersModel Filters model
  * @param {Object} [config] Configuration options
- * @param {string} [config.default] Default query ID
+ * @cfg {string} [default] Default query ID
  */
-const SavedQueriesModel = function MwRcfiltersDmSavedQueriesModel( filtersModel, config ) {
+SavedQueriesModel = function MwRcfiltersDmSavedQueriesModel( filtersModel, config ) {
 	config = config || {};
 
 	// Mixin constructor
@@ -36,26 +37,23 @@ OO.mixinClass( SavedQueriesModel, OO.EmitterList );
 /* Events */
 
 /**
- * Model is initialized.
- *
  * @event initialize
- * @ignore
+ *
+ * Model is initialized
  */
 
 /**
- * An item has changed.
- *
  * @event itemUpdate
  * @param {mw.rcfilters.dm.SavedQueryItemModel} Changed item
- * @ignore
+ *
+ * An item has changed
  */
 
 /**
- * The default has changed.
- *
  * @event default
  * @param {string} New default ID
- * @ignore
+ *
+ * The default has changed
  */
 
 /* Methods */
@@ -84,7 +82,7 @@ OO.mixinClass( SavedQueriesModel, OO.EmitterList );
  * @fires initialize
  */
 SavedQueriesModel.prototype.initialize = function ( savedQueries ) {
-	const model = this;
+	var model = this;
 
 	savedQueries = savedQueries || {};
 
@@ -108,7 +106,7 @@ SavedQueriesModel.prototype.initialize = function ( savedQueries ) {
 		//   }
 		// }
 		// eslint-disable-next-line no-jquery/no-each-util
-		$.each( savedQueries.queries || {}, ( id, obj ) => {
+		$.each( savedQueries.queries || {}, function ( id, obj ) {
 			if ( obj.data && obj.data.filters ) {
 				obj.data = model.convertToParameters( obj.data );
 			}
@@ -120,8 +118,8 @@ SavedQueriesModel.prototype.initialize = function ( savedQueries ) {
 
 	// Initialize the query items
 	// eslint-disable-next-line no-jquery/no-each-util
-	$.each( savedQueries.queries || {}, ( id, obj ) => {
-		const normalizedData = obj.data,
+	$.each( savedQueries.queries || {}, function ( id, obj ) {
+		var normalizedData = obj.data,
 			isDefault = String( savedQueries.default ) === String( id );
 
 		if ( normalizedData && normalizedData.params ) {
@@ -186,7 +184,7 @@ SavedQueriesModel.prototype.cleanupHighlights = function ( data ) {
  * @return {Object} New converted query data
  */
 SavedQueriesModel.prototype.convertToParameters = function ( data ) {
-	const newData = {},
+	var newData = {},
 		defaultFilters = this.filtersModel.getFiltersFromParameters( this.filtersModel.getDefaultParams() ),
 		fullFilterRepresentation = $.extend( true, {}, defaultFilters, data.filters ),
 		highlightEnabled = data.highlights.highlight;
@@ -201,7 +199,7 @@ SavedQueriesModel.prototype.convertToParameters = function ( data ) {
 	// Highlights: appending _color to keys
 	newData.highlights = {};
 	// eslint-disable-next-line no-jquery/no-each-util
-	$.each( data.highlights, ( highlightedFilterName, value ) => {
+	$.each( data.highlights, function ( highlightedFilterName, value ) {
 		if ( value ) {
 			newData.highlights[ highlightedFilterName + '_color' ] = data.highlights[ highlightedFilterName ];
 		}
@@ -224,14 +222,14 @@ SavedQueriesModel.prototype.convertToParameters = function ( data ) {
  * @return {string} ID of the newly added query
  */
 SavedQueriesModel.prototype.addNewQuery = function ( label, fulldata, isDefault, id ) {
-	const normalizedData = { params: {}, highlights: {} },
+	var normalizedData = { params: {}, highlights: {} },
 		highlightParamNames = Object.keys( this.filtersModel.getEmptyHighlightParameters() ),
 		randomID = String( id || Date.now() ),
 		data = this.filtersModel.getMinimizedParamRepresentation( fulldata );
 
 	// Split highlight/params
 	// eslint-disable-next-line no-jquery/no-each-util
-	$.each( data, ( param, value ) => {
+	$.each( data, function ( param, value ) {
 		if ( param !== 'highlight' && highlightParamNames.indexOf( param ) > -1 ) {
 			normalizedData.highlights[ param ] = value;
 		} else {
@@ -242,10 +240,6 @@ SavedQueriesModel.prototype.addNewQuery = function ( label, fulldata, isDefault,
 	// Correct the invert state for effective selection
 	if ( normalizedData.params.invert && !this.filtersModel.areNamespacesEffectivelyInverted() ) {
 		delete normalizedData.params.invert;
-	}
-	// Correct the inverttags state for effective selection
-	if ( normalizedData.params.inverttags && !this.filtersModel.areTagsEffectivelyInverted() ) {
-		delete normalizedData.params.inverttags;
 	}
 
 	// Add item
@@ -271,7 +265,7 @@ SavedQueriesModel.prototype.addNewQuery = function ( label, fulldata, isDefault,
  * @param {string} queryID Query ID
  */
 SavedQueriesModel.prototype.removeQuery = function ( queryID ) {
-	const query = this.getItemByID( queryID );
+	var query = this.getItemByID( queryID );
 
 	if ( query ) {
 		// Check if this item was the default
@@ -289,7 +283,6 @@ SavedQueriesModel.prototype.removeQuery = function ( queryID ) {
  *
  * @param {Object} fullQueryComparison Object representing all filters and highlights to compare
  * @return {mw.rcfilters.dm.SavedQueryItemModel} Matching item model
- * @ignore
  */
 SavedQueriesModel.prototype.findMatchingQuery = function ( fullQueryComparison ) {
 	// Minimize before comparison
@@ -300,22 +293,25 @@ SavedQueriesModel.prototype.findMatchingQuery = function ( fullQueryComparison )
 		delete fullQueryComparison.invert;
 	}
 
-	return this.getItems().filter( ( item ) => OO.compare(
-		item.getCombinedData(),
-		fullQueryComparison
-	) )[ 0 ];
+	return this.getItems().filter( function ( item ) {
+		return OO.compare(
+			item.getCombinedData(),
+			fullQueryComparison
+		);
+	} )[ 0 ];
 };
 
 /**
  * Get query by its identifier
  *
- * @ignore
  * @param {string} queryID Query identifier
  * @return {mw.rcfilters.dm.SavedQueryItemModel|undefined} Item matching
  *  the search. Undefined if not found.
  */
 SavedQueriesModel.prototype.getItemByID = function ( queryID ) {
-	return this.getItems().filter( ( item ) => item.getID() === queryID )[ 0 ];
+	return this.getItems().filter( function ( item ) {
+		return item.getID() === queryID;
+	} )[ 0 ];
 };
 
 /**
@@ -335,7 +331,7 @@ SavedQueriesModel.prototype.getDefaultParams = function () {
  * @return {Object} Parameter representation
  */
 SavedQueriesModel.prototype.getItemParams = function ( queryID ) {
-	const item = this.getItemByID( queryID ),
+	var item = this.getItemByID( queryID ),
 		data = item ? item.getData() : {};
 
 	return !$.isEmptyObject( data ) ? this.buildParamsFromData( data ) : {};
@@ -362,10 +358,10 @@ SavedQueriesModel.prototype.buildParamsFromData = function ( data ) {
  * @return {Object} Object representing the state of the model and items
  */
 SavedQueriesModel.prototype.getState = function () {
-	const obj = { queries: {}, version: '2' };
+	var obj = { queries: {}, version: '2' };
 
 	// Translate the items to the saved object
-	this.getItems().forEach( ( item ) => {
+	this.getItems().forEach( function ( item ) {
 		obj.queries[ item.getID() ] = item.getState();
 	} );
 
@@ -387,7 +383,7 @@ SavedQueriesModel.prototype.setDefault = function ( itemID ) {
 		this.default = itemID;
 
 		// Set for individual itens
-		this.getItems().forEach( ( item ) => {
+		this.getItems().forEach( function ( item ) {
 			item.toggleDefault( item.getID() === itemID );
 		} );
 

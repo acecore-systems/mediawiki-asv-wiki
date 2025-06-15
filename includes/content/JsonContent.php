@@ -8,12 +8,6 @@
  * @author Kunal Mehta <legoktm@gmail.com>
  */
 
-namespace MediaWiki\Content;
-
-use MediaWiki\Html\Html;
-use MediaWiki\Json\FormatJson;
-use MediaWiki\Status\Status;
-
 /**
  * JSON text content that can be viewed and edit directly by users.
  *
@@ -48,7 +42,9 @@ class JsonContent extends TextContent {
 	 * @return Status
 	 */
 	public function getData() {
-		$this->jsonParse ??= FormatJson::parse( $this->getText() );
+		if ( $this->jsonParse === null ) {
+			$this->jsonParse = FormatJson::parse( $this->getText() );
+		}
 		return $this->jsonParse;
 	}
 
@@ -80,30 +76,28 @@ class JsonContent extends TextContent {
 	 */
 	public function rootValueTable( $val ) {
 		if ( is_object( $val ) ) {
-			$table = $this->objectTable( $val );
-
-		} elseif ( is_array( $val ) ) {
-			// Wrap arrays in another array so that they're visually boxed in a container.
-			// Otherwise they are visually indistinguishable from a single value.
-			$table = $this->arrayTable( [ $val ] );
-
-		} else {
-			$table = Html::rawElement( 'table', [ 'class' => 'mw-json mw-json-single-value' ],
-				Html::rawElement( 'tbody', [],
-					Html::rawElement( 'tr', [],
-						Html::element( 'td', [], $this->primitiveValue( $val ) )
-					)
-				)
-			);
+			return $this->objectTable( $val );
 		}
 
-		return Html::rawElement( 'div', [ 'class' => 'noresize' ], $table );
+		if ( is_array( $val ) ) {
+			// Wrap arrays in another array so that they're visually boxed in a container.
+			// Otherwise they are visually indistinguishable from a single value.
+			return $this->arrayTable( [ $val ] );
+		}
+
+		return Html::rawElement( 'table', [ 'class' => 'mw-json mw-json-single-value' ],
+			Html::rawElement( 'tbody', [],
+				Html::rawElement( 'tr', [],
+					Html::element( 'td', [], $this->primitiveValue( $val ) )
+				)
+			)
+		);
 	}
 
 	/**
 	 * Create HTML table representing a JSON object.
 	 *
-	 * @param \stdClass $mapping
+	 * @param stdClass $mapping
 	 * @return string HTML
 	 */
 	protected function objectTable( $mapping ) {
@@ -210,5 +204,3 @@ class JsonContent extends TextContent {
 		return FormatJson::encode( $val );
 	}
 }
-/** @deprecated class alias since 1.43 */
-class_alias( JsonContent::class, 'JsonContent' );

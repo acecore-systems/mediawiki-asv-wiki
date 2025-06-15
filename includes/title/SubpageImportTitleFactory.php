@@ -18,18 +18,17 @@
  * @file
  */
 
-namespace MediaWiki\Title;
-
-use InvalidArgumentException;
-
 /**
  * A class to convert page titles on a foreign wiki (ForeignTitle objects) into
  * page titles on the local wiki (Title objects), placing all pages as subpages
  * of a given root page.
  */
 class SubpageImportTitleFactory implements ImportTitleFactory {
-	private TitleFactory $titleFactory;
-	private Title $rootPage;
+	/** @var TitleFactory */
+	private $titleFactory;
+
+	/** @var Title */
+	private $rootPage;
 
 	/**
 	 * @param NamespaceInfo $namespaceInfo
@@ -42,7 +41,7 @@ class SubpageImportTitleFactory implements ImportTitleFactory {
 		Title $rootPage
 	) {
 		if ( !$namespaceInfo->hasSubpages( $rootPage->getNamespace() ) ) {
-			throw new InvalidArgumentException( "The root page you specified, $rootPage, is in a " .
+			throw new MWException( "The root page you specified, $rootPage, is in a " .
 				"namespace where subpages are not allowed" );
 		}
 		$this->titleFactory = $titleFactory;
@@ -63,6 +62,3 @@ class SubpageImportTitleFactory implements ImportTitleFactory {
 		);
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SubpageImportTitleFactory::class, 'SubpageImportTitleFactory' );

@@ -3,7 +3,7 @@
 namespace MediaWiki\Hook;
 
 use ImageGalleryBase;
-use MediaWiki\Parser\Parser;
+use Parser;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

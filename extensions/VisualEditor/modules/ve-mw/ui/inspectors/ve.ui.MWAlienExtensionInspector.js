@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface MWAlienExtensionInspector class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -56,17 +56,17 @@ ve.ui.MWAlienExtensionInspector.prototype.initialize = function () {
  */
 ve.ui.MWAlienExtensionInspector.prototype.getSetupProcess = function ( data ) {
 	return ve.ui.MWAlienExtensionInspector.super.prototype.getSetupProcess.call( this, data )
-		.next( () => {
-			const attributes = this.selectedNode.getAttribute( 'mw' ).attrs;
+		.next( function () {
+			var attributes = this.selectedNode.getAttribute( 'mw' ).attrs;
 
 			if ( attributes && !ve.isEmptyObject( attributes ) ) {
-				for ( const key in attributes ) {
-					const attributeInput = new OO.ui.TextInputWidget( {
+				for ( var key in attributes ) {
+					var attributeInput = new OO.ui.TextInputWidget( {
 						value: attributes[ key ]
 					} );
 					attributeInput.connect( this, { change: 'onChangeHandler' } );
 					this.attributeInputs[ key ] = attributeInput;
-					const field = new OO.ui.FieldLayout(
+					var field = new OO.ui.FieldLayout(
 						attributeInput,
 						{
 							align: 'left',
@@ -78,7 +78,7 @@ ve.ui.MWAlienExtensionInspector.prototype.getSetupProcess = function ( data ) {
 			}
 
 			this.title.setLabel( this.selectedNode.getExtensionName() );
-		} );
+		}, this );
 };
 
 /**
@@ -86,10 +86,10 @@ ve.ui.MWAlienExtensionInspector.prototype.getSetupProcess = function ( data ) {
  */
 ve.ui.MWAlienExtensionInspector.prototype.getTeardownProcess = function ( data ) {
 	return ve.ui.MWAlienExtensionInspector.super.prototype.getTeardownProcess.call( this, data )
-		.next( () => {
+		.next( function () {
 			this.$attributes.empty();
 			this.attributeInputs = {};
-		} );
+		}, this );
 };
 
 /**
@@ -102,7 +102,7 @@ ve.ui.MWAlienExtensionInspector.prototype.updateMwData = function ( mwData ) {
 	if ( !ve.isEmptyObject( this.attributeInputs ) ) {
 		// Make sure we have an attrs object to populate
 		mwData.attrs = mwData.attrs || {};
-		for ( const key in this.attributeInputs ) {
+		for ( var key in this.attributeInputs ) {
 			mwData.attrs[ key ] = this.attributeInputs[ key ].getValue();
 		}
 	}

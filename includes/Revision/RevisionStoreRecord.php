@@ -22,12 +22,12 @@
 
 namespace MediaWiki\Revision;
 
+use CommentStoreComment;
 use InvalidArgumentException;
-use MediaWiki\CommentStore\CommentStoreComment;
 use MediaWiki\Page\PageIdentity;
 use MediaWiki\Permissions\Authority;
 use MediaWiki\User\UserIdentity;
-use MediaWiki\Utils\MWTimestamp;
+use MWTimestamp;
 
 /**
  * A RevisionRecord representing an existing revision persisted in the revision table.
@@ -71,7 +71,7 @@ class RevisionStoreRecord extends RevisionRecord {
 		$timestamp = ( new MWTimestamp( $row->rev_timestamp ) )->getTimestamp( TS_MW );
 
 		$this->mUser = $user;
-		$this->mMinorEdit = (bool)$row->rev_minor_edit;
+		$this->mMinorEdit = boolval( $row->rev_minor_edit );
 		$this->mTimestamp = $timestamp;
 		$this->mDeleted = intval( $row->rev_deleted );
 
@@ -152,7 +152,9 @@ class RevisionStoreRecord extends RevisionRecord {
 	public function getSize() {
 		// If length is null, calculate and remember it (potentially SLOW!).
 		// This is for compatibility with old database rows that don't have the field set.
-		$this->mSize ??= $this->mSlots->computeSize();
+		if ( $this->mSize === null ) {
+			$this->mSize = $this->mSlots->computeSize();
+		}
 
 		return $this->mSize;
 	}
@@ -164,7 +166,9 @@ class RevisionStoreRecord extends RevisionRecord {
 	public function getSha1() {
 		// If hash is null, calculate it and remember (potentially SLOW!)
 		// This is for compatibility with old database rows that don't have the field set.
-		$this->mSha1 ??= $this->mSlots->computeSha1();
+		if ( $this->mSha1 === null ) {
+			$this->mSha1 = $this->mSlots->computeSha1();
+		}
 
 		return $this->mSha1;
 	}
@@ -175,7 +179,7 @@ class RevisionStoreRecord extends RevisionRecord {
 	 *
 	 * @return UserIdentity The identity of the revision author, null if access is forbidden.
 	 */
-	public function getUser( $audience = self::FOR_PUBLIC, ?Authority $performer = null ) {
+	public function getUser( $audience = self::FOR_PUBLIC, Authority $performer = null ) {
 		// overwritten just to add a guarantee to the contract
 		return parent::getUser( $audience, $performer );
 	}
@@ -186,7 +190,7 @@ class RevisionStoreRecord extends RevisionRecord {
 	 *
 	 * @return CommentStoreComment The revision comment, null if access is forbidden.
 	 */
-	public function getComment( $audience = self::FOR_PUBLIC, ?Authority $performer = null ) {
+	public function getComment( $audience = self::FOR_PUBLIC, Authority $performer = null ) {
 		// overwritten just to add a guarantee to the contract
 		return parent::getComment( $audience, $performer );
 	}

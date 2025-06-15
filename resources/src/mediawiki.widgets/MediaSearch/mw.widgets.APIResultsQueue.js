@@ -6,15 +6,15 @@
 ( function () {
 
 	/**
-	 * @classdesc API results queue.
+	 * API Results Queue object.
 	 *
 	 * @class
-	 * @mixes OO.EventEmitter
+	 * @mixins OO.EventEmitter
 	 *
 	 * @constructor
 	 * @param {Object} [config] Configuration options
-	 * @param {number} config.limit The default number of results to fetch
-	 * @param {number} config.threshold The default number of extra results
+	 * @cfg {number} limit The default number of results to fetch
+	 * @cfg {number} threshold The default number of extra results
 	 *  that the queue should always strive to have on top of the
 	 *  individual requests for items.
 	 */
@@ -52,14 +52,15 @@
 	};
 
 	/**
-	 * Get items from the queue.
+	 * Get items from the queue
 	 *
 	 * @param {number} [howMany] How many items to retrieve. Defaults to the
 	 *  default limit supplied on initialization.
 	 * @return {jQuery.Promise} Promise that resolves into an array of items.
 	 */
 	mw.widgets.APIResultsQueue.prototype.get = function ( howMany ) {
-		let fetchingPromise = null;
+		var fetchingPromise = null,
+			me = this;
 
 		howMany = howMany || this.limit;
 
@@ -67,19 +68,21 @@
 		if ( this.queue.length < howMany + this.threshold ) {
 			// Call for more results
 			fetchingPromise = this.queryProviders( howMany + this.threshold )
-				.then( ( items ) => {
+				.then( function ( items ) {
 					// Add to the queue
-					this.queue = this.queue.concat.apply( this.queue, items );
+					me.queue = me.queue.concat.apply( me.queue, items );
 				} );
 		}
 
 		return $.when( fetchingPromise )
-			.then( () => this.queue.splice( 0, howMany ) );
+			.then( function () {
+				return me.queue.splice( 0, howMany );
+			} );
 
 	};
 
 	/**
-	 * Get results from all providers.
+	 * Get results from all providers
 	 *
 	 * @param {number} [howMany] How many items to retrieve. Defaults to the
 	 *  default limit supplied on initialization.
@@ -87,24 +90,27 @@
 	 *  of fetched items. Note: The promise must have an .abort() functionality.
 	 */
 	mw.widgets.APIResultsQueue.prototype.queryProviders = function ( howMany ) {
+		var i, len,
+			queue = this;
+
 		// Make sure there are resources set up
 		return this.setup()
-			.then( () => {
+			.then( function () {
 				// Abort previous requests
-				for ( let i = 0, iLen = this.providerPromises.length; i < iLen; i++ ) {
-					this.providerPromises[ i ].abort();
+				for ( i = 0, len = queue.providerPromises.length; i < len; i++ ) {
+					queue.providerPromises[ i ].abort();
 				}
-				this.providerPromises = [];
+				queue.providerPromises = [];
 				// Set up the query to all providers
-				for ( let j = 0, jLen = this.providers.length; j < jLen; j++ ) {
-					if ( !this.providers[ j ].isDepleted() ) {
-						this.providerPromises.push(
-							this.providers[ j ].getResults( howMany )
+				for ( i = 0, len = queue.providers.length; i < len; i++ ) {
+					if ( !queue.providers[ i ].isDepleted() ) {
+						queue.providerPromises.push(
+							queue.providers[ i ].getResults( howMany )
 						);
 					}
 				}
 
-				return $.when( ...this.providerPromises )
+				return $.when.apply( $, queue.providerPromises )
 					.then( Array.prototype.concat.bind( [] ) );
 			} );
 	};
@@ -117,40 +123,42 @@
 	 * @param {Object} params API search parameters
 	 */
 	mw.widgets.APIResultsQueue.prototype.setParams = function ( params ) {
+		var i, len;
 		if ( !OO.compare( params, this.params, true ) ) {
 			this.reset();
-			this.params = Object.assign( this.params, params );
+			this.params = $.extend( this.params, params );
 			// Reset queue
 			this.queue = [];
 			// Reset promises
-			for ( let i = 0, iLen = this.providerPromises.length; i < iLen; i++ ) {
+			for ( i = 0, len = this.providerPromises.length; i < len; i++ ) {
 				this.providerPromises[ i ].abort();
 			}
 			// Change queries
-			for ( let j = 0, jLen = this.providers.length; j < jLen; j++ ) {
-				this.providers[ j ].setUserParams( this.params );
+			for ( i = 0, len = this.providers.length; i < len; i++ ) {
+				this.providers[ i ].setUserParams( this.params );
 			}
 		}
 	};
 
 	/**
-	 * Reset the queue and all its providers.
+	 * Reset the queue and all its providers
 	 */
 	mw.widgets.APIResultsQueue.prototype.reset = function () {
+		var i, len;
 		// Reset queue
 		this.queue = [];
 		// Reset promises
-		for ( let i = 0, iLen = this.providerPromises.length; i < iLen; i++ ) {
+		for ( i = 0, len = this.providerPromises.length; i < len; i++ ) {
 			this.providerPromises[ i ].abort();
 		}
 		// Reset options
-		for ( let j = 0, jLen = this.providers.length; j < jLen; j++ ) {
-			this.providers[ j ].reset();
+		for ( i = 0, len = this.providers.length; i < len; i++ ) {
+			this.providers[ i ].reset();
 		}
 	};
 
 	/**
-	 * Get the data parameters sent to the API.
+	 * Get the data parameters sent to the API
 	 *
 	 * @return {Object} params API search parameters
 	 */
@@ -159,20 +167,21 @@
 	};
 
 	/**
-	 * Set the providers.
+	 * Set the providers
 	 *
 	 * @param {mw.widgets.APIResultsProvider[]} providers An array of providers
 	 */
 	mw.widgets.APIResultsQueue.prototype.setProviders = function ( providers ) {
+		var i, len;
 		this.providers = providers;
-		for ( let i = 0, len = this.providers.length; i < len; i++ ) {
+		for ( i = 0, len = this.providers.length; i < len; i++ ) {
 			this.providers[ i ].setUserParams( this.params );
 			this.providers[ i ].setLang( this.lang );
 		}
 	};
 
 	/**
-	 * Add a provider to the group.
+	 * Add a provider to the group
 	 *
 	 * @param {mw.widgets.APIResultsProvider} provider A provider object
 	 */
@@ -183,7 +192,7 @@
 	};
 
 	/**
-	 * Set the providers.
+	 * Set the providers
 	 *
 	 * @return {mw.widgets.APIResultsProvider[]} providers An array of providers
 	 */
@@ -192,7 +201,7 @@
 	};
 
 	/**
-	 * Get the queue size.
+	 * Get the queue size
 	 *
 	 * @return {number} Queue size
 	 */
@@ -201,7 +210,7 @@
 	};
 
 	/**
-	 * Set queue threshold.
+	 * Set queue threshold
 	 *
 	 * @param {number} threshold Queue threshold, below which we will
 	 *  request more items
@@ -211,7 +220,7 @@
 	};
 
 	/**
-	 * Get queue threshold.
+	 * Get queue threshold
 	 *
 	 * @return {number} threshold Queue threshold, below which we will
 	 *  request more items
@@ -221,19 +230,20 @@
 	};
 
 	/**
-	 * Set language for the query results.
+	 * Set language for the query results
 	 *
 	 * @param {string|undefined} lang Language
 	 */
 	mw.widgets.APIResultsQueue.prototype.setLang = function ( lang ) {
+		var i, len;
 		this.lang = lang;
-		for ( let i = 0, len = this.providers.length; i < len; i++ ) {
+		for ( i = 0, len = this.providers.length; i < len; i++ ) {
 			this.providers[ i ].setLang( this.lang );
 		}
 	};
 
 	/**
-	 * Get language for the query results.
+	 * Get language for the query results
 	 *
 	 * @return {string|undefined} lang Language
 	 */

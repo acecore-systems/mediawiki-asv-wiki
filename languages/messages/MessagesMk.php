@@ -1,6 +1,8 @@
 <?php
 /** Macedonian (македонски)
  *
+ * To improve a translation please visit https://translatewiki.net
+ *
  * @file
  * @ingroup Languages
  *
@@ -170,7 +172,6 @@ $specialPageAliases = [
 	'Recentchanges'             => [ 'СкорешниПромени' ],
 	'Recentchangeslinked'       => [ 'ПоврзаниПромени' ],
 	'Redirect'                  => [ 'Пренасочување' ],
-	'Renameuser'                => [ 'ПреименувајКорисник' ],
 	'ResetTokens'               => [ 'ВратиОдновоЗнаци' ],
 	'Revisiondelete'            => [ 'БришењеПреработка' ],
 	'RunJobs'                   => [ 'ПуштиЗадачи' ],
@@ -272,7 +273,7 @@ $magicWords = [
 	'img_upright'               => [ '1', 'исправено', 'исправено=$1', 'исправено_$1', 'upright', 'upright=$1', 'upright $1' ],
 	'img_width'                 => [ '1', '$1пкс', '$1п', '$1px' ],
 	'index'                     => [ '1', '__ИНДЕКС__', '__INDEX__' ],
-	'language'                  => [ '0', '#ЈАЗИК', '#LANGUAGE' ],
+	'language'                  => [ '0', '#ЈАЗИК:', '#LANGUAGE:' ],
 	'lc'                        => [ '0', 'МБ', 'LC:' ],
 	'lcfirst'                   => [ '0', 'ПРВОМБ', 'LCFIRST:' ],
 	'localday'                  => [ '1', 'ДЕН_ЛОКАЛНО', 'LOCALDAY' ],

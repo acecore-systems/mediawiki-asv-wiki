@@ -1,6 +1,8 @@
 <?php
 /** Serbian (српски / srpski)
  *
+ * To improve a translation please visit https://translatewiki.net
+ *
  * @file
  * @ingroup Languages
  *
@@ -11,6 +13,6 @@
  * @author Михајло Анђелковић
  */
 
-$fallback = 'sr-ec, sr-cyrl, sr-el, sr-latn';
+$fallback = 'sr-ec, sr-cyrl';
 
 $linkTrail = '/^([abvgdđežzijklljmnnjoprstćufhcčdžšабвгдђежзијклљмнњопрстћуфхцчџш]+)(.*)$/usD';

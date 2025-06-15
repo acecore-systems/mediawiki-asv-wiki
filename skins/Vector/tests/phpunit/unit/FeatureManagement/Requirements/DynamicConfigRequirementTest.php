@@ -22,7 +22,6 @@
 
 namespace MediaWiki\Skins\Vector\Tests\Unit\FeatureManagement\Requirements;
 
-use MediaWiki\Config\HashConfig;
 use MediaWiki\Skins\Vector\FeatureManagement\Requirements\DynamicConfigRequirement;
 
 /**
@@ -41,7 +40,7 @@ class DynamicConfigRequirementTest extends \MediaWikiUnitTestCase {
 	 * @covers ::isMet
 	 */
 	public function testItFetchesAndReturnsConfigValue( bool $configValue ) {
-		$config = new HashConfig( [
+		$config = new \HashConfig( [
 			'Foo' => $configValue,
 		] );
 
@@ -54,7 +53,7 @@ class DynamicConfigRequirementTest extends \MediaWikiUnitTestCase {
 	 * @covers ::isMet
 	 */
 	public function testItCastsConfigValue() {
-		$config = new HashConfig( [
+		$config = new \HashConfig( [
 			'Foo' => new \stdClass(),
 		] );
 
@@ -68,7 +67,7 @@ class DynamicConfigRequirementTest extends \MediaWikiUnitTestCase {
 	 */
 	public function testItReturnsName() {
 		$requirement = new DynamicConfigRequirement(
-			new HashConfig(),
+			new \HashConfig(),
 			'Foo',
 			'Bar'
 		);

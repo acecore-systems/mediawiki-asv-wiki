@@ -18,8 +18,6 @@
  * @file
  */
 
-namespace Wikimedia\EventRelayer;
-
 /**
  * No-op class for publishing messages into a PubSub system
  */
@@ -28,6 +26,3 @@ class EventRelayerNull extends EventRelayer {
 		return true;
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( EventRelayerNull::class, 'EventRelayerNull' );

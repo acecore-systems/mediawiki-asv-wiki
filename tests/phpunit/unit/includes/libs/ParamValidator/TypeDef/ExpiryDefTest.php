@@ -1,11 +1,10 @@
 <?php
 
-namespace Wikimedia\Tests\ParamValidator\TypeDef;
+namespace Wikimedia\ParamValidator\TypeDef;
 
 use InvalidArgumentException;
 use Wikimedia\Message\DataMessageValue;
 use Wikimedia\ParamValidator\SimpleCallbacks;
-use Wikimedia\ParamValidator\TypeDef\ExpiryDef;
 use Wikimedia\ParamValidator\ValidationException;
 use Wikimedia\Timestamp\ConvertibleTimestamp;
 
@@ -110,13 +109,6 @@ class ExpiryDefTest extends TypeDefTestCase {
 					ExpiryDef::PARAM_MAX => '6 months',
 				]
 			),
-			'Not a string' => [
-				[ 1, 2, 3 ],
-				new ValidationException(
-					DataMessageValue::new( 'paramvalidator-needstring', [], 'needstring' ),
-					'test', '', []
-				)
-			],
 		];
 	}
 
@@ -171,7 +163,7 @@ class ExpiryDefTest extends TypeDefTestCase {
 	 */
 	public function testNormalizeUsingMaxExpiry() {
 		// Fake current time to be 2020-05-27T00:00:00Z
-		ConvertibleTimestamp::setFakeTime( '20200527000000' );
+		$fakeTime = ConvertibleTimestamp::setFakeTime( '20200527000000' );
 		$this->assertSame(
 			'2020-11-27T00:00:00Z',
 			ExpiryDef::normalizeUsingMaxExpiry( '10 months', '6 months', TS_ISO_8601 )

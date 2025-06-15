@@ -14,22 +14,24 @@ use Wikimedia\ScopedCallback;
 class ParserTestFileSuite extends TestSuite {
 	use SuiteEventsTrait;
 
-	private ParserTestRunner $ptRunner;
-	private TestFileReader $ptFileInfo;
+	private $ptRunner;
+	private $ptFileName;
+	private $ptFileInfo;
 
 	/** @var ScopedCallback */
 	private $ptTeardownScope;
 
-	public function __construct( ParserTestRunner $runner, string $name, string $fileName ) {
+	public function __construct( $runner, $name, $fileName ) {
 		parent::__construct( $name );
 		$this->ptRunner = $runner;
+		$this->ptFileName = $fileName;
 		try {
-			$this->ptFileInfo = TestFileReader::read( $fileName, static function ( $msg ) {
+			$this->ptFileInfo = TestFileReader::read( $this->ptFileName, static function ( $msg ) {
 				wfDeprecatedMsg( $msg, '1.35', false, false );
 			} );
 		} catch ( \Exception $e ) {
 			// Friendlier wrapping for any syntax errors that might occur.
-			throw new RuntimeException(
+			throw new MWException(
 				$fileName . ': ' . $e->getMessage()
 			);
 		}

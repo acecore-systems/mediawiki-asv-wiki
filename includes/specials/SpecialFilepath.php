@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Filepath
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,23 +18,18 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
-use MediaWiki\SpecialPage\RedirectSpecialPage;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Title\Title;
-use SearchEngineFactory;
-
 /**
- * Redirects to the URL of a thumbnail for the given file.
+ * A special page that redirects to the URL of a given file
  *
  * @ingroup SpecialPage
  */
 class SpecialFilepath extends RedirectSpecialPage {
 
-	private SearchEngineFactory $searchEngineFactory;
+	/** @var SearchEngineFactory */
+	private $searchEngineFactory;
 
 	/**
 	 * @param SearchEngineFactory $searchEngineFactory
@@ -98,6 +95,3 @@ class SpecialFilepath extends RedirectSpecialPage {
 		return 'media';
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialFilepath::class, 'SpecialFilepath' );

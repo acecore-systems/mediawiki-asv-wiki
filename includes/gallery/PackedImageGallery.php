@@ -20,10 +20,8 @@
  * @file
  */
 
-use MediaWiki\Context\IContextSource;
-
 class PackedImageGallery extends TraditionalImageGallery {
-	public function __construct( $mode = 'traditional', ?IContextSource $context = null ) {
+	public function __construct( $mode = 'traditional', IContextSource $context = null ) {
 		parent::__construct( $mode, $context );
 		// Does not support per row option.
 		$this->mPerRow = 0;
@@ -63,8 +61,8 @@ class PackedImageGallery extends TraditionalImageGallery {
 
 		// self::SCALE_FACTOR so the js has some room to manipulate sizes.
 		return [
-			'width' => (int)floor( $width * self::SCALE_FACTOR ),
-			'height' => (int)floor( $this->mHeights * self::SCALE_FACTOR ),
+			'width' => $width * self::SCALE_FACTOR,
+			'height' => $this->mHeights * self::SCALE_FACTOR,
 		];
 	}
 

@@ -1,14 +1,9 @@
 <?php
 
-use MediaWiki\Cache\HTMLCacheUpdater;
 use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\HookContainer\StaticHookRegistry;
 use MediaWiki\Page\PageReference;
 use MediaWiki\Page\PageReferenceValue;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleArrayFromResult;
-use Wikimedia\EventRelayer\EventRelayer;
-use Wikimedia\EventRelayer\EventRelayerGroup;
 use Wikimedia\Rdbms\FakeResultWrapper;
 
 /**
@@ -17,11 +12,11 @@ use Wikimedia\Rdbms\FakeResultWrapper;
 class HtmlCacheUpdaterIntegrationTest extends MediaWikiIntegrationTestCase {
 
 	/**
-	 * @return HTMLCacheUpdater
+	 * @return HtmlCacheUpdater
 	 * @throws Exception
 	 */
-	private function newHtmlCacheUpdater(): HTMLCacheUpdater {
-		$updater = new HTMLCacheUpdater(
+	private function newHtmlCacheUpdater(): HtmlCacheUpdater {
+		$updater = new HtmlCacheUpdater(
 			new HookContainer(
 				new StaticHookRegistry(),
 				$this->getServiceContainer()->getObjectFactory()
@@ -62,7 +57,7 @@ class HtmlCacheUpdaterIntegrationTest extends MediaWikiIntegrationTestCase {
 		return $group;
 	}
 
-	public static function providePurgeTitleUrls() {
+	public function providePurgeTitleUrls() {
 		yield [ [], [] ];
 
 		yield [
@@ -98,7 +93,7 @@ class HtmlCacheUpdaterIntegrationTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider providePurgeTitleUrls
-	 * @covers \MediaWiki\Cache\HTMLCacheUpdater::purgeTitleUrls
+	 * @covers HtmlCacheUpdater::purgeTitleUrls
 	 */
 	public function testPurgeTitleUrls( $pages, $expected ) {
 		$this->setService( 'EventRelayerGroup', $this->getEventRelayGroup( $expected ) );
@@ -108,7 +103,7 @@ class HtmlCacheUpdaterIntegrationTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Cache\HTMLCacheUpdater::purgeUrls
+	 * @covers HtmlCacheUpdater::purgeUrls
 	 */
 	public function testPurgeUrls() {
 		$urls = [ 'https://acme.test/wiki/Foo', 'https://acme.test/wiki/Bar', ];

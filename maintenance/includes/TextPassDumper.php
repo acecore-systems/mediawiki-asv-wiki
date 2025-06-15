@@ -2,7 +2,7 @@
 /**
  * BackupDumper that postprocesses XML dumps from dumpBackup.php to add page text
  *
- * Copyright (C) 2005 Brooke Vibber <bvibber@wikimedia.org>
+ * Copyright (C) 2005 Brion Vibber <brion@pobox.com>
  * https://www.mediawiki.org/
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,31 +25,18 @@
  * @ingroup Maintenance
  */
 
-namespace MediaWiki\Maintenance;
-
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/BackupDumper.php';
 require_once __DIR__ . '/../../includes/export/WikiExporter.php';
-// @codeCoverageIgnoreEnd
 
-use BaseDump;
-use Exception;
-use ExportProgressFilter;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Revision\SlotRecord;
 use MediaWiki\Settings\SettingsBuilder;
 use MediaWiki\Shell\Shell;
 use MediaWiki\Storage\BlobAccessException;
 use MediaWiki\Storage\BlobStore;
 use MediaWiki\Storage\SqlBlobStore;
-use MediaWiki\WikiMap\WikiMap;
-use MediaWiki\Xml\Xml;
-use MWException;
-use MWUnknownContentModelException;
-use RuntimeException;
-use WikiExporter;
 use Wikimedia\AtEase\AtEase;
 use Wikimedia\Rdbms\IMaintainableDatabase;
-use XmlDumpWriter;
 
 /**
  * @ingroup Maintenance
@@ -92,7 +79,7 @@ class TextPassDumper extends BackupDumper {
 	protected $failureTimeout = 5;
 
 	/** @var int In bytes. Maximum size to read from the stub in on go. */
-	protected $bufferSize = 524_288;
+	protected $bufferSize = 524288;
 
 	/** @var array */
 	protected $php = [ PHP_BINARY ];
@@ -181,7 +168,7 @@ TEXT
 		}
 	}
 
-	public function finalSetup( SettingsBuilder $settingsBuilder ) {
+	public function finalSetup( SettingsBuilder $settingsBuilder = null ) {
 		parent::finalSetup( $settingsBuilder );
 
 		SevenZipStream::register();
@@ -191,7 +178,7 @@ TEXT
 	 * @return BlobStore
 	 */
 	private function getBlobStore() {
-		return $this->getServiceContainer()->getBlobStore();
+		return MediaWikiServices::getInstance()->getBlobStore();
 	}
 
 	public function execute() {
@@ -249,6 +236,7 @@ TEXT
 	 *
 	 * This function resets $this->lb and closes all connections on it.
 	 *
+	 * @throws MWException
 	 * @suppress PhanTypeObjectUnsetDeclaredProperty
 	 */
 	protected function rotateDb() {
@@ -265,7 +253,7 @@ TEXT
 		}
 
 		if ( isset( $this->db ) && $this->db->isOpen() ) {
-			throw new RuntimeException( 'DB is set and has not been closed by the Load Balancer' );
+			throw new MWException( 'DB is set and has not been closed by the Load Balancer' );
 		}
 
 		unset( $this->db );
@@ -275,17 +263,17 @@ TEXT
 		// individually retrying at different layers of code.
 
 		try {
-			$lbFactory = $this->getServiceContainer()->getDBLoadBalancerFactory();
+			$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
 			$this->lb = $lbFactory->newMainLB();
 		} catch ( Exception $e ) {
-			throw new RuntimeException( __METHOD__
+			throw new MWException( __METHOD__
 				. " rotating DB failed to obtain new load balancer (" . $e->getMessage() . ")" );
 		}
 
 		try {
 			$this->db = $this->lb->getMaintenanceConnectionRef( DB_REPLICA, 'dump' );
 		} catch ( Exception $e ) {
-			throw new RuntimeException( __METHOD__
+			throw new MWException( __METHOD__
 				. " rotating DB failed to obtain new database (" . $e->getMessage() . ")" );
 		}
 	}
@@ -452,12 +440,12 @@ TEXT
 		if ( ( $this->checkpointFiles && !$this->maxTimeAllowed )
 			|| ( $this->maxTimeAllowed && !$this->checkpointFiles )
 		) {
-			throw new RuntimeException( "Options checkpointfile and maxtime must be specified together.\n" );
+			throw new MWException( "Options checkpointfile and maxtime must be specified together.\n" );
 		}
 		foreach ( $this->checkpointFiles as $checkpointFile ) {
 			$count = substr_count( $checkpointFile, "%s" );
-			if ( $count !== 2 ) {
-				throw new RuntimeException( "Option checkpointfile must contain two '%s' "
+			if ( $count != 2 ) {
+				throw new MWException( "Option checkpointfile must contain two '%s' "
 					. "for substitution of first and last pageids, count is $count instead, "
 					. "file is $checkpointFile.\n" );
 			}
@@ -465,8 +453,8 @@ TEXT
 
 		if ( $this->checkpointFiles ) {
 			$filenameList = (array)$this->egress->getFilenames();
-			if ( count( $filenameList ) !== count( $this->checkpointFiles ) ) {
-				throw new RuntimeException( "One checkpointfile must be specified "
+			if ( count( $filenameList ) != count( $this->checkpointFiles ) ) {
+				throw new MWException( "One checkpointfile must be specified "
 					. "for each output option, if maxtime is used.\n" );
 			}
 		}
@@ -565,10 +553,11 @@ TEXT
 	 */
 	private function exportTransform( $text, $model, $format = null ) {
 		try {
-			$contentHandler = $this->getServiceContainer()
+			$text = MediaWikiServices::getInstance()
 				->getContentHandlerFactory()
-				->getContentHandler( $model );
-		} catch ( MWUnknownContentModelException $ex ) {
+				->getContentHandler( $model )
+				->exportTransform( $text, $format );
+		} catch ( MWException $ex ) {
 			wfWarn( "Unable to apply export transformation for content model '$model': " .
 				$ex->getMessage() );
 
@@ -576,10 +565,9 @@ TEXT
 				"Unable to apply export transformation for content model '$model': " .
 				$ex->getMessage()
 			);
-			return $text;
 		}
 
-		return $contentHandler->exportTransform( $text, $format );
+		return $text;
 	}
 
 	/**
@@ -594,7 +582,7 @@ TEXT
 	 * is thrown.
 	 *
 	 * @param int|string $id Content address, or text row ID.
-	 * @param string|false|null $model The content model used to determine
+	 * @param string|bool|null $model The content model used to determine
 	 *  applicable export transformations. If $model is null, no transformation is applied.
 	 * @param string|null $format The content format used when applying export transformations.
 	 * @param int|null $expSize Expected length of the text, for checks
@@ -643,7 +631,11 @@ TEXT
 						(int)$this->thisPage,
 						(int)$this->thisRev,
 						trim( $this->thisRole )
-					) ?? false;
+					);
+
+					if ( $text === null ) {
+						$text = false;
+					}
 
 					if ( is_string( $text ) && $model !== null ) {
 						// Apply export transformation to text coming from an old dump.
@@ -679,7 +671,7 @@ TEXT
 				}
 
 				if ( $text === false ) {
-					throw new RuntimeException( "Generic error while obtaining text for id " . $id );
+					throw new MWException( "Generic error while obtaining text for id " . $id );
 				}
 
 				// We received a good candidate for the text of $id via some method
@@ -697,7 +689,7 @@ TEXT
 				}
 
 				$text = false;
-				throw new RuntimeException( "Received text is unplausible for id " . $id );
+				throw new MWException( "Received text is unplausible for id " . $id );
 			} catch ( Exception $e ) {
 				$msg = "getting/checking text " . $id . " failed (" . $e->getMessage()
 					. ") for revision " . $this->thisRev;
@@ -759,7 +751,7 @@ TEXT
 			$text = $store->getBlob( $address );
 
 			$stripped = str_replace( "\r", "", $text );
-			$normalized = $this->getServiceContainer()->getContentLanguage()
+			$normalized = MediaWikiServices::getInstance()->getContentLanguage()
 				->normalize( $stripped );
 
 			return $normalized;
@@ -920,7 +912,7 @@ TEXT
 
 		// Do normalization in the dump thread...
 		$stripped = str_replace( "\r", "", $text );
-		$normalized = $this->getServiceContainer()->getContentLanguage()->
+		$normalized = MediaWikiServices::getInstance()->getContentLanguage()->
 			normalize( $stripped );
 
 		return $normalized;
@@ -946,7 +938,7 @@ TEXT
 		} elseif ( $name === 'mediawiki' ) {
 			if ( isset( $attribs['version'] ) ) {
 				if ( $attribs['version'] !== $this->schemaVersion ) {
-					throw new RuntimeException( 'Mismatching schema version. '
+					throw new MWException( 'Mismatching schema version. '
 						. 'Use the --schema-version option to set the output schema version to '
 						. 'the version declared by the stub file, namely ' . $attribs['version'] );
 				}
@@ -1091,6 +1083,3 @@ TEXT
 	}
 
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( TextPassDumper::class, 'TextPassDumper' );

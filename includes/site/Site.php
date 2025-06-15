@@ -1,5 +1,12 @@
 <?php
+
+use MediaWiki\MainConfigNames;
+use MediaWiki\MediaWikiServices;
+use MediaWiki\Site\MediaWikiPageNameNormalizer;
+
 /**
+ * Represents a single site.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -15,25 +22,15 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
  *
- * @file
- */
-
-namespace MediaWiki\Site;
-
-use InvalidArgumentException;
-use MediaWiki\MainConfigNames;
-use MediaWiki\MediaWikiServices;
-use RuntimeException;
-use UnexpectedValueException;
-
-/**
- * Represents a single site.
- *
  * @since 1.21
+ *
+ * @file
  * @ingroup Site
+ *
+ * @license GPL-2.0-or-later
  * @author Jeroen De Dauw < jeroendedauw@gmail.com >
  */
-class Site {
+class Site implements Serializable {
 	public const TYPE_UNKNOWN = 'unknown';
 	public const TYPE_MEDIAWIKI = 'mediawiki';
 
@@ -152,9 +149,16 @@ class Site {
 	 * Sets the global site identifier (ie enwiktionary).
 	 *
 	 * @since 1.21
+	 *
 	 * @param string|null $globalId
+	 *
+	 * @throws MWException
 	 */
-	public function setGlobalId( ?string $globalId ) {
+	public function setGlobalId( $globalId ) {
+		if ( $globalId !== null && !is_string( $globalId ) ) {
+			throw new MWException( '$globalId needs to be string or null' );
+		}
+
 		$this->globalId = $globalId;
 	}
 
@@ -184,9 +188,16 @@ class Site {
 	 * Sets the group of the site (ie wikipedia).
 	 *
 	 * @since 1.21
+	 *
 	 * @param string $group
+	 *
+	 * @throws MWException
 	 */
-	public function setGroup( string $group ) {
+	public function setGroup( $group ) {
+		if ( !is_string( $group ) ) {
+			throw new MWException( '$group needs to be a string' );
+		}
+
 		$this->group = $group;
 	}
 
@@ -205,9 +216,16 @@ class Site {
 	 * Sets the source of the site data (ie 'local', 'wikidata', 'my-magical-repo').
 	 *
 	 * @since 1.21
+	 *
 	 * @param string $source
+	 *
+	 * @throws MWException
 	 */
-	public function setSource( string $source ) {
+	public function setSource( $source ) {
+		if ( !is_string( $source ) ) {
+			throw new MWException( '$source needs to be a string' );
+		}
+
 		$this->source = $source;
 	}
 
@@ -228,9 +246,16 @@ class Site {
 	 * the actual site, where "key" is the local identifier.
 	 *
 	 * @since 1.21
+	 *
 	 * @param bool $shouldForward
+	 *
+	 * @throws MWException
 	 */
-	public function setForward( bool $shouldForward ) {
+	public function setForward( $shouldForward ) {
+		if ( !is_bool( $shouldForward ) ) {
+			throw new MWException( '$shouldForward needs to be a boolean' );
+		}
+
 		$this->forward = $shouldForward;
 	}
 
@@ -262,6 +287,8 @@ class Site {
 	 * Returns the protocol of the site.
 	 *
 	 * @since 1.21
+	 *
+	 * @throws MWException
 	 * @return string
 	 */
 	public function getProtocol() {
@@ -275,26 +302,33 @@ class Site {
 
 		// Malformed URL
 		if ( $protocol === false ) {
-			throw new UnexpectedValueException( "failed to parse URL '$path'" );
+			throw new MWException( "failed to parse URL '$path'" );
 		}
 
-		// Used for protocol relative URLs
-		return $protocol ?? '';
+		// No schema
+		if ( $protocol === null ) {
+			// Used for protocol relative URLs
+			$protocol = '';
+		}
+
+		return $protocol;
 	}
 
 	/**
-	 * Set the path used to construct links with.
-	 *
+	 * Sets the path used to construct links with.
 	 * Shall be equivalent to setPath( getLinkPathType(), $fullUrl ).
 	 *
 	 * @param string $fullUrl
+	 *
 	 * @since 1.21
+	 *
+	 * @throws MWException
 	 */
 	public function setLinkPath( $fullUrl ) {
 		$type = $this->getLinkPathType();
 
 		if ( $type === null ) {
-			throw new RuntimeException( "This Site does not support link paths." );
+			throw new MWException( "This Site does not support link paths." );
 		}
 
 		$this->setPath( $type, $fullUrl );
@@ -329,9 +363,8 @@ class Site {
 	}
 
 	/**
-	 * Get the full URL for the given page on the site.
-	 *
-	 * Returns null if the needed information is not known.
+	 * Returns the full URL for the given page on the site.
+	 * Or null if the needed information is not known.
 	 *
 	 * This generated URL is usually based upon the path returned by getLinkPath(),
 	 * but this is not a requirement.
@@ -339,7 +372,9 @@ class Site {
 	 * This implementation returns a URL constructed using the path returned by getLinkPath().
 	 *
 	 * @since 1.21
-	 * @param string|false $pageName
+	 *
+	 * @param bool|string $pageName
+	 *
 	 * @return string|null
 	 */
 	public function getPageUrl( $pageName = false ) {
@@ -441,8 +476,11 @@ class Site {
 	 * @param string|null $languageCode
 	 */
 	public function setLanguageCode( $languageCode ) {
-		if ( $languageCode !== null &&
-			!MediaWikiServices::getInstance()->getLanguageNameUtils()->isValidCode( $languageCode ) ) {
+		if ( $languageCode !== null
+			&& !MediaWikiServices::getInstance()
+				->getLanguageNameUtils()
+				->isValidCode( $languageCode )
+		) {
 			throw new InvalidArgumentException( "$languageCode is not a valid language code." );
 		}
 		$this->languageCode = $languageCode;
@@ -484,7 +522,9 @@ class Site {
 			$this->localIds = [];
 		}
 
-		$this->localIds[$type] ??= [];
+		if ( !array_key_exists( $type, $this->localIds ) ) {
+			$this->localIds[$type] = [];
+		}
 
 		if ( !in_array( $identifier, $this->localIds[$type] ) ) {
 			$this->localIds[$type][] = $identifier;
@@ -521,7 +561,9 @@ class Site {
 	 * @return string[]
 	 */
 	public function getInterwikiIds() {
-		return $this->localIds[self::ID_INTERWIKI] ?? [];
+		return array_key_exists( self::ID_INTERWIKI, $this->localIds )
+			? $this->localIds[self::ID_INTERWIKI]
+			: [];
 	}
 
 	/**
@@ -533,7 +575,9 @@ class Site {
 	 * @return string[]
 	 */
 	public function getNavigationIds() {
-		return $this->localIds[self::ID_EQUIVALENT] ?? [];
+		return array_key_exists( self::ID_EQUIVALENT, $this->localIds )
+			? $this->localIds[self::ID_EQUIVALENT] :
+			[];
 	}
 
 	/**
@@ -548,15 +592,25 @@ class Site {
 	}
 
 	/**
-	 * Set the path used to construct links with.
-	 *
+	 * Sets the path used to construct links with.
 	 * Shall be equivalent to setPath( getLinkPathType(), $fullUrl ).
 	 *
 	 * @since 1.21
+	 *
 	 * @param string $pathType
 	 * @param string $fullUrl
+	 *
+	 * @throws MWException
 	 */
-	public function setPath( $pathType, string $fullUrl ) {
+	public function setPath( $pathType, $fullUrl ) {
+		if ( !is_string( $fullUrl ) ) {
+			throw new MWException( '$fullUrl needs to be a string' );
+		}
+
+		if ( !array_key_exists( 'paths', $this->extraData ) ) {
+			$this->extraData['paths'] = [];
+		}
+
 		$this->extraData['paths'][$pathType] = $fullUrl;
 	}
 
@@ -607,16 +661,25 @@ class Site {
 	 * @return Site
 	 */
 	public static function newForType( $siteType ) {
-		/** @var class-string<Site>[] $siteTypes */
 		$siteTypes = MediaWikiServices::getInstance()->getMainConfig()->get(
-			MainConfigNames::SiteTypes
-		);
+			MainConfigNames::SiteTypes );
 
 		if ( array_key_exists( $siteType, $siteTypes ) ) {
 			return new $siteTypes[$siteType]();
 		}
 
 		return new Site();
+	}
+
+	/**
+	 * @see Serializable::serialize
+	 *
+	 * @since 1.21
+	 *
+	 * @return string
+	 */
+	public function serialize(): string {
+		return serialize( $this->__serialize() );
 	}
 
 	/**
@@ -644,6 +707,17 @@ class Site {
 	/**
 	 * @see Serializable::unserialize
 	 *
+	 * @since 1.21
+	 *
+	 * @param string $serialized
+	 */
+	public function unserialize( $serialized ): void {
+		$this->__unserialize( unserialize( $serialized ) );
+	}
+
+	/**
+	 * @see Serializable::unserialize
+	 *
 	 * @since 1.38
 	 *
 	 * @param array $fields
@@ -662,6 +736,3 @@ class Site {
 		$this->setInternalId( $fields['internalid'] );
 	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( Site::class, 'Site' );

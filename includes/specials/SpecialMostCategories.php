@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Mostcategories
+ *
  * Copyright © 2005 Ævar Arnfjörð Bjarmason
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,45 +20,38 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- */
-
-namespace MediaWiki\Specials;
-
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Html\Html;
-use MediaWiki\Linker\Linker;
-use MediaWiki\SpecialPage\QueryPage;
-use MediaWiki\Title\NamespaceInfo;
-use MediaWiki\Title\Title;
-use Skin;
-use stdClass;
-use Wikimedia\Rdbms\IConnectionProvider;
-use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\IResultWrapper;
-
-/**
- * List of pages that have the highest category count.
- *
  * @ingroup SpecialPage
  * @author Ævar Arnfjörð Bjarmason <avarab@gmail.com>
  */
+
+use MediaWiki\Cache\LinkBatchFactory;
+use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\ILoadBalancer;
+use Wikimedia\Rdbms\IResultWrapper;
+
+/**
+ * A special page that list pages that have highest category count
+ *
+ * @ingroup SpecialPage
+ */
 class SpecialMostCategories extends QueryPage {
 
-	private NamespaceInfo $namespaceInfo;
+	/** @var NamespaceInfo */
+	private $namespaceInfo;
 
 	/**
 	 * @param NamespaceInfo $namespaceInfo
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param LinkBatchFactory $linkBatchFactory
 	 */
 	public function __construct(
 		NamespaceInfo $namespaceInfo,
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		LinkBatchFactory $linkBatchFactory
 	) {
 		parent::__construct( 'Mostcategories' );
 		$this->namespaceInfo = $namespaceInfo;
-		$this->setDatabaseProvider( $dbProvider );
+		$this->setDBLoadBalancer( $loadBalancer );
 		$this->setLinkBatchFactory( $linkBatchFactory );
 	}
 
@@ -135,9 +130,3 @@ class SpecialMostCategories extends QueryPage {
 		return 'highuse';
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialMostCategories::class, 'SpecialMostCategories' );

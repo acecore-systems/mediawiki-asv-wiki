@@ -1,11 +1,17 @@
 ( function () {
+
+	/**
+	 * @class mw.String
+	 * @singleton
+	 */
+
 	/**
 	 * Calculate the byte length of a string (accounting for UTF-8).
 	 *
 	 * @author Jan Paul Posma, 2011
 	 * @author Timo Tijhof, 2012
 	 * @author David Chan, 2013
-	 * @memberof module:mediawiki.String
+	 *
 	 * @param {string} str
 	 * @return {number}
 	 */
@@ -33,7 +39,6 @@
 	/**
 	 * Calculate the character length of a string (accounting for UTF-16 surrogates).
 	 *
-	 * @memberof module:mediawiki.String
 	 * @param {string} str
 	 * @return {number}
 	 */
@@ -45,10 +50,8 @@
 	}
 
 	/**
-	 * Like {@link https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String/charAt String.charAt()},
-	 * but return the pair of UTF-16 surrogates for characters outside of BMP.
+	 * Like String#charAt, but return the pair of UTF-16 surrogates for characters outside of BMP.
 	 *
-	 * @memberof module:mediawiki.String
 	 * @param {string} string
 	 * @param {number} offset Offset to extract the character
 	 * @param {boolean} [backwards] Use backwards direction to detect UTF-16 surrogates,
@@ -58,7 +61,7 @@
 	function charAt( string, offset, backwards ) {
 		// We don't need to check for offsets at the beginning or end of string,
 		// String#slice will simply return a shorter (or empty) substring.
-		const maybePair = backwards ?
+		var maybePair = backwards ?
 			string.slice( offset - 1, offset + 1 ) :
 			string.slice( offset, offset + 2 );
 		if ( /^[\uD800-\uDBFF][\uDC00-\uDFFF]$/.test( maybePair ) ) {
@@ -71,29 +74,28 @@
 	/**
 	 * Lowercase the first character. Support UTF-16 surrogates for characters outside of BMP.
 	 *
-	 * @memberof module:mediawiki.String
 	 * @param {string} string
 	 * @return {string}
 	 */
 	function lcFirst( string ) {
-		const firstChar = charAt( string, 0 );
+		var firstChar = charAt( string, 0 );
 		return firstChar.toLowerCase() + string.slice( firstChar.length );
 	}
 
 	/**
 	 * Uppercase the first character. Support UTF-16 surrogates for characters outside of BMP.
 	 *
-	 * @memberof module:mediawiki.String
 	 * @param {string} string
 	 * @return {string}
 	 */
 	function ucFirst( string ) {
-		const firstChar = charAt( string, 0 );
+		var firstChar = charAt( string, 0 );
 		return firstChar.toUpperCase() + string.slice( firstChar.length );
 	}
 
 	function trimLength( safeVal, newVal, length, lengthFn ) {
-		const oldVal = safeVal;
+		var startMatches, endMatches, matchesLen, inpParts, chopOff, oldChar, newChar,
+			oldVal = safeVal;
 
 		// Run the hook if one was provided, but only on the length
 		// assessment. The value itself is not to be affected by the hook.
@@ -108,8 +110,8 @@
 
 		// Current input is longer than the active limit.
 		// Figure out what was added and limit the addition.
-		let startMatches = 0;
-		let endMatches = 0;
+		startMatches = 0;
+		endMatches = 0;
 
 		// It is important that we keep the search within the range of
 		// the shortest string's length.
@@ -117,13 +119,13 @@
 		// (e.g. "foo" -> "foofoo"). startMatches would be 3, but without
 		// limiting both searches to the shortest length, endMatches would
 		// also be 3.
-		const matchesLen = Math.min( newVal.length, oldVal.length );
+		matchesLen = Math.min( newVal.length, oldVal.length );
 
 		// Count same characters from the left, first.
 		// (if "foo" -> "foofoo", assume addition was at the end).
 		while ( startMatches < matchesLen ) {
-			const oldChar = charAt( oldVal, startMatches, false );
-			const newChar = charAt( newVal, startMatches, false );
+			oldChar = charAt( oldVal, startMatches, false );
+			newChar = charAt( newVal, startMatches, false );
 			if ( oldChar !== newChar ) {
 				break;
 			}
@@ -131,15 +133,15 @@
 		}
 
 		while ( endMatches < ( matchesLen - startMatches ) ) {
-			const oldChar = charAt( oldVal, oldVal.length - 1 - endMatches, true );
-			const newChar = charAt( newVal, newVal.length - 1 - endMatches, true );
+			oldChar = charAt( oldVal, oldVal.length - 1 - endMatches, true );
+			newChar = charAt( newVal, newVal.length - 1 - endMatches, true );
 			if ( oldChar !== newChar ) {
 				break;
 			}
 			endMatches += oldChar.length;
 		}
 
-		const inpParts = [
+		inpParts = [
 			// Same start
 			newVal.slice( 0, startMatches ),
 			// Inserted content
@@ -153,7 +155,7 @@
 		// Make sure to stop when there is nothing to slice (T43450).
 		while ( lengthFn( inpParts.join( '' ) ) > length && inpParts[ 1 ].length > 0 ) {
 			// Do not chop off halves of surrogate pairs
-			const chopOff = /[\uD800-\uDBFF][\uDC00-\uDFFF]$/.test( inpParts[ 1 ] ) ? 2 : 1;
+			chopOff = /[\uD800-\uDBFF][\uDC00-\uDFFF]$/.test( inpParts[ 1 ] ) ? 2 : 1;
 			inpParts[ 1 ] = inpParts[ 1 ].slice( 0, -chopOff );
 		}
 
@@ -166,28 +168,23 @@
 	}
 
 	/**
-	 * @typedef {Object} module:mediawiki.String~StringTrimmed
-	 * @property {string} newVal a trimmed version of the string
-	 * @property {boolean} trimmed whether the string is different from the original version.
-	 */
-
-	/**
 	 * Utility function to trim down a string, based on byteLimit
 	 * and given a safe start position. It supports insertion anywhere
 	 * in the string, so "foo" to "fobaro" if limit is 4 will result in
 	 * "fobo", not "foba". Basically emulating the native maxlength by
 	 * reconstructing where the insertion occurred.
 	 *
-	 * @memberof module:mediawiki.String
 	 * @param {string} safeVal Known value that was previously returned by this
 	 * function, if none, pass empty string.
 	 * @param {string} newVal New value that may have to be trimmed down.
 	 * @param {number} byteLimit Number of bytes the value may be in size.
 	 * @param {Function} [filterFunction] Function to call on the string before assessing the length.
-	 * @return {module:mediawiki.String~StringTrimmed}
+	 * @return {Object}
+	 * @return {string} return.newVal
+	 * @return {boolean} return.trimmed
 	 */
 	function trimByteLength( safeVal, newVal, byteLimit, filterFunction ) {
-		let lengthFn;
+		var lengthFn;
 		if ( filterFunction ) {
 			lengthFn = function ( val ) {
 				return byteLength( filterFunction( val ) );
@@ -206,16 +203,17 @@
 	 * "fobo", not "foba". Basically emulating the native maxlength by
 	 * reconstructing where the insertion occurred.
 	 *
-	 * @memberof module:mediawiki.String
 	 * @param {string} safeVal Known value that was previously returned by this
 	 * function, if none, pass empty string.
 	 * @param {string} newVal New value that may have to be trimmed down.
 	 * @param {number} codePointLimit Number of characters the value may be in size.
 	 * @param {Function} [filterFunction] Function to call on the string before assessing the length.
-	 * @return {module:mediawiki.String~StringTrimmed}
+	 * @return {Object}
+	 * @return {string} return.newVal
+	 * @return {boolean} return.trimmed
 	 */
 	function trimCodePointLength( safeVal, newVal, codePointLimit, filterFunction ) {
-		let lengthFn;
+		var lengthFn;
 		if ( filterFunction ) {
 			lengthFn = function ( val ) {
 				return codePointLength( filterFunction( val ) );
@@ -227,19 +225,14 @@
 		return trimLength( safeVal, newVal, codePointLimit, lengthFn );
 	}
 
-	/**
-	 * Module providing string utility functions.
-	 *
-	 * @exports mediawiki.String
-	 */
 	module.exports = {
-		byteLength,
-		codePointLength,
-		charAt,
-		lcFirst,
-		ucFirst,
-		trimByteLength,
-		trimCodePointLength
+		byteLength: byteLength,
+		codePointLength: codePointLength,
+		charAt: charAt,
+		lcFirst: lcFirst,
+		ucFirst: ucFirst,
+		trimByteLength: trimByteLength,
+		trimCodePointLength: trimCodePointLength
 	};
 
 }() );

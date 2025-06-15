@@ -68,7 +68,7 @@ class BlockPermissionCheckerTest extends MediaWikiUnitTestCase {
 		return $block;
 	}
 
-	public static function provideCheckBasePermissions() {
+	public function provideCheckBasePermissions() {
 		// $rights, $checkHideuser, $expect
 		yield 'need block' => [ [], false, 'badaccess-group0' ];
 		yield 'block enough for not hiding' => [ [ 'block' ], false, true ];
@@ -126,7 +126,7 @@ class BlockPermissionCheckerTest extends MediaWikiUnitTestCase {
 		);
 	}
 
-	public static function provideCheckBlockPermissions() {
+	public function provideCheckBlockPermissions() {
 		// Blocked admin changing own block
 		yield 'Self blocked' => [ 'blocker', 1, 'blocker', false, true ];
 		yield 'unblockself' => [ 'another admin', 1, 'blocker', true, true ];
@@ -174,7 +174,7 @@ class BlockPermissionCheckerTest extends MediaWikiUnitTestCase {
 		);
 	}
 
-	public static function provideCheckEmailPermissions() {
+	public function provideCheckEmailPermissions() {
 		// $enableEmail, $rights, $expect
 		yield 'Email not enabled, without permissions' => [ false, [], false ];
 		yield 'Email not enabled, with permissions' => [ false, [ 'blockemail' ], false ];

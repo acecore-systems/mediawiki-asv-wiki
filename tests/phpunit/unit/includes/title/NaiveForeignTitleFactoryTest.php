@@ -19,18 +19,14 @@
  * @author This, that and the other
  */
 
-use MediaWiki\Language\Language;
-use MediaWiki\Title\ForeignTitle;
-use MediaWiki\Title\NaiveForeignTitleFactory;
-
 /**
- * @covers \MediaWiki\Title\NaiveForeignTitleFactory
+ * @covers NaiveForeignTitleFactory
  *
  * @group Title
  */
 class NaiveForeignTitleFactoryTest extends MediaWikiUnitTestCase {
 
-	public static function basicProvider() {
+	public function basicProvider() {
 		return [
 			[
 				'MainNamespaceArticle', 0,

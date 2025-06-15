@@ -1,19 +1,14 @@
 <?php
 
-namespace MediaWiki\Tests\Session;
+namespace MediaWiki\Session;
 
-use MediaWiki\Request\FauxRequest;
-use MediaWiki\Session\Session;
-use MediaWiki\Session\SessionId;
 use MediaWikiUnitTestCase;
 use Psr\Log\LogLevel;
-use stdClass;
-use TestLogger;
 use Wikimedia\TestingAccessWrapper;
 
 /**
  * @group Session
- * @covers \MediaWiki\Session\Session
+ * @covers MediaWiki\Session\Session
  */
 class SessionUnitTest extends MediaWikiUnitTestCase {
 
@@ -22,12 +17,12 @@ class SessionUnitTest extends MediaWikiUnitTestCase {
 		TestingAccessWrapper::newFromObject( $backend )->requests = [ -1 => 'dummy' ];
 		TestingAccessWrapper::newFromObject( $backend )->id = new SessionId( 'abc' );
 
-		$session = new Session( $backend, 42, new TestLogger );
+		$session = new Session( $backend, 42, new \TestLogger );
 		$priv = TestingAccessWrapper::newFromObject( $session );
 		$this->assertSame( $backend, $priv->backend );
 		$this->assertSame( 42, $priv->index );
 
-		$request = new FauxRequest();
+		$request = new \FauxRequest();
 		$priv2 = TestingAccessWrapper::newFromObject( $session->sessionWithRequest( $request ) );
 		$this->assertSame( $backend, $priv2->backend );
 		$this->assertNotSame( $priv->index, $priv2->index );
@@ -39,15 +34,17 @@ class SessionUnitTest extends MediaWikiUnitTestCase {
 	 * @param string $m Method to test
 	 * @param array $args Arguments to pass to the method
 	 * @param bool $index Whether the backend method gets passed the index
+	 * @param bool $ret Whether the method returns a value
 	 */
-	public function testMethods( $m, $args, $index ) {
-		$backend = $this->getMockBuilder( DummySessionBackend::class )
+	public function testMethods( $m, $args, $index, $ret ) {
+		$mock = $this->getMockBuilder( DummySessionBackend::class )
 			->onlyMethods( [ 'deregisterSession' ] )
 			->addMethods( [ $m ] )
 			->getMock();
-		$backend->expects( $this->once() )->method( 'deregisterSession' )
+		$mock->expects( $this->once() )->method( 'deregisterSession' )
 			->with( $this->identicalTo( 42 ) );
 
+		$tmp = $mock->expects( $this->once() )->method( $m );
 		$expectArgs = [];
 		if ( $index ) {
 			$expectArgs[] = $this->identicalTo( 42 );
@@ -55,12 +52,14 @@ class SessionUnitTest extends MediaWikiUnitTestCase {
 		foreach ( $args as $arg ) {
 			$expectArgs[] = $this->identicalTo( $arg );
 		}
-		$backend->expects( $this->once() )->method( $m )->with( ...$expectArgs );
+		$tmp = $tmp->with( ...$expectArgs );
 
-		$session = TestUtils::getDummySession( $backend, 42 );
+		$retval = new \stdClass;
+		$tmp->willReturn( $retval );
 
-		$session->$m( ...$args );
-		$this->addToAssertionCount( 1 );
+		$session = TestUtils::getDummySession( $mock, 42 );
+
+		$this->assertSame( $ret ? $retval : null, $session->$m( ...$args ) );
 
 		// Trigger Session destructor
 		$session = null;
@@ -68,28 +67,29 @@ class SessionUnitTest extends MediaWikiUnitTestCase {
 
 	public static function provideMethods() {
 		return [
-			[ 'getId', [], false ],
-			[ 'getSessionId', [], false ],
-			[ 'resetId', [], false ],
-			[ 'getProvider', [], false ],
-			[ 'isPersistent', [], false ],
-			[ 'persist', [], false ],
-			[ 'unpersist', [], false ],
-			[ 'shouldRememberUser', [], false ],
-			[ 'setRememberUser', [ true ], false ],
-			[ 'getRequest', [], true ],
-			[ 'getAllowedUserRights', [], false ],
-			[ 'canSetUser', [], false ],
-			[ 'setUser', [ new stdClass ], false ],
-			[ 'suggestLoginUsername', [], true ],
-			[ 'shouldForceHTTPS', [], false ],
-			[ 'setForceHTTPS', [ true ], false ],
-			[ 'getLoggedOutTimestamp', [], false ],
-			[ 'setLoggedOutTimestamp', [ 123 ], false ],
-			[ 'getProviderMetadata', [], false ],
-			[ 'save', [], false ],
-			[ 'delaySave', [], false ],
-			[ 'renew', [], false ],
+			[ 'getId', [], false, true ],
+			[ 'getSessionId', [], false, true ],
+			[ 'resetId', [], false, true ],
+			[ 'getProvider', [], false, true ],
+			[ 'isPersistent', [], false, true ],
+			[ 'persist', [], false, false ],
+			[ 'unpersist', [], false, false ],
+			[ 'shouldRememberUser', [], false, true ],
+			[ 'setRememberUser', [ true ], false, false ],
+			[ 'getRequest', [], true, true ],
+			[ 'getUser', [], false, true ],
+			[ 'getAllowedUserRights', [], false, true ],
+			[ 'canSetUser', [], false, true ],
+			[ 'setUser', [ new \stdClass ], false, false ],
+			[ 'suggestLoginUsername', [], true, true ],
+			[ 'shouldForceHTTPS', [], false, true ],
+			[ 'setForceHTTPS', [ true ], false, false ],
+			[ 'getLoggedOutTimestamp', [], false, true ],
+			[ 'setLoggedOutTimestamp', [ 123 ], false, false ],
+			[ 'getProviderMetadata', [], false, true ],
+			[ 'save', [], false, false ],
+			[ 'delaySave', [], false, true ],
+			[ 'renew', [], false, false ],
 		];
 	}
 
@@ -153,7 +153,7 @@ class SessionUnitTest extends MediaWikiUnitTestCase {
 	}
 
 	public function testArrayAccess() {
-		$logger = new TestLogger;
+		$logger = new \TestLogger;
 		$session = TestUtils::getDummySession( null, -1, $logger );
 		$backend = TestingAccessWrapper::newFromObject( $session )->backend;
 

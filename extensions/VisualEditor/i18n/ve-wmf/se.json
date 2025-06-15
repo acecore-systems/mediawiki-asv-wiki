@@ -1,19 +1,14 @@
 {
 	"@metadata": {
 		"authors": [
-			"Ante75",
-			"Ed g2s",
 			"Kimberli Mäkäräinen (WMNO)",
+			"Ante75",
 			"Lea-Christine Sara",
+			"Ed g2s",
 			"WMNO sámeprošeakta",
 			"Yupik"
 		]
 	},
-	"tag-editcheck-newcontent-description": "EditCheck doaivu ahte ođđa sisdoallu lea lasihuvvon siidui",
-	"tag-editcheck-newreference-description": "Siidui lasihuvvui gáldu",
-	"tag-editcheck-references-description": "EditCheck doaivu ahte okta referánsa sáhttá leamáš dárbbašlaš",
-	"tag-editcheck-references-activated": "[[{{MediaWiki:editcheck-falsepositives-link}}|Rievdadaniskkus (gáldut) biddjojuvvon johtui]]",
-	"tag-editcheck-references-activated-description": "Rievdadandárkkisteami mielde gáldu soaittášii leamaš dárbbašlaš, manin geavahanlakta čájehuvvui",
 	"tag-visualeditor": "[[{{MediaWiki:visualeditor-descriptionpagelink}}|Rievdaduvvon visuála rievdadanprográmmain]]",
 	"tag-visualeditor-description": "Rievdadus dahkkon [[{{MediaWiki:visualeditor-descriptionpagelink}}|visuála rievdadanprográmmain]]",
 	"tag-visualeditor-needcheck": "[[{{MediaWiki:visualeditor-descriptionpagelink}}|Rievdaduvvon visuála rievdadanprográmmain: Dárkkis]]",
@@ -25,6 +20,7 @@
 	"visualeditor-feedback-link": "Project:Visuála rievdadanprográmma/Máhcahat",
 	"visualeditor-feedback-tool": "Atte máhcahaga dán prográmmadaga birra",
 	"visualeditor-help-label": "Loga rávagihppaga",
+	"visualeditor-help-title": "Rievdadanprográmma geavahanrávvagat",
 	"visualeditor-welcomedialog-action": "Rievdadišgoađe",
 	"visualeditor-welcomedialog-content": "Buohkat sáhttet rievdadit, ja juohke buorideapmi veahkeha.",
 	"visualeditor-welcomedialog-content-thanks": "Giitu go veahkehat máilmmi oahppat ođđa diŋggaid!",

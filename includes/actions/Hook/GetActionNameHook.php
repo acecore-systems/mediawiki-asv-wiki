@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Actions\Hook;
 
-use MediaWiki\Context\IContextSource;
+use IContextSource;
 
 /**
  * @stable to implement

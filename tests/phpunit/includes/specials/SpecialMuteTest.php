@@ -1,15 +1,11 @@
 <?php
 
-use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Request\FauxRequest;
-use MediaWiki\Specials\SpecialMute;
-use MediaWiki\User\Options\UserOptionsManager;
+use MediaWiki\User\UserOptionsManager;
 
 /**
  * @group SpecialPage
- * @group Database
- * @covers \MediaWiki\Specials\SpecialMute
+ * @covers SpecialMute
  */
 class SpecialMuteTest extends SpecialPageTestBase {
 
@@ -30,13 +26,12 @@ class SpecialMuteTest extends SpecialPageTestBase {
 		return new SpecialMute(
 			$this->getServiceContainer()->getCentralIdLookupFactory()->getLookup( 'local' ),
 			$this->userOptionsManager,
-			$this->getServiceContainer()->getUserIdentityLookup(),
-			$this->getServiceContainer()->getUserIdentityUtils()
+			$this->getServiceContainer()->getUserIdentityLookup()
 		);
 	}
 
 	/**
-	 * @covers \MediaWiki\Specials\SpecialMute::execute
+	 * @covers SpecialMute::execute
 	 */
 	public function testInvalidTarget() {
 		$user = $this->getTestUser()->getUser();
@@ -48,12 +43,12 @@ class SpecialMuteTest extends SpecialPageTestBase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Specials\SpecialMute::execute
+	 * @covers SpecialMute::execute
 	 */
 	public function testEmailBlacklistNotEnabled() {
 		$this->setTemporaryHook(
 			'SpecialMuteModifyFormFields',
-			HookContainer::NOOP
+			null
 		);
 
 		$this->overrideConfigValue( MainConfigNames::EnableUserEmailMuteList, false );
@@ -67,29 +62,15 @@ class SpecialMuteTest extends SpecialPageTestBase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Specials\SpecialMute::execute
+	 * @covers SpecialMute::execute
 	 */
 	public function testUserNotLoggedIn() {
 		$this->expectException( UserNotLoggedIn::class );
 		$this->executeSpecialPage( 'TestUser' );
 	}
 
-	public function testUserEmailNotConfirmed() {
-		$targetUser = $this->getTestUser()->getUser();
-
-		$loggedInUser = $this->getMutableTestUser()->getUser();
-		$this->userOptionsManager->setOption( $loggedInUser, 'email-blacklist', "999" );
-		$loggedInUser->invalidateEmail();
-		$loggedInUser->saveSettings();
-
-		$this->expectExceptionMessage( wfMessage( 'specialmute-error-no-email-set' ) );
-
-		$fauxRequest = new FauxRequest( [ 'wpemail-blacklist' => true ], true );
-		$this->executeSpecialPage( $targetUser->getName(), $fauxRequest, 'qqx', $loggedInUser );
-	}
-
 	/**
-	 * @covers \MediaWiki\Specials\SpecialMute::execute
+	 * @covers SpecialMute::execute
 	 */
 	public function testMuteAddsUserToEmailBlacklist() {
 		$targetUser = $this->getTestUser()->getUser();
@@ -100,7 +81,7 @@ class SpecialMuteTest extends SpecialPageTestBase {
 		$loggedInUser->saveSettings();
 
 		$fauxRequest = new FauxRequest( [ 'wpemail-blacklist' => true ], true );
-		[ $html, ] = $this->executeSpecialPage(
+		list( $html, ) = $this->executeSpecialPage(
 			$targetUser->getName(), $fauxRequest, 'qqx', $loggedInUser
 		);
 
@@ -112,7 +93,7 @@ class SpecialMuteTest extends SpecialPageTestBase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Specials\SpecialMute::execute
+	 * @covers SpecialMute::execute
 	 */
 	public function testUnmuteRemovesUserFromEmailBlacklist() {
 		$targetUser = $this->getTestUser()->getUser();
@@ -123,7 +104,7 @@ class SpecialMuteTest extends SpecialPageTestBase {
 		$loggedInUser->saveSettings();
 
 		$fauxRequest = new FauxRequest( [ 'wpemail-blacklist' => false ], true );
-		[ $html, ] = $this->executeSpecialPage(
+		list( $html, ) = $this->executeSpecialPage(
 			$targetUser->getName(), $fauxRequest, 'qqx', $loggedInUser
 		);
 

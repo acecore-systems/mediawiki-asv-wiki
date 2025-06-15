@@ -1,8 +1,6 @@
 <?php
 
-namespace MediaWiki\Tests\Auth;
-
-use MediaWiki\Auth\UsernameAuthenticationRequest;
+namespace MediaWiki\Auth;
 
 /**
  * @group AuthManager
@@ -14,7 +12,7 @@ class UsernameAuthenticationRequestTest extends AuthenticationRequestTestCase {
 		return new UsernameAuthenticationRequest();
 	}
 
-	public static function provideLoadFromSubmission() {
+	public function provideLoadFromSubmission() {
 		return [
 			'Empty request' => [
 				[],

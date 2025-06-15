@@ -6,18 +6,12 @@
  * If all revisions contain spam, blanks the page
  */
 
-use MediaWiki\Content\ContentHandler;
-use MediaWiki\Content\TextContent;
 use MediaWiki\Extension\SpamBlacklist\BaseBlacklist;
-use MediaWiki\Maintenance\Maintenance;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\WikiPageFactory;
 use MediaWiki\Revision\RevisionLookup;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\SlotRecord;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleFormatter;
-use MediaWiki\User\User;
 
 $IP = getenv( 'MW_INSTALL_PATH' );
 if ( $IP === false ) {
@@ -53,15 +47,11 @@ class Cleanup extends Maintenance {
 		}
 		$dryRun = $this->hasOption( 'dry-run' );
 
-		$dbr = $this->getReplicaDB();
-		$maxID = (int)$dbr->newSelectQueryBuilder()
-			->select( 'MAX(page_id)' )
-			->from( 'page' )
-			->caller( __METHOD__ )
-			->fetchField();
+		$dbr = wfGetDB( DB_REPLICA );
+		$maxID = (int)$dbr->selectField( 'page', 'MAX(page_id)', [], __METHOD__ );
 		$reportingInterval = 100;
 
-		$this->output( "Regexes are " . implode( ', ', array_map( 'strlen', $regexes ) ) . " bytes\n" );
+		$this->output( "Regexes are " . implode( ', ', array_map( 'count', $regexes ) ) . " bytes\n" );
 		$this->output( "Searching for spam in $maxID pages...\n" );
 		if ( $dryRun ) {
 			$this->output( "Dry run only\n" );

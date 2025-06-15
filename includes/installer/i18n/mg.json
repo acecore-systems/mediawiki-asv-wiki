@@ -2,8 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"Jagwar",
-			"Reedy",
-			"Seb35"
+			"Seb35",
+			"Reedy"
 		]
 	},
 	"config-desc": "Fandaharana mametraka an'i MediaWiki",
@@ -42,6 +42,7 @@
 	"config-env-good": "Voamarina ny tontolo.\nAfaka apetrakao i MediaWiki.",
 	"config-env-bad": "Voamarina ny tontolo.\nTsy afaka mametraka an'i MediaWiki ianao.",
 	"config-env-php": "Misy ato PHP $1.",
+	"config-unicode-using-intl": "Mampiasa ny [https://pecl.php.net/intl itatra PECL intl] ho an'ny fampifenerana Unicode.",
 	"config-db-type": "Karazana banky angona:",
 	"config-db-host": "Anaran'ny lohamilin'ny banky angona:",
 	"config-db-host-help": "Raha amina lohamilina hafa ny banky angona ampiasainao, dia ampidiro eto ny ''hostname'' na ny adiresy IP. \n\nRaha mampiasa fampiantranoana tranonkala iombonana ianao, dia tokony nanome anao ny ''hostname'' marina ao amin'ny filazana nomeny anao ny mpamatsy fampiantranoana. \n\nRaha mampiasa MySQL ianao, dia mety tsy hiasa amin'ny anaran'ny lohamilina ny fampiasana \"localhost\". Raha tsy izany, dia andramo ny \"127.0.0.1\" ho an'ny adiresy IP eo an-toerana. \n\nRaha mampiasa PostgreSQL ianao, avelao ho tsy feno ity saha ity mba hifandraisana amin'ny alalan'ny ''socket'' Unix.",

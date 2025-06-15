@@ -20,12 +20,8 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
 use MediaWiki\Page\MergeHistoryFactory;
 use MediaWiki\Page\PageIdentity;
-use MediaWiki\Status\Status;
-use MediaWiki\Title\Title;
 use Wikimedia\ParamValidator\ParamValidator;
 
 /**
@@ -34,11 +30,17 @@ use Wikimedia\ParamValidator\ParamValidator;
  */
 class ApiMergeHistory extends ApiBase {
 
-	private MergeHistoryFactory $mergeHistoryFactory;
+	/** @var MergeHistoryFactory */
+	private $mergeHistoryFactory;
 
+	/**
+	 * @param ApiMain $mainModule
+	 * @param string $moduleName
+	 * @param MergeHistoryFactory $mergeHistoryFactory
+	 */
 	public function __construct(
 		ApiMain $mainModule,
-		string $moduleName,
+		$moduleName,
 		MergeHistoryFactory $mergeHistoryFactory
 	) {
 		parent::__construct( $mainModule, $moduleName );
@@ -158,6 +160,3 @@ class ApiMergeHistory extends ApiBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Mergehistory';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiMergeHistory::class, 'ApiMergeHistory' );

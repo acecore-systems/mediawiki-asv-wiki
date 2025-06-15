@@ -2,7 +2,6 @@
 	"@metadata": {
 		"authors": [
 			"Bluehill",
-			"Dr1t jg",
 			"IRTC1015",
 			"Klutzy",
 			"Kwj2772",
@@ -10,7 +9,8 @@
 			"Revi",
 			"ToePeu",
 			"Ykhwong",
-			"아라"
+			"아라",
+			"Dr1t jg"
 		]
 	},
 	"captcha-edit": "글을 편집하려면 아래의 문제를 해결한 다음 상자에 정답을 입력해 주세요 ([[Special:Captcha/help|자세한 정보]]):",
@@ -40,6 +40,5 @@
 	"confirmedit-preview-content": "내용",
 	"confirmedit-preview-validity": "유효성",
 	"confirmedit-preview-valid": "유효함",
-	"confirmedit-preview-invalid": "유효하지 않음",
-	"abusefilter-edit-action-showcaptcha": "작업 진행을 위해 사용자에게 CAPTCHA를 완성할 것을 요구합니다. CAPTCHA를 건너뛸 수 있는 권한이 있는 사용자는 예외입니다."
+	"confirmedit-preview-invalid": "유효하지 않음"
 }

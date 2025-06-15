@@ -21,11 +21,9 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\WikiMap\WikiMap;
+use MediaWiki\MediaWikiServices;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Copy all jobs from one job queue system to another.
@@ -58,7 +56,7 @@ class CopyJobQueue extends Maintenance {
 		}
 
 		$types = ( $this->getOption( 'type' ) === 'all' )
-			? $this->getServiceContainer()->getJobQueueGroup()->getQueueTypes()
+			? MediaWikiServices::getInstance()->getJobQueueGroup()->getQueueTypes()
 			: [ $this->getOption( 'type' ) ];
 
 		$dbDomain = WikiMap::getCurrentWikiDbDomain()->getId();
@@ -67,10 +65,10 @@ class CopyJobQueue extends Maintenance {
 			$src = JobQueue::factory( $baseConfig + $wgJobQueueMigrationConfig[$srcKey] );
 			$dst = JobQueue::factory( $baseConfig + $wgJobQueueMigrationConfig[$dstKey] );
 
-			[ $total, $totalOK ] = $this->copyJobs( $src, $dst, $src->getAllQueuedJobs() );
+			list( $total, $totalOK ) = $this->copyJobs( $src, $dst, $src->getAllQueuedJobs() );
 			$this->output( "Copied $totalOK/$total queued $type jobs.\n" );
 
-			[ $total, $totalOK ] = $this->copyJobs( $src, $dst, $src->getAllDelayedJobs() );
+			list( $total, $totalOK ) = $this->copyJobs( $src, $dst, $src->getAllDelayedJobs() );
 			$this->output( "Copied $totalOK/$total delayed $type jobs.\n" );
 		}
 	}
@@ -99,7 +97,5 @@ class CopyJobQueue extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = CopyJobQueue::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

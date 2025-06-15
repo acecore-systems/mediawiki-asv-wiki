@@ -20,7 +20,6 @@
 
 use MediaWiki\EditPage\Constraint\DefaultTextConstraint;
 use MediaWiki\EditPage\Constraint\IEditConstraint;
-use MediaWiki\Title\Title;
 
 /**
  * Tests the DefaultTextConstraint
@@ -62,7 +61,7 @@ class DefaultTextConstraintTest extends MediaWikiUnitTestCase {
 		$this->assertConstraintFailed( $constraint, IEditConstraint::AS_BLANK_ARTICLE );
 	}
 
-	public static function provideTestFailure() {
+	public function provideTestFailure() {
 		yield 'Matching message text' => [ 'MessageText', 'MessageText' ];
 		yield 'Blank page and no default' => [ false, '' ];
 	}

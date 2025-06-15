@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface MWLinkAction class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -25,10 +25,7 @@ OO.inheritClass( ve.ui.MWLinkAction, ve.ui.LinkAction );
 
 /* Static Properties */
 
-ve.ui.MWLinkAction.static.methods = [
-	...ve.ui.MWLinkAction.super.static.methods,
-	'open', 'autolinkMagicLink'
-];
+ve.ui.MWLinkAction.static.methods = ve.ui.MWLinkAction.super.static.methods.concat( [ 'open', 'autolinkMagicLink' ] );
 
 /* Static methods */
 
@@ -43,16 +40,16 @@ ve.ui.MWLinkAction.static.methods = [
  * @return {ve.dm.MWExternalLinkAnnotation|ve.dm.MWInternalLinkAnnotation} The annotation to use
  */
 ve.ui.MWLinkAction.static.getLinkAnnotation = function ( linktext, doc ) {
-	const href = linktext;
+	var href = linktext;
 
 	// Is this a "magic link"?
 	if ( ve.dm.MWMagicLinkNode.static.validateContent( linktext ) ) {
 		return ve.dm.MWMagicLinkNode.static.annotationFromContent( linktext );
 	}
 	// Is this an internal link?
-	const targetData = mw.libs.ve.getTargetDataFromHref( href, doc );
+	var targetData = mw.libs.ve.getTargetDataFromHref( href, doc );
 	if ( targetData.isInternal ) {
-		const title = mw.Title.newFromText( targetData.title );
+		var title = mw.Title.newFromText( targetData.title );
 		return ve.dm.MWInternalLinkAnnotation.static.newFromTitle( title );
 	}
 	// It's an external link.
@@ -106,8 +103,10 @@ ve.ui.MWLinkAction.prototype.getLinkAnnotation = function ( linktext ) {
  *   was executed; otherwise false.
  */
 ve.ui.MWLinkAction.prototype.autolinkMagicLink = function () {
-	return this.autolink( ( linktext ) => ve.dm.MWMagicLinkNode.static.validateContent( linktext ), ( doc, range, linktext ) => {
-		const annotations = doc.data.getAnnotationsFromRange( range ),
+	return this.autolink( function ( linktext ) {
+		return ve.dm.MWMagicLinkNode.static.validateContent( linktext );
+	}, function ( doc, range, linktext ) {
+		var annotations = doc.data.getAnnotationsFromRange( range ),
 			data = new ve.dm.ElementLinearData( annotations.store, [
 				{
 					type: 'link/mwMagic',
@@ -135,10 +134,10 @@ ve.ui.MWLinkAction.prototype.autolinkMagicLink = function () {
  * @return {boolean} Action was executed
  */
 ve.ui.MWLinkAction.prototype.open = function () {
-	const fragment = this.surface.getModel().getFragment(),
-		selectedNode = fragment.getSelectedNode();
+	var fragment = this.surface.getModel().getFragment(),
+		selectedNode = fragment.getSelectedNode(),
+		windowName = 'link';
 
-	let windowName = 'link';
 	if ( selectedNode instanceof ve.dm.MWNumberedExternalLinkNode ) {
 		windowName = 'linkNode';
 	} else if ( selectedNode instanceof ve.dm.MWMagicLinkNode ) {

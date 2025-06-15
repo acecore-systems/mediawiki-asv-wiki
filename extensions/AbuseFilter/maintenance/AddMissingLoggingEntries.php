@@ -3,23 +3,24 @@
 namespace MediaWiki\Extension\AbuseFilter\Maintenance;
 
 // @codeCoverageIgnoreStart
-$IP = getenv( 'MW_INSTALL_PATH' );
-if ( $IP === false ) {
+if ( getenv( 'MW_INSTALL_PATH' ) ) {
+	$IP = getenv( 'MW_INSTALL_PATH' );
+} else {
 	$IP = __DIR__ . '/../../..';
 }
 require_once "$IP/maintenance/Maintenance.php";
 // @codeCoverageIgnoreEnd
 
+use LoggedUpdateMaintenance;
 use ManualLogEntry;
 use MediaWiki\Extension\AbuseFilter\Special\SpecialAbuseFilter;
-use MediaWiki\Maintenance\LoggedUpdateMaintenance;
-use MediaWiki\User\UserIdentityValue;
-use Wikimedia\Rdbms\IExpression;
-use Wikimedia\Rdbms\LikeValue;
+use MediaWiki\MediaWikiServices;
+use User;
 
 /**
+ * Adds rows missing per T54919
  * @codeCoverageIgnore
- * No need to test old single-use script.
+ * No need to cover: old, single-use script.
  */
 class AddMissingLoggingEntries extends LoggedUpdateMaintenance {
 	public function __construct() {
@@ -45,28 +46,27 @@ class AddMissingLoggingEntries extends LoggedUpdateMaintenance {
 		$dryRun = $this->hasOption( 'dry-run' );
 		$logParams = [];
 		$afhRows = [];
-		$db = $this->getDB( DB_REPLICA, 'vslow' );
+		$db = wfGetDB( DB_REPLICA, 'vslow' );
 
 		$logParamsConcat = $db->buildConcat( [ 'afh_id', $db->addQuotes( "\n" ) ] );
-		$legacyParamsLike = new LikeValue( $logParamsConcat, $db->anyString() );
+		$legacyParamsLike = $db->buildLike( $logParamsConcat, $db->anyString() );
 		// Non-legacy entries are a serialized array with 'newId' and 'historyId' keys
-		$newLogParamsLike = new LikeValue( $db->anyString(), 'historyId', $db->anyString() );
+		$newLogParamsLike = $db->buildLike( $db->anyString(), 'historyId', $db->anyString() );
 		// Find all entries in abuse_filter_history without logging entry of same timestamp
-		$afhResult = $db->newSelectQueryBuilder()
-			->select( [ 'afh_id', 'afh_filter', 'afh_timestamp', 'afh_deleted', 'actor_user', 'actor_name' ] )
-			->from( 'abuse_filter_history' )
-			->join( 'actor', null, [ 'actor_id = afh_actor' ] )
-			->leftJoin( 'logging', null, [
-				'afh_timestamp = log_timestamp',
-				$db->expr( 'log_params', IExpression::LIKE, $legacyParamsLike ),
-				'log_type' => 'abusefilter',
-			] )
-			->where( [
-				'log_id' => null,
-				$db->expr( 'log_params', IExpression::NOT_LIKE, $newLogParamsLike ),
-			] )
-			->caller( __METHOD__ )
-			->fetchResultSet();
+		$afhResult = $db->select(
+			[ 'abuse_filter_history', 'logging' ],
+			[ 'afh_id', 'afh_filter', 'afh_timestamp', 'afh_user', 'afh_deleted', 'afh_user_text' ],
+			[
+				'log_id IS NULL',
+				"NOT log_params $newLogParamsLike"
+			],
+			__METHOD__,
+			[],
+			[ 'logging' => [
+				'LEFT JOIN',
+				"afh_timestamp = log_timestamp AND log_params $legacyParamsLike AND log_type = 'abusefilter'"
+			] ]
+		);
 
 		// Because the timestamp matches aren't exact (sometimes a couple of
 		// seconds off), we need to check all our results and ignore those that
@@ -81,16 +81,16 @@ class AddMissingLoggingEntries extends LoggedUpdateMaintenance {
 			return !$dryRun;
 		}
 
-		$logResult = $this->getDB( DB_REPLICA )->newSelectQueryBuilder()
-			->select( 'log_params' )
-			->from( 'logging' )
-			->where( [ 'log_type' => 'abusefilter', 'log_params' => $logParams ] )
-			->caller( __METHOD__ )
-			->fetchFieldValues();
+		$logResult = wfGetDB( DB_REPLICA )->select(
+			'logging',
+			[ 'log_params' ],
+			[ 'log_type' => 'abusefilter', 'log_params' => $logParams ],
+			__METHOD__
+		);
 
-		foreach ( $logResult as $params ) {
+		foreach ( $logResult as $row ) {
 			// id . "\n" . filter
-			$afhId = explode( "\n", $params, 2 )[0];
+			$afhId = explode( "\n", $row->log_params, 2 )[0];
 			// Forget this row had any issues - it just has a different timestamp in the log
 			unset( $afhRows[$afhId] );
 		}
@@ -109,14 +109,20 @@ class AddMissingLoggingEntries extends LoggedUpdateMaintenance {
 			return false;
 		}
 
-		$dbw = $this->getDB( DB_PRIMARY );
+		$dbw = wfGetDB( DB_PRIMARY );
+		$factory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
 
 		$count = 0;
 		foreach ( $afhRows as $row ) {
 			if ( $count % 100 === 0 ) {
-				$this->waitForReplication();
+				$factory->waitForReplication();
 			}
-			$user = new UserIdentityValue( (int)( $row->actor_user ?? 0 ), $row->actor_name );
+			$user = User::newFromAnyId( $row->afh_user, $row->afh_user_text, null );
+
+			if ( $user === null ) {
+				// This isn't supposed to happen.
+				continue;
+			}
 
 			// This copies the code in FilterStore
 			$logEntry = new ManualLogEntry( 'abusefilter', 'modify' );

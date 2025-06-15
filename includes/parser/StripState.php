@@ -21,37 +21,24 @@
  * @ingroup Parser
  */
 
-namespace MediaWiki\Parser;
-
-use Closure;
-use InvalidArgumentException;
-
 /**
  * @todo document, briefly.
  * @newable
  * @ingroup Parser
  */
 class StripState {
-	/** @var array[] */
 	protected $data;
-	/** @var string */
 	protected $regex;
 
-	protected ?Parser $parser;
+	protected $parser;
 
-	/** @var array */
 	protected $circularRefGuard;
-	/** @var int */
 	protected $depth = 0;
-	/** @var int */
 	protected $highestDepth = 0;
-	/** @var int */
 	protected $expandSize = 0;
 
-	/** @var int */
 	protected $depthLimit = 20;
-	/** @var int */
-	protected $sizeLimit = 5_000_000;
+	protected $sizeLimit = 5000000;
 
 	/**
 	 * @stable to call
@@ -59,7 +46,7 @@ class StripState {
 	 * @param Parser|null $parser
 	 * @param array $options
 	 */
-	public function __construct( ?Parser $parser = null, $options = [] ) {
+	public function __construct( Parser $parser = null, $options = [] ) {
 		$this->data = [
 			'nowiki' => [],
 			'general' => []
@@ -79,7 +66,7 @@ class StripState {
 	/**
 	 * Add a nowiki strip item
 	 * @param string $marker
-	 * @param string|Closure $value
+	 * @param string $value
 	 */
 	public function addNoWiki( $marker, $value ) {
 		$this->addItem( 'nowiki', $marker, $value );
@@ -87,23 +74,21 @@ class StripState {
 
 	/**
 	 * @param string $marker
-	 * @param string|Closure $value
+	 * @param string $value
 	 */
 	public function addGeneral( $marker, $value ) {
 		$this->addItem( 'general', $marker, $value );
 	}
 
 	/**
+	 * @throws MWException
 	 * @param string $type
-	 * @param-taint $type none
 	 * @param string $marker
-	 * @param-taint $marker none
-	 * @param string|Closure $value
-	 * @param-taint $value exec_html
+	 * @param string $value
 	 */
 	protected function addItem( $type, $marker, $value ) {
 		if ( !preg_match( $this->regex, $marker, $m ) ) {
-			throw new InvalidArgumentException( "Invalid marker: $marker" );
+			throw new MWException( "Invalid marker: $marker" );
 		}
 
 		$this->data[$type][$m[1]] = $value;
@@ -280,6 +265,3 @@ class StripState {
 		return preg_replace( $this->regex, '', $text );
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( StripState::class, 'StripState' );

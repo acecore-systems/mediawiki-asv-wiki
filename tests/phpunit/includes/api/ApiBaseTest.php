@@ -1,53 +1,37 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
-use DomainException;
-use Exception;
-use MediaWiki\Api\ApiBase;
-use MediaWiki\Api\ApiBlockInfoTrait;
-use MediaWiki\Api\ApiMain;
-use MediaWiki\Api\ApiMessage;
-use MediaWiki\Api\ApiUsageException;
 use MediaWiki\Api\Validator\SubmoduleDef;
 use MediaWiki\Block\DatabaseBlock;
-use MediaWiki\Context\DerivativeContext;
-use MediaWiki\Context\RequestContext;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Message\Message;
 use MediaWiki\ParamValidator\TypeDef\NamespaceDef;
-use MediaWiki\Permissions\PermissionStatus;
-use MediaWiki\Request\FauxRequest;
-use MediaWiki\Status\Status;
-use MediaWiki\Title\Title;
-use MWException;
-use StatusValue;
-use Wikimedia\Message\MessageSpecifier;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\TypeDef\EnumDef;
 use Wikimedia\ParamValidator\TypeDef\IntegerDef;
 use Wikimedia\ParamValidator\TypeDef\StringDef;
 use Wikimedia\TestingAccessWrapper;
-use WikiPage;
 
 /**
  * @group API
  * @group Database
  * @group medium
  *
- * @covers \MediaWiki\Api\ApiBase
+ * @covers ApiBase
  */
 class ApiBaseTest extends ApiTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->setGroupPermissions( [
-			'*' => [
-				'read' => true,
-				'edit' => true,
-				'apihighlimits' => false,
-			],
-		] );
+		$this->mergeMwGlobalArrayValue(
+			'wgGroupPermissions',
+			[
+				'*' => [
+					'read' => true,
+					'edit' => true,
+					'writeapi' => true,
+					'apihighlimits' => false,
+				],
+			]
+		);
 	}
 
 	/**
@@ -62,7 +46,7 @@ class ApiBaseTest extends ApiTestCase {
 		$this->assertSame( $expected, $result );
 	}
 
-	public static function provideStubMethods() {
+	public function provideStubMethods() {
 		return [
 			[ null, 'getModuleManager' ],
 			[ null, 'getCustomPrinter' ],
@@ -110,7 +94,8 @@ class ApiBaseTest extends ApiTestCase {
 	}
 
 	public function testRequireOnlyOneParameterMissing() {
-		$this->expectApiErrorCode( 'missingparam' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage( 'One of the parameters "foo" and "bar" is required.' );
 		$mock = new MockApi();
 		$mock->requireOnlyOneParameter(
 			[ "filename" => "foo.txt", "enablechunks" => false ],
@@ -134,7 +119,8 @@ class ApiBaseTest extends ApiTestCase {
 	}
 
 	public function testRequireMaxOneParameterTwo() {
-		$this->expectApiErrorCode( 'invalidparammix' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage( 'The parameters "foo" and "baz" can not be used together.' );
 		$mock = new MockApi();
 		$mock->requireMaxOneParameter(
 			[ 'foo' => 'bar', 'baz' => 'quz' ],
@@ -142,7 +128,8 @@ class ApiBaseTest extends ApiTestCase {
 	}
 
 	public function testRequireAtLeastOneParameterZero() {
-		$this->expectApiErrorCode( 'missingparam' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage( 'At least one of the parameters "foo" and "bar" is required.' );
 		$mock = new MockApi();
 		$mock->requireAtLeastOneParameter(
 			[ 'a' => 'b', 'c' => 'd' ],
@@ -166,7 +153,8 @@ class ApiBaseTest extends ApiTestCase {
 	}
 
 	public function testGetTitleOrPageIdBadParams() {
-		$this->expectApiErrorCode( 'invalidparammix' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage( 'The parameters "title" and "pageid" can not be used together.' );
 		$mock = new MockApi();
 		$mock->getTitleOrPageId( [ 'title' => 'a', 'pageid' => 7 ] );
 	}
@@ -179,13 +167,15 @@ class ApiBaseTest extends ApiTestCase {
 	}
 
 	public function testGetTitleOrPageIdInvalidTitle() {
-		$this->expectApiErrorCode( 'invalidtitle' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage( 'Bad title "|".' );
 		$mock = new MockApi();
 		$mock->getTitleOrPageId( [ 'title' => '|' ] );
 	}
 
 	public function testGetTitleOrPageIdSpecialTitle() {
-		$this->expectApiErrorCode( 'pagecannotexist' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage( "Namespace doesn't allow actual pages." );
 		$mock = new MockApi();
 		$mock->getTitleOrPageId( [ 'title' => 'Special:RandomPage' ] );
 	}
@@ -202,13 +192,15 @@ class ApiBaseTest extends ApiTestCase {
 	}
 
 	public function testGetTitleOrPageIdInvalidPageId() {
-		$this->expectApiErrorCode( 'nosuchpageid' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage( 'There is no page with ID 2147483648.' );
 		$mock = new MockApi();
 		$mock->getTitleOrPageId( [ 'pageid' => 2147483648 ] );
 	}
 
 	public function testGetTitleFromTitleOrPageIdBadParams() {
-		$this->expectApiErrorCode( 'invalidparammix' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage( 'The parameters "title" and "pageid" can not be used together.' );
 		$mock = new MockApi();
 		$mock->getTitleFromTitleOrPageId( [ 'title' => 'a', 'pageid' => 7 ] );
 	}
@@ -221,7 +213,8 @@ class ApiBaseTest extends ApiTestCase {
 	}
 
 	public function testGetTitleFromTitleOrPageIdInvalidTitle() {
-		$this->expectApiErrorCode( 'invalidtitle' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage( 'Bad title "|".' );
 		$mock = new MockApi();
 		$mock->getTitleFromTitleOrPageId( [ 'title' => '|' ] );
 	}
@@ -235,7 +228,8 @@ class ApiBaseTest extends ApiTestCase {
 	}
 
 	public function testGetTitleFromTitleOrPageIdInvalidPageId() {
-		$this->expectApiErrorCode( 'nosuchpageid' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage( 'There is no page with ID 298401643.' );
 		$mock = new MockApi();
 		$mock->getTitleFromTitleOrPageId( [ 'pageid' => 298401643 ] );
 	}
@@ -266,7 +260,7 @@ class ApiBaseTest extends ApiTestCase {
 			$wrapper->getParameter( 'foo' );
 			$this->fail( 'Expected exception not thrown' );
 		} catch ( ApiUsageException $ex ) {
-			$this->assertApiErrorCode( 'badvalue', $ex );
+			$this->assertTrue( $this->apiExceptionHasCode( $ex, 'badvalue' ) );
 		}
 
 		// And extractRequestParams() must throw too.
@@ -274,7 +268,7 @@ class ApiBaseTest extends ApiTestCase {
 			$mock->extractRequestParams();
 			$this->fail( 'Expected exception not thrown' );
 		} catch ( ApiUsageException $ex ) {
-			$this->assertApiErrorCode( 'badvalue', $ex );
+			$this->assertTrue( $this->apiExceptionHasCode( $ex, 'badvalue' ) );
 		}
 	}
 
@@ -308,16 +302,15 @@ class ApiBaseTest extends ApiTestCase {
 		$parseLimits = $options['parseLimits'] ?? true;
 
 		if ( !empty( $options['apihighlimits'] ) ) {
-			$context->setUser( $this->getTestSysop()->getUser() );
+			$context->setUser( self::$users['sysop']->getUser() );
 		}
 
 		// If we're testing tags, set up some tags
 		if ( isset( $paramSettings[ParamValidator::PARAM_TYPE] ) &&
 			$paramSettings[ParamValidator::PARAM_TYPE] === 'tags'
 		) {
-			$changeTagStore = $this->getServiceContainer()->getChangeTagsStore();
-			$changeTagStore->defineTag( 'tag1' );
-			$changeTagStore->defineTag( 'tag2' );
+			ChangeTags::defineTag( 'tag1' );
+			ChangeTags::defineTag( 'tag2' );
 		}
 
 		if ( $expected instanceof Exception ) {
@@ -344,7 +337,7 @@ class ApiBaseTest extends ApiTestCase {
 			) {
 				// Allow one second of fuzziness.  Make sure the formats are
 				// correct!
-				$this->assertMatchesRegularExpression( '/^\d{14}$/', $result );
+				$this->assertRegExp( '/^\d{14}$/', $result );
 				$this->assertLessThanOrEqual( 1,
 					abs( wfTimestamp( TS_UNIX, $result ) - time() ),
 					"Result $result differs from expected $expected by " .
@@ -353,11 +346,11 @@ class ApiBaseTest extends ApiTestCase {
 				$this->assertSame( $expected, $result );
 			}
 			$actualWarnings = array_map( static function ( $warn ) {
-				return $warn instanceof MessageSpecifier
-					? [ $warn->getKey(), ...$warn->getParams() ]
+				return $warn instanceof Message
+					? array_merge( [ $warn->getKey() ], $warn->getParams() )
 					: $warn;
 			}, $mock->warnings );
-			$this->assertEquals( $warnings, $actualWarnings );
+			$this->assertSame( $warnings, $actualWarnings );
 		}
 
 		if ( !empty( $paramSettings[ParamValidator::PARAM_SENSITIVE] ) ||
@@ -468,7 +461,6 @@ class ApiBaseTest extends ApiTestCase {
 					Message::plaintextParam( 'myParam' ),
 					Message::numParam( 2 ),
 				], 'toomanyvalues', [
-					'parameter' => 'myParam',
 					'limit' => 2,
 					'lowlimit' => 2,
 					'highlimit' => 500,
@@ -487,7 +479,6 @@ class ApiBaseTest extends ApiTestCase {
 					Message::plaintextParam( 'myParam' ),
 					Message::numParam( 2 ),
 				], 'toomanyvalues', [
-					'parameter' => 'myParam',
 					'limit' => 2,
 					'lowlimit' => 2,
 					'highlimit' => 3,
@@ -1319,95 +1310,7 @@ class ApiBaseTest extends ApiTestCase {
 		return $returnArray;
 	}
 
-	/**
-	 * @dataProvider provideGetFinalParamDescription
-	 */
-	public function testGetFinalParamDescription( $paramSettings, $expectedMessages ) {
-		$mock = $this->getMockBuilder( MockApi::class )
-			->onlyMethods( [ 'getAllowedParams', 'getModulePath' ] )
-			->getMock();
-		$mock->method( 'getAllowedParams' )->willReturn( [
-			'param' => $paramSettings,
-		] );
-		$mock->method( 'getModulePath' )->willReturn( 'test' );
-		if ( $expectedMessages instanceof Exception ) {
-			$this->expectExceptionObject( $expectedMessages );
-		}
-		$paramDescription = $mock->getFinalParamDescription();
-		$this->assertArrayHasKey( 'param', $paramDescription );
-		$messages = $paramDescription['param'];
-		$messageKeys = array_map( static fn ( MessageSpecifier $m ) => $m->getKey(), $messages );
-		$this->assertSame( $expectedMessages, $messageKeys );
-	}
-
-	public static function provideGetFinalParamDescription() {
-		return [
-			'default message' => [
-				'settings' => [],
-				'messages' => [ 'apihelp-test-param-param' ],
-			],
-			'custom message' => [
-				'settings' => [ ApiBase::PARAM_HELP_MSG => 'foo' ],
-				'messages' => [ 'foo' ],
-			],
-			'default per-value message' => [
-				'settings' => [
-					ParamValidator::PARAM_TYPE => [ 'a', 'b' ],
-					ApiBase::PARAM_HELP_MSG_PER_VALUE => [],
-				],
-				'messages' => [
-					'apihelp-test-param-param',
-					'apihelp-test-paramvalue-param-a',
-					'apihelp-test-paramvalue-param-b',
-				],
-			],
-			'custom per-value message' => [
-				'settings' => [
-					ParamValidator::PARAM_TYPE => [ 'a', 'b' ],
-					ApiBase::PARAM_HELP_MSG_PER_VALUE => [
-						'a' => 'foo',
-						'b' => 'bar',
-					],
-				],
-				'messages' => [
-					'apihelp-test-param-param',
-					'foo',
-					'bar',
-				],
-			],
-			'custom per-value message for strings' => [
-				'settings' => [
-					ParamValidator::PARAM_TYPE => 'string',
-					ParamValidator::PARAM_ISMULTI => true,
-					ApiBase::PARAM_HELP_MSG_PER_VALUE => [
-						'a' => 'foo',
-						'b' => 'bar',
-					],
-				],
-				'messages' => [
-					'apihelp-test-param-param',
-					'foo',
-					'bar',
-				],
-			],
-			'must be multi-valued for per-value message' => [
-				'settings' => [
-					ParamValidator::PARAM_TYPE => 'string',
-					ApiBase::PARAM_HELP_MSG_PER_VALUE => [],
-				],
-				'messages' => new MWException(
-					'Internal error in ' . ApiBase::class . '::getFinalParamDescription: '
-					. 'ApiBase::PARAM_HELP_MSG_PER_VALUE may only be used when '
-					. "ParamValidator::PARAM_TYPE is an array or it is 'string' "
-					. 'and ParamValidator::PARAM_ISMULTI is true'
-				),
-			],
-		];
-	}
-
 	public function testErrorArrayToStatus() {
-		$this->expectDeprecationAndContinue( '/errorArrayToStatus/' );
-
 		$mock = new MockApi();
 
 		$msg = new Message( 'mainpage' );
@@ -1423,6 +1326,7 @@ class ApiBaseTest extends ApiTestCase {
 		$expect->fatal( 'systemblockedtext' );
 		$expect->fatal( 'mainpage' );
 		$expect->fatal( $msg );
+		$expect->fatal( $msg, 'foobar' );
 		$expect->fatal( 'parentheses', 'foobar' );
 		$this->assertEquals( $expect, $mock->errorArrayToStatus( [
 			[ 'blockedtext' ],
@@ -1430,13 +1334,15 @@ class ApiBaseTest extends ApiTestCase {
 			[ 'systemblockedtext' ],
 			'mainpage',
 			$msg,
+			[ $msg, 'foobar' ],
 			[ 'parentheses', 'foobar' ],
 		] ) );
 
 		// Has a blocked $user, so special block handling
 		$user = $this->getMutableTestUser()->getUser();
 		$block = new DatabaseBlock( [
-			'address' => $user,
+			'address' => $user->getName(),
+			'user' => $user->getId(),
 			'by' => $this->getTestSysop()->getUser(),
 			'reason' => __METHOD__,
 			'expiry' => time() + 100500,
@@ -1450,13 +1356,12 @@ class ApiBaseTest extends ApiTestCase {
 		$blockinfo = [ 'blockinfo' => $userInfoTrait->getBlockDetails( $block ) ];
 
 		$expect = Status::newGood();
-		$expect->fatal( ApiMessage::create( 'blockedtext', 'blocked', $blockinfo ) );
-		// This would normally use the 'autoblocked' code, but the codes are computed from $blockinfo
-		// now rather than the message, and we're not faking it well enough
-		$expect->fatal( ApiMessage::create( 'autoblockedtext', 'blocked', $blockinfo ) );
-		$expect->fatal( ApiMessage::create( 'systemblockedtext', 'blocked', $blockinfo ) );
+		$expect->fatal( ApiMessage::create( 'apierror-blocked', 'blocked', $blockinfo ) );
+		$expect->fatal( ApiMessage::create( 'apierror-autoblocked', 'autoblocked', $blockinfo ) );
+		$expect->fatal( ApiMessage::create( 'apierror-systemblocked', 'blocked', $blockinfo ) );
 		$expect->fatal( 'mainpage' );
 		$expect->fatal( $msg );
+		$expect->fatal( $msg, 'foobar' );
 		$expect->fatal( 'parentheses', 'foobar' );
 		$this->assertEquals( $expect, $mock->errorArrayToStatus( [
 			[ 'blockedtext' ],
@@ -1464,6 +1369,7 @@ class ApiBaseTest extends ApiTestCase {
 			[ 'systemblockedtext' ],
 			'mainpage',
 			$msg,
+			[ $msg, 'foobar' ],
 			[ 'parentheses', 'foobar' ],
 		], $user ) );
 	}
@@ -1486,6 +1392,7 @@ class ApiBaseTest extends ApiTestCase {
 		$expect->fatal( 'systemblockedtext' );
 		$expect->fatal( 'mainpage' );
 		$expect->fatal( $msg );
+		$expect->fatal( $msg, 'foobar' );
 		$expect->fatal( 'parentheses', 'foobar' );
 		$test = clone $expect;
 		$mock->addBlockInfoToStatus( $test );
@@ -1494,7 +1401,8 @@ class ApiBaseTest extends ApiTestCase {
 		// Has a blocked $user, so special block handling
 		$user = $this->getMutableTestUser()->getUser();
 		$block = new DatabaseBlock( [
-			'address' => $user,
+			'address' => $user->getName(),
+			'user' => $user->getId(),
 			'by' => $this->getTestSysop()->getUser(),
 			'reason' => __METHOD__,
 			'expiry' => time() + 100500,
@@ -1508,13 +1416,12 @@ class ApiBaseTest extends ApiTestCase {
 		$blockinfo = [ 'blockinfo' => $userInfoTrait->getBlockDetails( $block ) ];
 
 		$expect = Status::newGood();
-		$expect->fatal( ApiMessage::create( 'blockedtext', 'blocked', $blockinfo ) );
-		// This would normally use the 'autoblocked' code, but the codes are computed from $blockinfo
-		// now rather than the message, and we're not faking it well enough
-		$expect->fatal( ApiMessage::create( 'autoblockedtext', 'blocked', $blockinfo ) );
-		$expect->fatal( ApiMessage::create( 'systemblockedtext', 'blocked', $blockinfo ) );
+		$expect->fatal( ApiMessage::create( 'apierror-blocked', 'blocked', $blockinfo ) );
+		$expect->fatal( ApiMessage::create( 'apierror-autoblocked', 'autoblocked', $blockinfo ) );
+		$expect->fatal( ApiMessage::create( 'apierror-systemblocked', 'blocked', $blockinfo ) );
 		$expect->fatal( 'mainpage' );
 		$expect->fatal( $msg );
+		$expect->fatal( $msg, 'foobar' );
 		$expect->fatal( 'parentheses', 'foobar' );
 		$test = Status::newGood();
 		$test->fatal( 'blockedtext' );
@@ -1522,64 +1429,50 @@ class ApiBaseTest extends ApiTestCase {
 		$test->fatal( 'systemblockedtext' );
 		$test->fatal( 'mainpage' );
 		$test->fatal( $msg );
+		$test->fatal( $msg, 'foobar' );
 		$test->fatal( 'parentheses', 'foobar' );
 		$mock->addBlockInfoToStatus( $test, $user );
 		$this->assertEquals( $expect, $test );
 	}
 
-	public static function provideDieStatus() {
+	public function testDieStatus() {
+		$mock = new MockApi();
+
 		$status = StatusValue::newGood();
 		$status->error( 'foo' );
 		$status->warning( 'bar' );
-		yield [ $status, [ 'foo' => true, 'bar' => false ] ];
-
-		$status = StatusValue::newGood();
-		$status->warning( 'foo' );
-		$status->warning( 'bar' );
-		yield [ $status, [ 'foo' => true, 'bar' => true ] ];
-
-		$status = StatusValue::newGood();
-		$status->setOK( false );
-		yield [ $status, [ 'unknownerror-nocode' => true ] ];
-
-		$status = PermissionStatus::newEmpty();
-		$status->setRateLimitExceeded();
-		yield [ $status, [ 'ratelimited' => true ] ];
-
-		$status = StatusValue::newFatal( 'actionthrottledtext' );
-		yield [ $status, [ 'ratelimited' => true ] ];
-
-		$status = StatusValue::newFatal( 'actionthrottled' );
-		yield [ $status, [ 'ratelimited' => true ] ];
-
-		$status = StatusValue::newFatal( 'blockedtext' );
-		yield [ $status, [ 'blocked' => true ] ];
-
-		$status = StatusValue::newFatal( 'autoblockedtext' );
-		yield [ $status, [ 'autoblocked' => true ] ];
-	}
-
-	/**
-	 * @dataProvider provideDieStatus
-	 *
-	 * @param StatusValue $status
-	 * @param array $expected
-	 */
-	public function testDieStatus( $status, $expected ) {
-		$mock = new MockApi();
-
 		try {
 			$mock->dieStatus( $status );
 			$this->fail( 'Expected exception not thrown' );
 		} catch ( ApiUsageException $ex ) {
-			foreach ( $expected as $key => $has ) {
-				$this->assertSame( $has, ApiTestCase::apiExceptionHasCode( $ex, $key ), "Exception has '$key'" );
-			}
+			$this->assertTrue( ApiTestCase::apiExceptionHasCode( $ex, 'foo' ), 'Exception has "foo"' );
+			$this->assertFalse( ApiTestCase::apiExceptionHasCode( $ex, 'bar' ), 'Exception has "bar"' );
+		}
+
+		$status = StatusValue::newGood();
+		$status->warning( 'foo' );
+		$status->warning( 'bar' );
+		try {
+			$mock->dieStatus( $status );
+			$this->fail( 'Expected exception not thrown' );
+		} catch ( ApiUsageException $ex ) {
+			$this->assertTrue( ApiTestCase::apiExceptionHasCode( $ex, 'foo' ), 'Exception has "foo"' );
+			$this->assertTrue( ApiTestCase::apiExceptionHasCode( $ex, 'bar' ), 'Exception has "bar"' );
+		}
+
+		$status = StatusValue::newGood();
+		$status->setOK( false );
+		try {
+			$mock->dieStatus( $status );
+			$this->fail( 'Expected exception not thrown' );
+		} catch ( ApiUsageException $ex ) {
+			$this->assertTrue( ApiTestCase::apiExceptionHasCode( $ex, 'unknownerror-nocode' ),
+				'Exception has "unknownerror-nocode"' );
 		}
 	}
 
 	/**
-	 * @covers \MediaWiki\Api\ApiBase::extractRequestParams
+	 * @covers ApiBase::extractRequestParams
 	 */
 	public function testExtractRequestParams() {
 		$request = new FauxRequest( [

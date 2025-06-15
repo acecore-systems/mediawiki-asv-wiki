@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable CheckListItemNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -48,7 +48,7 @@ ve.ce.CheckListItemNode.static.splitOnEnter = true;
 ve.ce.CheckListItemNode.prototype.onClick = function ( e ) {
 	if ( e.target === this.$element[ 0 ] ) {
 		// TODO: This should probably live in ui.Actions.
-		const fragment = this.getRoot().getSurface().getModel().getLinearFragment( this.getOuterRange(), true );
+		var fragment = this.getRoot().getSurface().getModel().getLinearFragment( this.getOuterRange(), true );
 		fragment.changeAttributes( { checked: !this.getModel().getAttribute( 'checked' ) } );
 	}
 };

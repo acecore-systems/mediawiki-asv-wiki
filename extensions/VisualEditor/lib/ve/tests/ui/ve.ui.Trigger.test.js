@@ -1,26 +1,26 @@
 /*!
  * VisualEditor UserInterface Trigger tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ui.Trigger' );
 
 /* Tests */
 
-QUnit.test( 'constructor', ( assert ) => {
+QUnit.test( 'constructor', function ( assert ) {
 	function event( options ) {
 		return $.Event( 'keydown', options );
 	}
 
-	const cases = [
+	var cases = [
 		{
 			trigger: 'ctrl+b',
 			event: event( { ctrlKey: true, which: 66 } )
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		assert.strictEqual(
 			new ve.ui.Trigger( caseItem.trigger ).toString(),
 			caseItem.trigger,

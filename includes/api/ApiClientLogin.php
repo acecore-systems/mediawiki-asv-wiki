@@ -20,12 +20,9 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
 use MediaWiki\Auth\AuthenticationResponse;
 use MediaWiki\Auth\AuthManager;
 use MediaWiki\Auth\CreateFromLoginAuthenticationRequest;
-use MediaWiki\Utils\UrlUtils;
 
 /**
  * Log in to the wiki with AuthManager
@@ -34,30 +31,33 @@ use MediaWiki\Utils\UrlUtils;
  */
 class ApiClientLogin extends ApiBase {
 
-	private AuthManager $authManager;
-	private UrlUtils $urlUtils;
+	/** @var AuthManager */
+	private $authManager;
 
+	/**
+	 * @param ApiMain $main
+	 * @param string $action
+	 * @param AuthManager $authManager
+	 */
 	public function __construct(
 		ApiMain $main,
-		string $action,
-		AuthManager $authManager,
-		UrlUtils $urlUtils
+		$action,
+		AuthManager $authManager
 	) {
 		parent::__construct( $main, $action, 'login' );
 		$this->authManager = $authManager;
-		$this->urlUtils = $urlUtils;
 	}
 
 	public function getFinalDescription() {
 		// A bit of a hack to append 'api-help-authmanager-general-usage'
 		$msgs = parent::getFinalDescription();
-		$msgs[] = $this->msg( 'api-help-authmanager-general-usage',
+		$msgs[] = ApiBase::makeMessage( 'api-help-authmanager-general-usage', $this->getContext(), [
 			$this->getModulePrefix(),
 			$this->getModuleName(),
 			$this->getModulePath(),
 			AuthManager::ACTION_LOGIN,
 			$this->needsToken(),
-		);
+		] );
 		return $msgs;
 	}
 
@@ -67,7 +67,7 @@ class ApiClientLogin extends ApiBase {
 		$this->requireAtLeastOneParameter( $params, 'continue', 'returnurl' );
 
 		if ( $params['returnurl'] !== null ) {
-			$bits = $this->urlUtils->parse( $params['returnurl'] );
+			$bits = wfParseUrl( $params['returnurl'] );
 			if ( !$bits || $bits['scheme'] === '' ) {
 				$encParamName = $this->encodeParamName( 'returnurl' );
 				$this->dieWithError(
@@ -152,6 +152,3 @@ class ApiClientLogin extends ApiBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Login';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiClientLogin::class, 'ApiClientLogin' );

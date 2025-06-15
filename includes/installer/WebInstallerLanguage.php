@@ -1,5 +1,4 @@
 <?php
-
 /**
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,12 +19,8 @@
  * @ingroup Installer
  */
 
-namespace MediaWiki\Installer;
-
-use MediaWiki\Html\Html;
 use MediaWiki\Languages\LanguageNameUtils;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Xml\XmlSelect;
 
 class WebInstallerLanguage extends WebInstallerPage {
 
@@ -112,7 +107,6 @@ class WebInstallerLanguage extends WebInstallerPage {
 
 		$select = new XmlSelect( $name, $name, $selectedCode );
 		$select->setAttribute( 'tabindex', $this->parent->nextTabIndex() );
-		$select->setAttribute( 'class', 'cdx-select' );
 
 		$languages = MediaWikiServices::getInstance()
 			->getLanguageNameUtils()

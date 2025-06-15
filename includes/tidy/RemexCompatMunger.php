@@ -2,7 +2,6 @@
 
 namespace MediaWiki\Tidy;
 
-use InvalidArgumentException;
 use Wikimedia\RemexHtml\HTMLData;
 use Wikimedia\RemexHtml\Serializer\Serializer;
 use Wikimedia\RemexHtml\Serializer\SerializerNode;
@@ -16,7 +15,7 @@ use Wikimedia\RemexHtml\TreeBuilder\TreeHandler;
  * @internal
  */
 class RemexCompatMunger implements TreeHandler {
-	private const ONLY_INLINE_ELEMENTS = [
+	private static $onlyInlineElements = [
 		"a" => true,
 		"abbr" => true,
 		"acronym" => true,
@@ -79,17 +78,16 @@ class RemexCompatMunger implements TreeHandler {
 	 * typically those that are themselves invisible in a browser's rendering.
 	 * This isn't a complete list, it's just the tags that we're likely to
 	 * encounter in practice.
+	 * @var array
 	 */
-	private const METADATA_ELEMENTS = [
+	private static $metadataElements = [
 		'style' => true,
 		'script' => true,
 		'link' => true,
-		// Except for the TableOfContentsMarker (see ::isTableOfContentsMarker()
-		// and Parser::TOC_PLACEHOLDER) which should break a paragraph.
 		'meta' => true,
 	];
 
-	private const FORMATTING_ELEMENTS = [
+	private static $formattingElements = [
 		'a' => true,
 		'b' => true,
 		'big' => true,
@@ -183,7 +181,7 @@ class RemexCompatMunger implements TreeHandler {
 	) {
 		$isBlank = strspn( $text, "\t\n\f\r ", $start, $length ) === $length;
 
-		[ $parent, $refNode ] = $this->getParentForInsert( $preposition, $refElement );
+		list( $parent, $refNode ) = $this->getParentForInsert( $preposition, $refElement );
 		$parentData = $parent->snData;
 
 		if ( $preposition === TreeBuilder::UNDER ) {
@@ -270,16 +268,14 @@ class RemexCompatMunger implements TreeHandler {
 	public function insertElement( $preposition, $refElement, Element $element, $void,
 		$sourceStart, $sourceLength
 	) {
-		[ $parent, $newRef ] = $this->getParentForInsert( $preposition, $refElement );
+		list( $parent, $newRef ) = $this->getParentForInsert( $preposition, $refElement );
 		$parentData = $parent->snData;
 		$elementName = $element->htmlName;
 
-		$inline = isset( self::ONLY_INLINE_ELEMENTS[$elementName] );
+		$inline = isset( self::$onlyInlineElements[$elementName] );
 		$under = $preposition === TreeBuilder::UNDER;
 
-		if ( isset( self::METADATA_ELEMENTS[$elementName] )
-			&& !self::isTableOfContentsMarker( $element )
-		) {
+		if ( isset( self::$metadataElements[$elementName] ) ) {
 			// The element is a metadata element, that we allow to appear in
 			// both inline and block contexts.
 			$this->trace( 'insert metadata' );
@@ -334,7 +330,7 @@ class RemexCompatMunger implements TreeHandler {
 			$elementData = $element->userData->snData;
 		}
 		if ( ( $parentData->isPWrapper || $parentData->isSplittable )
-			&& isset( self::FORMATTING_ELEMENTS[$elementName] )
+			&& isset( self::$formattingElements[$elementName] )
 		) {
 			$elementData->isSplittable = true;
 		}
@@ -382,7 +378,7 @@ class RemexCompatMunger implements TreeHandler {
 		while ( $node !== $cloneEnd ) {
 			$nextParent = $serializer->getParentNode( $node );
 			if ( $nextParent === $root ) {
-				throw new InvalidArgumentException( 'Did not find end of clone range' );
+				throw new \Exception( 'Did not find end of clone range' );
 			}
 			$nodes[] = $node;
 			if ( $node->snData->nonblankNodeCount === 0 ) {
@@ -488,7 +484,7 @@ class RemexCompatMunger implements TreeHandler {
 	}
 
 	public function comment( $preposition, $refElement, $text, $sourceStart, $sourceLength ) {
-		[ , $refNode ] = $this->getParentForInsert( $preposition, $refElement );
+		list( , $refNode ) = $this->getParentForInsert( $preposition, $refElement );
 		$this->serializer->comment( $preposition, $refNode, $text, $sourceStart, $sourceLength );
 	}
 
@@ -532,21 +528,5 @@ class RemexCompatMunger implements TreeHandler {
 			}
 		}
 		$newParentNode->children = $children;
-	}
-
-	/**
-	 * Helper function to match the Parser::TOC_PLACEHOLDER.
-	 * Note that Parsoid's version of this placeholder might
-	 * include additional attributes.
-	 * @param Element $element
-	 * @return bool If the given element is a Parser::TOC_PLACEHOLDER
-	 */
-	private function isTableOfContentsMarker( Element $element ): bool {
-		// Keep this in sync with Parser::TOC_PLACEHOLDER
-		return (
-			$element->htmlName === 'meta' &&
-			isset( $element->attrs['property'] ) &&
-			$element->attrs['property'] === 'mw:PageProp/toc'
-		);
 	}
 }

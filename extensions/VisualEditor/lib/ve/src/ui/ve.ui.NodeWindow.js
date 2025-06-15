@@ -1,7 +1,7 @@
 /*!
  * VisualEditor user interface NodeWindow class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -60,28 +60,36 @@ ve.ui.NodeWindow.prototype.isEditing = function () {
  * @return {ve.dm.Node|null} Selected node
  */
 ve.ui.NodeWindow.prototype.getSelectedNode = function () {
-	const modelClasses = this.constructor.static.modelClasses,
+	var modelClasses = this.constructor.static.modelClasses,
 		selectedNode = this.getFragment().getSelectedNode();
 
 	if (
 		selectedNode &&
-		modelClasses.some( ( modelClass ) => selectedNode instanceof modelClass )
+		modelClasses.some( function ( modelClass ) {
+			return selectedNode instanceof modelClass;
+		} )
 	) {
 		return selectedNode;
 	}
 	return null;
 };
 
+/**
+ * @inheritdoc OO.ui.Window
+ */
 ve.ui.NodeWindow.prototype.getSetupProcess = function ( data, process ) {
 	data = data || {};
-	return process.next( () => {
+	return process.next( function () {
 		this.selectedNode = this.getSelectedNode( data );
-	} );
+	}, this );
 };
 
+/**
+ * @inheritdoc OO.ui.Window
+ */
 ve.ui.NodeWindow.prototype.getTeardownProcess = function ( data, process ) {
 	data = data || {};
-	return process.next( () => {
+	return process.next( function () {
 		this.selectedNode = null;
-	} );
+	}, this );
 };

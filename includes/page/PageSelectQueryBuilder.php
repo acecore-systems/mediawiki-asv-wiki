@@ -3,11 +3,9 @@
 namespace MediaWiki\Page;
 
 use Iterator;
-use MediaWiki\Cache\LinkCache;
+use LinkCache;
 use Wikimedia\Assert\Assert;
-use Wikimedia\Rdbms\IExpression;
-use Wikimedia\Rdbms\IReadableDatabase;
-use Wikimedia\Rdbms\LikeValue;
+use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\SelectQueryBuilder;
 
 /**
@@ -22,13 +20,13 @@ class PageSelectQueryBuilder extends SelectQueryBuilder {
 	private $linkCache;
 
 	/**
-	 * @param IReadableDatabase $db
+	 * @param IDatabase $db
 	 * @param PageStore $pageStore
 	 * @param LinkCache|null $linkCache A link cache to store any retrieved rows into
 	 *
 	 * @internal
 	 */
-	public function __construct( IReadableDatabase $db, PageStore $pageStore, ?LinkCache $linkCache = null ) {
+	public function __construct( IDatabase $db, PageStore $pageStore, ?LinkCache $linkCache = null ) {
 		parent::__construct( $db );
 		$this->pageStore = $pageStore;
 		$this->table( 'page' );
@@ -76,9 +74,7 @@ class PageSelectQueryBuilder extends SelectQueryBuilder {
 	 */
 	public function whereTitlePrefix( int $namespace, string $prefix ): self {
 		$this->whereNamespace( $namespace );
-		$this->conds(
-			$this->db->expr( 'page_title', IExpression::LIKE, new LikeValue( $prefix, $this->db->anyString() ) )
-		);
+		$this->conds( 'page_title ' . $this->db->buildLike( $prefix, $this->db->anyString() ) );
 		return $this;
 	}
 
@@ -100,7 +96,7 @@ class PageSelectQueryBuilder extends SelectQueryBuilder {
 	/**
 	 * Order results by namespace and title in $direction
 	 *
-	 * @param string $dir one of self::SORT_ASC or self::SORT_DESC
+	 * @param string $dir one of self::SORT_ACS or self::SORT_DESC
 	 *
 	 * @return PageSelectQueryBuilder
 	 */
@@ -112,7 +108,7 @@ class PageSelectQueryBuilder extends SelectQueryBuilder {
 	/**
 	 * Order results by page id.
 	 *
-	 * @param string $dir one of self::SORT_ASC or self::SORT_DESC
+	 * @param string $dir one of self::SORT_ACS or self::SORT_DESC
 	 *
 	 * @return PageSelectQueryBuilder
 	 */
@@ -149,15 +145,17 @@ class PageSelectQueryBuilder extends SelectQueryBuilder {
 	public function fetchPageRecords(): Iterator {
 		$this->fields( $this->pageStore->getSelectFields() );
 
-		$result = $this->fetchResultSet();
-		foreach ( $result as $row ) {
-			$rec = $this->pageStore->newPageRecordFromRow( $row );
-			if ( $this->linkCache ) {
-				$this->linkCache->addGoodLinkObjFromRow( $rec, $row );
+		return call_user_func( function () {
+			$result = $this->fetchResultSet();
+			foreach ( $result as $row ) {
+				$rec = $this->pageStore->newPageRecordFromRow( $row );
+				if ( $this->linkCache ) {
+					$this->linkCache->addGoodLinkObjFromRow( $rec, $row );
+				}
+				yield $rec;
 			}
-			yield $rec;
-		}
-		$result->free();
+			$result->free();
+		} );
 	}
 
 	/**

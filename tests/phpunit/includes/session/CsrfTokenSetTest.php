@@ -2,15 +2,15 @@
 
 namespace MediaWiki\Tests\Session;
 
-use MediaWiki\Request\WebRequest;
 use MediaWiki\Session\CsrfTokenSet;
 use MediaWiki\Session\SessionManager;
-use MediaWiki\User\User;
 use MediaWikiIntegrationTestCase;
+use User;
+use WebRequest;
 
 /**
  * @covers \MediaWiki\Session\CsrfTokenSet
- * @group Database
+ * @package MediaWiki\Tests\Unit\Session
  */
 class CsrfTokenSetTest extends MediaWikiIntegrationTestCase {
 

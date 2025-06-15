@@ -18,20 +18,13 @@
  * @file
  */
 
-use MediaWiki\SpecialPage\SpecialPage;
-
 /**
  * @ingroup Upload
  */
 class UploadStashFile extends UnregisteredLocalFile {
-	/** @var string */
 	private $fileKey;
-	/** @var string|null Lazy set as in-memory cache */
 	private $urlName;
-	/** @var string|null Lazy set as in-memory cache */
 	protected $url;
-	/** @var string|null */
-	private $sha1;
 
 	/**
 	 * A LocalFile wrapper around a file that has been temporarily stashed,
@@ -42,13 +35,11 @@ class UploadStashFile extends UnregisteredLocalFile {
 	 * @param FileRepo $repo Repository where we should find the path
 	 * @param string $path Path to file
 	 * @param string $key Key to store the path and any stashed data under
-	 * @param string|null $sha1 SHA1 of file. Will calculate if not set
 	 * @throws UploadStashBadPathException
 	 * @throws UploadStashFileNotFoundException
 	 */
-	public function __construct( $repo, $path, $key, $sha1 = null ) {
+	public function __construct( $repo, $path, $key ) {
 		$this->fileKey = $key;
-		$this->sha1 = $sha1;
 
 		// resolve mwrepo:// urls
 		if ( FileRepo::isVirtualUrl( $path ) ) {
@@ -58,7 +49,7 @@ class UploadStashFile extends UnregisteredLocalFile {
 			// and is in this repo's temp zone.
 			$repoTempPath = $repo->getZonePath( 'temp' );
 			if ( ( !$repo->validateFilename( $path ) ) ||
-				!str_starts_with( $path, $repoTempPath )
+				( strpos( $path, $repoTempPath ) !== 0 )
 			) {
 				wfDebug( "UploadStash: tried to construct an UploadStashFile "
 					. "from a file that should already exist at '$path', but path is not valid" );
@@ -80,19 +71,6 @@ class UploadStashFile extends UnregisteredLocalFile {
 		parent::__construct( false, $repo, $path, false );
 
 		$this->name = basename( $this->path );
-	}
-
-	/**
-	 * Get the SHA-1 base 36 hash
-	 *
-	 * This can be expensive on large files, so cache the value
-	 * @return string|false
-	 */
-	public function getSha1() {
-		if ( !$this->sha1 ) {
-			$this->sha1 = parent::getSha1();
-		}
-		return $this->sha1;
 	}
 
 	/**

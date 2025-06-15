@@ -1,17 +1,12 @@
 <?php
 
-use MediaWiki\Content\JavaScriptContent;
-use MediaWiki\Content\JavaScriptContentHandler;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Title\Title;
 
-/**
- * @covers \MediaWiki\Content\JavaScriptContentHandler
- */
 class JavaScriptContentHandlerTest extends MediaWikiLangTestCase {
 
 	/**
 	 * @dataProvider provideMakeRedirectContent
+	 * @covers JavaScriptContentHandler::makeRedirectContent
 	 */
 	public function testMakeRedirectContent( $title, $expected ) {
 		$this->overrideConfigValues( [
@@ -25,30 +20,27 @@ class JavaScriptContentHandlerTest extends MediaWikiLangTestCase {
 	}
 
 	/**
-	 * This is re-used by JavaScriptContentTest to assert roundtrip
+	 * Keep this in sync with JavaScriptContentTest::provideGetRedirectTarget()
 	 */
 	public static function provideMakeRedirectContent() {
 		return [
-			'MediaWiki namespace page' => [
+			[
 				'MediaWiki:MonoBook.js',
-				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=MediaWiki:MonoBook.js&action=raw&ctype=text/javascript");'
+				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=MediaWiki:MonoBook.js\u0026action=raw\u0026ctype=text/javascript");'
 			],
-			'User subpage' => [
+			[
 				'User:FooBar/common.js',
-				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=User:FooBar/common.js&action=raw&ctype=text/javascript");'
+				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=User:FooBar/common.js\u0026action=raw\u0026ctype=text/javascript");'
 			],
-			'Gadget page' => [
+			[
 				'Gadget:FooBaz.js',
-				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=Gadget:FooBaz.js&action=raw&ctype=text/javascript");'
+				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=Gadget:FooBaz.js\u0026action=raw\u0026ctype=text/javascript");'
 			],
-			'Unicode basename' => [
+			[
 				'User:😂/unicode.js',
-				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=User:%F0%9F%98%82/unicode.js&action=raw&ctype=text/javascript");'
-			],
-			'Ampersand basename' => [
-				'User:Penn & Teller/ampersand.js',
-				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=User:Penn_%26_Teller/ampersand.js&action=raw&ctype=text/javascript");'
+				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=User:%F0%9F%98%82/unicode.js\u0026action=raw\u0026ctype=text/javascript");'
 			],
 		];
+		// phpcs:enable
 	}
 }

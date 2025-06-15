@@ -1,4 +1,5 @@
 <?php
+
 /**
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,16 +19,8 @@
  * @file
  */
 
-namespace MediaWiki\Registration;
-
-use Exception;
-
 /**
  * @newable
- * @ingroup ExtensionRegistry
  */
 class ExtensionJsonValidationError extends Exception {
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ExtensionJsonValidationError::class, 'ExtensionJsonValidationError' );

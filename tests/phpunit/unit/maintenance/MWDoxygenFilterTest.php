@@ -1,9 +1,7 @@
 <?php
 
-use MediaWiki\Maintenance\MWDoxygenFilter;
-
 /**
- * @covers \MediaWiki\Namespace\MWDoxygenFilter
+ * @covers MWDoxygenFilter
  */
 class MWDoxygenFilterTest extends \PHPUnit\Framework\TestCase {
 
@@ -139,10 +137,9 @@ CODE
 	 * @dataProvider provideFilter
 	 */
 	public function testFilter( $source, $expected = null ) {
-		$this->assertSame(
-			$expected ?? $source,
-			MWDoxygenFilter::filter( $source ),
-			'Source code'
-		);
+		if ( $expected === null ) {
+			$expected = $source;
+		}
+		$this->assertSame( $expected, MWDoxygenFilter::filter( $source ), 'Source code' );
 	}
 }

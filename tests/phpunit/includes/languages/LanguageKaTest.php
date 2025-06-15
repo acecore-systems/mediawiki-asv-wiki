@@ -12,7 +12,7 @@
 class LanguageKaTest extends LanguageClassesTestCase {
 	/**
 	 * @dataProvider providerGrammar
-	 * @covers \MediaWiki\Language\Language::convertGrammar
+	 * @covers Language::convertGrammar
 	 */
 	public function testGrammar( $result, $word, $case ) {
 		$this->assertEquals( $result, $this->getLang()->convertGrammar( $word, $case ) );

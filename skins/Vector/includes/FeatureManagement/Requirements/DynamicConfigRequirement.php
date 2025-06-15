@@ -22,7 +22,6 @@
 
 namespace MediaWiki\Skins\Vector\FeatureManagement\Requirements;
 
-use MediaWiki\Config\Config;
 use MediaWiki\Skins\Vector\FeatureManagement\Requirement;
 
 /**
@@ -34,11 +33,11 @@ use MediaWiki\Skins\Vector\FeatureManagement\Requirement;
  * application state statically, e.g.
  *
  * ```lang=php
- * $featureManager->registerRequirement(
+ * $featureManager->registerComplexRequirement(
  *   new DynamicConfigRequirement(
  *     $config,
- *     MainConfigNames::Sitename,
- *     'requirementName'
+ *     'Sitename',
+ *     'Foo'
  *   )
  * );
  * ```
@@ -49,9 +48,9 @@ use MediaWiki\Skins\Vector\FeatureManagement\Requirement;
  * Contrast to
  *
  * ```lang=php
- * $featureManager->registerSimpleRequirement(
- *   'requirementName',
- *   (bool)$config->get( MainConfigNames::Sitename )
+ * $featureManager->registerRequirement(
+ *   'Foo',
+ *   $config->get( 'Sitename' )
  * );
  * ```
  *
@@ -67,21 +66,30 @@ use MediaWiki\Skins\Vector\FeatureManagement\Requirement;
  */
 final class DynamicConfigRequirement implements Requirement {
 
-	private Config $config;
-
-	private string $configName;
-
-	private string $requirementName;
+	/**
+	 * @var \Config
+	 */
+	private $config;
 
 	/**
-	 * @param Config $config
+	 * @var string
+	 */
+	private $configName;
+
+	/**
+	 * @var string
+	 */
+	private $requirementName;
+
+	/**
+	 * @param \Config $config
 	 * @param string $configName Any `Config` key. This name is used to query `$config` state. E.g.,
 	 *   `'DBname'`. See https://www.mediawiki.org/wiki/Manual:Configuration_settings
 	 * @param string $requirementName The name of the requirement presented to FeatureManager.
 	 *   This name _usually_ matches the `$configName` parameter for simplicity but allows for
 	 *   abstraction as needed. See `Requirement->getName()`.
 	 */
-	public function __construct( Config $config, string $configName, string $requirementName ) {
+	public function __construct( \Config $config, string $configName, string $requirementName ) {
 		$this->config = $config;
 		$this->configName = $configName;
 		$this->requirementName = $requirementName;

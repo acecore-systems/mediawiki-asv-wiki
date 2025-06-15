@@ -2,17 +2,13 @@
 
 namespace MediaWiki\Widget;
 
-use MediaWiki\Html\Html;
-use OOUI\DropdownInputWidget;
-use OOUI\InputWidget;
-
 /**
  * Namespace input widget. Displays a dropdown box with the choice of available namespaces.
  *
  * @copyright 2011-2015 MediaWiki Widgets Team and others; see AUTHORS.txt
  * @license MIT
  */
-class NamespaceInputWidget extends DropdownInputWidget {
+class NamespaceInputWidget extends \OOUI\DropdownInputWidget {
 	/** @var string */
 	protected $includeAllValue;
 	/** @var bool */
@@ -48,7 +44,7 @@ class NamespaceInputWidget extends DropdownInputWidget {
 			'in-user-lang' => $config['userLang'] ?? false,
 			'exclude' => $config['exclude'] ?? null
 		];
-		$namespaceOptions = Html::namespaceSelectorOptions( $namespaceOptionsParams );
+		$namespaceOptions = \Html::namespaceSelectorOptions( $namespaceOptionsParams );
 
 		$options = [];
 		foreach ( $namespaceOptions as $id => $name ) {
@@ -71,6 +67,6 @@ class NamespaceInputWidget extends DropdownInputWidget {
 		$config['exclude'] = $this->exclude;
 		// Skip DropdownInputWidget's getConfig(), we don't need 'options' config
 		$config['dropdown']['$overlay'] = true;
-		return InputWidget::getConfig( $config );
+		return \OOUI\InputWidget::getConfig( $config );
 	}
 }

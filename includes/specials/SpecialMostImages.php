@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Mostimages
+ *
  * Copyright © 2005 Ævar Arnfjörð Bjarmason
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,27 +20,30 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- */
-
-namespace MediaWiki\Specials;
-
-use MediaWiki\SpecialPage\ImageQueryPage;
-use Wikimedia\Rdbms\IConnectionProvider;
-
-/**
- * List of the most used images.
- *
  * @ingroup SpecialPage
  * @author Ævar Arnfjörð Bjarmason <avarab@gmail.com>
  */
-class SpecialMostImages extends ImageQueryPage {
+
+use MediaWiki\MediaWikiServices;
+use Wikimedia\Rdbms\ILoadBalancer;
+
+/**
+ * A special page that lists most used images
+ *
+ * @ingroup SpecialPage
+ */
+class MostimagesPage extends ImageQueryPage {
 
 	/**
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer|string $loadBalancer
 	 */
-	public function __construct( IConnectionProvider $dbProvider ) {
-		parent::__construct( 'Mostimages' );
-		$this->setDatabaseProvider( $dbProvider );
+	public function __construct( $loadBalancer ) {
+		parent::__construct( is_string( $loadBalancer ) ? $loadBalancer : 'Mostimages' );
+		// This class is extended and therefor fallback to global state - T265307
+		if ( !$loadBalancer instanceof ILoadBalancer ) {
+			$loadBalancer = MediaWikiServices::getInstance()->getDBLoadBalancer();
+		}
+		$this->setDBLoadBalancer( $loadBalancer );
 	}
 
 	public function isExpensive() {
@@ -72,9 +77,3 @@ class SpecialMostImages extends ImageQueryPage {
 		return 'highuse';
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.40
- */
-class_alias( SpecialMostImages::class, 'MostimagesPage' );

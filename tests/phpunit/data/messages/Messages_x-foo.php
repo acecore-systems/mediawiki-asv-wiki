@@ -7,5 +7,5 @@ $namespaceAliases = [
 	'Cat' => NS_USER,
 	'Cat_toots' => NS_USER_TALK,
 	'Dog' => NS_USER,
-	'Dog_woofs' => NS_USER_TALK,
+	'Dog' => NS_USER_TALK,
 ];

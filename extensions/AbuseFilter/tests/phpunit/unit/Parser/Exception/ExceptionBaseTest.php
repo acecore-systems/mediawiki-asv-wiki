@@ -10,10 +10,14 @@ use MediaWikiUnitTestCase;
  * @group AbuseFilter
  * @group AbuseFilterParser
  *
- * @covers \MediaWiki\Extension\AbuseFilter\Parser\Exception\ExceptionBase
+ * @coversDefaultClass \MediaWiki\Extension\AbuseFilter\Parser\Exception\ExceptionBase
  */
 class ExceptionBaseTest extends MediaWikiUnitTestCase {
 
+	/**
+	 * @covers ::toArray
+	 * @covers ::fromArray
+	 */
 	public function testToArrayRoundTrip() {
 		$exc = new InternalException( 'Foo' );
 		$newExc = InternalException::fromArray( $exc->toArray() );

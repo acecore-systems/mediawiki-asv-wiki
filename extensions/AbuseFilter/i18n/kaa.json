@@ -1,8 +1,8 @@
 {
 	"@metadata": {
 		"authors": [
-			"Ajiniyaz Nurniyazov",
-			"Nurlan"
+			"Nurlan",
+			"Ajiniyaz Nurniyazov"
 		]
 	},
 	"abusefilter": "Buzaqıshılıq háreketlerdi filtrlew menedjmenti",
@@ -53,8 +53,5 @@
 	"abusefilter-topnav-tools": "Durıslawshı qurallar",
 	"abusefilter-log-name": "Buzaqıshılıq háreketlerdi filtrlew jurnalı",
 	"abusefilter-log-header": "Bul jurnalda filtrler boyınsha islengen ózgerislerdiń sıpatlamaları kórsetiledi. Tolıqlaw maǵlıwmat ushın jaqın aradaǵı filtr ózgerisleri [[Special:AbuseFilter/history|dizimi]]ne qarańız.",
-	"abusefilter-log-noresults": "Nátiyje joq",
-	"abusefilter-blocked-domains-domain-header": "Domen:",
-	"abusefilter-blocked-domains-actions-header": "Háreketler",
-	"abusefilter-blocked-domains-remove-reason": "Sebep"
+	"abusefilter-log-noresults": "Nátiyje joq"
 }

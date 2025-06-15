@@ -1,21 +1,21 @@
 /*!
  * VisualEditor UserInterface Actions WindowAction tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ui.WindowAction' );
 
 /* Tests */
 
-QUnit.test( 'Basic open/close', ( assert ) => {
-	const surface = ve.test.utils.createSurfaceFromHtml( '' ),
+QUnit.test( 'Basic open/close', function ( assert ) {
+	var surface = ve.test.utils.createSurfaceFromHtml( '' ),
 		windowAction = ve.ui.actionFactory.create( 'window', surface ),
 		dialogs = surface.getDialogs(),
 		done = assert.async( 2 );
 
-	dialogs.once( 'opening', ( win, opening ) => {
-		opening.then( () => {
+	dialogs.once( 'opening', function ( win, opening ) {
+		opening.then( function () {
 			assert.true( true, 'Window opened' );
 
 			windowAction.close( 'message' );
@@ -23,7 +23,7 @@ QUnit.test( 'Basic open/close', ( assert ) => {
 		} );
 	} );
 
-	dialogs.once( 'closing', () => {
+	dialogs.once( 'closing', function () {
 		assert.true( true, 'Window closed' );
 		done();
 	} );

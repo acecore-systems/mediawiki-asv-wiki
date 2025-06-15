@@ -6,10 +6,10 @@ use MediaWiki\Page\PageIdentity;
 use MediaWiki\Page\PageIdentityValue;
 use MediaWiki\Revision\MutableRevisionRecord;
 use MediaWiki\Revision\RevisionRecord;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleValue;
 use MediaWikiIntegrationTestCase;
 use MockTitleTrait;
+use Title;
+use TitleValue;
 use Wikimedia\Assert\PreconditionException;
 
 /**
@@ -19,7 +19,7 @@ use Wikimedia\Assert\PreconditionException;
 class MutableRevisionRecordTest extends MediaWikiIntegrationTestCase {
 	use MockTitleTrait;
 
-	public static function provideConstructor() {
+	public function provideConstructor() {
 		$title = Title::makeTitle( NS_MAIN, 'Dummy' );
 		$title->resetArticleID( 17 );
 		yield 'local wiki, with title' => [ $title, PageIdentity::LOCAL ];
@@ -38,13 +38,13 @@ class MutableRevisionRecordTest extends MediaWikiIntegrationTestCase {
 	 * @dataProvider provideConstructor
 	 *
 	 * @param PageIdentity $page
-	 * @param string|false $wikiId
+	 * @param bool $wikiId
 	 * @param string|null $expectedException
 	 */
 	public function testConstructorAndGetters(
 		PageIdentity $page,
 		$wikiId = RevisionRecord::LOCAL,
-		?string $expectedException = null
+		string $expectedException = null
 	) {
 		$rec = new MutableRevisionRecord( $page, $wikiId );
 

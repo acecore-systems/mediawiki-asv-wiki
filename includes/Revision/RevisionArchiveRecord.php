@@ -22,11 +22,11 @@
 
 namespace MediaWiki\Revision;
 
-use MediaWiki\CommentStore\CommentStoreComment;
+use CommentStoreComment;
 use MediaWiki\Page\PageIdentity;
 use MediaWiki\Permissions\Authority;
 use MediaWiki\User\UserIdentity;
-use MediaWiki\Utils\MWTimestamp;
+use MWTimestamp;
 use stdClass;
 use Wikimedia\Assert\Assert;
 
@@ -86,7 +86,7 @@ class RevisionArchiveRecord extends RevisionRecord {
 		$this->mComment = $comment;
 		$this->mUser = $user;
 		$this->mTimestamp = $timestamp;
-		$this->mMinorEdit = (bool)$row->ar_minor_edit;
+		$this->mMinorEdit = boolval( $row->ar_minor_edit );
 		$this->mDeleted = intval( $row->ar_deleted );
 		$this->mSize = isset( $row->ar_len ) ? intval( $row->ar_len ) : null;
 		$this->mSha1 = !empty( $row->ar_sha1 ) ? $row->ar_sha1 : null;
@@ -118,7 +118,9 @@ class RevisionArchiveRecord extends RevisionRecord {
 	public function getSize() {
 		// If length is null, calculate and remember it (potentially SLOW!).
 		// This is for compatibility with old database rows that don't have the field set.
-		$this->mSize ??= $this->mSlots->computeSize();
+		if ( $this->mSize === null ) {
+			$this->mSize = $this->mSlots->computeSize();
+		}
 
 		return $this->mSize;
 	}
@@ -130,7 +132,9 @@ class RevisionArchiveRecord extends RevisionRecord {
 	public function getSha1() {
 		// If hash is null, calculate it and remember (potentially SLOW!)
 		// This is for compatibility with old database rows that don't have the field set.
-		$this->mSha1 ??= $this->mSlots->computeSha1();
+		if ( $this->mSha1 === null ) {
+			$this->mSha1 = $this->mSlots->computeSha1();
+		}
 
 		return $this->mSha1;
 	}
@@ -141,7 +145,7 @@ class RevisionArchiveRecord extends RevisionRecord {
 	 *
 	 * @return UserIdentity The identity of the revision author, null if access is forbidden.
 	 */
-	public function getUser( $audience = self::FOR_PUBLIC, ?Authority $performer = null ) {
+	public function getUser( $audience = self::FOR_PUBLIC, Authority $performer = null ) {
 		// overwritten just to add a guarantee to the contract
 		return parent::getUser( $audience, $performer );
 	}
@@ -152,7 +156,7 @@ class RevisionArchiveRecord extends RevisionRecord {
 	 *
 	 * @return CommentStoreComment The revision comment, null if access is forbidden.
 	 */
-	public function getComment( $audience = self::FOR_PUBLIC, ?Authority $performer = null ) {
+	public function getComment( $audience = self::FOR_PUBLIC, Authority $performer = null ) {
 		// overwritten just to add a guarantee to the contract
 		return parent::getComment( $audience, $performer );
 	}
@@ -163,47 +167,6 @@ class RevisionArchiveRecord extends RevisionRecord {
 	public function getTimestamp() {
 		// overwritten just to add a guarantee to the contract
 		return parent::getTimestamp();
-	}
-
-	public function userCan( $field, Authority $performer ) {
-		// This revision belongs to a deleted page, so check the relevant permissions as well. (T345777)
-
-		// Viewing the content requires either 'deletedtext' or 'undelete' (for legacy reasons)
-		if (
-			$field === self::DELETED_TEXT &&
-			!$performer->authorizeRead( 'deletedtext', $this->getPage() ) &&
-			!$performer->authorizeRead( 'undelete', $this->getPage() )
-		) {
-			return false;
-		}
-
-		// Viewing the edit summary requires 'deletedhistory'
-		if (
-			$field === self::DELETED_COMMENT &&
-			!$performer->authorizeRead( 'deletedhistory', $this->getPage() )
-		) {
-			return false;
-		}
-
-		// Other fields of revisions of deleted pages are public, per T232389 (unless revision-deleted)
-
-		return parent::userCan( $field, $performer );
-	}
-
-	public function audienceCan( $field, $audience, ?Authority $performer = null ) {
-		// This revision belongs to a deleted page, so check the relevant permissions as well. (T345777)
-		// See userCan().
-		if (
-			$audience == self::FOR_PUBLIC &&
-			( $field === self::DELETED_TEXT || $field === self::DELETED_COMMENT )
-		) {
-			// TODO: Should this use PermissionManager::isEveryoneAllowed() or something?
-			// But RevisionRecord::audienceCan() doesn't do that either…
-			return false;
-		}
-
-		// This calls userCan(), which checks the user's permissions
-		return parent::audienceCan( $field, $audience, $performer );
 	}
 
 	/**

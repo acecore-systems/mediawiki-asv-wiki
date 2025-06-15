@@ -1,6 +1,2 @@
-/**
- * OOUI widgets specific to MediaWiki for inputting date and time.
- *
- * @namespace mw.widgets.datetime
- */
+// Create the namespace object
 mw.widgets.datetime = {};

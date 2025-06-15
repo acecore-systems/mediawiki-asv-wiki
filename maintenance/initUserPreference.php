@@ -6,9 +6,7 @@
  * @ingroup Maintenance
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script that initializes a user preference
@@ -41,8 +39,8 @@ class InitUserPreference extends Maintenance {
 		$source = $this->getOption( 'source' );
 		$this->output( "Initializing '$target' based on the value of '$source'\n" );
 
-		$dbr = $this->getReplicaDB();
-		$dbw = $this->getPrimaryDB();
+		$dbr = $this->getDB( DB_REPLICA );
+		$dbw = $this->getDB( DB_PRIMARY );
 
 		$iterator = new BatchRowIterator(
 			$dbr,
@@ -53,25 +51,27 @@ class InitUserPreference extends Maintenance {
 		$iterator->setFetchColumns( [ 'up_user', 'up_value' ] );
 		$iterator->addConditions( [
 			'up_property' => $source,
-			$dbr->expr( 'up_value', '!=', null ),
-			$dbr->expr( 'up_value', '!=', 0 ),
+			'up_value IS NOT NULL',
+			'up_value != 0',
 		] );
 		$iterator->setCaller( __METHOD__ );
 
 		$processed = 0;
 		foreach ( $iterator as $batch ) {
 			foreach ( $batch as $row ) {
-				$dbw->newInsertQueryBuilder()
-					->insertInto( 'user_properties' )
-					->row( [
+				$dbw->upsert(
+					'user_properties',
+					[
 						'up_user' => $row->up_user,
 						'up_property' => $target,
 						'up_value' => $row->up_value,
-					] )
-					->onDuplicateKeyUpdate()
-					->uniqueIndexFields( [ 'up_user', 'up_property' ] )
-					->set( [ 'up_value' => $row->up_value ] )
-					->caller( __METHOD__ )->execute();
+					],
+					[ [ 'up_user', 'up_property' ] ],
+					[
+						'up_value' => $row->up_value,
+					],
+					__METHOD__
+				);
 
 				$processed += $dbw->affectedRows();
 			}
@@ -82,7 +82,5 @@ class InitUserPreference extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = InitUserPreference::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

@@ -25,10 +25,6 @@
  * @author Daniel Kinzler
  */
 
-namespace MediaWiki\Content;
-
-use MediaWiki\Title\Title;
-
 /**
  * Content for JavaScript pages.
  *
@@ -38,7 +34,7 @@ use MediaWiki\Title\Title;
 class JavaScriptContent extends TextContent {
 
 	/**
-	 * @var Title|null|false
+	 * @var bool|Title|null
 	 */
 	private $redirectTarget = false;
 
@@ -77,18 +73,13 @@ class JavaScriptContent extends TextContent {
 		$this->redirectTarget = null;
 		$text = $this->getText();
 		if ( strpos( $text, '/* #REDIRECT */' ) === 0 ) {
-			// Compatiblity with pages created by MW 1.41 and earlier:
-			// Older redirects use an over-escaped \u0026 instead of a literal ampersand (T107289)
-			$text = str_replace( '\u0026', '&', $text );
 			// Extract the title from the url
-			if ( preg_match( '/title=(.*?)&action=raw/', $text, $matches ) ) {
+			if ( preg_match( '/title=(.*?)\\\\u0026action=raw/', $text, $matches ) ) {
 				$title = Title::newFromText( urldecode( $matches[1] ) );
 				if ( $title ) {
 					// Have a title, check that the current content equals what
 					// the redirect content should be
-					$expected = $this->getContentHandler()->makeRedirectContent( $title );
-					'@phan-var JavaScriptContent $expected';
-					if ( $expected->getText() === $text ) {
+					if ( $this->equals( $this->getContentHandler()->makeRedirectContent( $title ) ) ) {
 						$this->redirectTarget = $title;
 					}
 				}
@@ -99,5 +90,3 @@ class JavaScriptContent extends TextContent {
 	}
 
 }
-/** @deprecated class alias since 1.43 */
-class_alias( JavaScriptContent::class, 'JavaScriptContent' );

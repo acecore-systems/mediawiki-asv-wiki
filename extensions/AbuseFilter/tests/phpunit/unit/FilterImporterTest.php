@@ -18,7 +18,7 @@ use MediaWikiUnitTestCase;
 /**
  * @group Test
  * @group AbuseFilter
- * @covers \MediaWiki\Extension\AbuseFilter\FilterImporter
+ * @coversDefaultClass \MediaWiki\Extension\AbuseFilter\FilterImporter
  */
 class FilterImporterTest extends MediaWikiUnitTestCase {
 	private const GOOD_FILTER_DATA = [
@@ -29,7 +29,7 @@ class FilterImporterTest extends MediaWikiUnitTestCase {
 		'actions' => [],
 		'enabled' => true,
 		'deleted' => false,
-		'privacyLevel' => true,
+		'hidden' => true,
 		'global' => false
 	];
 
@@ -40,10 +40,12 @@ class FilterImporterTest extends MediaWikiUnitTestCase {
 	 * @return FilterImporter
 	 */
 	private function getImporter(
-		?array $groups = null,
-		?bool $isCentral = null,
-		?array $actions = null
+		array $groups = null,
+		bool $isCentral = null,
+		array $actions = null
 	): FilterImporter {
+		$groups = $groups ?? [ 'default' ];
+		$isCentral = $isCentral ?? false;
 		$actions = array_fill_keys( $actions ?? [ 'warn', 'disallow', 'block' ], true );
 		$registry = new ConsequencesRegistry(
 			$this->createMock( AbuseFilterHookRunner::class ),
@@ -53,14 +55,17 @@ class FilterImporterTest extends MediaWikiUnitTestCase {
 			new ServiceOptions(
 				FilterImporter::CONSTRUCTOR_OPTIONS,
 				[
-					'AbuseFilterValidGroups' => $groups ?? [ 'default' ],
-					'AbuseFilterIsCentral' => $isCentral ?? false,
+					'AbuseFilterValidGroups' => $groups,
+					'AbuseFilterIsCentral' => $isCentral
 				]
 			),
 			$registry
 		);
 	}
 
+	/**
+	 * @covers ::encodeData
+	 */
 	public function testEncodeData() {
 		$importer = $this->getImporter();
 		$filter = MutableFilter::newDefault();
@@ -70,6 +75,8 @@ class FilterImporterTest extends MediaWikiUnitTestCase {
 
 	/**
 	 * @param mixed $data
+	 * @covers ::decodeData
+	 * @covers ::isValidImportData
 	 * @dataProvider provideInvalidData
 	 */
 	public function testDecodeData_invalid( $data ) {
@@ -78,7 +85,10 @@ class FilterImporterTest extends MediaWikiUnitTestCase {
 		$importer->decodeData( $data );
 	}
 
-	public static function provideInvalidData() {
+	/**
+	 * @return array
+	 */
+	public function provideInvalidData() {
 		$cases = [
 			'non-object' => 'foo',
 			'bad top-level keys' => (object)[ 'foo' => 1 ],
@@ -107,6 +117,9 @@ class FilterImporterTest extends MediaWikiUnitTestCase {
 	 * @param array $origActions
 	 * @param Filter $expectedFilter
 	 * @param array $configOptions
+	 * @covers ::decodeData
+	 * @covers ::encodeData
+	 * @covers ::isValidImportData
 	 * @dataProvider provideRoundTrip
 	 */
 	public function testRoundTrip(
@@ -127,7 +140,7 @@ class FilterImporterTest extends MediaWikiUnitTestCase {
 	/**
 	 * @return Generator
 	 */
-	public static function provideRoundTrip(): Generator {
+	public function provideRoundTrip(): Generator {
 		$actions = [
 			'block' => [],
 			'warn' => []
@@ -180,6 +193,9 @@ class FilterImporterTest extends MediaWikiUnitTestCase {
 		];
 	}
 
+	/**
+	 * @covers ::__construct
+	 */
 	public function testConstruct() {
 		$this->assertInstanceOf(
 			FilterImporter::class,

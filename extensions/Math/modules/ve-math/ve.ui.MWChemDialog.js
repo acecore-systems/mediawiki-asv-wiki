@@ -1,7 +1,7 @@
 /*!
  * VisualEditor user interface MWChemDialog class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2015 VisualEditor Team and others; see AUTHORS.txt
  * @license MIT
  */
 

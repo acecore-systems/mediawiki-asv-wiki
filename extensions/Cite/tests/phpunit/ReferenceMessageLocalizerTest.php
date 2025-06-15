@@ -3,19 +3,21 @@
 namespace Cite\Tests;
 
 use Cite\ReferenceMessageLocalizer;
+use LanguageQqx;
 
 /**
- * @covers \Cite\ReferenceMessageLocalizer
- * @license GPL-2.0-or-later
+ * @coversDefaultClass \Cite\ReferenceMessageLocalizer
  */
 class ReferenceMessageLocalizerTest extends \MediaWikiIntegrationTestCase {
 
+	/**
+	 * @covers ::msg
+	 */
 	public function testMsg() {
-		$lang = $this->getServiceContainer()->getLanguageFactory()->getLanguage( 'qqx' );
-		$localizer = new ReferenceMessageLocalizer( $lang );
+		$localizer = new ReferenceMessageLocalizer( new LanguageQqx() );
 		$this->assertSame(
-			'(cite-desc)',
-			$localizer->msg( 'cite-desc' )->plain() );
+			'(cite_reference_link_prefix)',
+			$localizer->msg( 'cite_reference_link_prefix' )->plain() );
 	}
 
 }

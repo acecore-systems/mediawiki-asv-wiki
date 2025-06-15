@@ -2,43 +2,47 @@
  * JavaScript for change credentials form.
  */
 ( function () {
-	mw.hook( 'htmlform.enhance' ).add( ( $root ) => {
-		const api = new mw.Api();
+	mw.hook( 'htmlform.enhance' ).add( function ( $root ) {
+		var api = new mw.Api();
 
 		$root.find( '.mw-changecredentials-validate-password.oo-ui-fieldLayout' ).each( function () {
-			const self = OO.ui.FieldLayout.static.infuse( $( this ) );
+			var currentApiPromise,
+				self = OO.ui.FieldLayout.static.infuse( $( this ) );
 
-			let currentApiPromise;
-			self.getField().setValidation( ( passwordValue ) => {
+			self.getField().setValidation( function ( password ) {
+				var d;
+
 				if ( currentApiPromise ) {
 					currentApiPromise.abort();
 					currentApiPromise = undefined;
 				}
 
-				passwordValue = passwordValue.trim();
+				password = password.trim();
 
-				if ( passwordValue === '' ) {
+				if ( password === '' ) {
 					self.setErrors( [] );
 					return true;
 				}
 
-				const d = $.Deferred();
+				d = $.Deferred();
 				currentApiPromise = api.post( {
 					action: 'validatepassword',
-					password: passwordValue,
+					password: password,
 					formatversion: 2,
 					errorformat: 'html',
 					errorsuselocal: true,
 					uselang: mw.config.get( 'wgUserLanguage' )
-				} ).done( ( resp ) => {
-					const pwinfo = resp.validatepassword,
+				} ).done( function ( resp ) {
+					var errors,
+						pwinfo = resp.validatepassword,
 						good = pwinfo.validity === 'Good';
 
 					currentApiPromise = undefined;
 
-					let errors;
 					if ( !good ) {
-						errors = pwinfo.validitymessages.map( ( m ) => new OO.ui.HtmlSnippet( m.html ) );
+						errors = pwinfo.validitymessages.map( function ( m ) {
+							return new OO.ui.HtmlSnippet( m.html );
+						} );
 					}
 					self.setErrors( errors || [] );
 					d.resolve( good );

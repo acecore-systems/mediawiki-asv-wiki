@@ -1,7 +1,7 @@
 /*!
  * VisualEditor user interface MWParameterPage class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -16,11 +16,11 @@
  * @constructor
  * @param {ve.dm.MWParameterModel} parameter Template parameter
  * @param {Object} [config] Configuration options
- * @param {jQuery} [config.$overlay] Overlay to render dropdowns in
- * @param {boolean} [config.readOnly] Parameter is read-only
+ * @cfg {jQuery} [$overlay] Overlay to render dropdowns in
+ * @cfg {boolean} [readOnly] Parameter is read-only
  */
 ve.ui.MWParameterPage = function VeUiMWParameterPage( parameter, config ) {
-	const paramName = parameter.getName();
+	var paramName = parameter.getName();
 
 	// Configuration initialization
 	config = ve.extendObject( {
@@ -42,10 +42,10 @@ ve.ui.MWParameterPage = function VeUiMWParameterPage( parameter, config ) {
 	this.$field = $( '<div>' );
 
 	// Construct the field docs for the template description
-	const $doc = $( '<div>' )
+	var $doc = $( '<div>' )
 		.attr( 'id', OO.ui.generateElementId() )
 		.addClass( 've-ui-mwParameterPage-doc' );
-	const description = this.spec.getParameterDescription( paramName );
+	var description = this.spec.getParameterDescription( paramName );
 	if ( description ) {
 		$( '<p>' ).text( description ).appendTo( $doc );
 	}
@@ -61,13 +61,13 @@ ve.ui.MWParameterPage = function VeUiMWParameterPage( parameter, config ) {
 		this.valueInput.setReadOnly( true );
 	}
 
-	const labelElement = new OO.ui.LabelWidget( {
+	var labelElement = new OO.ui.LabelWidget( {
 		input: this.valueInput,
 		label: this.spec.getParameterLabel( paramName ),
 		classes: [ 've-ui-mwParameterPage-label' ]
 	} );
 
-	let statusIndicator;
+	var statusIndicator;
 	if ( this.parameter.isRequired() ) {
 		$( '<p>' )
 			.addClass( 've-ui-mwParameterPage-doc-required' )
@@ -122,7 +122,7 @@ ve.ui.MWParameterPage = function VeUiMWParameterPage( parameter, config ) {
 		$( '<span>' )
 			.addClass( 've-ui-mwParameterPage-undocumentedLabel' )
 			.text( ve.msg( 'visualeditor-dialog-transclusion-param-undocumented' ) )
-			.appendTo( labelElement.$element );
+			.insertAfter( labelElement.$element );
 	}
 
 	this.$element
@@ -148,7 +148,7 @@ OO.inheritClass( ve.ui.MWParameterPage, OO.ui.PageLayout );
 /**
  * Triggered when the parameter value changes between empty and not empty.
  *
- * @event ve.ui.MWParameterPage#hasValueChange
+ * @event hasValueChange
  * @param string parameterId Keyed by unique id of the parameter, e.g. something
  *  like "part_1/param1".
  * @param boolean hasValue
@@ -163,7 +163,7 @@ OO.inheritClass( ve.ui.MWParameterPage, OO.ui.PageLayout );
  * @return {Object}
  */
 ve.ui.MWParameterPage.prototype.getDefaultInputConfig = function () {
-	const valueInputConfig = {
+	var valueInputConfig = {
 		autosize: true,
 		required: this.parameter.isRequired()
 	};
@@ -186,7 +186,7 @@ ve.ui.MWParameterPage.prototype.getDefaultInputConfig = function () {
  * @return {OO.ui.InputWidget}
  */
 ve.ui.MWParameterPage.prototype.createValueInput = function () {
-	const type = this.parameter.getType(),
+	var type = this.parameter.getType(),
 		value = this.parameter.getValue(),
 		valueInputConfig = this.getDefaultInputConfig();
 
@@ -248,10 +248,12 @@ ve.ui.MWParameterPage.prototype.createValueInput = function () {
 	) {
 		valueInputConfig.menu = { filterFromInput: true, highlightOnFilter: true };
 		valueInputConfig.options =
-			this.parameter.getSuggestedValues().filter(
+			this.parameter.getSuggestedValues().filter( function ( suggestedValue ) {
 				// This wasn't validated for a while, existing templates can do anything here
-				( suggestedValue ) => typeof suggestedValue === 'string'
-			).map( ( suggestedValue ) => ( { data: suggestedValue, label: suggestedValue || '\xA0' } ) );
+				return typeof suggestedValue === 'string';
+			} ).map( function ( suggestedValue ) {
+				return { data: suggestedValue, label: suggestedValue || '\xA0' };
+			} );
 		return new OO.ui.ComboBoxInputWidget( valueInputConfig );
 	} else if ( type !== 'line' || value.indexOf( '\n' ) !== -1 ) {
 		// If the type is line, but there are already newlines in the provided
@@ -261,12 +263,7 @@ ve.ui.MWParameterPage.prototype.createValueInput = function () {
 		return new ve.ui.MWLazyMultilineTextInputWidget( valueInputConfig );
 	}
 
-	// Wrapping single line input (T348482)
-	return new ve.ui.MWLazyMultilineTextInputWidget( ve.extendObject( {
-		rows: 1,
-		autosize: true,
-		allowLinebreaks: false
-	}, valueInputConfig ) );
+	return new OO.ui.TextInputWidget( valueInputConfig );
 };
 
 /**
@@ -297,7 +294,7 @@ ve.ui.MWParameterPage.prototype.containsSomeValue = function () {
  * @param {string} value
  */
 ve.ui.MWParameterPage.prototype.onValueInputChange = function () {
-	const value = this.valueInput.getValue();
+	var value = this.valueInput.getValue();
 
 	if ( !this.edited ) {
 		ve.track( 'activity.transclusion', { action: 'edit-parameter-value' } );

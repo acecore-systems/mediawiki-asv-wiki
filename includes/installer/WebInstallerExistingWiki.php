@@ -1,5 +1,4 @@
 <?php
-
 /**
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,10 +18,6 @@
  * @file
  * @ingroup Installer
  */
-
-namespace MediaWiki\Installer;
-
-use MediaWiki\Status\Status;
 
 class WebInstallerExistingWiki extends WebInstallerPage {
 
@@ -163,7 +158,7 @@ class WebInstallerExistingWiki extends WebInstallerPage {
 		$this->setVar( '_InstallPassword', $vars['wgDBadminpassword'] ?? $vars['wgDBpassword'] );
 
 		// Test the database connection
-		$status = $installer->getConnection( DatabaseInstaller::CONN_CREATE_DATABASE );
+		$status = $installer->getConnection();
 		if ( !$status->isOK() ) {
 			// Adjust the error message to explain things correctly
 			$status->replaceMessage( 'config-connection-error',

@@ -7,16 +7,15 @@
 ( function () {
 
 	/**
-	 * @classdesc Media resource provider.
+	 * MediaWiki media resource provider.
 	 *
 	 * @class
 	 * @extends mw.widgets.APIResultsProvider
 	 *
 	 * @constructor
-	 * @description Create an instance of `mw.widgets.MediaResourceProvider`.
 	 * @param {string} apiurl The API url
 	 * @param {Object} [config] Configuration options
-	 * @param {string} [config.scriptDirUrl] The url of the API script
+	 * @cfg {string} [scriptDirUrl] The url of the API script
 	 */
 	mw.widgets.MediaResourceProvider = function MwWidgetsMediaResourceProvider( apiurl, config ) {
 		config = config || {};
@@ -50,7 +49,7 @@
 	 * @inheritdoc
 	 */
 	mw.widgets.MediaResourceProvider.prototype.getStaticParams = function () {
-		return Object.assign(
+		return $.extend(
 			{},
 			// Parent method
 			mw.widgets.MediaResourceProvider.super.prototype.getStaticParams.call( this ),
@@ -73,18 +72,19 @@
 	 * properties are set.
 	 */
 	mw.widgets.MediaResourceProvider.prototype.loadSiteInfo = function () {
+		var provider = this;
 
 		if ( !this.siteInfoPromise ) {
 			this.siteInfoPromise = new mw.Api().get( {
 				action: 'query',
 				meta: 'siteinfo'
 			} )
-				.then( ( data ) => {
-					this.setImageSizes( data.query.general.imagelimits || [] );
-					this.setThumbSizes( data.query.general.thumblimits || [] );
-					this.setUserParams( {
+				.then( function ( data ) {
+					provider.setImageSizes( data.query.general.imagelimits || [] );
+					provider.setThumbSizes( data.query.general.thumblimits || [] );
+					provider.setUserParams( {
 						// Standard width per resource
-						iiurlwidth: this.getStandardWidth()
+						iiurlwidth: provider.getStandardWidth()
 					} );
 				} );
 		}
@@ -92,35 +92,36 @@
 	};
 
 	/**
-	 * Override parent method and get results from the source.
+	 * Override parent method and get results from the source
 	 *
 	 * @param {number} [howMany] The number of items to pull from the API
 	 * @return {jQuery.Promise} Promise that is resolved into an array
 	 * of available results, or is rejected if no results are available.
 	 */
 	mw.widgets.MediaResourceProvider.prototype.getResults = function ( howMany ) {
-		let xhr,
-			aborted = false;
+		var xhr,
+			aborted = false,
+			provider = this;
 
 		return this.loadSiteInfo()
-			.then( () => {
+			.then( function () {
 				if ( aborted ) {
 					return $.Deferred().reject();
 				}
-				xhr = this.fetchAPIresults( howMany );
+				xhr = provider.fetchAPIresults( howMany );
 				return xhr;
 			} )
 			.then(
-				( results ) => {
+				function ( results ) {
 					if ( !results || results.length === 0 ) {
-						this.toggleDepleted( true );
+						provider.toggleDepleted( true );
 						return [];
 					}
 					return results;
 				},
 				// Process failed, return an empty promise
-				() => {
-					this.toggleDepleted( true );
+				function () {
+					provider.toggleDepleted( true );
 					return $.Deferred().resolve( [] );
 				}
 			)
@@ -133,7 +134,7 @@
 	};
 
 	/**
-	 * Get continuation API data.
+	 * Get continuation API data
 	 *
 	 * @param {number} howMany The number of results to retrieve
 	 * @return {Object} API request data
@@ -143,7 +144,7 @@
 	};
 
 	/**
-	 * Set continuation data for the next page.
+	 * Set continuation data for the next page
 	 *
 	 * @param {Object} continueData Continuation data
 	 */
@@ -151,7 +152,7 @@
 	};
 
 	/**
-	 * Sort the results.
+	 * Sort the results
 	 *
 	 * @param {Object[]} results API results
 	 * @return {Object[]} Sorted results
@@ -168,36 +169,40 @@
 	 *  the fetched data.
 	 */
 	mw.widgets.MediaResourceProvider.prototype.fetchAPIresults = function ( howMany ) {
+		var xhr, api,
+			provider = this;
+
 		if ( !this.isValid() ) {
 			return $.Deferred().reject().promise( { abort: function () {} } );
 		}
 
-		const api = this.isLocal ? new mw.Api() : new mw.ForeignApi( this.getAPIurl(), { anonymous: true } );
-		const xhr = api.get( Object.assign( {}, this.getStaticParams(), this.getUserParams(), this.getContinueData( howMany ) ) );
+		api = this.isLocal ? new mw.Api() : new mw.ForeignApi( this.getAPIurl(), { anonymous: true } );
+		xhr = api.get( $.extend( {}, this.getStaticParams(), this.getUserParams(), this.getContinueData( howMany ) ) );
 		return xhr
-			.then( ( data ) => {
-				const results = [];
+			.then( function ( data ) {
+				var page, newObj, raw,
+					results = [];
 
 				if ( data.error ) {
-					this.toggleDepleted( true );
+					provider.toggleDepleted( true );
 					return [];
 				}
 
 				if ( data.continue ) {
 					// Update the offset for next time
-					this.setContinue( data.continue );
+					provider.setContinue( data.continue );
 				} else {
 					// This is the last available set of results. Mark as depleted!
-					this.toggleDepleted( true );
+					provider.toggleDepleted( true );
 				}
 
 				// If the source returned no results, it will not have a
 				// query property
 				if ( data.query ) {
-					const raw = data.query.pages;
+					raw = data.query.pages;
 					if ( raw ) {
 						// Strip away the page ids
-						for ( const page in raw ) {
+						for ( page in raw ) {
 							if ( !raw[ page ].imageinfo ) {
 								// The search may give us pages that belong to the File:
 								// namespace but have no files in them, either because
@@ -206,20 +211,20 @@
 								// imageinfo. Skip those files.
 								continue;
 							}
-							const newObj = raw[ page ].imageinfo[ 0 ];
+							newObj = raw[ page ].imageinfo[ 0 ];
 							newObj.title = raw[ page ].title;
 							newObj.index = raw[ page ].index;
 							results.push( newObj );
 						}
 					}
 				}
-				return this.sort( results );
+				return provider.sort( results );
 			} )
 			.promise( { abort: xhr.abort } );
 	};
 
 	/**
-	 * Set name.
+	 * Set name
 	 *
 	 * @param {string} name
 	 */
@@ -228,7 +233,7 @@
 	};
 
 	/**
-	 * Get name.
+	 * Get name
 	 *
 	 * @return {string} name
 	 */
@@ -249,7 +254,7 @@
 	};
 
 	/**
-	 * Get prop.
+	 * Get prop
 	 *
 	 * @return {string} prop
 	 */
@@ -258,7 +263,7 @@
 	};
 
 	/**
-	 * Set prop.
+	 * Set prop
 	 *
 	 * @param {string} prop
 	 */
@@ -267,7 +272,7 @@
 	};
 
 	/**
-	 * Set thumb sizes.
+	 * Set thumb sizes
 	 *
 	 * @param {number[]} sizes Available thumbnail sizes
 	 */
@@ -276,7 +281,7 @@
 	};
 
 	/**
-	 * Set image sizes.
+	 * Set image sizes
 	 *
 	 * @param {number[]} sizes Available image sizes
 	 */
@@ -285,7 +290,7 @@
 	};
 
 	/**
-	 * Get thumb sizes.
+	 * Get thumb sizes
 	 *
 	 * @return {number[]} sizes Available thumbnail sizes
 	 */
@@ -294,7 +299,7 @@
 	};
 
 	/**
-	 * Get image sizes.
+	 * Get image sizes
 	 *
 	 * @return {number[]} sizes Available image sizes
 	 */

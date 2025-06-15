@@ -2,7 +2,7 @@
 
 	QUnit.module( 'mediawiki.template', {
 		beforeEach: function () {
-			const abcCompiler = {
+			var abcCompiler = {
 				compile: function () {
 					return 'abc default compiler';
 				}
@@ -24,36 +24,36 @@
 		}
 	} );
 
-	QUnit.test( 'add', ( assert ) => {
+	QUnit.test( 'add', function ( assert ) {
 		assert.throws(
-			() => {
+			function () {
 				mw.template.add( 'module', 'test_templates_foo', 'hello' );
 			},
 			'When no prefix throw exception'
 		);
 	} );
 
-	QUnit.test( 'compile', ( assert ) => {
+	QUnit.test( 'compile', function ( assert ) {
 		assert.throws(
-			() => {
+			function () {
 				mw.template.compile( '{{foo}}', 'rainbow' );
 			},
 			'Unknown compiler names throw exceptions'
 		);
 	} );
 
-	QUnit.test( 'get', ( assert ) => {
+	QUnit.test( 'get', function ( assert ) {
 		assert.strictEqual( mw.template.get( 'test.mediawiki.template', 'test_templates_foo.xyz' ), 'xyz compiler' );
 		assert.strictEqual( mw.template.get( 'test.mediawiki.template', 'test_templates_foo.abc' ), 'abc default compiler' );
 		assert.throws(
-			() => {
+			function () {
 				mw.template.get( 'this.should.not.exist', 'hello' );
 			},
 			'When bad module name given throw error.'
 		);
 
 		assert.throws(
-			() => {
+			function () {
 				mw.template.get( 'mediawiki.template', 'hello' );
 			},
 			'The template hello should not exist in the mediawiki.templates module and should throw an exception.'

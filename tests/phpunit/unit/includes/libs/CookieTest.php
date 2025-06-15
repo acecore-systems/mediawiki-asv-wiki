@@ -1,18 +1,13 @@
 <?php
 
-namespace Wikimedia\Tests;
-
-use Cookie;
-use PHPUnit\Framework\TestCase;
-
 /**
- * @covers \Cookie
+ * @covers Cookie
  */
-class CookieTest extends TestCase {
+class CookieTest extends \PHPUnit\Framework\TestCase {
 
 	/**
 	 * @dataProvider cookieDomains
-	 * @covers \Cookie::validateCookieDomain
+	 * @covers Cookie::validateCookieDomain
 	 */
 	public function testValidateCookieDomain( $expected, $domain, $origin = null ) {
 		if ( $origin ) {

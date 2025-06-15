@@ -13,22 +13,23 @@ use PHPUnit\Framework\MockObject\MockObject;
  * or MediaWikiIntegrationTestCase.
  *
  * @stable to use
+ * @package MediaWiki\Tests\Rest
  */
 trait SessionHelperTestTrait {
 	/**
 	 * @param bool $csrfSafe
-	 * @return Session&MockObject
+	 * @return Session
 	 */
-	public function getSession( bool $csrfSafe ) {
-		/** @var SessionProviderInterface&MockObject $session */
-		$sessionProvider = $this->createMock( SessionProviderInterface::class );
+	public function getSession( bool $csrfSafe = false ) {
+		/** @var SessionProviderInterface|MockObject $session */
+		$sessionProvider =
+			$this->createNoOpMock( SessionProviderInterface::class, [ 'safeAgainstCsrf' ] );
 		$sessionProvider->method( 'safeAgainstCsrf' )->willReturn( $csrfSafe );
 
-		/** @var Session&MockObject $session */
-		$session = $this->createMock( Session::class );
+		/** @var Session|MockObject $session */
+		$session = $this->createNoOpMock( Session::class, [ 'getSessionId', 'getProvider' ] );
 		$session->method( 'getSessionId' )->willReturn( new SessionId( 'test' ) );
 		$session->method( 'getProvider' )->willReturn( $sessionProvider );
-		$session->method( 'isPersistent' )->willReturn( true );
 
 		return $session;
 	}

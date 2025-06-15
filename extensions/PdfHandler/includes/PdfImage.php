@@ -104,7 +104,7 @@ class PdfImage {
 	 * @return array
 	 */
 	public function retrieveMetaData(): array {
-		global $wgPdfInfo, $wgPdftoText, $wgShellboxShell;
+		global $wgPdfInfo, $wgPdftoText, $wgPdfHandlerShell;
 
 		$command = MediaWikiServices::getInstance()->getShellCommandFactory()
 			->createBoxed( 'pdfhandler' )
@@ -113,7 +113,7 @@ class PdfImage {
 			->routeName( 'pdfhandler-metadata' );
 
 		$result = $command
-			->params( $wgShellboxShell, 'scripts/retrieveMetaData.sh' )
+			->params( $wgPdfHandlerShell, 'scripts/retrieveMetaData.sh' )
 			->inputFileFromFile(
 				'scripts/retrieveMetaData.sh',
 				__DIR__ . '/../scripts/retrieveMetaData.sh' )
@@ -129,17 +129,8 @@ class PdfImage {
 			->execute();
 
 		// Record in statsd
-		MediaWikiServices::getInstance()->getStatsFactory()
-			->getCounter( 'pdfhandler_shell_retrievemetadata_total' )
-			->copyToStatsdAt( 'pdfhandler.shell.retrieve_meta_data' )
-			->increment();
-
-		// Metadata retrieval is allowed to fail, but we'd like to know why
-		if ( $result->getExitCode() != 0 ) {
-			wfDebug( __METHOD__ . ': retrieveMetaData.sh' .
-			"\n\nExitcode: " . $result->getExitCode() . "\n\n"
-			. $result->getStderr() );
-		}
+		MediaWikiServices::getInstance()->getStatsdDataFactory()
+			->increment( 'pdfhandler.shell.retrieve_meta_data' );
 
 		$resultMeta = $result->getFileContents( 'meta' );
 		$resultPages = $result->getFileContents( 'pages' );

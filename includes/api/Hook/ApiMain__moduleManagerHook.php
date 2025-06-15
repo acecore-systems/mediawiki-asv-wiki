@@ -3,7 +3,7 @@
 namespace MediaWiki\Api\Hook;
 
 // phpcs:disable Squiz.Classes.ValidClassName.NotCamelCaps
-use MediaWiki\Api\ApiModuleManager;
+use ApiModuleManager;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

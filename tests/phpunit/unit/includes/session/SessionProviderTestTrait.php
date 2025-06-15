@@ -1,12 +1,10 @@
 <?php
 
-namespace MediaWiki\Tests\Session;
+namespace MediaWiki\Session;
 
-use MediaWiki\Config\Config;
-use MediaWiki\Config\HashConfig;
+use Config;
+use HashConfig;
 use MediaWiki\HookContainer\HookContainer;
-use MediaWiki\Session\SessionManager;
-use MediaWiki\Session\SessionProvider;
 use MediaWiki\User\UserNameUtils;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -17,6 +15,7 @@ use Psr\Log\NullLogger;
  * subclasses of MediaWikiIntegrationTestCase or MediaWikiUnitTestCase.
  *
  * @stable to use
+ * @package MediaWiki\Session
  */
 trait SessionProviderTestTrait {
 
@@ -32,11 +31,11 @@ trait SessionProviderTestTrait {
 	 */
 	private function initProvider(
 		SessionProvider $provider,
-		?LoggerInterface $logger = null,
-		?Config $config = null,
-		?SessionManager $manager = null,
-		?HookContainer $hookContainer = null,
-		?UserNameUtils $userNameUtils = null
+		LoggerInterface $logger = null,
+		Config $config = null,
+		SessionManager $manager = null,
+		HookContainer $hookContainer = null,
+		UserNameUtils $userNameUtils = null
 	) {
 		$provider->init(
 			$logger ?? new NullLogger(),

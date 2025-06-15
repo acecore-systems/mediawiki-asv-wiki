@@ -1,14 +1,7 @@
 <?php
 
-namespace MediaWiki\Tests\Api\Query;
-
 use MediaWiki\Block\DatabaseBlock;
-use MediaWiki\Context\RequestContext;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Tests\Api\ApiTestCase;
-use MediaWiki\Tests\User\TempUser\TempUserTestTrait;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
 use Wikimedia\Timestamp\ConvertibleTimestamp;
 
 /**
@@ -16,13 +9,17 @@ use Wikimedia\Timestamp\ConvertibleTimestamp;
  * @group medium
  * @group Database
  *
- * @covers MediaWiki\Api\ApiQueryInfo
+ * @coversDefaultClass ApiQueryInfo
  */
 class ApiQueryInfoTest extends ApiTestCase {
-	use TempUserTestTrait;
 
 	protected function setUp(): void {
 		parent::setUp();
+
+		$this->tablesUsed = array_merge(
+			$this->tablesUsed,
+			[ 'watchlist', 'watchlist_expiry' ]
+		);
 
 		$this->overrideConfigValues( [
 			MainConfigNames::WatchlistExpiry => true,
@@ -30,8 +27,12 @@ class ApiQueryInfoTest extends ApiTestCase {
 		] );
 	}
 
+	/**
+	 * @covers ::execute
+	 * @covers ::extractPageInfo
+	 */
 	public function testExecute() {
-		// Mock time for a deterministic result, without cut off from dynamic "max duration"
+		// Mock time for a determinstic result, without cut off from dynamic "max duration"
 		ConvertibleTimestamp::setFakeTime( '2011-01-01T00:00:00Z' );
 
 		$page = $this->getExistingTestPage( 'Pluto' );
@@ -45,7 +46,7 @@ class ApiQueryInfoTest extends ApiTestCase {
 			'2011-04-01T00:00:00Z'
 		);
 
-		[ $data ] = $this->doApiRequest( [
+		list( $data ) = $this->doApiRequest( [
 				'action' => 'query',
 				'prop' => 'info',
 				'inprop' => 'watched|notificationtimestamp',
@@ -74,11 +75,15 @@ class ApiQueryInfoTest extends ApiTestCase {
 		$this->assertArrayNotHasKey( 'linkclasses', $info );
 	}
 
+	/**
+	 * @covers ::execute
+	 * @covers ::extractPageInfo
+	 */
 	public function testExecuteLinkClasses() {
 		$page = $this->getExistingTestPage( 'Pluto' );
 		$title = $page->getTitle();
 
-		[ $data ] = $this->doApiRequest( [
+		list( $data ) = $this->doApiRequest( [
 				'action' => 'query',
 				'prop' => 'info',
 				'titles' => $title->getText(),
@@ -95,11 +100,15 @@ class ApiQueryInfoTest extends ApiTestCase {
 		$this->assertEquals( [], $info['linkclasses'] );
 	}
 
+	/**
+	 * @covers ::execute
+	 * @covers ::extractPageInfo
+	 */
 	public function testExecuteEditActions() {
 		$page = $this->getExistingTestPage( 'Pluto' );
 		$title = $page->getTitle();
 
-		[ $data ] = $this->doApiRequest( [
+		list( $data ) = $this->doApiRequest( [
 				'action' => 'query',
 				'prop' => 'info',
 				'titles' => $title->getText(),
@@ -116,85 +125,15 @@ class ApiQueryInfoTest extends ApiTestCase {
 		$this->assertTrue( $info['actions']['edit'] );
 	}
 
-	public function testExecuteEditActionsAutoCreate() {
-		$page = $this->getExistingTestPage( 'Pluto' );
-		$title = $page->getTitle();
-
-		// Disabled
-		$this->disableAutoCreateTempUser();
-		[ $data ] = $this->doApiRequest( [
-			'action' => 'query',
-			'prop' => 'info',
-			'titles' => $title->getText(),
-			'intestactions' => 'edit',
-			'intestactionsautocreate' => true,
-		], null, false, new User() );
-		$result = $data['query']['pages'][$page->getId()]['wouldautocreate']['edit'];
-		$this->assertFalse( $result );
-
-		// Enabled
-		$this->setGroupPermissions( '*', 'createaccount', true );
-		$this->enableAutoCreateTempUser();
-		[ $data ] = $this->doApiRequest( [
-			'action' => 'query',
-			'prop' => 'info',
-			'titles' => $title->getText(),
-			'intestactions' => 'edit',
-			'intestactionsautocreate' => true,
-		], null, false, new User() );
-		$result = $data['query']['pages'][$page->getId()]['wouldautocreate']['edit'];
-		$this->assertTrue( $result );
-
-		[ $data ] = $this->doApiRequest( [
-			'action' => 'query',
-			'prop' => 'info',
-			'titles' => $title->getText(),
-			'intestactions' => 'create',
-			'intestactionsautocreate' => true,
-		], null, false, new User() );
-		$result = $data['query']['pages'][$page->getId()]['wouldautocreate']['create'];
-		$this->assertTrue( $result );
-
-		// Enabled - 'read' is not an autocreate action
-		[ $data ] = $this->doApiRequest( [
-			'action' => 'query',
-			'prop' => 'info',
-			'titles' => $title->getText(),
-			'intestactions' => 'read',
-			'intestactionsautocreate' => true,
-		], null, false, new User() );
-		$result = $data['query']['pages'][$page->getId()]['wouldautocreate']['read'];
-		$this->assertFalse( $result );
-
-		// Enabled - but the user is logged in
-		[ $data ] = $this->doApiRequest( [
-			'action' => 'query',
-			'prop' => 'info',
-			'titles' => $title->getText(),
-			'intestactions' => 'edit',
-			'intestactionsautocreate' => true,
-		], null, false, static::getTestSysop()->getAuthority() );
-		$result = $data['query']['pages'][$page->getId()]['wouldautocreate']['edit'];
-		$this->assertFalse( $result );
-
-		// Enabled - but the user isn't allowed to create accounts
-		$this->setGroupPermissions( '*', 'createaccount', false );
-		[ $data ] = $this->doApiRequest( [
-			'action' => 'query',
-			'prop' => 'info',
-			'titles' => $title->getText(),
-			'intestactions' => 'edit',
-			'intestactionsautocreate' => true,
-		], null, false, new User() );
-		$result = $data['query']['pages'][$page->getId()]['wouldautocreate']['edit'];
-		$this->assertFalse( $result );
-	}
-
+	/**
+	 * @covers ::execute
+	 * @covers ::extractPageInfo
+	 */
 	public function testExecuteEditActionsFull() {
 		$page = $this->getExistingTestPage( 'Pluto' );
 		$title = $page->getTitle();
 
-		[ $data ] = $this->doApiRequest( [
+		list( $data ) = $this->doApiRequest( [
 				'action' => 'query',
 				'prop' => 'info',
 				'titles' => $title->getText(),
@@ -213,12 +152,17 @@ class ApiQueryInfoTest extends ApiTestCase {
 		$this->assertSame( [], $info['actions']['edit'] );
 	}
 
+	/**
+	 * @covers ::execute
+	 * @covers ::extractPageInfo
+	 */
 	public function testExecuteEditActionsFullBlock() {
 		$badActor = $this->getTestUser()->getUser();
 		$sysop = $this->getTestSysop()->getUser();
 
 		$block = new DatabaseBlock( [
-			'address' => $badActor,
+			'address' => $badActor->getName(),
+			'user' => $badActor->getId(),
 			'by' => $sysop,
 			'expiry' => 'infinity',
 			'sitewide' => 1,
@@ -231,13 +175,15 @@ class ApiQueryInfoTest extends ApiTestCase {
 		$page = $this->getExistingTestPage( 'Pluto' );
 		$title = $page->getTitle();
 
-		[ $data ] = $this->doApiRequest( [
+		list( $data ) = $this->doApiRequest( [
 				'action' => 'query',
 				'prop' => 'info',
 				'titles' => $title->getText(),
 				'intestactions' => 'edit',
 				'intestactionsdetail' => 'full',
 		], null, false, $badActor );
+
+		$blockStore->deleteBlock( $block );
 
 		$this->assertArrayHasKey( 'query', $data );
 		$this->assertArrayHasKey( 'pages', $data['query'] );
@@ -256,6 +202,10 @@ class ApiQueryInfoTest extends ApiTestCase {
 		$this->assertSame( $block->getId(), $info['actions']['edit'][0]['data']['blockinfo']['blockid'] );
 	}
 
+	/**
+	 * @covers ::execute
+	 * @covers ::extractPageInfo
+	 */
 	public function testAssociatedPage() {
 		$page = $this->getExistingTestPage( 'Demo' );
 		$title = $page->getTitle();
@@ -264,7 +214,7 @@ class ApiQueryInfoTest extends ApiTestCase {
 		// Make sure it doesn't exist
 		$this->getNonexistingTestPage( $title2 );
 
-		[ $data ] = $this->doApiRequest( [
+		list( $data ) = $this->doApiRequest( [
 			'action' => 'query',
 			'prop' => 'info',
 			'titles' => $title->getPrefixedText() . '|' . $title2->getPrefixedText(),
@@ -293,8 +243,12 @@ class ApiQueryInfoTest extends ApiTestCase {
 		);
 	}
 
+	/**
+	 * @covers ::execute
+	 * @covers ::extractPageInfo
+	 */
 	public function testDisplayTitle() {
-		[ $data ] = $this->doApiRequest( [
+		list( $data ) = $this->doApiRequest( [
 			'action' => 'query',
 			'prop' => 'info',
 			'inprop' => 'displaytitle',

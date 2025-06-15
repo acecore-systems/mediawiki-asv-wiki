@@ -2,11 +2,11 @@
 
 namespace MediaWiki\Extension\AbuseFilter;
 
+use EchoEvent;
 use MediaWiki\Extension\AbuseFilter\Consequences\ConsequencesRegistry;
 use MediaWiki\Extension\AbuseFilter\Filter\ExistingFilter;
 use MediaWiki\Extension\AbuseFilter\Special\SpecialAbuseFilter;
-use MediaWiki\Extension\Notifications\Model\Event;
-use MediaWiki\Title\Title;
+use Title;
 
 /**
  * Helper service for EmergencyWatcher to notify filter maintainers of throttled filters
@@ -79,11 +79,11 @@ class EchoNotifier {
 	 * Send notification about a filter being throttled
 	 *
 	 * @param int $filter
-	 * @return Event|false
+	 * @return EchoEvent|false
 	 */
 	public function notifyForFilter( int $filter ) {
 		if ( $this->isEchoLoaded ) {
-			return Event::create( $this->getDataForEvent( $filter ) );
+			return EchoEvent::create( $this->getDataForEvent( $filter ) );
 		}
 		return false;
 	}

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor BranchNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -35,9 +35,9 @@ OO.initClass( ve.BranchNode );
  * @param {ve.Node} callback.node Node being traversed
  */
 ve.BranchNode.prototype.traverse = function ( callback ) {
-	const children = this.getChildren();
+	var children = this.getChildren();
 
-	for ( let i = 0, len = children.length; i < len; i++ ) {
+	for ( var i = 0, len = children.length; i < len; i++ ) {
 		callback.call( this, children[ i ] );
 		if ( children[ i ].hasChildren() ) {
 			children[ i ].traverse( callback );
@@ -80,17 +80,18 @@ ve.BranchNode.prototype.indexOf = function ( node ) {
  * @param {ve.BranchNode|null} root Node to use as root
  */
 ve.BranchNode.prototype.setRoot = function ( root ) {
-	const oldRoot = this.root;
+	var oldRoot = this.root;
 	if ( root === oldRoot ) {
 		// Nothing to do, don't recurse into all descendants
 		return;
 	}
+	var i, len;
 	if ( oldRoot ) {
 		// Null the root, then recurse into children, then emit unroot.
 		// That way, at emit time, all this node's ancestors and descendants have
 		// null root.
 		this.root = null;
-		for ( let i = 0, len = this.children.length; i < len; i++ ) {
+		for ( i = 0, len = this.children.length; i < len; i++ ) {
 			this.children[ i ].setRoot( null );
 		}
 		this.emit( 'unroot', oldRoot );
@@ -100,7 +101,7 @@ ve.BranchNode.prototype.setRoot = function ( root ) {
 		// We've set the new root, so recurse into children, then emit root.
 		// That way, at emit time, all this node's ancestors and descendants have
 		// the new root.
-		for ( let i = 0, len = this.children.length; i < len; i++ ) {
+		for ( i = 0, len = this.children.length; i < len; i++ ) {
 			this.children[ i ].setRoot( root );
 		}
 		this.emit( 'root', root );
@@ -114,12 +115,12 @@ ve.BranchNode.prototype.setRoot = function ( root ) {
  * @param {ve.Document} doc Document this node is a part of
  */
 ve.BranchNode.prototype.setDocument = function ( doc ) {
-	const oldDoc = this.doc;
+	var oldDoc = this.doc;
 	if ( doc === this.doc ) {
 		// Nothing to do, don't recurse into all descendants
 		return;
 	}
-	let i, len;
+	var i, len;
 	if ( oldDoc ) {
 		// Null the doc, then recurse into children, then notify the doc.
 		// That way, at notify time, all this node's ancestors and descendants have
@@ -154,7 +155,7 @@ ve.BranchNode.prototype.setDocument = function ( doc ) {
  * @throws {Error} If offset is out of bounds
  */
 ve.BranchNode.prototype.getNodeFromOffset = function ( offset, shallow ) {
-	let currentNode = this;
+	var currentNode = this;
 	if ( typeof offset !== 'number' ) {
 		throw new Error( 'Offset must be a number' );
 	}
@@ -164,12 +165,12 @@ ve.BranchNode.prototype.getNodeFromOffset = function ( offset, shallow ) {
 	if ( offset < 0 ) {
 		throw new Error( 'Offset out of bounds' );
 	}
-	let nodeOffset = 0;
+	var nodeOffset = 0;
 	// TODO a lot of logic is duplicated in selectNodes(), abstract that into a traverser or something
 	SIBLINGS:
 	while ( currentNode.children.length ) {
-		for ( let i = 0, length = currentNode.children.length; i < length; i++ ) {
-			const childNode = currentNode.children[ i ];
+		for ( var i = 0, length = currentNode.children.length; i < length; i++ ) {
+			var childNode = currentNode.children[ i ];
 			if ( offset === nodeOffset ) {
 				// The requested offset is right before childNode, so it's not
 				// inside any of currentNode's children, but is inside currentNode
@@ -178,7 +179,7 @@ ve.BranchNode.prototype.getNodeFromOffset = function ( offset, shallow ) {
 			if ( childNode instanceof ve.ce.InternalListNode ) {
 				break SIBLINGS;
 			}
-			const nodeLength = childNode.getOuterLength();
+			var nodeLength = childNode.getOuterLength();
 			if ( offset >= nodeOffset && offset < nodeOffset + nodeLength ) {
 				if ( !shallow && childNode.hasChildren() && childNode.getChildren().length ) {
 					// One of the children contains the node; increment to

@@ -3,7 +3,6 @@
 namespace MediaWiki\Extension\ConfirmEdit\Store;
 
 class CaptchaHashStore extends CaptchaStore {
-	/** @var array */
 	protected $data = [];
 
 	/**

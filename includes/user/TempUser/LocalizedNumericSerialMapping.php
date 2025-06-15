@@ -2,7 +2,7 @@
 
 namespace MediaWiki\User\TempUser;
 
-use MediaWiki\Language\Language;
+use Language;
 use MediaWiki\Languages\LanguageFactory;
 
 /**
@@ -11,7 +11,8 @@ use MediaWiki\Languages\LanguageFactory;
  * @since 1.39
  */
 class LocalizedNumericSerialMapping implements SerialMapping {
-	private Language $language;
+	/** @var Language */
+	private $language;
 
 	/**
 	 * @param array $config

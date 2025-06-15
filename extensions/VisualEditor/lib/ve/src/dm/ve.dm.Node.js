@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel Node class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -9,8 +9,8 @@
  *
  * @abstract
  * @extends ve.dm.Model
- * @mixes OO.EventEmitter
- * @mixes ve.Node
+ * @mixins OO.EventEmitter
+ * @mixins ve.Node
  *
  * @constructor
  * @param {Object} [element] Reference to element in linear model
@@ -30,19 +30,20 @@ ve.dm.Node = function VeDmNode( element ) {
 };
 
 /**
- * @event ve.dm.Node#attributeChange
+ * @event attributeChange
  * @param {string} key
- * @param {any} oldValue
- * @param {any} newValue
+ * @param {Mixed} oldValue
+ * @param {Mixed} newValue
  */
 
 /**
- * @event ve.dm.Node#lengthChange
+ * @event lengthChange
  * @param {number} diff
  */
 
 /**
- * @event ve.dm.Node#update
+ * @event update
+ * @param {boolean} staged Transaction was applied in staging mode
  */
 
 /* Inheritance */
@@ -342,9 +343,9 @@ ve.dm.Node.static.remapInternalListKeys = function () {
  * @return {boolean} The element is inline
  */
 ve.dm.Node.static.isHybridInline = function ( domElements, converter ) {
-	let allTagsInline = true;
+	var allTagsInline = true;
 
-	for ( let i = 0, length = domElements.length; i < length; i++ ) {
+	for ( var i = 0, length = domElements.length; i < length; i++ ) {
 		if ( ve.isBlockElement( domElements[ i ] ) ) {
 			allTagsInline = false;
 			break;
@@ -369,24 +370,23 @@ ve.dm.Node.static.isHybridInline = function ( domElements, converter ) {
  * @param {Object} element
  * @param {ve.dm.HashValueStore} store Hash-value store used by element
  * @param {boolean} preserveGenerated Preserve internal.generated property of element
- * @param {boolean} resetAttributes Reset attributes for an empty clone, as defined in #static-resetForClone
  * @return {Object} Cloned element object
  */
-ve.dm.Node.static.cloneElement = function ( element, store, preserveGenerated, resetAttributes ) {
-	const clone = ve.copy( element );
-	let modified = false;
+ve.dm.Node.static.cloneElement = function ( element, store, preserveGenerated ) {
+	var modified = false,
+		clone = ve.copy( element );
 
 	if ( !preserveGenerated ) {
 		ve.deleteProp( clone, 'internal', 'generated' );
 	}
-	const originalDomElements = store.value( clone.originalDomElementsHash );
+	var originalDomElements = store.value( clone.originalDomElementsHash );
 	// Generate a new about attribute to prevent about grouping of cloned nodes
 	if ( originalDomElements ) {
 		// TODO: The '#mwtNNN' is required by Parsoid. Make the name used here
 		// more generic and specify the #mwt pattern in MW code.
-		const about = '#mwt' + Math.floor( 1000000000 * Math.random() );
-		const domElements = originalDomElements.map( ( el ) => {
-			const elClone = el.cloneNode( true );
+		var about = '#mwt' + Math.floor( 1000000000 * Math.random() );
+		var domElements = originalDomElements.map( function ( el ) {
+			var elClone = el.cloneNode( true );
 			// Check for hasAttribute as comments don't have them
 			if ( elClone.hasAttribute && elClone.hasAttribute( 'about' ) ) {
 				elClone.setAttribute( 'about', about );
@@ -398,25 +398,8 @@ ve.dm.Node.static.cloneElement = function ( element, store, preserveGenerated, r
 			clone.originalDomElementsHash = store.hash( domElements, domElements.map( ve.getNodeHtml ).join( '' ) );
 		}
 	}
-	if ( resetAttributes ) {
-		this.resetAttributesForClone( clone, store );
-	}
 	return clone;
 };
-
-/**
- * Reset attributes for a cloned element.
- *
- * This will be used when an element needs to have certain attributes cleared
- * when creating a clone, e.g. when splitting a content branch node by pressing
- * enter, some attributes are preserved (list style) but some are cleared
- * (check list item state).
- *
- * @static
- * @param {Object} clonedElement Cloned element, modified in place
- * @param {ve.dm.HashValueStore} store Hash-value store used by element
- */
-ve.dm.Node.static.resetAttributesForClone = function () {};
 
 /* Methods */
 
@@ -432,156 +415,137 @@ ve.dm.Node.prototype.getStore = function () {
  * Implementations should override the static method, not this one
  *
  * @param {boolean} preserveGenerated Preserve internal.generated property of element
- * @param {boolean} resetAttributes Reset attributes for an empty clone, as defined in #static-resetForClone
  * @return {Object} Cloned element object
  */
-ve.dm.Node.prototype.getClonedElement = function ( preserveGenerated, resetAttributes ) {
-	const store = this.getStore();
+ve.dm.Node.prototype.getClonedElement = function ( preserveGenerated ) {
+	var store = this.getStore();
 	if ( !store ) {
 		throw new Error( 'Node must be attached to the document to be cloned.' );
 	}
-	return this.constructor.static.cloneElement( this.element, store, preserveGenerated, resetAttributes );
+	return this.constructor.static.cloneElement( this.element, store, preserveGenerated );
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.getChildNodeTypes = function () {
 	return this.constructor.static.childNodeTypes;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.getParentNodeTypes = function () {
 	return this.constructor.static.parentNodeTypes;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.getSuggestedParentNodeTypes = function () {
 	return this.constructor.static.suggestedParentNodeTypes;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.canHaveChildren = function () {
 	return ve.dm.nodeFactory.canNodeHaveChildren( this.type );
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.canHaveChildrenNotContent = function () {
 	return ve.dm.nodeFactory.canNodeHaveChildrenNotContent( this.type );
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.isInternal = function () {
 	return this.constructor.static.isInternal;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.isMetaData = function () {
 	return this.constructor.static.isMetaData;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.isWrapped = function () {
 	return this.constructor.static.isWrapped;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.isUnwrappable = function () {
 	return this.isWrapped() && this.constructor.static.isUnwrappable;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.canContainContent = function () {
 	return this.constructor.static.canContainContent;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.isContent = function () {
 	return this.constructor.static.isContent;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.isFocusable = function () {
 	return this.constructor.static.isFocusable;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.isAlignable = function () {
 	return this.constructor.static.isAlignable;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.isCellable = function () {
 	return this.constructor.static.isCellable;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.isCellEditable = function () {
 	return this.constructor.static.isCellEditable;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.isDiffedAsList = function () {
 	return this.constructor.static.isDiffedAsList;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.isDiffedAsLeaf = function () {
 	return this.constructor.static.isDiffedAsLeaf;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.isDiffedAsDocument = function () {
 	return this.getChildNodeTypes() === null;
@@ -617,25 +581,22 @@ ve.dm.Node.prototype.suppressSlugType = function () {
 	return null;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.hasSignificantWhitespace = function () {
 	return this.constructor.static.hasSignificantWhitespace;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.handlesOwnChildren = function () {
 	return this.constructor.static.handlesOwnChildren;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.shouldIgnoreChildren = function () {
 	return this.constructor.static.ignoreChildren;
@@ -658,7 +619,9 @@ ve.dm.Node.prototype.isSurfaceable = function () {
  * @return {ve.dm.Node|null} Ancestor with matching type and attribute values
  */
 ve.dm.Node.prototype.findMatchingAncestor = function ( type, attributes ) {
-	return this.traverseUpstream( ( node ) => !node.matches( type, attributes ) );
+	return this.traverseUpstream( function ( node ) {
+		return !node.matches( type, attributes );
+	} );
 };
 
 /**
@@ -697,7 +660,7 @@ ve.dm.Node.prototype.matches = function ( type, attributes ) {
  * @return {boolean} Attributes sepcified match those in the node
  */
 ve.dm.Node.prototype.compareAttributes = function ( attributes ) {
-	for ( const key in attributes ) {
+	for ( var key in attributes ) {
 		if ( this.getAttribute( key ) !== attributes[ key ] ) {
 			return false;
 		}
@@ -705,9 +668,8 @@ ve.dm.Node.prototype.compareAttributes = function ( attributes ) {
 	return true;
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.getLength = function () {
 	return this.length;
@@ -720,8 +682,8 @@ ve.dm.Node.prototype.getLength = function () {
  * not change the document data.
  *
  * @param {number} length Length of content
- * @fires ve.dm.Node#lengthChange
- * @fires ve.dm.Node#update
+ * @fires lengthChange
+ * @fires update
  * @throws {Error} Invalid content length error if length is less than 0
  */
 ve.dm.Node.prototype.setLength = function ( length ) {
@@ -729,7 +691,7 @@ ve.dm.Node.prototype.setLength = function ( length ) {
 		throw new Error( 'Length cannot be negative' );
 	}
 	// Compute length adjustment from old length
-	const diff = length - this.length;
+	var diff = length - this.length;
 	// Set new length
 	this.length = length;
 	// Adjust the parent's length
@@ -748,15 +710,16 @@ ve.dm.Node.prototype.setLength = function ( length ) {
  * not change the document data.
  *
  * @param {number} adjustment Amount to adjust length by
+ * @fires lengthChange
+ * @fires update
  * @throws {Error} Invalid adjustment error if resulting length is less than 0
  */
 ve.dm.Node.prototype.adjustLength = function ( adjustment ) {
 	this.setLength( this.length + adjustment );
 };
 
-// eslint-disable-next-line jsdoc/require-returns
 /**
- * @see ve.Node
+ * @inheritdoc ve.Node
  */
 ve.dm.Node.prototype.getOffset = function () {
 	if ( !this.parent ) {
@@ -768,9 +731,9 @@ ve.dm.Node.prototype.getOffset = function () {
 	}
 
 	// Find our index in the parent and add up lengths while we do so
-	const siblings = this.parent.children;
-	let offset = this.parent.getOffset() + ( this.parent === this.root ? 0 : 1 );
-	let i, len;
+	var siblings = this.parent.children;
+	var offset = this.parent.getOffset() + ( this.parent === this.root ? 0 : 1 );
+	var i, len;
 	for ( i = 0, len = siblings.length; i < len; i++ ) {
 		if ( siblings[ i ] === this ) {
 			break;
@@ -792,7 +755,7 @@ ve.dm.Node.prototype.getOffset = function () {
  * Check if the node can be merged with another.
  *
  * For two nodes to be mergeable, the two nodes must either be the same node or:
- *  - Are comparable according to #compareForMerging (by default, have the same type)
+ *  - Have the same type
  *  - Have the same depth
  *  - Have similar ancestry (each node upstream must have the same type)
  *
@@ -800,7 +763,7 @@ ve.dm.Node.prototype.getOffset = function () {
  * @return {boolean} Nodes can be merged
  */
 ve.dm.Node.prototype.canBeMergedWith = function ( node ) {
-	let n1 = this,
+	var n1 = this,
 		n2 = node;
 
 	// Content node can be merged with node that can contain content, for instance: TextNode
@@ -817,8 +780,8 @@ ve.dm.Node.prototype.canBeMergedWith = function ( node ) {
 		if (
 			// Check if we have reached a root (means there's no common ancestor or unequal depth)
 			( n1 === null || n2 === null ) ||
-			// Ensure that nodes are comparable for merging
-			!n1.compareForMerging( n2 )
+			// Ensure that types match
+			n1.getType() !== n2.getType()
 		) {
 			return false;
 		}
@@ -827,16 +790,4 @@ ve.dm.Node.prototype.canBeMergedWith = function ( node ) {
 		n2 = n2.getParent();
 	}
 	return true;
-};
-
-/**
- * Compare with another node for merging (see #canBeMergedWidth)
- *
- * The default implementation just compares node types.
- *
- * @param {ve.dm.Node} otherNode Other node to compare with
- * @return {boolean} Nodes are comparable
- */
-ve.dm.Node.prototype.compareForMerging = function ( otherNode ) {
-	return this.getType() === otherNode.getType();
 };

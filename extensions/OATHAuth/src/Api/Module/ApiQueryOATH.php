@@ -18,12 +18,12 @@
 
 namespace MediaWiki\Extension\OATHAuth\Api\Module;
 
+use ApiQuery;
+use ApiQueryBase;
+use ApiResult;
 use ManualLogEntry;
-use MediaWiki\Api\ApiQuery;
-use MediaWiki\Api\ApiQueryBase;
-use MediaWiki\Api\ApiResult;
-use MediaWiki\Extension\OATHAuth\OATHUserRepository;
 use MediaWiki\MediaWikiServices;
+use User;
 use Wikimedia\ParamValidator\ParamValidator;
 
 /**
@@ -37,28 +37,21 @@ use Wikimedia\ParamValidator\ParamValidator;
  * @ingroup Extensions
  */
 class ApiQueryOATH extends ApiQueryBase {
-	private OATHUserRepository $oathUserRepository;
-
 	/**
 	 * @param ApiQuery $query
 	 * @param string $moduleName
-	 * @param OATHUserRepository $oathUserRepository
 	 */
-	public function __construct(
-		$query,
-		$moduleName,
-		OATHUserRepository $oathUserRepository
-	) {
+	public function __construct( $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'oath' );
-		$this->oathUserRepository = $oathUserRepository;
 	}
 
 	public function execute() {
-		// messages used: right-oathauth-api-all, action-oathauth-api-all,
-		// right-oathauth-verify-user, action-oathauth-verify-user
-		$this->checkUserRightsAny( [ 'oathauth-api-all', 'oathauth-verify-user' ] );
-
 		$params = $this->extractRequestParams();
+		if ( $params['user'] === null ) {
+			$params['user'] = $this->getUser()->getName();
+		}
+
+		$this->checkUserRightsAny( [ 'oathauth-api-all', 'oathauth-verify-user' ] );
 
 		$hasOAthauthApiAll = $this->getPermissionManager()
 			->userHasRight(
@@ -71,14 +64,9 @@ class ApiQueryOATH extends ApiQueryBase {
 			$this->dieWithError( [ 'apierror-missingparam', 'reason' ] );
 		}
 
-		if ( $params['user'] === null ) {
-			$user = $this->getUser();
-		} else {
-			$user = MediaWikiServices::getInstance()->getUserFactory()
-				->newFromName( $params['user'] );
-			if ( $user === null ) {
-				$this->dieWithError( 'noname' );
-			}
+		$user = User::newFromName( $params['user'] );
+		if ( $user === false ) {
+			$this->dieWithError( 'noname' );
 		}
 
 		$result = $this->getResult();
@@ -87,12 +75,14 @@ class ApiQueryOATH extends ApiQueryBase {
 			'enabled' => false,
 		];
 
-		if ( $user->isNamed() ) {
-			$authUser = $this->oathUserRepository->findByUser( $user );
-			$data['enabled'] = $authUser && $authUser->isTwoFactorAuthEnabled();
+		if ( !$user->isAnon() ) {
+			$userRepo = MediaWikiServices::getInstance()->getService( 'OATHUserRepository' );
+			$authUser = $userRepo->findByUser( $user );
+			$data['enabled'] = $authUser &&
+				$authUser->getModule() !== null &&
+				$authUser->getModule()->isEnabled( $authUser );
 
 			// Log if the user doesn't have oathauth-api-all or if a reason is provided
-			// messages used: logentry-oath-verify, log-action-oath-verify
 			if ( !$hasOAthauthApiAll || $reasonProvided ) {
 				$logEntry = new ManualLogEntry( 'oath', 'verify' );
 				$logEntry->setPerformer( $this->getUser() );
@@ -113,7 +103,6 @@ class ApiQueryOATH extends ApiQueryBase {
 		return 'private';
 	}
 
-	/** @inheritDoc */
 	public function isInternal() {
 		return true;
 	}

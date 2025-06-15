@@ -18,12 +18,6 @@
  * @file
  */
 
-namespace MediaWiki\Title;
-
-use Exception;
-use ILocalizedException;
-use MediaWiki\Message\Message;
-
 /**
  * MalformedTitleException is thrown when a TitleParser is unable to parse a title string.
  * @newable
@@ -93,6 +87,3 @@ class MalformedTitleException extends Exception implements ILocalizedException {
 		return wfMessage( $this->getErrorMessage(), $this->getErrorMessageParameters() );
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( MalformedTitleException::class, 'MalformedTitleException' );

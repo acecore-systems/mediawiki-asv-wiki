@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable Surface class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -136,8 +136,8 @@ ve.ce.SurfaceObserver.prototype.pollOnceInternal = function ( signalChanges, sel
 		return;
 	}
 
-	const oldState = this.rangeState;
-	const newState = new ve.ce.RangeState(
+	var oldState = this.rangeState;
+	var newState = new ve.ce.RangeState(
 		oldState,
 		this.surface.attachedRoot,
 		selectionOnly

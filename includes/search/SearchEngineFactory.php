@@ -2,7 +2,8 @@
 
 use MediaWiki\HookContainer\HookContainer;
 use Wikimedia\ObjectFactory\ObjectFactory;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * Factory class for SearchEngine.
@@ -18,21 +19,22 @@ class SearchEngineFactory {
 	/** @var HookContainer */
 	private $hookContainer;
 
-	private IConnectionProvider $dbProvider;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
 
 	/**
 	 * @param SearchEngineConfig $config
 	 * @param HookContainer $hookContainer
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 */
 	public function __construct(
 		SearchEngineConfig $config,
 		HookContainer $hookContainer,
-		IConnectionProvider $dbProvider
+		ILoadBalancer $loadBalancer
 	) {
 		$this->config = $config;
 		$this->hookContainer = $hookContainer;
-		$this->dbProvider = $dbProvider;
+		$this->loadBalancer = $loadBalancer;
 	}
 
 	/**
@@ -50,7 +52,7 @@ class SearchEngineFactory {
 		} elseif ( $configuredClass !== null ) {
 			$class = $configuredClass;
 		} else {
-			$class = self::getSearchEngineClass( $this->dbProvider );
+			$class = self::getSearchEngineClass( $this->loadBalancer );
 		}
 
 		$mappings = $this->config->getSearchMappings();
@@ -61,7 +63,7 @@ class SearchEngineFactory {
 		$args = [];
 
 		if ( isset( $spec['class'] ) && is_subclass_of( $spec['class'], SearchDatabase::class ) ) {
-			$args['extraArgs'][] = $this->dbProvider;
+			$args['extraArgs'][] = $this->loadBalancer;
 		}
 
 		// ObjectFactory::getObjectFromSpec accepts an array, not just a callable (phan bug)
@@ -73,12 +75,14 @@ class SearchEngineFactory {
 	}
 
 	/**
-	 * @param IConnectionProvider $dbProvider
+	 * @param IDatabase|ILoadBalancer $dbOrLb
 	 * @return string SearchEngine subclass name
 	 * @since 1.28
 	 */
-	public static function getSearchEngineClass( IConnectionProvider $dbProvider ) {
-		$type = $dbProvider->getReplicaDatabase()->getType();
+	public static function getSearchEngineClass( $dbOrLb ) {
+		$type = ( $dbOrLb instanceof IDatabase )
+			? $dbOrLb->getType()
+			: $dbOrLb->getServerType( $dbOrLb->getWriterIndex() );
 
 		switch ( $type ) {
 			case 'sqlite':

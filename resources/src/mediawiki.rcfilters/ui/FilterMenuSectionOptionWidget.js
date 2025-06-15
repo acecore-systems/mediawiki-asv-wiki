@@ -1,17 +1,18 @@
 /**
- * A widget representing a menu section for filter groups.
+ * A widget representing a menu section for filter groups
  *
  * @class mw.rcfilters.ui.FilterMenuSectionOptionWidget
- * @ignore
  * @extends OO.ui.MenuSectionOptionWidget
  *
+ * @constructor
  * @param {mw.rcfilters.Controller} controller RCFilters controller
  * @param {mw.rcfilters.dm.FilterGroup} model Filter group model
  * @param {Object} config Configuration object
- * @param {jQuery} [config.$overlay] Overlay
+ * @cfg {jQuery} [$overlay] Overlay
  */
-const FilterMenuSectionOptionWidget = function MwRcfiltersUiFilterMenuSectionOptionWidget( controller, model, config ) {
-	const $header = $( '<div>' )
+var FilterMenuSectionOptionWidget = function MwRcfiltersUiFilterMenuSectionOptionWidget( controller, model, config ) {
+	var whatsThisMessages,
+		$header = $( '<div>' )
 			.addClass( 'mw-rcfilters-ui-filterMenuSectionOptionWidget-header' ),
 		$popupContent = $( '<div>' )
 			.addClass( 'mw-rcfilters-ui-filterMenuSectionOptionWidget-whatsThisButton-popup-content' );
@@ -23,7 +24,7 @@ const FilterMenuSectionOptionWidget = function MwRcfiltersUiFilterMenuSectionOpt
 	this.$overlay = config.$overlay || this.$element;
 
 	// Parent
-	FilterMenuSectionOptionWidget.super.call( this, Object.assign( {
+	FilterMenuSectionOptionWidget.parent.call( this, $.extend( {
 		label: this.model.getTitle(),
 		$label: $( '<div>' )
 			.addClass( 'mw-rcfilters-ui-filterMenuSectionOptionWidget-header-title' )
@@ -32,7 +33,7 @@ const FilterMenuSectionOptionWidget = function MwRcfiltersUiFilterMenuSectionOpt
 	$header.append( this.$label );
 
 	if ( this.model.hasWhatsThis() ) {
-		const whatsThisMessages = this.model.getWhatsThis();
+		whatsThisMessages = this.model.getWhatsThis();
 
 		// Create popup
 		if ( whatsThisMessages.header ) {

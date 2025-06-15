@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DiffMatchPatch implementation for linear model
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /* global diff_match_patch */
@@ -19,7 +19,7 @@ ve.DiffMatchPatch = function VeDiffMatchPatch( oldStore, newStore ) {
 	// Parent constructor
 	ve.DiffMatchPatch.super.call( this );
 
-	this.store = oldStore.slice();
+	this.store = oldStore.clone();
 	this.store.merge( newStore );
 };
 
@@ -52,7 +52,7 @@ ve.DiffMatchPatch.prototype.isEqualString = function ( a, b ) {
 		return false;
 	}
 
-	for ( let i = 0, l = a.length; i < l; i++ ) {
+	for ( var i = 0, l = a.length; i < l; i++ ) {
 		if ( !this.isEqualChar( a[ i ], b[ i ] ) ) {
 			return false;
 		}
@@ -74,12 +74,12 @@ ve.DiffMatchPatch.prototype.indexOf = function indexOf( text, searchValue, fromI
 	// starting the search beyond the end of the string
 	// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/indexOf
 	for (
-		let i = fromIndex === undefined ? 0 : Math.min( Math.max( fromIndex, 0 ), text.length );
+		var i = fromIndex === undefined ? 0 : Math.min( Math.max( fromIndex, 0 ), text.length );
 		i <= text.length - searchValue.length;
 		i++
 	) {
-		let found = true;
-		for ( let j = 0; j < searchValue.length; j++ ) {
+		var found = true;
+		for ( var j = 0; j < searchValue.length; j++ ) {
 			if ( !this.isEqualChar( text[ i + j ], searchValue[ j ] ) ) {
 				found = false;
 				break;
@@ -93,16 +93,16 @@ ve.DiffMatchPatch.prototype.indexOf = function indexOf( text, searchValue, fromI
 };
 
 ve.DiffMatchPatch.prototype.lastIndexOf = function lastIndexOf( text, searchValue, fromIndex ) {
-	const iLen = text.length - searchValue.length;
+	var iLen = text.length - searchValue.length;
 	// fromIndex defaults to the end, and must be greater than 0
 	// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/lastIndexOf
 	for (
-		let i = fromIndex === undefined ? iLen : Math.min( Math.max( fromIndex, 0 ), iLen );
+		var i = fromIndex === undefined ? iLen : Math.min( Math.max( fromIndex, 0 ), iLen );
 		i >= 0;
 		i--
 	) {
-		let found = true;
-		for ( let j = 0; j < searchValue.length; j++ ) {
+		var found = true;
+		for ( var j = 0; j < searchValue.length; j++ ) {
 			if ( !this.isEqualChar( text[ i + j ], searchValue[ j ] ) ) {
 				found = false;
 				break;
@@ -116,7 +116,7 @@ ve.DiffMatchPatch.prototype.lastIndexOf = function lastIndexOf( text, searchValu
 };
 
 ve.DiffMatchPatch.prototype.getCleanDiff = function ( oldData, newData, options ) {
-	const store = this.store,
+	var store = this.store,
 		DIFF_DELETE = this.constructor.static.DIFF_DELETE,
 		DIFF_INSERT = this.constructor.static.DIFF_INSERT,
 		DIFF_EQUAL = this.constructor.static.DIFF_EQUAL,
@@ -137,7 +137,7 @@ ve.DiffMatchPatch.prototype.getCleanDiff = function ( oldData, newData, options 
 	 * @return {Array} Linear data without close elements
 	 */
 	function removeCloseElements( data ) {
-		for ( let i = 0, ilen = data.length; i < ilen; i++ ) {
+		for ( var i = 0, ilen = data.length; i < ilen; i++ ) {
 			if ( data[ i ].type && data[ i ].type[ 0 ] === '/' ) {
 				data.splice( i, 1 );
 				ilen--;
@@ -156,9 +156,9 @@ ve.DiffMatchPatch.prototype.getCleanDiff = function ( oldData, newData, options 
 	 *  wordbreak was found
 	 */
 	function findWordbreaks( data, reversed ) {
-		const dataString = new ve.dm.DataString( data );
+		var dataString = new ve.dm.DataString( data );
 
-		const offset = unicodeJS.wordbreak.moveBreakOffset(
+		var offset = unicodeJS.wordbreak.moveBreakOffset(
 			reversed ? -1 : 1,
 			dataString,
 			reversed ? data.length : 0
@@ -198,11 +198,11 @@ ve.DiffMatchPatch.prototype.getCleanDiff = function ( oldData, newData, options 
 	 * @return {Array} A human-friendlier linear diff
 	 */
 	function getCleanDiff( diff ) {
-		let previousData = null,
+		var previousData = null,
 			previousAction = null,
+			cleanDiff = [],
 			remove = [],
 			insert = [];
-		const cleanDiff = [];
 
 		function equalUnannotated( other, element, index ) {
 			return ve.dm.ElementLinearData.static.compareElementsUnannotated( element, other[ index ] );
@@ -222,14 +222,15 @@ ve.DiffMatchPatch.prototype.getCleanDiff = function ( oldData, newData, options 
 		}
 
 		function isWhitespace( element ) {
-			const value = Array.isArray( element ) ? element[ 0 ] : element;
+			var value = Array.isArray( element ) ? element[ 0 ] : element;
 			return typeof value === 'string' && /^\s+$/.test( value );
 		}
 
+		var i, ilen, action, data;
 		// Where the same data is removed and inserted, replace it with a retain
-		for ( let i = 0; i < diff.length; i++ ) {
-			const action = diff[ i ][ 0 ];
-			const data = diff[ i ][ 1 ];
+		for ( i = 0; i < diff.length; i++ ) {
+			action = diff[ i ][ 0 ];
+			data = diff[ i ][ 1 ];
 			// Should improve on JSON.stringify
 			if ( ( action > 0 || previousAction > 0 ) && action + previousAction === 0 && JSON.stringify( data ) === JSON.stringify( previousData ) ) {
 				diff.splice( i - 1, 2, [ DIFF_EQUAL, data ] );
@@ -242,10 +243,10 @@ ve.DiffMatchPatch.prototype.getCleanDiff = function ( oldData, newData, options 
 		previousAction = null;
 
 		// Join any consecutive actions that are the same
-		for ( let i = 0; i < diff.length; i++ ) {
-			const action = diff[ i ][ 0 ];
+		for ( i = 0; i < diff.length; i++ ) {
+			action = diff[ i ][ 0 ];
 			if ( action === previousAction ) {
-				ve.batchPush( diff[ i - 1 ][ 1 ], diff[ i ][ 1 ] );
+				diff[ i - 1 ][ 1 ] = diff[ i - 1 ][ 1 ].concat( diff[ i ][ 1 ] );
 				diff.splice( i, 1 );
 				i--;
 			} else if ( diff[ i ][ 1 ].length === 0 ) {
@@ -258,16 +259,16 @@ ve.DiffMatchPatch.prototype.getCleanDiff = function ( oldData, newData, options 
 
 		// Convert any retains that do not end and start with spaces into remove-
 		// inserts
-		for ( let i = 0; i < diff.length; i++ ) {
-			const action = diff[ i ][ 0 ];
-			const data = diff[ i ][ 1 ];
+		for ( i = 0; i < diff.length; i++ ) {
+			action = diff[ i ][ 0 ];
+			data = diff[ i ][ 1 ];
 			if ( action === DIFF_EQUAL ) {
-				let start = [];
-				let end = [];
-				const firstWordbreak = findWordbreaks( data, false );
-				const lastWordbreak = firstWordbreak === null ? null : findWordbreaks( data, true );
-				const notNextStartsWithWordbreak = i !== diff.length - 1 && !isBreak( data.concat( diff[ i + 1 ][ 1 ] ), data.length );
-				const notPreviousEndsWithWordBreak = i !== 0 && !isBreak( previousData.concat( data ), previousData.length );
+				var start = [];
+				var end = [];
+				var firstWordbreak = findWordbreaks( data, false );
+				var lastWordbreak = firstWordbreak === null ? null : findWordbreaks( data, true );
+				var notNextStartsWithWordbreak = i !== diff.length - 1 && !isBreak( data.concat( diff[ i + 1 ][ 1 ] ), data.length );
+				var notPreviousEndsWithWordBreak = i !== 0 && !isBreak( previousData.concat( data ), previousData.length );
 
 				if ( firstWordbreak === null && ( notNextStartsWithWordbreak || notPreviousEndsWithWordBreak ) ) {
 					// If there was no wordbreak, and there are no wordbreaks either side,
@@ -288,7 +289,7 @@ ve.DiffMatchPatch.prototype.getCleanDiff = function ( oldData, newData, options 
 						// Skip over close tags to ensure a balanced remove/insert
 						// Word break logic should ensure that there aren't unbalanced
 						// tags on the left of the remove/insert
-						let j = 0;
+						var j = 0;
 						while ( ve.dm.LinearData.static.isCloseElementData( data[ j ] ) ) {
 							j++;
 						}
@@ -313,17 +314,17 @@ ve.DiffMatchPatch.prototype.getCleanDiff = function ( oldData, newData, options 
 
 		// In a sequence of -remove-insert-remove-insert- make the removes into a
 		// single action and the inserts into a single action
-		for ( let i = 0, ilen = diff.length; i < ilen; i++ ) {
-			const action = diff[ i ][ 0 ];
-			const data = diff[ i ][ 1 ];
+		for ( i = 0, ilen = diff.length; i < ilen; i++ ) {
+			action = diff[ i ][ 0 ];
+			data = diff[ i ][ 1 ];
 			if ( action === DIFF_DELETE ) {
-				ve.batchPush( remove, data );
+				remove = remove.concat( data );
 			} else if ( action === DIFF_INSERT ) {
-				ve.batchPush( insert, data );
+				insert = insert.concat( data );
 			} else if ( action === DIFF_EQUAL && data.length > 0 ) {
 				if ( data.every( isWhitespace ) ) {
-					ve.batchPush( remove, data );
-					ve.batchPush( insert, data );
+					remove = remove.concat( data );
+					insert = insert.concat( data );
 				} else {
 					if ( remove.length > 0 ) {
 						cleanDiff.push( [ DIFF_DELETE, remove ] );
@@ -348,13 +349,13 @@ ve.DiffMatchPatch.prototype.getCleanDiff = function ( oldData, newData, options 
 		// Now go over any consecutive remove-inserts (also insert-removes?) and
 		// if they have the same character data, or are modified content nodes,
 		// make them changes instead
-		for ( let i = 0, ilen = cleanDiff.length - 1; i < ilen; i++ ) {
-			const aItem = cleanDiff[ i ];
-			const bItem = cleanDiff[ i + 1 ];
-			const aData = aItem[ 1 ];
-			const bData = bItem[ 1 ];
-			const aAction = aItem[ 0 ];
-			const bAction = bItem[ 0 ];
+		for ( i = 0, ilen = cleanDiff.length - 1; i < ilen; i++ ) {
+			var aItem = cleanDiff[ i ];
+			var bItem = cleanDiff[ i + 1 ];
+			var aData = aItem[ 1 ];
+			var bData = bItem[ 1 ];
+			var aAction = aItem[ 0 ];
+			var bAction = bItem[ 0 ];
 			// If they have the same length content and they are a consecutive
 			// remove and insert, and they have the same content then mark the
 			// old one as a change-remove (-2) and the new one as a change-insert
@@ -364,12 +365,12 @@ ve.DiffMatchPatch.prototype.getCleanDiff = function ( oldData, newData, options 
 				( ( aAction === DIFF_DELETE && bAction === DIFF_INSERT ) || ( aAction === DIFF_INSERT && bAction === DIFF_DELETE ) )
 			) {
 				if ( aData.every( equalUnannotated.bind( this, bData ) ) ) {
-					const aAnnotations = new ve.dm.ElementLinearData( store, aData ).getAnnotationsFromRange( new ve.Range( 0, aData.length ), true );
-					const bAnnotations = new ve.dm.ElementLinearData( store, bData ).getAnnotationsFromRange( new ve.Range( 0, bData.length ), true );
+					var aAnnotations = new ve.dm.ElementLinearData( store, aData ).getAnnotationsFromRange( new ve.Range( 0, aData.length ), true );
+					var bAnnotations = new ve.dm.ElementLinearData( store, bData ).getAnnotationsFromRange( new ve.Range( 0, bData.length ), true );
 
-					const annotationChanges = [];
-					bAnnotations.get().forEach( ( b ) => {
-						const sameName = aAnnotations.getAnnotationsByName( b.name );
+					var annotationChanges = [];
+					bAnnotations.get().forEach( function ( b ) { // eslint-disable-line no-loop-func
+						var sameName = aAnnotations.getAnnotationsByName( b.name );
 						if ( !aAnnotations.containsComparable( b ) ) {
 							if ( sameName.getLength() ) {
 								// Annotations which have the same type, but are non-comparable, e.g. link with a different href
@@ -379,7 +380,7 @@ ve.DiffMatchPatch.prototype.getCleanDiff = function ( oldData, newData, options 
 							}
 						}
 					} );
-					aAnnotations.get().forEach( ( a ) => {
+					aAnnotations.get().forEach( function ( a ) { // eslint-disable-line no-loop-func
 						if ( !(
 							// Check the old annotation hasn't already been described as a insertion...
 							bAnnotations.containsComparable( a ) ||
@@ -397,8 +398,9 @@ ve.DiffMatchPatch.prototype.getCleanDiff = function ( oldData, newData, options 
 					}
 				}
 				if ( aData.every( equalElements.bind( this, bData ) ) ) {
-					const attributeChanges = [];
-					bData.forEach( ( element, n ) => {
+					var attributeChanges = [];
+					// eslint-disable-next-line no-loop-func
+					bData.forEach( function ( element, n ) {
 						if ( ve.dm.LinearData.static.isOpenElementData( element ) ) {
 							attributeChanges.push( { oldAttributes: aData[ n ].attributes, newAttributes: element.attributes, index: n } );
 						}
@@ -423,11 +425,11 @@ ve.DiffMatchPatch.prototype.getCleanDiff = function ( oldData, newData, options 
 	newData = removeCloseElements( newData );
 
 	// Get the diff
-	const finalDiff = getCleanDiff( this.diff_main( oldData, newData, options ) );
+	var finalDiff = getCleanDiff( this.diff_main( oldData, newData, options ) );
 
 	// Re-insert the close elements
-	for ( let k = 0, klen = finalDiff.length; k < klen; k++ ) {
-		for ( let m = 0; m < finalDiff[ k ][ 1 ].length; m++ ) {
+	for ( var k = 0, klen = finalDiff.length; k < klen; k++ ) {
+		for ( var m = 0; m < finalDiff[ k ][ 1 ].length; m++ ) {
 			if ( finalDiff[ k ][ 1 ][ m ].type ) {
 				finalDiff[ k ][ 1 ].splice( m + 1, 0, {
 					type: '/' + finalDiff[ k ][ 1 ][ m ].type

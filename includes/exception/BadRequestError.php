@@ -30,7 +30,10 @@ class BadRequestError extends ErrorPageError {
 
 	/**
 	 * @stable to override
-	 * @inheritDoc
+	 * @param int $action
+	 *
+	 * @throws FatalError
+	 * @throws MWException
 	 */
 	public function report( $action = self::SEND_OUTPUT ) {
 		global $wgOut;

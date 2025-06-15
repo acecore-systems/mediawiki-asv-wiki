@@ -1,14 +1,10 @@
 <?php
 
-namespace MediaWiki\HTMLForm;
-
-use InvalidArgumentException;
-
 /**
  * @newable
  * @stable to extend
  */
-class HTMLFormFieldRequiredOptionsException extends InvalidArgumentException {
+class HTMLFormFieldRequiredOptionsException extends MWException {
 
 	/**
 	 * @stable to call
@@ -22,6 +18,3 @@ class HTMLFormFieldRequiredOptionsException extends InvalidArgumentException {
 			implode( ', ', $missing ) ) );
 	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( HTMLFormFieldRequiredOptionsException::class, 'HTMLFormFieldRequiredOptionsException' );

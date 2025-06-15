@@ -27,7 +27,8 @@ use MediaWiki\ResourceLoader as RL;
  */
 class ResourceLoaderPygmentsModule extends RL\FileModule {
 
-	private bool $useBundled;
+	/** @var bool */
+	private $useBundled;
 
 	/** @inheritDoc */
 	public function __construct(

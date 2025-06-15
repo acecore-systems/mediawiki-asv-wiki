@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable MWAlienInlineExtensionNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -11,7 +11,7 @@
  * @class
  * @abstract
  * @extends ve.ce.MWInlineExtensionNode
- * @mixes ve.ce.MWAlienExtensionNode
+ * @mixins ve.ce.MWAlienExtensionNode
  *
  * @constructor
  * @param {Object} [config] Configuration options

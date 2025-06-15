@@ -1,17 +1,17 @@
 /* eslint no-underscore-dangle: "off" */
 /**
- * URI Processor for RCFilters.
+ * URI Processor for RCFilters
  *
- * @class UriProcessor
- * @memberof mw.rcfilters
- * @ignore
+ * @class mw.rcfilters.UriProcessor
+ *
+ * @constructor
  * @param {mw.rcfilters.dm.FiltersViewModel} filtersModel Filters view model
  * @param {Object} [config] Configuration object
- * @param {boolean} [config.normalizeTarget] Dictates whether or not to go through the
+ * @cfg {boolean} [normalizeTarget] Dictates whether or not to go through the
  *  title normalization to separate title subpage/parts into the target= url
  *  parameter
  */
-const UriProcessor = function MwRcfiltersController( filtersModel, config ) {
+var UriProcessor = function MwRcfiltersController( filtersModel, config ) {
 	config = config || {};
 	this.filtersModel = filtersModel;
 
@@ -72,7 +72,7 @@ UriProcessor.prototype.getVersion = function ( uriQuery ) {
  * @return {mw.Uri} Updated Uri
  */
 UriProcessor.prototype.getUpdatedUri = function ( uri ) {
-	const normalizedUri = this._normalizeTargetInUri( uri || new mw.Uri() ),
+	var normalizedUri = this._normalizeTargetInUri( uri || new mw.Uri() ),
 		unrecognizedParams = this.getUnrecognizedParams( normalizedUri.query );
 
 	normalizedUri.query = this.filtersModel.getMinimizedParamRepresentation(
@@ -108,8 +108,9 @@ UriProcessor.prototype.getUpdatedUri = function ( uri ) {
  * @private
  */
 UriProcessor.prototype._normalizeTargetInUri = function ( uri ) {
-	// matches [/wiki/]SpecialNS:RCL/[Namespace:]Title/Subpage/Subsubpage/etc
-	const re = /^((?:\/.+?\/)?.*?:.*?)\/(.*)$/;
+	var parts,
+		// matches [/wiki/]SpecialNS:RCL/[Namespace:]Title/Subpage/Subsubpage/etc
+		re = /^((?:\/.+?\/)?.*?:.*?)\/(.*)$/;
 
 	if ( !this.normalizeTarget ) {
 		return uri;
@@ -117,18 +118,18 @@ UriProcessor.prototype._normalizeTargetInUri = function ( uri ) {
 
 	// target in title param
 	if ( uri.query.title ) {
-		const titleParts = uri.query.title.match( re );
-		if ( titleParts ) {
-			uri.query.title = titleParts[ 1 ];
-			uri.query.target = titleParts[ 2 ];
+		parts = uri.query.title.match( re );
+		if ( parts ) {
+			uri.query.title = parts[ 1 ];
+			uri.query.target = parts[ 2 ];
 		}
 	}
 
 	// target in path
-	const pathParts = mw.Uri.decode( uri.path ).match( re );
-	if ( pathParts ) {
-		uri.path = pathParts[ 1 ];
-		uri.query.target = pathParts[ 2 ];
+	parts = mw.Uri.decode( uri.path ).match( re );
+	if ( parts ) {
+		uri.path = parts[ 1 ];
+		uri.query.target = parts[ 2 ];
 	}
 
 	return uri;
@@ -142,11 +143,11 @@ UriProcessor.prototype._normalizeTargetInUri = function ( uri ) {
  */
 UriProcessor.prototype.getUnrecognizedParams = function ( params ) {
 	// Start with full representation
-	const givenParamNames = Object.keys( params ),
+	var givenParamNames = Object.keys( params ),
 		unrecognizedParams = $.extend( true, {}, params );
 
 	// Extract unrecognized parameters
-	Object.keys( this.filtersModel.getEmptyParameterState() ).forEach( ( paramName ) => {
+	Object.keys( this.filtersModel.getEmptyParameterState() ).forEach( function ( paramName ) {
 		// Remove recognized params
 		if ( givenParamNames.indexOf( paramName ) > -1 ) {
 			delete unrecognizedParams[ paramName ];
@@ -167,7 +168,7 @@ UriProcessor.prototype.getUnrecognizedParams = function ( params ) {
  * @param {Object} [params] Extra parameters to add to the API call
  */
 UriProcessor.prototype.updateURL = function ( params ) {
-	const currentUri = new mw.Uri(),
+	var currentUri = new mw.Uri(),
 		updatedUri = this.getUpdatedUri();
 
 	updatedUri.extend( params || {} );
@@ -208,24 +209,25 @@ UriProcessor.prototype.updateModelBasedOnQuery = function ( uriQuery ) {
  * @return {boolean} This is a new state
  */
 UriProcessor.prototype.isNewState = function ( currentUriQuery, updatedUriQuery ) {
-	const notEquivalent = function ( obj1, obj2 ) {
-		const keys = Object.keys( obj1 ).concat( Object.keys( obj2 ) );
-		return keys.some(
-			( key ) => obj1[ key ] != obj2[ key ] // eslint-disable-line eqeqeq
-		);
-	};
+	var currentParamState, updatedParamState,
+		notEquivalent = function ( obj1, obj2 ) {
+			var keys = Object.keys( obj1 ).concat( Object.keys( obj2 ) );
+			return keys.some( function ( key ) {
+				return obj1[ key ] != obj2[ key ]; // eslint-disable-line eqeqeq
+			} );
+		};
 
 	// Compare states instead of parameters
 	// This will allow us to always have a proper check of whether
 	// the requested new url is one to change or not, regardless of
 	// actual parameter visibility/representation in the URL
-	const currentParamState = $.extend(
+	currentParamState = $.extend(
 		true,
 		{},
 		this.filtersModel.getMinimizedParamRepresentation( currentUriQuery ),
 		this.getUnrecognizedParams( currentUriQuery )
 	);
-	const updatedParamState = $.extend(
+	updatedParamState = $.extend(
 		true,
 		{},
 		this.filtersModel.getMinimizedParamRepresentation( updatedUriQuery ),
@@ -233,6 +235,27 @@ UriProcessor.prototype.isNewState = function ( currentUriQuery, updatedUriQuery 
 	);
 
 	return notEquivalent( currentParamState, updatedParamState );
+};
+
+/**
+ * Check whether the given query has parameters that are
+ * recognized as parameters we should load the system with
+ *
+ * @param {mw.Uri} [uriQuery] Given URI query
+ * @return {boolean} Query contains valid recognized parameters
+ */
+UriProcessor.prototype.doesQueryContainRecognizedParams = function ( uriQuery ) {
+	var anyValidInUrl,
+		validParameterNames = Object.keys( this.filtersModel.getEmptyParameterState() );
+
+	uriQuery = uriQuery || new mw.Uri().query;
+
+	anyValidInUrl = Object.keys( uriQuery ).some( function ( parameter ) {
+		return validParameterNames.indexOf( parameter ) > -1;
+	} );
+
+	// URL version 2 is allowed to be empty or within nonrecognized params
+	return anyValidInUrl || this.getVersion( uriQuery ) === 2;
 };
 
 /**
@@ -254,7 +277,7 @@ UriProcessor.prototype._getNormalizedQueryParams = function ( uriQuery ) {
 	// wiki default.
 	// Any subsequent change of the URL through the RCFilters
 	// system will receive 'urlversion=2'
-	const base = this.getVersion( uriQuery ) === 2 ?
+	var base = this.getVersion( uriQuery ) === 2 ?
 		{} :
 		this.filtersModel.getDefaultParams();
 

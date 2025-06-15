@@ -1,4 +1,4 @@
-/** For virtual configuration of resources/skins.vector.js/config.json */
+/** See Vector\Hooks::getVectorResourceLoaderConfig */
 interface VectorResourceLoaderVirtualConfig {
-	VectorSearchApiUrl: string;
+	wgVectorSearchHost: string;
 }

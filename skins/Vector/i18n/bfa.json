@@ -6,8 +6,5 @@
 	},
 	"vector-languages": "Kutujin",
 	"vector-language-button-label": "{{PLURAL:$1|$1 kutu|$1 kutujin}}",
-	"vector-no-language-button-label": "'Yalaki kune kutujin",
-	"vector-page-tools-label": "Tito",
-	"vector-page-tools-general-label": "'Bukuluŋ",
-	"vector-unpin-element-label": "muke"
+	"vector-no-language-button-label": "'Yalaki kune kutujin"
 }

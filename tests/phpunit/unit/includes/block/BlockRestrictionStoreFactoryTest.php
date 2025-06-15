@@ -30,7 +30,7 @@ class BlockRestrictionStoreFactoryTest extends MediaWikiUnitTestCase {
 		$this->assertInstanceOf( BlockRestrictionStore::class, $restrictionStore );
 	}
 
-	public static function provideDomains() {
+	public function provideDomains() {
 		yield 'local wiki' => [ WikiAwareEntity::LOCAL ];
 		yield 'foreign wiki' => [ 'meta' ];
 	}

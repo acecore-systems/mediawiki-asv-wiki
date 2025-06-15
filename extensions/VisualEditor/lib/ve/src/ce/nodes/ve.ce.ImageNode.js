@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable ImageNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -9,8 +9,8 @@
  *
  * @class
  * @abstract
- * @mixes ve.ce.FocusableNode
- * @mixes ve.ce.ResizableNode
+ * @mixins ve.ce.FocusableNode
+ * @mixins ve.ce.ResizableNode
  *
  * @constructor
  * @param {jQuery} $figure Image or figure element
@@ -47,9 +47,8 @@ OO.mixinClass( ve.ce.ImageNode, ve.ce.ResizableNode );
 
 /* Static Methods */
 
-// eslint-disable-next-line jsdoc/require-param, jsdoc/require-returns
 /**
- * @see ve.ce.Node
+ * @inheritdoc ve.ce.Node
  */
 ve.ce.ImageNode.static.getDescription = function ( model ) {
 	return model.getAttribute( 'src' );

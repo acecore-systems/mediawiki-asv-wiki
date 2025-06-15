@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel ModelFactory class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -27,13 +27,13 @@ OO.inheritClass( ve.dm.ModelFactory, OO.Factory );
  * Create a new item from a model element
  *
  * @param {Object} element Model element
- * @param {...any} [args] Arguments to pass to the constructor
+ * @param {...Mixed} [args] Arguments to pass to the constructor
  * @return {ve.dm.Model} Model constructed from element
  * @throws {Error} Element must have a .type property
  */
-ve.dm.ModelFactory.prototype.createFromElement = function ( element, ...args ) {
+ve.dm.ModelFactory.prototype.createFromElement = function ( element ) {
 	if ( element && element.type ) {
-		return this.create( element.type, element, ...args );
+		return this.create.apply( this, Array.prototype.concat.apply( [ element.type ], arguments ) );
 	}
 	throw new Error( 'Element must have a .type property' );
 };

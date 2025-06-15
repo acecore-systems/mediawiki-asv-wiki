@@ -1,15 +1,19 @@
 .mw-rcfilters-ui {
 	&-table {
+		display: table;
+		width: 100%;
+
 		&-placeholder {
-			flex-grow: 1;
+			width: 100%;
 		}
 	}
 
 	&-row {
-		display: flex;
+		display: table-row;
 	}
 
 	&-cell {
-		align-self: start;
+		display: table-cell;
+		vertical-align: top;
 	}
 }

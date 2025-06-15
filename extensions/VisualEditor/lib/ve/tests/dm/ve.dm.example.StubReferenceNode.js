@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel StubReferenceNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2018 VisualEditor Team's Cite sub-team and others; see AUTHORS.txt
  * @license MIT
  */
 
@@ -56,19 +56,19 @@ ve.dm.example.StubReferenceNode.static.handlesOwnChildren = true;
 ve.dm.example.StubReferenceNode.static.listKeyRegex = /^(auto|literal)\/([\s\S]*)$/;
 
 ve.dm.example.StubReferenceNode.static.toDataElement = function ( domElements, converter ) {
-	const refElement = domElements[ 0 ];
-	const body = refElement.innerHTML;
-	const refGroup = refElement.getAttribute( 'group' ) || '';
-	const listGroup = this.name + '/' + refGroup;
-	const name = refElement.getAttribute( 'name' );
-	const listKey = name ?
+	var refElement = domElements[ 0 ];
+	var body = refElement.innerHTML;
+	var refGroup = refElement.getAttribute( 'group' ) || '';
+	var listGroup = this.name + '/' + refGroup;
+	var name = refElement.getAttribute( 'name' );
+	var listKey = name ?
 		'literal/' + name :
 		'auto/' + converter.internalList.getNextUniqueNumber();
-	const queueResult = converter.internalList.queueItemHtml( listGroup, listKey, body );
-	const listIndex = queueResult.index;
-	const contentsUsed = ( body !== '' && queueResult.isNew );
+	var queueResult = converter.internalList.queueItemHtml( listGroup, listKey, body );
+	var listIndex = queueResult.index;
+	var contentsUsed = ( body !== '' && queueResult.isNew );
 
-	const dataElement = {
+	var dataElement = {
 		type: this.name,
 		attributes: {
 			listIndex: listIndex,

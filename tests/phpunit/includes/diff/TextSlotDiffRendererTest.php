@@ -1,45 +1,19 @@
 <?php
 
-use MediaWiki\Content\ContentHandler;
-use MediaWiki\Content\TextContent;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\Diff\TextDiffer\ManifoldTextDiffer;
-use MediaWiki\Diff\TextDiffer\Wikidiff2TextDiffer;
-use MediaWiki\Tests\Diff\TextDiffer\TextDifferData;
 use Wikimedia\Assert\ParameterTypeException;
-use Wikimedia\Stats\StatsFactory;
 
 /**
- * @covers \TextSlotDiffRenderer
+ * @covers TextSlotDiffRenderer
  */
 class TextSlotDiffRendererTest extends MediaWikiIntegrationTestCase {
-
-	public function setUp(): void {
-		Wikidiff2TextDiffer::$fakeVersionForTesting = '1.14.1';
-	}
-
-	public function tearDown(): void {
-		Wikidiff2TextDiffer::$fakeVersionForTesting = null;
-	}
 
 	public function testGetExtraCacheKeys() {
 		$slotDiffRenderer = $this->getTextSlotDiffRenderer();
 		$key = $slotDiffRenderer->getExtraCacheKeys();
 		$slotDiffRenderer->setEngine( TextSlotDiffRenderer::ENGINE_WIKIDIFF2_INLINE );
 		$inlineKey = $slotDiffRenderer->getExtraCacheKeys();
-
-		ksort( $key );
-		ksort( $inlineKey );
-
-		$this->assertSame( [ '10-formats-and-engines' => 'php=table' ], $key );
-		$this->assertSame(
-			[
-				'10-formats-and-engines' => 'wikidiff2=inline',
-				'20-wikidiff2-version' => '1.14.1',
-				'21-wikidiff2-options' => 'bc2a06be',
-			],
-			$inlineKey
-		);
+		$this->assertSame( $key, [] );
+		$this->assertSame( $inlineKey, [ phpversion( 'wikidiff2' ), 'inline' ] );
 	}
 
 	/**
@@ -103,12 +77,12 @@ class TextSlotDiffRendererTest extends MediaWikiIntegrationTestCase {
 			'non-text left content' => [
 				[ '', 'testing-nontext' ],
 				[ "aaa\nbbb\nccc" ],
-				new IncompatibleDiffTypesException( 'testing-nontext', 'text' ),
+				new ParameterTypeException( '$oldContent', 'TextContent|null' ),
 			],
 			'non-text right content' => [
 				[ "aaa\nbbb\nccc" ],
 				[ '', 'testing-nontext' ],
-				new ParameterTypeException( '$newContent', 'MediaWiki\Content\TextContent|null' ),
+				new ParameterTypeException( '$newContent', 'TextContent|null' ),
 			],
 		];
 	}
@@ -116,24 +90,14 @@ class TextSlotDiffRendererTest extends MediaWikiIntegrationTestCase {
 	// no separate test for getTextDiff() as getDiff() is just a thin wrapper around it
 
 	/**
-	 * @param string $langCode
 	 * @return TextSlotDiffRenderer
 	 */
-	private function getTextSlotDiffRenderer( $langCode = 'en' ) {
+	private function getTextSlotDiffRenderer() {
 		$slotDiffRenderer = new TextSlotDiffRenderer();
-		$slotDiffRenderer->setStatsFactory( StatsFactory::newNull() );
-		$lang = $this->getServiceContainer()->getLanguageFactory()->getLanguage( $langCode );
-		$context = new RequestContext;
-		$context->setLanguage( $lang );
-		$differ = new ManifoldTextDiffer(
-			$context,
-			$lang,
-			'php',
-			null,
-			[]
-		);
-		$slotDiffRenderer->setTextDiffer( $differ );
-		$slotDiffRenderer->setFormat( 'table' );
+		$slotDiffRenderer->setStatsdDataFactory( new NullStatsdDataFactory() );
+		$slotDiffRenderer->setLanguage(
+			$this->getServiceContainer()->getLanguageFactory()->getLanguage( 'en' ) );
+		$slotDiffRenderer->setEngine( TextSlotDiffRenderer::ENGINE_PHP );
 		return $slotDiffRenderer;
 	}
 
@@ -164,68 +128,4 @@ class TextSlotDiffRendererTest extends MediaWikiIntegrationTestCase {
 		return ContentHandler::makeContent( $str, null, $model );
 	}
 
-	public static function provideGetTablePrefix() {
-		return [
-			'php' => [
-				TextSlotDiffRenderer::ENGINE_PHP,
-				[
-					TextSlotDiffRenderer::INLINE_LEGEND_KEY => '<div></div>',
-					TextSlotDiffRenderer::INLINE_SWITCHER_KEY => null
-				]
-			],
-			'wikidiff2' => [
-				TextSlotDiffRenderer::ENGINE_WIKIDIFF2,
-				[
-					TextSlotDiffRenderer::INLINE_LEGEND_KEY =>
-						'class="mw-diff-inline-legend oo-ui-element-hidden"',
-					TextSlotDiffRenderer::INLINE_SWITCHER_KEY => 'mw-diffPage-inlineToggle-container'
-				]
-			],
-			'inline' => [
-				TextSlotDiffRenderer::ENGINE_WIKIDIFF2_INLINE,
-				[
-					TextSlotDiffRenderer::INLINE_LEGEND_KEY =>
-						'class="mw-diff-inline-legend".*\(diff-inline-tooltip-ins\)',
-					TextSlotDiffRenderer::INLINE_SWITCHER_KEY => 'mw-diffPage-inlineToggle-container'
-				]
-			]
-		];
-	}
-
-	/**
-	 * @dataProvider provideGetTablePrefix
-	 * @param string $engine
-	 * @param string[] $expectedPatterns
-	 */
-	public function testGetTablePrefix( $engine, $expectedPatterns ) {
-		OOUI\Theme::setSingleton( new OOUI\BlankTheme() );
-
-		$slotDiffRenderer = $this->getTextSlotDiffRenderer( 'qqx' );
-		$slotDiffRenderer->setHookContainer( $this->createHookContainer() );
-		$slotDiffRenderer->setEngine( $engine );
-		$slotDiffRenderer->setInlineToggleEnabled();
-
-		$context = new RequestContext;
-		$context->setLanguage( 'qqx' );
-
-		$title = $this->getServiceContainer()->getTitleFactory()->newFromText( 'Test' );
-		$result = $slotDiffRenderer->getTablePrefix( $context, $title );
-		$this->assertSameSize( $expectedPatterns, $result );
-		foreach ( $expectedPatterns as $key => $pattern ) {
-			if ( $pattern === null ) {
-				$this->assertNull( $result[$key], "\$result[$key]" );
-			} else {
-				$this->assertMatchesRegularExpression(
-					"#$pattern#", $result[$key], "\$result[$key]" );
-			}
-		}
-	}
-
-	public function testLocalizeDiff() {
-		$slotDiffRenderer = $this->getTextSlotDiffRenderer( 'en' );
-		$slotDiffRenderer->setHookContainer( $this->createHookContainer() );
-		$slotDiffRenderer->setEngine( 'php' );
-		$result = $slotDiffRenderer->localizeDiff( TextDifferData::PHP_TABLE );
-		$this->assertStringContainsString( 'Line 1:', $result );
-	}
 }

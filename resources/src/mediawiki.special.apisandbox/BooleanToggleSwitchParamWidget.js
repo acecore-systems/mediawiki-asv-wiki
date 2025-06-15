@@ -1,4 +1,4 @@
-const UtilMixin = require( './UtilMixin.js' );
+var UtilMixin = require( './UtilMixin.js' );
 
 /**
  * A wrapper for OO.ui.ToggleSwitchWidget
@@ -8,7 +8,7 @@ const UtilMixin = require( './UtilMixin.js' );
  * @constructor
  */
 function BooleanToggleSwitchParamWidget() {
-	BooleanToggleSwitchParamWidget.super.call( this );
+	BooleanToggleSwitchParamWidget.parent.call( this );
 }
 
 OO.inheritClass( BooleanToggleSwitchParamWidget, OO.ui.ToggleSwitchWidget );
@@ -22,7 +22,7 @@ BooleanToggleSwitchParamWidget.prototype.getApiValue = function () {
 };
 
 /**
- * @param {any} newValue
+ * @param {Mixed} newValue
  */
 BooleanToggleSwitchParamWidget.prototype.setApiValue = function ( newValue ) {
 	this.setValue( this.apiBool( newValue ) );

@@ -1,8 +1,8 @@
 {
 	"@metadata": {
 		"authors": [
-			"Patriot Kor",
 			"Patriot Kur",
+			"Patriot Kor",
 			"Гусейн"
 		]
 	},
@@ -24,9 +24,9 @@
 	"cite-ve-citationneeded-title": "Bə səvoni link lozime",
 	"cite-ve-dialog-reference-editing-reused": "Ym link oko doə bejdə səhifədə $1 {{PLURAL:$1|kərə}}.",
 	"cite-ve-dialog-reference-editing-reused-long": "Ym link oko doə bejdə səhifədə {{PLURAL:$1|i kərə|2=dy kərə}}. Ijo ovaxtə cijon bə har vyronədə vinde bəbe končo əv oko doə bejdə.",
-	"cite-ve-dialog-reference-editing-extends": "Ym ce čo ǧejdi zijodəje.",
 	"cite-ve-dialog-reference-options-group-label": "Ym grupi oko doj",
 	"cite-ve-dialog-reference-options-group-placeholder": "Umumijə linkon",
+	"cite-ve-dialog-reference-options-name-label": "Sənibəton oko doj de žygo nomi",
 	"cite-ve-dialog-reference-options-responsive-label": "Sunon adaptivə maketi oko doj",
 	"cite-ve-dialog-reference-options-section": "Səbəro",
 	"cite-ve-dialog-reference-placeholder": "Yštə ǧejdi bynyvyštən ja kopijə bykən ijo ja səvoni šabloni dəǧandən.",
@@ -46,7 +46,9 @@
 	"cite-ve-referenceslist-isempty-default": "By səhifədə bə sijohi bo dənojro linkon nin",
 	"cite-ve-referenceslist-missingref": "Ym ǧejd šablonədə heste ja čo soxtə byə ǧysmədə ijən ysət sərost kardə bəbe iglə bə iminə mətni sərost karde režimədə.",
 	"cite-ve-referenceslist-missingref-in-list": "Ym ǧejd heste šablonədə ja čo soxtə byə ǧysmədə ijən ysət syftənə vinde bəbe iglə bə viki-kodi sərost karde režimədə.",
-	"cite-ve-referenceslist-missingreflist": "Ym ǧejdon sijohi šablon soxtejdə.",
+	"cite-ve-referenceslist-missingreflist": "Ym ǧejdon sijohi šablon soxtejdə ijən ysət sərost kardə bəbe iglə kodi sərost karde režimədə.",
 	"cite-ve-toolbar-group-label": "Səvonon",
-	"cite-ve-othergroup-item": "$1 ǧejd"
+	"cite-ve-othergroup-item": "$1 ǧejd",
+	"visualeditor-internal-list-diff-default-group-name-mwreference": "Ǧejdon",
+	"visualeditor-internal-list-diff-group-name-mwreference": "Ǧejdon grupon nom: «$1»"
 }

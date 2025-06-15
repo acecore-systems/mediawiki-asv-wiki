@@ -1,6 +1,8 @@
 <?php
 /** Czech (čeština)
  *
+ * To improve a translation please visit https://translatewiki.net
+ *
  * @file
  * @ingroup Languages
  */
@@ -28,14 +30,14 @@ $namespaceNames = [
 ];
 
 $namespaceAliases = [
-	'Uživatel_diskuse'      => NS_USER_TALK, # old literal translation backward compatibility
-	'Uživatelka_diskuse'    => NS_USER_TALK, # female complement to old literal translation style
-	'$1_diskuse'            => NS_PROJECT_TALK, # old literal translation backward compatibility
-	'Soubor_diskuse'        => NS_FILE_TALK, # old literal translation backward compatibility
+	'Uživatel_diskuse'      => NS_USER_TALK,      # old literal translation backward compatibility
+	'Uživatelka_diskuse'    => NS_USER_TALK,      # female complement to old literal translation style
+	'$1_diskuse'            => NS_PROJECT_TALK,   # old literal translation backward compatibility
+	'Soubor_diskuse'        => NS_FILE_TALK,      # old literal translation backward compatibility
 	'MediaWiki_diskuse'     => NS_MEDIAWIKI_TALK, # old literal translation backward compatibility
-	'Šablona_diskuse'       => NS_TEMPLATE_TALK, # old literal translation backward compatibility
-	'Nápověda_diskuse'      => NS_HELP_TALK, # old literal translation backward compatibility
-	'Kategorie_diskuse'     => NS_CATEGORY_TALK, # old literal translation backward compatibility
+	'Šablona_diskuse'       => NS_TEMPLATE_TALK,  # old literal translation backward compatibility
+	'Nápověda_diskuse'      => NS_HELP_TALK,      # old literal translation backward compatibility
+	'Kategorie_diskuse'     => NS_CATEGORY_TALK,  # old literal translation backward compatibility
 ];
 
 $namespaceGenderAliases = [
@@ -130,7 +132,6 @@ $specialPageAliases = [
 	'Recentchangeslinked'       => [ 'Související_změny', 'Souvisejici_zmeny' ],
 	'Redirect'                  => [ 'Přesměrování', 'Přesměrovat' ],
 	'RemoveCredentials'         => [ 'Odstranění_přihlašovacích_údajů' ],
-	'Renameuser'                => [ 'Přejmenovat_uživatele' ],
 	'ResetTokens'               => [ 'Reinicializace_klíčů' ],
 	'Revisiondelete'            => [ 'Smazat_revizi' ],
 	'Search'                    => [ 'Hledání', 'Hledani' ],
@@ -220,7 +221,7 @@ $magicWords = [
 	'img_width'                 => [ '1', '$1pixelů', '$1px' ],
 	'index'                     => [ '1', '__INDEXOVAT__', '__INDEX__' ],
 	'int'                       => [ '0', 'HLÁŠENÍ:', 'INT:' ],
-	'language'                  => [ '0', '#JAZYK', '#LANGUAGE' ],
+	'language'                  => [ '0', '#JAZYK:', '#LANGUAGE:' ],
 	'lc'                        => [ '0', 'MALÁ:', 'LC:' ],
 	'lcfirst'                   => [ '0', 'PRVNÍMALÉ:', 'LCFIRST:' ],
 	'localday'                  => [ '1', 'MÍSTNÍDEN', 'LOCALDAY' ],

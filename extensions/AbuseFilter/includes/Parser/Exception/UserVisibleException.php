@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Extension\AbuseFilter\Parser\Exception;
 
-use MediaWiki\Message\Message;
+use Message;
 
 /**
  * Exceptions that we might conceivably want to report to ordinary users
@@ -64,7 +64,7 @@ class UserVisibleException extends ExceptionBase {
 		// abusefilter-exception-unknownfunction, abusefilter-exception-usebuiltin
 		return new Message(
 			'abusefilter-exception-' . $this->mExceptionID,
-			[ $this->mPosition, ...$this->mParams ]
+			array_merge( [ $this->mPosition ], $this->mParams )
 		);
 	}
 

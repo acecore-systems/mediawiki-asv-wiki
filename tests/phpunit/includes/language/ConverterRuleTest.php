@@ -1,16 +1,12 @@
 <?php
 
-use MediaWiki\Language\ConverterRule;
-
 /**
- * @group Language
- * @covers \MediaWiki\Language\ConverterRule
+ * @covers ConverterRule
  */
 class ConverterRuleTest extends MediaWikiIntegrationTestCase {
 
 	public function testParseEmpty() {
-		$lang = $this->getServiceContainer()->getLanguageFactory()->getLanguage( 'en' );
-		$converter = new EnConverter( $lang );
+		$converter = new EnConverter( new Language() );
 		$rule = new ConverterRule( '', $converter );
 		$rule->parse();
 

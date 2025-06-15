@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\Context\IContextSource;
+use IContextSource;
 use MediaWiki\Linker\LinkRenderer;
 
 /**

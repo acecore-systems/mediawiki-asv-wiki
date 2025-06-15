@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable SectionNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -9,7 +9,7 @@
  *
  * @class
  * @extends ve.ce.BranchNode
- * @mixes ve.ce.ActiveNode
+ * @mixins ve.ce.ActiveNode
  * @constructor
  * @param {ve.dm.SectionNode} model Model to observe
  * @param {Object} [config] Configuration options
@@ -48,7 +48,7 @@ ve.ce.SectionNode.static.name = 'section';
  * @return {string} HTML tag name
  */
 ve.ce.SectionNode.prototype.getTagName = function () {
-	const style = this.model.getAttribute( 'style' );
+	var style = this.model.getAttribute( 'style' );
 
 	if ( this.model.constructor.static.matchTagNames.indexOf( style ) === -1 ) {
 		throw new Error( 'Invalid style' );

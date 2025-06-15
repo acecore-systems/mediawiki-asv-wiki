@@ -1,9 +1,6 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
 use MediaWiki\MainConfigNames;
-use MediaWiki\Title\Title;
 
 /**
  * Tests for protect API.
@@ -12,27 +9,32 @@ use MediaWiki\Title\Title;
  * @group Database
  * @group medium
  *
- * @covers MediaWiki\Api\ApiProtect
+ * @covers ApiProtect
  */
 class ApiProtectTest extends ApiTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
+		$this->tablesUsed = array_merge(
+			$this->tablesUsed,
+			[ 'page_restrictions', 'logging', 'watchlist', 'watchlist_expiry' ]
+		);
 
 		$this->overrideConfigValue( MainConfigNames::WatchlistExpiry, true );
 	}
 
 	/**
-	 * @covers MediaWiki\Api\ApiProtect::execute()
+	 * @covers ApiProtect::execute()
 	 */
 	public function testProtectWithWatch(): void {
-		$title = Title::makeTitle( NS_MAIN, 'TestProtectWithWatch' );
+		$name = ucfirst( __FUNCTION__ );
+		$title = Title::newFromText( $name );
 
-		$this->editPage( $title, 'Some text' );
+		$this->editPage( $name, 'Some text' );
 
 		$apiResult = $this->doApiRequestWithToken( [
 			'action' => 'protect',
-			'title' => $title->getPrefixedText(),
+			'title' => $name,
 			'protections' => 'edit=sysop',
 			'expiry' => '55550123000000',
 			'watchlist' => 'watch',
@@ -40,7 +42,7 @@ class ApiProtectTest extends ApiTestCase {
 		] )[0];
 
 		$this->assertArrayHasKey( 'protect', $apiResult );
-		$this->assertSame( $title->getPrefixedText(), $apiResult['protect']['title'] );
+		$this->assertSame( $name, $apiResult['protect']['title'] );
 		$this->assertTrue( $this->getServiceContainer()->getRestrictionStore()->isProtected( $title, 'edit' ) );
 		$this->assertTrue( $this->getServiceContainer()->getWatchlistManager()->isTempWatched(
 			$this->getTestSysop()->getUser(),

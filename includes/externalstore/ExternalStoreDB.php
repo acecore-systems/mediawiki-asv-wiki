@@ -19,11 +19,11 @@
  */
 
 use Wikimedia\Rdbms\DatabaseDomain;
+use Wikimedia\Rdbms\DBConnRef;
 use Wikimedia\Rdbms\DBUnexpectedError;
+use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\ILoadBalancer;
 use Wikimedia\Rdbms\LBFactory;
-use Wikimedia\Rdbms\Query;
-use Wikimedia\Rdbms\ServerInfo;
 use Wikimedia\ScopedCallback;
 
 /**
@@ -63,7 +63,7 @@ class ExternalStoreDB extends ExternalStoreMedium {
 	 * @see ExternalStoreMedium::fetchFromURL()
 	 */
 	public function fetchFromURL( $url ) {
-		[ $cluster, $id, $itemID ] = $this->parseURL( $url );
+		list( $cluster, $id, $itemID ) = $this->parseURL( $url );
 		$ret = $this->fetchBlob( $cluster, $id, $itemID );
 
 		if ( $itemID !== false && $ret !== false ) {
@@ -86,7 +86,7 @@ class ExternalStoreDB extends ExternalStoreMedium {
 	public function batchFetchFromURLs( array $urls ) {
 		$batched = $inverseUrlMap = [];
 		foreach ( $urls as $url ) {
-			[ $cluster, $id, $itemID ] = $this->parseURL( $url );
+			list( $cluster, $id, $itemID ) = $this->parseURL( $url );
 			$batched[$cluster][$id][] = $itemID;
 			// false $itemID gets cast to int, but should be ok
 			// since we do === from the $itemID in $batched
@@ -115,17 +115,15 @@ class ExternalStoreDB extends ExternalStoreMedium {
 	 * @inheritDoc
 	 */
 	public function store( $location, $data ) {
-		$blobsTable = $this->getTable( $location );
-
 		$dbw = $this->getPrimary( $location );
-		$dbw->newInsertQueryBuilder()
-			->insertInto( $blobsTable )
-			->row( [ 'blob_text' => $data ] )
-			->caller( __METHOD__ )->execute();
-
+		$dbw->insert(
+			$this->getTable( $dbw, $location ),
+			[ 'blob_text' => $data ],
+			__METHOD__
+		);
 		$id = $dbw->insertId();
 		if ( !$id ) {
-			throw new ExternalStoreException( __METHOD__ . ': no insert ID' );
+			throw new MWException( __METHOD__ . ': no insert ID' );
 		}
 
 		return "DB://$location/$id";
@@ -139,7 +137,10 @@ class ExternalStoreDB extends ExternalStoreMedium {
 			return true;
 		}
 
-		return ( $this->getLoadBalancer( $location )->getReadOnlyReason() !== false );
+		$lb = $this->getLoadBalancer( $location );
+		$domainId = $this->getDomainId( $lb->getServerInfo( $lb->getWriterIndex() ) );
+
+		return ( $lb->getReadOnlyReason( $domainId ) !== false );
 	}
 
 	/**
@@ -157,15 +158,15 @@ class ExternalStoreDB extends ExternalStoreMedium {
 	 *
 	 * @since 1.34
 	 * @param string $cluster Cluster name
-	 * @return \Wikimedia\Rdbms\IReadableDatabase
+	 * @return DBConnRef
 	 */
 	public function getReplica( $cluster ) {
 		$lb = $this->getLoadBalancer( $cluster );
 
-		return $lb->getConnection(
+		return $lb->getConnectionRef(
 			DB_REPLICA,
 			[],
-			$this->getDomainId( $lb->getServerInfo( ServerInfo::WRITER_INDEX ) ),
+			$this->getDomainId( $lb->getServerInfo( $lb->getWriterIndex() ) ),
 			$lb::CONN_TRX_AUTOCOMMIT
 		);
 	}
@@ -183,9 +184,19 @@ class ExternalStoreDB extends ExternalStoreMedium {
 		return $lb->getMaintenanceConnectionRef(
 			DB_PRIMARY,
 			[],
-			$this->getDomainId( $lb->getServerInfo( ServerInfo::WRITER_INDEX ) ),
+			$this->getDomainId( $lb->getServerInfo( $lb->getWriterIndex() ) ),
 			$lb::CONN_TRX_AUTOCOMMIT
 		);
+	}
+
+	/**
+	 * @deprecated since 1.37; please use getPrimary() instead.
+	 * @param string $cluster Cluster name
+	 * @return \Wikimedia\Rdbms\IMaintainableDatabase
+	 */
+	public function getMaster( $cluster ) {
+		wfDeprecated( __METHOD__, '1.37' );
+		return $this->getPrimary( $cluster );
 	}
 
 	/**
@@ -216,25 +227,28 @@ class ExternalStoreDB extends ExternalStoreMedium {
 	}
 
 	/**
-	 * Get the configured blobs table name for this database
+	 * Get the 'blobs' table name for this database
 	 *
-	 * Typically, a suffix like "_clusterX" can be used to facilitate clean merging of
-	 * read-only storage clusters by simply cloning tables to the new cluster servers.
-	 *
-	 * @param string $cluster Cluster name
-	 * @return string Unqualified table name (e.g. "blobs_cluster32" or default "blobs")
-	 * @internal Only for use within ExternalStoreDB and its core maintenance scripts
+	 * @param IDatabase $db
+	 * @param string|null $cluster Cluster name
+	 * @return string Table name ('blobs' by default)
 	 */
-	public function getTable( string $cluster ) {
-		$lb = $this->getLoadBalancer( $cluster );
-		$info = $lb->getServerInfo( ServerInfo::WRITER_INDEX );
+	public function getTable( $db, $cluster = null ) {
+		if ( $cluster !== null ) {
+			$lb = $this->getLoadBalancer( $cluster );
+			$info = $lb->getServerInfo( $lb->getWriterIndex() );
+			if ( isset( $info['blobs table'] ) ) {
+				return $info['blobs table'];
+			}
+		}
 
-		return $info['blobs table'] ?? 'blobs';
+		return $db->getLBInfo( 'blobs table' ) ?? 'blobs'; // b/c
 	}
 
 	/**
 	 * Create the appropriate blobs table on this cluster
 	 *
+	 * @see getTable()
 	 * @since 1.34
 	 * @param string $cluster
 	 */
@@ -254,23 +268,16 @@ class ExternalStoreDB extends ExternalStoreMedium {
 			throw new RuntimeException( "Failed to read '$sqlFilePath'." );
 		}
 
-		$blobsTable = $this->getTable( $cluster );
-		$encTable = $dbw->tableName( $blobsTable );
-		$sqlWithReplacedVars = str_replace(
-			[ '/*$wgDBprefix*/blobs', '/*_*/blobs' ],
-			[ $encTable, $encTable ],
-			$sql
-		);
-
+		$rawTable = $this->getTable( $dbw, $cluster ); // e.g. "blobs_cluster23"
+		$encTable = $dbw->tableName( $rawTable );
 		$dbw->query(
-			new Query(
-				$sqlWithReplacedVars,
-				$dbw::QUERY_CHANGE_SCHEMA,
-				'CREATE',
-				$blobsTable,
-				$sqlWithReplacedVars
+			str_replace(
+				[ '/*$wgDBprefix*/blobs', '/*_*/blobs' ],
+				[ $encTable, $encTable ],
+				$sql
 			),
-			__METHOD__
+			__METHOD__,
+			$dbw::QUERY_IGNORE_DBO_TRX
 		);
 	}
 
@@ -303,26 +310,24 @@ class ExternalStoreDB extends ExternalStoreMedium {
 
 		$this->logger->debug( __METHOD__ . ": cache miss on $cacheID" );
 
-		$blobsTable = $this->getTable( $cluster );
-
 		$dbr = $this->getReplica( $cluster );
-		$ret = $dbr->newSelectQueryBuilder()
-			->select( 'blob_text' )
-			->from( $blobsTable )
-			->where( [ 'blob_id' => $id ] )
-			->caller( __METHOD__ )->fetchField();
-
+		$ret = $dbr->selectField(
+			$this->getTable( $dbr, $cluster ),
+			'blob_text',
+			[ 'blob_id' => $id ],
+			__METHOD__
+		);
 		if ( $ret === false ) {
 			// Try the primary DB
 			$this->logger->warning( __METHOD__ . ": primary DB fallback on $cacheID" );
-			$trxProfiler = $this->lbFactory->getTransactionProfiler();
-			$scope = $trxProfiler->silenceForScope( $trxProfiler::EXPECTATION_REPLICAS_ONLY );
+			$scope = $this->lbFactory->getTransactionProfiler()->silenceForScope();
 			$dbw = $this->getPrimary( $cluster );
-			$ret = $dbw->newSelectQueryBuilder()
-				->select( 'blob_text' )
-				->from( $blobsTable )
-				->where( [ 'blob_id' => $id ] )
-				->caller( __METHOD__ )->fetchField();
+			$ret = $dbw->selectField(
+				$this->getTable( $dbw, $cluster ),
+				'blob_text',
+				[ 'blob_id' => $id ],
+				__METHOD__
+			);
 			ScopedCallback::consume( $scope );
 			if ( $ret === false ) {
 				$this->logger->warning( __METHOD__ . ": primary DB failed to find $cacheID" );
@@ -330,7 +335,7 @@ class ExternalStoreDB extends ExternalStoreMedium {
 		}
 		if ( $itemID !== false && $ret !== false ) {
 			// Unserialise object; caller extracts item
-			$ret = HistoryBlobUtils::unserialize( $ret );
+			$ret = unserialize( $ret );
 		}
 
 		$externalBlobCache = [ $cacheID => $ret ];
@@ -347,35 +352,38 @@ class ExternalStoreDB extends ExternalStoreMedium {
 	 *   Unlocated ids are not represented
 	 */
 	private function batchFetchBlobs( $cluster, array $ids ) {
-		$blobsTable = $this->getTable( $cluster );
-
 		$dbr = $this->getReplica( $cluster );
 		$res = $dbr->newSelectQueryBuilder()
 			->select( [ 'blob_id', 'blob_text' ] )
-			->from( $blobsTable )
+			->from( $this->getTable( $dbr, $cluster ) )
 			->where( [ 'blob_id' => array_keys( $ids ) ] )
 			->caller( __METHOD__ )
 			->fetchResultSet();
 
 		$ret = [];
-		$this->mergeBatchResult( $ret, $ids, $res );
+		if ( $res !== false ) {
+			$this->mergeBatchResult( $ret, $ids, $res );
+		}
 		if ( $ids ) {
 			// Try the primary
 			$this->logger->info(
 				__METHOD__ . ": primary fallback on '$cluster' for: " .
 				implode( ',', array_keys( $ids ) )
 			);
-			$trxProfiler = $this->lbFactory->getTransactionProfiler();
-			$scope = $trxProfiler->silenceForScope( $trxProfiler::EXPECTATION_REPLICAS_ONLY );
+			$scope = $this->lbFactory->getTransactionProfiler()->silenceForScope();
 			$dbw = $this->getPrimary( $cluster );
 			$res = $dbw->newSelectQueryBuilder()
 				->select( [ 'blob_id', 'blob_text' ] )
-				->from( $blobsTable )
+				->from( $this->getTable( $dbr, $cluster ) )
 				->where( [ 'blob_id' => array_keys( $ids ) ] )
 				->caller( __METHOD__ )
 				->fetchResultSet();
 			ScopedCallback::consume( $scope );
-			$this->mergeBatchResult( $ret, $ids, $res );
+			if ( $res === false ) {
+				$this->logger->error( __METHOD__ . ": primary failed on '$cluster'" );
+			} else {
+				$this->mergeBatchResult( $ret, $ids, $res );
+			}
 		}
 		if ( $ids ) {
 			$this->logger->error(
@@ -403,7 +411,7 @@ class ExternalStoreDB extends ExternalStoreMedium {
 				$ret[$id] = $row->blob_text;
 			} else {
 				// multi result stored per blob
-				$ret[$id] = HistoryBlobUtils::unserialize( $row->blob_text );
+				$ret[$id] = unserialize( $row->blob_text );
 			}
 		}
 	}

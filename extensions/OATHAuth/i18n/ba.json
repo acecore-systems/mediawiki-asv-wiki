@@ -1,11 +1,11 @@
 {
 	"@metadata": {
 		"authors": [
-			"Bashkorttan",
 			"Айсар",
 			"Вильданова Гюзель",
+			"Ләйсән",
 			"З. ӘЙЛЕ",
-			"Ләйсән"
+			"Bashkorttan"
 		]
 	},
 	"oathauth-prefs-label": "Ике факторлы аутентификация:",

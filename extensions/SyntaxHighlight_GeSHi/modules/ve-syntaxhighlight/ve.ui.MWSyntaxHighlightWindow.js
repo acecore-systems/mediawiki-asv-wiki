@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface MWSyntaxHighlightWindow class.
  *
- * @copyright VisualEditor Team and others
+ * @copyright 2011-2015 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -32,7 +32,7 @@ ve.ui.MWSyntaxHighlightWindow.static.dir = 'ltr';
  * @inheritdoc
  */
 ve.ui.MWSyntaxHighlightWindow.prototype.initialize = function () {
-	const noneMsg = ve.msg( 'syntaxhighlight-visualeditor-mwsyntaxhighlightinspector-none' );
+	var noneMsg = ve.msg( 'syntaxhighlight-visualeditor-mwsyntaxhighlightinspector-none' );
 
 	this.languageValid = null;
 
@@ -40,8 +40,9 @@ ve.ui.MWSyntaxHighlightWindow.prototype.initialize = function () {
 		$overlay: this.$overlay,
 		menu: {
 			filterFromInput: true,
-			items: ve.dm.MWSyntaxHighlightNode.static.getLanguages().map( ( lang ) => new OO.ui.MenuOptionWidget( { data: lang, label: lang || noneMsg } )
-			)
+			items: ve.dm.MWSyntaxHighlightNode.static.getLanguages().map( function ( lang ) {
+				return new OO.ui.MenuOptionWidget( { data: lang, label: lang || noneMsg } );
+			} )
 		},
 		validate: function ( input ) {
 			return ve.dm.MWSyntaxHighlightNode.static.isLanguageSupported( input );
@@ -87,10 +88,11 @@ ve.ui.MWSyntaxHighlightWindow.prototype.initialize = function () {
  * @param {string} value New value
  */
 ve.ui.MWSyntaxHighlightWindow.prototype.onLanguageInputChange = function () {
-	const validity = this.language.getValidity();
-	validity.always( () => {
-		this.languageValid = validity.state() === 'resolved';
-		this.updateActions();
+	var inspector = this;
+	var validity = this.language.getValidity();
+	validity.always( function () {
+		inspector.languageValid = validity.state() === 'resolved';
+		inspector.updateActions();
 	} );
 };
 
@@ -100,7 +102,7 @@ ve.ui.MWSyntaxHighlightWindow.prototype.onLanguageInputChange = function () {
  * @param {boolean} value Widget value
  */
 ve.ui.MWSyntaxHighlightWindow.prototype.onShowLinesCheckboxChange = function () {
-	const showLines = this.showLinesCheckbox.isSelected();
+	var showLines = this.showLinesCheckbox.isSelected();
 	this.input.toggleLineNumbers( showLines );
 	this.startLineNumber.setDisabled( !showLines );
 	this.updateActions();
@@ -112,12 +114,13 @@ ve.ui.MWSyntaxHighlightWindow.prototype.onShowLinesCheckboxChange = function () 
  * @param {string} value Widget value
  */
 ve.ui.MWSyntaxHighlightWindow.prototype.onStartLineNumberChange = function ( value ) {
-	const input = this.input;
+	var inspector = this,
+		input = this.input;
 
-	input.loadingPromise.done( () => {
+	input.loadingPromise.done( function () {
 		input.editor.setOption( 'firstLineNumber', value !== '' ? +value : 1 );
-	} ).always( () => {
-		this.updateActions();
+	} ).always( function () {
+		inspector.updateActions();
 	} );
 };
 
@@ -125,22 +128,22 @@ ve.ui.MWSyntaxHighlightWindow.prototype.onStartLineNumberChange = function ( val
  * @inheritdoc OO.ui.Window
  */
 ve.ui.MWSyntaxHighlightWindow.prototype.getReadyProcess = function ( data, process ) {
-	return process.next( () => {
+	return process.next( function () {
 		this.language.getMenu().toggle( false );
 		if ( !this.language.getValue() ) {
 			this.language.focus();
 		} else {
 			this.input.focus();
 		}
-	} );
+	}, this );
 };
 
 /**
  * @inheritdoc OO.ui.Window
  */
 ve.ui.MWSyntaxHighlightWindow.prototype.getSetupProcess = function ( data, process ) {
-	return process.next( () => {
-		const attrs = this.selectedNode ? this.selectedNode.getAttribute( 'mw' ).attrs : {},
+	return process.next( function () {
+		var attrs = this.selectedNode ? this.selectedNode.getAttribute( 'mw' ).attrs : {},
 			language = attrs.lang ? attrs.lang.toLowerCase() : '',
 			showLines = attrs.line !== undefined,
 			startLine = attrs.start,
@@ -150,7 +153,7 @@ ve.ui.MWSyntaxHighlightWindow.prototype.getSetupProcess = function ( data, proce
 
 		this.showLinesCheckbox.setSelected( showLines ).setDisabled( isReadOnly );
 		this.startLineNumber.setValue( startLine ).setReadOnly( isReadOnly );
-	} );
+	}, this );
 };
 
 /**
@@ -171,16 +174,11 @@ ve.ui.MWSyntaxHighlightWindow.prototype.updateActions = function () {
  * @inheritdoc ve.ui.MWExtensionWindow
  */
 ve.ui.MWSyntaxHighlightWindow.prototype.updateMwData = function ( mwData ) {
-	const language = this.language.getValue(),
+	var language = this.language.getValue(),
 		showLines = this.showLinesCheckbox.isSelected(),
 		startLine = this.startLineNumber.getValue();
 
 	mwData.attrs.lang = language || undefined;
-	if ( !showLines ) {
-		delete mwData.attrs.line;
-	// Keep whatever value was there before to not cause dirty diffs
-	} else if ( !( 'line' in mwData.attrs ) ) {
-		mwData.attrs.line = '1';
-	}
+	mwData.attrs.line = showLines ? '1' : undefined;
 	mwData.attrs.start = startLine !== '' ? startLine : undefined;
 };

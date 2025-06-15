@@ -2,7 +2,7 @@
 /**
  * Corrects wrong values in the `page_latest` field in the database.
  *
- * Copyright © 2005 Brooke Vibber <bvibber@wikimedia.org>
+ * Copyright © 2005 Brion Vibber <brion@pobox.com>
  * https://www.mediawiki.org/
  *
  * This program is free software; you can redistribute it and/or modify
@@ -24,13 +24,10 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\Maintenance\Maintenance;
-use MediaWiki\Title\Title;
-use Wikimedia\Rdbms\IDBAccessObject;
+use MediaWiki\MediaWikiServices;
+use MediaWiki\Revision\RevisionLookup;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script to correct wrong values in the `page_latest` field
@@ -49,7 +46,7 @@ class AttachLatest extends Maintenance {
 
 	public function execute() {
 		$this->output( "Looking for pages with page_latest set to 0...\n" );
-		$dbw = $this->getPrimaryDB();
+		$dbw = $this->getDB( DB_PRIMARY );
 		$conds = [ 'page_latest' => 0 ];
 		if ( $this->hasOption( 'regenerate-all' ) ) {
 			$conds = '';
@@ -61,8 +58,9 @@ class AttachLatest extends Maintenance {
 			->caller( __METHOD__ )
 			->fetchResultSet();
 
-		$services = $this->getServiceContainer();
-		$dbDomain = $services->getDBLoadBalancerFactory()->getLocalDomainID();
+		$services = MediaWikiServices::getInstance();
+		$lbFactory = $services->getDBLoadBalancerFactory();
+		$dbDomain = $lbFactory->getLocalDomainID();
 		$wikiPageFactory = $services->getWikiPageFactory();
 		$revisionLookup = $services->getRevisionLookup();
 
@@ -82,7 +80,7 @@ class AttachLatest extends Maintenance {
 				continue;
 			}
 
-			$revRecord = $revisionLookup->getRevisionByTimestamp( $title, $latestTime, IDBAccessObject::READ_LATEST );
+			$revRecord = $revisionLookup->getRevisionByTimestamp( $title, $latestTime, RevisionLookup::READ_LATEST );
 			if ( $revRecord === null ) {
 				$this->output(
 					"$dbDomain $pageId [[$name]] latest time $latestTime, can't find revision id\n"
@@ -95,7 +93,7 @@ class AttachLatest extends Maintenance {
 			if ( $this->hasOption( 'fix' ) ) {
 				$page = $wikiPageFactory->newFromTitle( $title );
 				$page->updateRevisionOn( $dbw, $revRecord );
-				$this->waitForReplication();
+				$lbFactory->waitForReplication();
 			}
 			$n++;
 		}
@@ -106,7 +104,5 @@ class AttachLatest extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = AttachLatest::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

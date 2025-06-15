@@ -1,9 +1,7 @@
 <?php
 
-use MediaWiki\Json\FormatJson;
-
 /**
- * @covers \MediaWiki\Json\FormatJson
+ * @covers FormatJson
  */
 class FormatJsonTest extends MediaWikiUnitTestCase {
 
@@ -111,7 +109,7 @@ class FormatJsonTest extends MediaWikiUnitTestCase {
 		$this->assertNotEquals(
 			'\ud840\udc00',
 			strtolower( FormatJson::encode( "\u{20000}" ) ),
-			'Test encoding of broken json_encode character (U+20000)'
+			'Test encoding an broken json_encode character (U+20000)'
 		);
 	}
 
@@ -157,8 +155,8 @@ class FormatJsonTest extends MediaWikiUnitTestCase {
 
 	/**
 	 * Recursively convert arrays into stdClass
-	 * @param array|?scalar $value
-	 * @return stdClass|?scalar
+	 * @param array|string|bool|int|float|null $value
+	 * @return stdClass|string|bool|int|float|null
 	 */
 	public static function toObject( $value ) {
 		return !is_array( $value ) ? $value : (object)array_map( __METHOD__, $value );
@@ -173,10 +171,12 @@ class FormatJsonTest extends MediaWikiUnitTestCase {
 		$this->assertJson( $json );
 
 		$st = FormatJson::parse( $json );
+		$this->assertInstanceOf( Status::class, $st );
 		$this->assertStatusGood( $st );
 		$this->assertStatusValue( $expected, $st );
 
 		$st = FormatJson::parse( $json, FormatJson::FORCE_ASSOC );
+		$this->assertInstanceOf( Status::class, $st );
 		$this->assertStatusGood( $st );
 		$this->assertStatusValue( $value, $st );
 	}
@@ -195,10 +195,16 @@ class FormatJsonTest extends MediaWikiUnitTestCase {
 	 * @dataProvider provideParseErrors
 	 */
 	public function testParseErrors( $value, $error ) {
-		$this->assertStatusError( $error, FormatJson::parse( $value ) );
+		$st = FormatJson::parse( $value );
+		$this->assertInstanceOf( Status::class, $st );
+		$this->assertStatusNotOK( $st );
+		$this->assertTrue(
+			$st->hasMessage( $error ),
+			"Does not have $error message"
+		);
 	}
 
-	public static function provideStripComments() {
+	public function provideStripComments() {
 		return [
 			[ '{"a":"b"}', '{"a":"b"}' ],
 			[ "{\"a\":\"b\"}\n", "{\"a\":\"b\"}\n" ],
@@ -225,7 +231,7 @@ class FormatJsonTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Json\FormatJson::stripComments
+	 * @covers FormatJson::stripComments
 	 * @dataProvider provideStripComments
 	 * @param string $json
 	 * @param string $expect
@@ -234,7 +240,7 @@ class FormatJsonTest extends MediaWikiUnitTestCase {
 		$this->assertSame( $expect, FormatJson::stripComments( $json ) );
 	}
 
-	public static function provideParseStripComments() {
+	public function provideParseStripComments() {
 		return [
 			[ '/* blah */true', true ],
 			[ "// blah \ntrue", true ],
@@ -243,12 +249,13 @@ class FormatJsonTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Json\FormatJson::parse
-	 * @covers \MediaWiki\Json\FormatJson::stripComments
+	 * @covers FormatJson::parse
+	 * @covers FormatJson::stripComments
 	 * @dataProvider provideParseStripComments
 	 */
 	public function testParseStripComments( $json, $expect ) {
 		$st = FormatJson::parse( $json, FormatJson::STRIP_COMMENTS );
+		$this->assertInstanceOf( Status::class, $st );
 		$this->assertStatusGood( $st );
 		$this->assertStatusValue( $expect, $st );
 	}
@@ -308,7 +315,7 @@ class FormatJsonTest extends MediaWikiUnitTestCase {
 		return $cases;
 	}
 
-	public static function provideEmptyJsonKeyStrings() {
+	public function provideEmptyJsonKeyStrings() {
 		return [
 			[
 				'{"":"foo"}',
@@ -338,8 +345,8 @@ class FormatJsonTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Json\FormatJson::encode
-	 * @covers \MediaWiki\Json\FormatJson::decode
+	 * @covers FormatJson::encode
+	 * @covers FormatJson::decode
 	 * @dataProvider provideEmptyJsonKeyStrings
 	 *
 	 * Decoding behavior with empty keys can be surprising.
@@ -416,14 +423,14 @@ class FormatJsonTest extends MediaWikiUnitTestCase {
 		}
 
 		$st = FormatJson::parse( $value, FormatJson::TRY_FIXING );
+		$this->assertInstanceOf( Status::class, $st );
 		if ( $expected === false ) {
-			$this->assertStatusNotOK( $st );
+			$this->assertStatusNotOK( $st, 'Expected isOK() == false' );
 		} else {
-			if ( $expectedGoodStatus ) {
-				$this->assertStatusGood( $st );
-			} else {
-				$this->assertStatusOK( $st );
-			}
+			$this->assertSame( $expectedGoodStatus, $st->isGood(),
+				'Expected isGood() == ' . ( $expectedGoodStatus ? 'true' : 'false' )
+			);
+			$this->assertStatusOK( $st, 'Expected isOK == true' );
 			$val = FormatJson::encode( $st->getValue(), false, FormatJson::ALL_OK );
 			$this->assertEquals( $expected, $val );
 		}

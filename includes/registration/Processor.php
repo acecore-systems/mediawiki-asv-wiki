@@ -1,11 +1,9 @@
 <?php
 
-namespace MediaWiki\Registration;
-
 /**
- * Generic processor that reads associated arrays and registers whatever is required.
+ * Processors read associated arrays and register
+ * whatever is required
  *
- * @ingroup ExtensionRegistry
  * @since 1.25
  */
 interface Processor {
@@ -36,14 +34,24 @@ interface Processor {
 	 * Get the requirements for the provided info
 	 *
 	 * @since 1.26
-	 *
 	 * @param array $info
 	 * @param bool $includeDev
-	 *
 	 * @return array Where keys are the name to have a constraint on,
 	 * 		like 'MediaWiki'. Values are a constraint string like "1.26.1".
 	 */
 	public function getRequirements( array $info, $includeDev );
+
+	/**
+	 * Get the path for additional autoloaders, e.g. the one of Composer.
+	 *
+	 * @deprecated since 1.39, use getExtractedAutoloadInfo instead
+	 *
+	 * @param string $dir
+	 * @param array $info
+	 * @return array Containing the paths for autoloader file(s).
+	 * @since 1.27
+	 */
+	public function getExtraAutoloaderPaths( $dir, array $info );
 
 	/**
 	 * Returns the extracted autoload info.
@@ -61,6 +69,3 @@ interface Processor {
 	 */
 	public function getExtractedAutoloadInfo( bool $includeDev = false ): array;
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( Processor::class, 'Processor' );

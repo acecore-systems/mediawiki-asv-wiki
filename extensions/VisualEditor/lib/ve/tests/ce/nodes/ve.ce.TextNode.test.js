@@ -1,22 +1,24 @@
 /*!
  * VisualEditor ContentEditable TextNode tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ce.TextNode' );
 
 /* Tests */
 
-QUnit.test( 'getAnnotatedHtml', ( assert ) => {
-	const cases = [
+QUnit.test( 'getAnnotatedHtml', function ( assert ) {
+	var cases = [
 		{
 			data: [
 				{ type: 'paragraph' },
-				...'abc',
+				'a',
+				'b',
+				'c',
 				{ type: '/paragraph' }
 			],
-			html: [ ...'abc' ]
+			html: [ 'a', 'b', 'c' ]
 		},
 		{
 			data: [
@@ -93,9 +95,9 @@ QUnit.test( 'getAnnotatedHtml', ( assert ) => {
 		}
 	];
 
-	const store = new ve.dm.HashValueStore();
-	cases.forEach( ( caseItem ) => {
-		const doc = new ve.dm.Document( ve.dm.example.preprocessAnnotations( caseItem.data, store ) );
+	var store = new ve.dm.HashValueStore();
+	cases.forEach( function ( caseItem ) {
+		var doc = new ve.dm.Document( ve.dm.example.preprocessAnnotations( caseItem.data, store ) );
 		ve.dm.example.preprocessAnnotations( caseItem.html, store );
 		assert.deepEqual(
 			( new ve.ce.TextNode( doc.getDocumentNode().getChildren()[ 0 ].getChildren()[ 0 ] ) ).getAnnotatedHtml(),

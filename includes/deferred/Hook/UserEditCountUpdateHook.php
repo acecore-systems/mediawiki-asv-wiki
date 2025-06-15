@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\Deferred\UserEditCountInfo;
+use UserEditCountInfo;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

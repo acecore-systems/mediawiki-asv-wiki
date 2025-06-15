@@ -23,9 +23,6 @@
 /**
  * Concatenated gzip (CGZ) storage
  * Improves compression ratio by concatenating like objects before gzipping
- *
- * WARNING: Objects of this class are serialized and permanently stored in the DB.
- * Do not change the name or visibility of any property!
  */
 class ConcatenatedGzipHistoryBlob implements HistoryBlob {
 	/** @var int */
@@ -39,13 +36,13 @@ class ConcatenatedGzipHistoryBlob implements HistoryBlob {
 	/** @var int */
 	public $mSize = 0;
 	/** @var int */
-	public $mMaxSize = 10_000_000;
+	public $mMaxSize = 10000000;
 	/** @var int */
 	public $mMaxCount = 100;
 
 	public function __construct() {
 		if ( !function_exists( 'gzdeflate' ) ) {
-			throw new RuntimeException( "Need zlib support to read or write this "
+			throw new MWException( "Need zlib support to read or write this "
 				. "kind of history object (ConcatenatedGzipHistoryBlob)\n" );
 		}
 	}
@@ -119,7 +116,7 @@ class ConcatenatedGzipHistoryBlob implements HistoryBlob {
 	 */
 	public function uncompress() {
 		if ( $this->mCompressed ) {
-			$this->mItems = HistoryBlobUtils::unserializeArray( gzinflate( $this->mItems ) );
+			$this->mItems = unserialize( gzinflate( $this->mItems ) );
 			$this->mCompressed = false;
 		}
 	}

@@ -21,8 +21,9 @@
 
 namespace MediaWiki\Page;
 
-use MediaWiki\Content\ContentModelChange;
+use ContentModelChange;
 use MediaWiki\Permissions\Authority;
+use WikiPage;
 
 /**
  * Service for changing the content model of wiki pages.
@@ -35,13 +36,13 @@ interface ContentModelChangeFactory {
 
 	/**
 	 * @param Authority $performer
-	 * @param PageIdentity $page
+	 * @param WikiPage $wikipage
 	 * @param string $newContentModel
 	 * @return ContentModelChange
 	 */
 	public function newContentModelChange(
 		Authority $performer,
-		PageIdentity $page,
+		WikiPage $wikipage,
 		string $newContentModel
 	): ContentModelChange;
 }

@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\Output\OutputPage;
+use OutputPage;
 use Skin;
 
 /**

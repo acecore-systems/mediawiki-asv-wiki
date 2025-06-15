@@ -1,16 +1,19 @@
 module.exports = function () {
-	const mobile = require( 'mobile.startup' );
-	const SearchOverlay = mobile.search.SearchOverlay;
-	const SearchGateway = mobile.search.SearchGateway;
-	const overlayManager = mobile.getOverlayManager();
-	// eslint-disable-next-line no-jquery/no-global-selector
-	const $searchInput = $( '#searchInput' );
-	const placeholder = $searchInput.attr( 'placeholder' );
-	const defaultSearchPage = $searchInput.siblings( 'input[name=title]' ).val();
-	// eslint-disable-next-line no-jquery/no-global-selector
-	const $searchBar = $( '#searchInput, #searchIcon, .skin-minerva-search-trigger' );
-	const searchRoute = new RegExp( /\/search/ );
-	let searchOverlayInstance;
+	var
+		// eslint-disable-next-line no-restricted-properties
+		M = mw.mobileFrontend,
+		mobile = M.require( 'mobile.startup' ),
+		SearchOverlay = mobile.search.SearchOverlay,
+		SearchGateway = mobile.search.SearchGateway,
+		overlayManager = mobile.OverlayManager.getSingleton(),
+		// eslint-disable-next-line no-jquery/no-global-selector
+		$searchInput = $( '#searchInput' ),
+		placeholder = $searchInput.attr( 'placeholder' ),
+		defaultSearchPage = $searchInput.siblings( 'input[name=title]' ).val(),
+		// eslint-disable-next-line no-jquery/no-global-selector
+		$searchBar = $( '#searchInput, #searchIcon, .skin-minerva-search-trigger' ),
+		searchRoute = new RegExp( /\/search/ ),
+		searchOverlayInstance;
 
 	// Only continue on mobile devices as it breaks desktop search
 	// See https://phabricator.wikimedia.org/T108432
@@ -37,7 +40,6 @@ module.exports = function () {
 				router: overlayManager.router,
 				gatewayClass: SearchGateway,
 				api: new mw.Api(),
-				autocapitalize: $searchInput.attr( 'autocapitalize' ),
 				searchTerm: $searchInput.val(),
 				placeholderMsg: placeholder,
 				defaultSearchPage: defaultSearchPage
@@ -58,12 +60,12 @@ module.exports = function () {
 	 * triggered unless the element is already visible.
 	 * Touchstart makes the overlay visible, touchend brings up the keyboard afterwards.
 	 */
-	$searchBar.on( 'touchstart click', ( ev ) => {
+	$searchBar.on( 'touchstart click', function ( ev ) {
 		ev.preventDefault();
 		overlayManager.router.navigate( '/search' );
 	} );
 
-	$searchBar.on( 'touchend', ( ev ) => {
+	$searchBar.on( 'touchend', function ( ev ) {
 		ev.preventDefault();
 		/**
 		 * Manually triggering focus event because on-screen keyboard only

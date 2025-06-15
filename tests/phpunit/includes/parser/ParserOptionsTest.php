@@ -1,42 +1,23 @@
 <?php
 
-namespace MediaWiki\Tests\Parser;
-
-use DummyContentForTesting;
-use InvalidArgumentException;
-use MediaWiki\Context\DerivativeContext;
-use MediaWiki\Context\IContextSource;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Parser\ParserOptions;
-use MediaWiki\Request\FauxRequest;
 use MediaWiki\Revision\SlotRecord;
-use MediaWiki\Tests\User\TempUser\TempUserTestTrait;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
-use MediaWiki\User\UserIdentity;
 use MediaWiki\User\UserIdentityValue;
-use MediaWikiLangTestCase;
-use stdClass;
 use Wikimedia\ScopedCallback;
 
 /**
- * @covers \MediaWiki\Parser\ParserOptions
- * @group Database
+ * @covers ParserOptions
  */
 class ParserOptionsTest extends MediaWikiLangTestCase {
-
-	use TempUserTestTrait;
 
 	protected function setUp(): void {
 		parent::setUp();
 
-		$this->overrideConfigValues( [
-			MainConfigNames::RenderHashAppend => '',
-			MainConfigNames::UsePigLatinVariant => false,
-		] );
-		$this->setTemporaryHook( 'PageRenderingHash', HookContainer::NOOP );
+		$this->overrideConfigValue( MainConfigNames::RenderHashAppend, '' );
+
+		// This is crazy, but registering false, null, or other falsey values
+		// as a hook callback "works".
+		$this->setTemporaryHook( 'PageRenderingHash', null );
 	}
 
 	protected function tearDown(): void {
@@ -45,7 +26,7 @@ class ParserOptionsTest extends MediaWikiLangTestCase {
 	}
 
 	public function testNewCanonical() {
-		$user = $this->createMock( User::class );
+		$user = $this->getMutableTestUser()->getUser();
 		$userLang = $this->getServiceContainer()->getLanguageFactory()->getLanguage( 'fr' );
 		$contLang = $this->getServiceContainer()->getLanguageFactory()->getLanguage( 'qqx' );
 
@@ -91,85 +72,13 @@ class ParserOptionsTest extends MediaWikiLangTestCase {
 		}
 	}
 
-	private function commonTestNewFromContext( IContextSource $context, UserIdentity $expectedUser ) {
-		$popt = ParserOptions::newFromContext( $context );
-		$this->assertTrue( $expectedUser->equals( $popt->getUserIdentity() ) );
-		$this->assertSame( $context->getLanguage(), $popt->getUserLangObj() );
-	}
-
-	/** @dataProvider provideNewFromContext */
-	public function testNewFromContext( $contextUserIdentity, $contextLanguage ) {
-		$this->enableAutoCreateTempUser();
-		// Get a context which has our provided user and language set, then call ::newFromContext with it.
-		$context = new DerivativeContext( RequestContext::getMain() );
-		$context->setUser(
-			$this->getServiceContainer()->getUserFactory()->newFromUserIdentity( $contextUserIdentity )
-		);
-		$context->setLanguage( $contextLanguage );
-		$this->commonTestNewFromContext( $context, $context->getUser() );
-	}
-
-	public static function provideNewFromContext() {
-		return [
-			'Username does not exist and user lang as en' => [ UserIdentityValue::newAnonymous( 'Testabc' ), 'en' ],
-			'Username is IP address, no stashed temporary username, and user lang as qqx' => [
-				UserIdentityValue::newAnonymous( '1.2.3.4' ), 'qqx',
-			],
-		];
-	}
-
-	public function testNewFromContextForNamedAccount() {
-		$this->testNewFromContext( $this->getTestUser()->getUser(), 'qqx' );
-	}
-
-	public function testNewFromContextForTemporaryAccount() {
-		$this->testNewFromContext(
-			$this->getServiceContainer()->getTempUserCreator()
-				->create( null, new FauxRequest() )->getUser(),
-			'de'
-		);
-	}
-
-	public function testNewFromContextForAnonWhenTempNameStashed() {
-		$this->enableAutoCreateTempUser();
-		// Get a context which uses an anon user as the user.
-		$context = new DerivativeContext( RequestContext::getMain() );
-		$context->setUser(
-			$this->getServiceContainer()->getUserFactory()
-				->newFromUserIdentity( UserIdentityValue::newAnonymous( '1.2.3.4' ) )
-		);
-		// Create a temporary account name and stash it in associated Session for the $context
-		$stashedName = $this->getServiceContainer()->getTempUserCreator()
-			->acquireAndStashName( $context->getRequest()->getSession() );
-		// Call ::newFromContext and expect that that stashed name is used
-		$this->commonTestNewFromContext( $context, UserIdentityValue::newAnonymous( $stashedName ) );
-	}
-
-	public function testNewFromContextForAnonWhenTempNameStashedButFeatureSinceDisabled() {
-		$this->enableAutoCreateTempUser();
-		// Get a context which uses an anon user as the user.
-		$context = new DerivativeContext( RequestContext::getMain() );
-		$context->setUser(
-			$this->getServiceContainer()->getUserFactory()
-				->newFromUserIdentity( UserIdentityValue::newAnonymous( '1.2.3.4' ) )
-		);
-		// Create a temporary account name and stash it in associated Session for the $context
-		$this->getServiceContainer()->getTempUserCreator()
-			->acquireAndStashName( $context->getRequest()->getSession() );
-		// Simulate that in the interim the temporary accounts system has been disabled, and check that an IP
-		// address is used in this case
-		$this->disableAutoCreateTempUser( [ 'known' => true ] );
-		// Call ::newFromContext and expect that that stashed name is used
-		$this->commonTestNewFromContext( $context, UserIdentityValue::newAnonymous( '1.2.3.4' ) );
-	}
-
 	/**
 	 * @dataProvider provideIsSafeToCache
 	 * @param bool $expect Expected value
 	 * @param array $options Options to set
 	 * @param array|null $usedOptions
 	 */
-	public function testIsSafeToCache( bool $expect, array $options, ?array $usedOptions = null ) {
+	public function testIsSafeToCache( bool $expect, array $options, array $usedOptions = null ) {
 		$popt = ParserOptions::newFromAnon();
 		foreach ( $options as $name => $value ) {
 			$popt->setOption( $name, $value );
@@ -228,7 +137,7 @@ class ParserOptionsTest extends MediaWikiLangTestCase {
 		$usedOptions, $expect, $options, $globals = [], $hookFunc = null
 	) {
 		$this->overrideConfigValues( $globals );
-		$this->setTemporaryHook( 'PageRenderingHash', $hookFunc ?: HookContainer::NOOP );
+		$this->setTemporaryHook( 'PageRenderingHash', $hookFunc );
 
 		$popt = ParserOptions::newFromAnon();
 		foreach ( $options as $name => $value ) {
@@ -264,7 +173,7 @@ class ParserOptionsTest extends MediaWikiLangTestCase {
 				'canonical!wgRenderHashAppend!onPageRenderingHash',
 				[],
 				[ MainConfigNames::RenderHashAppend => '!wgRenderHashAppend' ],
-				__CLASS__ . '::onPageRenderingHash',
+				[ __CLASS__ . '::onPageRenderingHash' ],
 			],
 		];
 	}
@@ -417,11 +326,10 @@ class ParserOptionsTest extends MediaWikiLangTestCase {
 	}
 
 	public function testAllCacheVaryingOptions() {
-		$this->setTemporaryHook( 'ParserOptionsRegister', HookContainer::NOOP );
+		$this->setTemporaryHook( 'ParserOptionsRegister', null );
 		$this->assertSame( [
-			'collapsibleSections',
-			'dateformat', 'printable', 'suppressSectionEditLinks',
-			'thumbsize', 'useParsoid', 'userlang',
+			'dateformat', 'printable',
+			'thumbsize', 'userlang'
 		], ParserOptions::allCacheVaryingOptions() );
 
 		ParserOptions::clearStaticCache();
@@ -438,9 +346,8 @@ class ParserOptionsTest extends MediaWikiLangTestCase {
 			];
 		} );
 		$this->assertSame( [
-			'collapsibleSections',
-			'dateformat', 'foo', 'printable', 'suppressSectionEditLinks',
-			'thumbsize', 'useParsoid', 'userlang',
+			'dateformat', 'foo', 'printable',
+			'thumbsize', 'userlang'
 		], ParserOptions::allCacheVaryingOptions() );
 	}
 
@@ -475,32 +382,5 @@ class ParserOptionsTest extends MediaWikiLangTestCase {
 
 		ScopedCallback::consume( $fakeRevisionScope );
 		$this->assertFalse( $options->getCurrentRevisionRecordCallback()( $page ) );
-	}
-
-	public function testRenderReason() {
-		$options = ParserOptions::newFromAnon();
-
-		$this->assertIsString( $options->getRenderReason() );
-
-		$options->setRenderReason( 'just a test' );
-		$this->assertIsString( 'just a test', $options->getRenderReason() );
-	}
-
-	public function testSuppressSectionEditLinks() {
-		$options = ParserOptions::newFromAnon();
-
-		$this->assertFalse( $options->getSuppressSectionEditLinks() );
-
-		$options->setSuppressSectionEditLinks();
-		$this->assertTrue( $options->getSuppressSectionEditLinks() );
-	}
-
-	public function testCollapsibleSections() {
-		$options = ParserOptions::newFromAnon();
-
-		$this->assertFalse( $options->getCollapsibleSections() );
-
-		$options->setCollapsibleSections();
-		$this->assertTrue( $options->getCollapsibleSections() );
 	}
 }

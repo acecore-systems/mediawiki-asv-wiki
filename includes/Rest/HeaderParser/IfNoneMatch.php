@@ -6,7 +6,6 @@ namespace MediaWiki\Rest\HeaderParser;
  * A class to assist with the parsing of If-None-Match, If-Match and ETag headers
  */
 class IfNoneMatch extends HeaderParserBase {
-	/** @var array[] */
 	private $results = [];
 
 	/** @var string|null */

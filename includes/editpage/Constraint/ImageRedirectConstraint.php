@@ -20,7 +20,7 @@
 
 namespace MediaWiki\EditPage\Constraint;
 
-use MediaWiki\Content\Content;
+use Content;
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\Permissions\Authority;
 use StatusValue;
@@ -35,10 +35,17 @@ use StatusValue;
  */
 class ImageRedirectConstraint implements IEditConstraint {
 
-	private Content $newContent;
-	private LinkTarget $title;
-	private Authority $performer;
-	private string $result;
+	/** @var Content */
+	private $newContent;
+
+	/** @var LinkTarget */
+	private $title;
+
+	/** @var Authority */
+	private $performer;
+
+	/** @var string|null */
+	private $result;
 
 	/**
 	 * @param Content $newContent

@@ -1,5 +1,7 @@
 <?php
 
+use MediaWiki\FileBackend\FSFile\TempFSFileFactory;
+
 /**
  * Location holder of files stored temporarily
  *
@@ -22,11 +24,6 @@
  * @ingroup FileBackend
  */
 
-namespace Wikimedia\FileBackend\FSFile;
-
-use MediaWiki\FileBackend\FSFile\TempFSFileFactory;
-use RuntimeException;
-use WeakMap;
 use Wikimedia\AtEase\AtEase;
 
 /**
@@ -211,6 +208,3 @@ class TempFSFile extends FSFile {
 		}
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( TempFSFile::class, 'TempFSFile' );

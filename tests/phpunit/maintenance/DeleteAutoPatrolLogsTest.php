@@ -6,7 +6,7 @@ use DeleteAutoPatrolLogs;
 
 /**
  * @group Database
- * @covers \DeleteAutoPatrolLogs
+ * @covers DeleteAutoPatrolLogs
  */
 class DeleteAutoPatrolLogsTest extends MaintenanceBaseTestCase {
 
@@ -16,12 +16,18 @@ class DeleteAutoPatrolLogsTest extends MaintenanceBaseTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
+		$this->tablesUsed = [ 'logging' ];
 
+		$this->cleanLoggingTable();
 		$this->insertLoggingData();
 	}
 
+	private function cleanLoggingTable() {
+		wfGetDB( DB_PRIMARY )->delete( 'logging', '*' );
+	}
+
 	private function insertLoggingData() {
-		$dbw = $this->getDb();
+		$dbw = wfGetDB( DB_PRIMARY );
 		$logs = [];
 
 		$comment = \MediaWiki\MediaWikiServices::getInstance()->getCommentStore()
@@ -135,14 +141,10 @@ class DeleteAutoPatrolLogsTest extends MaintenanceBaseTestCase {
 			'log_comment_id' => $comment->id,
 		];
 
-		$dbw->newInsertQueryBuilder()
-			->insertInto( 'logging' )
-			->rows( $logs )
-			->caller( __METHOD__ )
-			->execute();
+		$dbw->insert( 'logging', $logs );
 	}
 
-	public static function runProvider() {
+	public function runProvider() {
 		$allRows = [
 			(object)[
 				'log_type' => 'patrol',
@@ -259,31 +261,35 @@ class DeleteAutoPatrolLogsTest extends MaintenanceBaseTestCase {
 
 		$this->maintenance->execute();
 
-		$remainingLogs = $this->getDb()->newSelectQueryBuilder()
-			->select( [ 'log_type', 'log_action', 'log_actor' ] )
-			->from( 'logging' )
-			->orderBy( 'log_id' )
-			->caller( __METHOD__ )->fetchResultSet();
+		$remainingLogs = wfGetDB( DB_REPLICA )->select(
+			[ 'logging' ],
+			[ 'log_type', 'log_action', 'log_actor' ],
+			[],
+			__METHOD__,
+			[ 'ORDER BY' => 'log_id' ]
+		);
 
 		$this->assertEquals( $expected, iterator_to_array( $remainingLogs, false ) );
 	}
 
 	public function testFromId() {
-		$fromId = $this->getDb()->newSelectQueryBuilder()
-			->select( 'log_id' )
-			->from( 'logging' )
-			->where( [ 'log_params' => 'nanana' ] )
-			->fetchField();
+		$fromId = wfGetDB( DB_REPLICA )->selectField(
+			'logging',
+			'log_id',
+			[ 'log_params' => 'nanana' ]
+		);
 
 		$this->maintenance->loadWithArgv( [ '--sleep', '0', '--from-id', strval( $fromId ), '-q' ] );
 
 		$this->maintenance->execute();
 
-		$remainingLogs = $this->getDb()->newSelectQueryBuilder()
-			->select( [ 'log_type', 'log_action', 'log_actor' ] )
-			->from( 'logging' )
-			->orderBy( 'log_id' )
-			->caller( __METHOD__ )->fetchResultSet();
+		$remainingLogs = wfGetDB( DB_REPLICA )->select(
+			[ 'logging' ],
+			[ 'log_type', 'log_action', 'log_actor' ],
+			[],
+			__METHOD__,
+			[ 'ORDER BY' => 'log_id' ]
+		);
 
 		$deleted = [
 			'log_type' => 'patrol',

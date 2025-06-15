@@ -1,7 +1,7 @@
 /*!
  * VisualEditor AnnotationContextItem class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -11,9 +11,9 @@
  * @abstract
  * @extends ve.ui.LinearContextItem
  *
- * @param {ve.ui.LinearContext} context Context the item is in
- * @param {ve.dm.Model} model Model the item is related to
- * @param {Object} [config] Configuration options
+ * @param {ve.ui.Context} context Context item is in
+ * @param {ve.dm.Model} model Model item is related to
+ * @param {Object} config Configuration options
  */
 ve.ui.AnnotationContextItem = function VeUiAnnotationContextItem( context, model, config ) {
 	// Parent constructor
@@ -75,7 +75,7 @@ ve.ui.AnnotationContextItem.prototype.isClearable = function () {
  */
 ve.ui.AnnotationContextItem.prototype.onClearButtonClick = function () {
 	ve.track( 'activity.' + this.constructor.static.name, { action: 'context-clear' } );
-	this.applyToAnnotations( ( fragment, annotation ) => {
+	this.applyToAnnotations( function ( fragment, annotation ) {
 		fragment.annotateContent( 'clear', annotation );
 	} );
 };
@@ -86,10 +86,11 @@ ve.ui.AnnotationContextItem.prototype.onClearButtonClick = function () {
  * @param  {Function} callback Callback, will be passed fragment and annotation
  */
 ve.ui.AnnotationContextItem.prototype.applyToAnnotations = function ( callback ) {
-	const modelClasses = this.constructor.static.modelClasses;
-
-	let fragment = this.getFragment(),
-		annotations = fragment.getAnnotations( true ).filter( ( annotation ) => ve.isInstanceOfAny( annotation, modelClasses ) ).get();
+	var modelClasses = this.constructor.static.modelClasses,
+		fragment = this.getFragment(),
+		annotations = fragment.getAnnotations( true ).filter( function ( annotation ) {
+			return ve.isInstanceOfAny( annotation, modelClasses );
+		} ).get();
 	if (
 		!annotations.length &&
 		fragment.getSelection().isCollapsed() &&
@@ -98,9 +99,11 @@ ve.ui.AnnotationContextItem.prototype.applyToAnnotations = function ( callback )
 		// Expand to nearest word and try again
 		fragment = fragment.expandLinearSelection( 'word' );
 
-		annotations = fragment.getAnnotations( true ).filter( ( annotation ) => ve.isInstanceOfAny( annotation, modelClasses ) ).get();
+		annotations = fragment.getAnnotations( true ).filter( function ( annotation ) {
+			return ve.isInstanceOfAny( annotation, modelClasses );
+		} ).get();
 	}
-	for ( let i = 0, len = annotations.length; i < len; i++ ) {
+	for ( var i = 0, len = annotations.length; i < len; i++ ) {
 		callback( fragment.expandLinearSelection( 'annotation', annotations[ i ] ), annotations[ i ] );
 	}
 };
@@ -114,14 +117,14 @@ ve.ui.AnnotationContextItem.prototype.applyToAnnotations = function ( callback )
  * @return {ve.ce.Annotation|undefined} The annotation view, if it's found, or undefined if not
  */
 ve.ui.AnnotationContextItem.prototype.getAnnotationView = function () {
-	const model = this.model,
+	var annotations = [],
+		model = this.model,
 		surfaceView = this.context.getSurface().getView();
 
 	function isThisModel( annotationView ) {
 		return model === annotationView.model;
 	}
 
-	let annotations = [];
 	// Use surfaceView.contexedAnnotations when available, i.e. when
 	// the user clicked/tapped on the annotation.
 	if ( surfaceView.contexedAnnotations ) {

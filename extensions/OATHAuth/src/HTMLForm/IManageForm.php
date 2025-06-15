@@ -2,10 +2,10 @@
 
 namespace MediaWiki\Extension\OATHAuth\HTMLForm;
 
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\Status\Status;
-use MediaWiki\Title\Title;
+use HTMLForm;
 use OOUI\Layout;
+use Status;
+use Title;
 
 interface IManageForm {
 	/**

@@ -1,4 +1,4 @@
-const drawers = require( './drawers.js' );
+var drawers = require( './drawers.js' );
 
 /*
  * Warn people if they're trying to switch to desktop but have cookies disabled.
@@ -13,14 +13,14 @@ module.exports = function ( amcOutreach, currentPage ) {
 	 */
 	function cookiesEnabled() {
 		// If session cookie already set, return true
-		if ( mw.cookie.get( 'mf_testcookie' ) === 'test_value' ) {
+		if ( $.cookie( 'mf_testcookie' ) === 'test_value' ) {
 			return true;
 			// Otherwise try to set mf_testcookie and return true if it was set
 		} else {
-			mw.cookie.set( 'mf_testcookie', 'test_value', {
+			$.cookie( 'mf_testcookie', 'test_value', {
 				path: '/'
 			} );
-			return mw.cookie.get( 'mf_testcookie' ) === 'test_value';
+			return $.cookie( 'mf_testcookie' ) === 'test_value';
 		}
 	}
 
@@ -52,23 +52,24 @@ module.exports = function ( amcOutreach, currentPage ) {
 	 * @return {boolean|undefined}
 	 */
 	function amcDesktopClickHandler( ev ) {
-		const self = this;
-		const executeWrappedEvent = function () {
-			if ( desktopViewClick() === false ) {
-				return false;
-			}
+		var
+			self = this,
+			executeWrappedEvent = function () {
+				if ( desktopViewClick() === false ) {
+					return false;
+				}
 
-			window.location = self.href;
-		};
-		const amcCampaign = amcOutreach.loadCampaign();
-		const onDismiss = function () {
-			executeWrappedEvent();
-		};
-		const drawer = amcCampaign.showIfEligible(
-			amcOutreach.ACTIONS.onDesktopLink,
-			onDismiss,
-			currentPage.title
-		);
+				window.location = self.href;
+			},
+			amcCampaign = amcOutreach.loadCampaign(),
+			onDismiss = function () {
+				executeWrappedEvent();
+			},
+			drawer = amcCampaign.showIfEligible(
+				amcOutreach.ACTIONS.onDesktopLink,
+				onDismiss,
+				currentPage.title
+			);
 
 		if ( drawer ) {
 			ev.preventDefault();
@@ -82,6 +83,10 @@ module.exports = function ( amcOutreach, currentPage ) {
 
 			return;
 		}
+
+		// Dispatch desktop toggle event.
+		// https://phabricator.wikimedia.org/T310852
+		mw.eventLog.dispatch( 'mediawiki.desktop_link.click' );
 
 		return executeWrappedEvent();
 	}

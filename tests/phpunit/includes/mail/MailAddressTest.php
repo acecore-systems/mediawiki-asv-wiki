@@ -1,14 +1,20 @@
 <?php
 
-use MediaWiki\User\User;
 use MediaWiki\User\UserIdentityValue;
 
-/**
- * @group Mail
- * @covers \MailAddress
- */
 class MailAddressTest extends MediaWikiIntegrationTestCase {
 
+	/**
+	 * @covers MailAddress::__construct
+	 */
+	public function testConstructor() {
+		$ma = new MailAddress( 'foo@bar.baz', 'UserName', 'Real name' );
+		$this->assertInstanceOf( MailAddress::class, $ma );
+	}
+
+	/**
+	 * @covers MailAddress::newFromUser
+	 */
 	public function testNewFromUser() {
 		if ( wfIsWindows() ) {
 			$this->markTestSkipped( 'This test only works on non-Windows platforms' );
@@ -33,22 +39,7 @@ class MailAddressTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @dataProvider provideEquals
-	 */
-	public function testEquals( MailAddress $first, MailAddress $second, bool $expected ) {
-		$this->assertSame( $expected, $first->equals( $second ) );
-	}
-
-	public static function provideEquals(): Generator {
-		$base = new MailAddress( 'a@b.c', 'name', 'realname' );
-
-		yield 'Different addresses' => [ $base, new MailAddress( 'xxx', 'name', 'realname' ), false ];
-		yield 'Different names' => [ $base, new MailAddress( 'a@b.c', 'other name', 'realname' ), false ];
-		yield 'Different real names' => [ $base, new MailAddress( 'a@b.c', 'name', 'other realname' ), false ];
-		yield 'Equal' => [ $base, new MailAddress( 'a@b.c', 'name', 'realname' ), true ];
-	}
-
-	/**
+	 * @covers MailAddress::toString
 	 * @dataProvider provideToString
 	 */
 	public function testToString( $useRealName, $address, $name, $realName, $expected ) {
@@ -82,6 +73,9 @@ class MailAddressTest extends MediaWikiIntegrationTestCase {
 		];
 	}
 
+	/**
+	 * @covers MailAddress::__toString
+	 */
 	public function test__ToString() {
 		$ma = new MailAddress( 'some@email.com', 'UserName', 'A real name' );
 		$this->assertEquals( $ma->toString(), (string)$ma );

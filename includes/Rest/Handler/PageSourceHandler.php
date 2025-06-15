@@ -2,16 +2,16 @@
 
 namespace MediaWiki\Rest\Handler;
 
+use Config;
 use LogicException;
+use MediaWiki\Page\PageLookup;
 use MediaWiki\Page\PageReference;
-use MediaWiki\Rest\Handler\Helper\PageContentHelper;
-use MediaWiki\Rest\Handler\Helper\PageRedirectHelper;
-use MediaWiki\Rest\Handler\Helper\PageRestHelperFactory;
 use MediaWiki\Rest\LocalizedHttpException;
 use MediaWiki\Rest\Response;
 use MediaWiki\Rest\SimpleHandler;
-use MediaWiki\Title\TitleFormatter;
-use Wikimedia\Message\MessageValue;
+use MediaWiki\Revision\RevisionLookup;
+use TitleFormatter;
+use Wikimedia\Assert\Assert;
 
 /**
  * Handler class for Core REST API Page Source endpoint with the following routes:
@@ -20,25 +20,24 @@ use Wikimedia\Message\MessageValue;
  */
 class PageSourceHandler extends SimpleHandler {
 
-	private TitleFormatter $titleFormatter;
-	private PageRestHelperFactory $helperFactory;
-	private PageContentHelper $contentHelper;
+	/** @var TitleFormatter */
+	private $titleFormatter;
+
+	/** @var PageContentHelper */
+	private $contentHelper;
 
 	public function __construct(
+		Config $config,
+		RevisionLookup $revisionLookup,
 		TitleFormatter $titleFormatter,
-		PageRestHelperFactory $helperFactory
+		PageLookup $pageLookup
 	) {
 		$this->titleFormatter = $titleFormatter;
-		$this->contentHelper = $helperFactory->newPageContentHelper();
-		$this->helperFactory = $helperFactory;
-	}
-
-	private function getRedirectHelper(): PageRedirectHelper {
-		return $this->helperFactory->newPageRedirectHelper(
-			$this->getResponseFactory(),
-			$this->getRouter(),
-			$this->getPath(),
-			$this->getRequest()
+		$this->contentHelper = new PageContentHelper(
+			$config,
+			$revisionLookup,
+			$titleFormatter,
+			$pageLookup
 		);
 	}
 
@@ -51,14 +50,8 @@ class PageSourceHandler extends SimpleHandler {
 	 * @return string
 	 */
 	private function constructHtmlUrl( PageReference $page ): string {
-		// TODO: once legacy "v1" routes are removed, just use the path prefix from the module.
-		$pathPrefix = $this->getModule()->getPathPrefix();
-		if ( strlen( $pathPrefix ) == 0 ) {
-			$pathPrefix = 'v1';
-		}
-
 		return $this->getRouter()->getRouteUrl(
-			'/' . $pathPrefix . '/page/{title}/html',
+			'/v1/page/{title}/html',
 			[ 'title' => $this->titleFormatter->getPrefixedText( $page ) ]
 		);
 	}
@@ -69,37 +62,15 @@ class PageSourceHandler extends SimpleHandler {
 	 */
 	public function run(): Response {
 		$this->contentHelper->checkAccess();
-		$page = $this->contentHelper->getPageIdentity();
 
-		if ( !$page->exists() ) {
-			// We may get here for "known" but non-existing pages, such as
-			// message pages. Since there is no page, we should still return
-			// a 404. See T349677 for discussion.
-			$titleText = $this->contentHelper->getTitleText() ?? '(unknown)';
-			throw new LocalizedHttpException(
-				MessageValue::new( 'rest-nonexistent-title' )
-					->plaintextParams( $titleText ),
-				404
-			);
-		}
+		$page = $this->contentHelper->getPage();
 
-		$redirectHelper = $this->getRedirectHelper();
-
-		'@phan-var \MediaWiki\Page\ExistingPageRecord $page';
-		$redirectResponse = $redirectHelper->createNormalizationRedirectResponseIfNeeded(
-			$page,
-			$this->contentHelper->getTitleText()
-		);
-
-		if ( $redirectResponse !== null ) {
-			return $redirectResponse;
-		}
+		// The call to $this->contentHelper->getPage() should not return null if
+		// $this->contentHelper->checkAccess() did not throw.
+		Assert::invariant( $page !== null, 'Page should be known' );
 
 		$outputMode = $this->getOutputMode();
 		switch ( $outputMode ) {
-			case 'restbase': // compatibility for restbase migration
-				$body = [ 'items' => [ $this->contentHelper->constructRestbaseCompatibleMetadata() ] ];
-				break;
 			case 'bare':
 				$body = $this->contentHelper->constructMetadata();
 				$body['html_url'] = $this->constructHtmlUrl( $page );
@@ -111,15 +82,6 @@ class PageSourceHandler extends SimpleHandler {
 				break;
 			default:
 				throw new LogicException( "Unknown HTML type $outputMode" );
-		}
-
-		// If param redirect=no is present, that means this page can be a redirect
-		// check for a redirectTargetUrl and send it to the body as `redirect_target`
-		'@phan-var \MediaWiki\Page\ExistingPageRecord $page';
-		$redirectTargetUrl = $redirectHelper->getWikiRedirectTargetUrl( $page );
-
-		if ( $redirectTargetUrl ) {
-			$body['redirect_target'] = $redirectTargetUrl;
 		}
 
 		$response = $this->getResponseFactory()->createJson( $body );
@@ -146,9 +108,6 @@ class PageSourceHandler extends SimpleHandler {
 	}
 
 	private function getOutputMode(): string {
-		if ( $this->getRouter()->isRestbaseCompatEnabled( $this->getRequest() ) ) {
-			return 'restbase';
-		}
 		return $this->getConfig()['format'];
 	}
 

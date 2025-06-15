@@ -15,16 +15,19 @@
  * along with MultimediaViewer.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const { recordVirtualViewBeaconURI } = require( '../config.json' );
+( function () {
+	var VL;
 
-/**
- * Tracks how long users are viewing images for
- */
-class ViewLogger {
 	/**
+	 * Tracks how long users are viewing images for
+	 *
+	 * @class mw.mmv.logging.ViewLogger
+	 * @extends mw.Api
+	 * @constructor
+	 * @param {mw.mmv.Config} config mw.mmv.Config object
 	 * @param {Object} windowObject Browser window object
 	 */
-	constructor( windowObject ) {
+	function ViewLogger( config, windowObject ) {
 		/**
 		 * Was the last image view logged or was logging skipped?
 		 *
@@ -54,6 +57,13 @@ class ViewLogger {
 		this.url = '';
 
 		/**
+		 * If set, URI to send the beacon request to in order to record the virtual view
+		 *
+		 * @property {string}
+		 */
+		this.recordVirtualViewBeaconURI = config.recordVirtualViewBeaconURI();
+
+		/**
 		 * Browser window
 		 *
 		 * @property {Object}
@@ -61,58 +71,60 @@ class ViewLogger {
 		this.window = windowObject;
 	}
 
+	VL = ViewLogger.prototype;
+
 	/**
 	 * Tracks the unview event of the current image if appropriate
 	 */
-	unview() {
+	VL.unview = function () {
 		if ( !this.wasLastViewLogged ) {
 			return;
 		}
 
 		this.wasLastViewLogged = false;
-	}
+	};
 
 	/**
 	 * Starts recording a viewing window for the current image
 	 */
-	startViewDuration() {
+	VL.startViewDuration = function () {
 		this.viewStartTime = Date.now();
-	}
+	};
 
 	/**
 	 * Stops recording the viewing window for the current image
 	 */
-	stopViewDuration() {
+	VL.stopViewDuration = function () {
 		if ( this.viewStartTime ) {
 			this.viewDuration += Date.now() - this.viewStartTime;
 			this.viewStartTime = 0;
 		}
-	}
+	};
 
 	/**
 	 * Records the amount of time the current image has been viewed
 	 */
-	recordViewDuration() {
-		let url;
+	VL.recordViewDuration = function () {
+		var uri;
 
 		this.stopViewDuration();
 
-		if ( recordVirtualViewBeaconURI ) {
+		if ( this.recordVirtualViewBeaconURI ) {
 			try {
-				url = new URL( recordVirtualViewBeaconURI, location );
-				url.searchParams.set( 'duration', this.viewDuration );
-				url.searchParams.set( 'uri', this.url );
+				uri = new mw.Uri( this.recordVirtualViewBeaconURI );
+				uri.extend( { duration: this.viewDuration,
+					uri: this.url } );
 			} catch ( e ) {
 				// the URI is malformed. We cannot log it.
 				return;
 			}
 
 			try {
-				navigator.sendBeacon( url.toString() );
+				navigator.sendBeacon( uri.toString() );
 			} catch ( e ) {
 				$.ajax( {
 					type: 'HEAD',
-					url: url.toString()
+					url: uri.toString()
 				} );
 			}
 
@@ -122,40 +134,49 @@ class ViewLogger {
 		this.viewDuration = 0;
 
 		this.unview();
-	}
+	};
 
 	/**
 	 * Sets up the view tracking for the current image
 	 *
 	 * @param {string} url URL of the image to record a virtual view for
 	 */
-	attach( url ) {
-		this.url = url;
+	VL.attach = function ( url ) {
+		var view = this;
+
+		this.url = encodeURIComponent( url );
 		this.startViewDuration();
 
 		$( this.window )
 			.off( '.mmv-view-logger' )
-			.on( 'beforeunload.mmv-view-logger', () => this.recordViewDuration() )
-			.on( 'focus.mmv-view-logger', () => this.startViewDuration() )
-			.on( 'blur.mmv-view-logger', () => this.stopViewDuration() );
-	}
+			.on( 'beforeunload.mmv-view-logger', function () {
+				view.recordViewDuration();
+			} )
+			.on( 'focus.mmv-view-logger', function () {
+				view.startViewDuration();
+			} )
+			.on( 'blur.mmv-view-logger', function () {
+				view.stopViewDuration();
+			} );
+	};
 
 	/*
-			* Stops listening to events
-			*/
-	unattach() {
+	 * Stops listening to events
+	 */
+	VL.unattach = function () {
 		$( this.window ).off( '.mmv-view-logger' );
 		this.stopViewDuration();
-	}
+	};
 
 	/**
 	 * Tracks whether or not the image view event was logged or not (i.e. was it in the logging sample)
 	 *
 	 * @param {boolean} wasEventLogged Whether the image view event was logged
 	 */
-	setLastViewLogged( wasEventLogged ) {
+	VL.setLastViewLogged = function ( wasEventLogged ) {
 		this.wasLastViewLogged = wasEventLogged;
-	}
-}
+	};
 
-module.exports = ViewLogger;
+	mw.mmv.logging = mw.mmv.logging || {};
+	mw.mmv.logging.ViewLogger = ViewLogger;
+}() );

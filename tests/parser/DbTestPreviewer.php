@@ -30,7 +30,7 @@ class DbTestPreviewer extends TestRecorder {
 	protected $curRun;
 	/** @var int|false run ID number for the previous run, if any */
 	protected $prevRun;
-	/** @var array<string,int> Result array */
+	/** @var array Result array */
 	protected $results;
 
 	/**
@@ -55,10 +55,7 @@ class DbTestPreviewer extends TestRecorder {
 			$this->prevRun = false;
 		} else {
 			// We'll make comparisons against the previous run later...
-			$this->prevRun = $this->db->newSelectQueryBuilder()
-				->select( 'MAX(tr_id)' )
-				->from( 'testrun' )
-				->fetchField();
+			$this->prevRun = $this->db->selectField( 'testrun', 'MAX(tr_id)' );
 		}
 
 		$this->results = [];
@@ -86,11 +83,8 @@ class DbTestPreviewer extends TestRecorder {
 
 			$prevResults = [];
 
-			$res = $this->db->newSelectQueryBuilder()
-				->select( [ 'ti_name', 'ti_success' ] )
-				->from( 'testitem' )
-				->where( [ 'ti_run' => $this->prevRun ] )
-				->caller( __METHOD__ )->fetchResultSet();
+			$res = $this->db->select( 'testitem', [ 'ti_name', 'ti_success' ],
+				[ 'ti_run' => $this->prevRun ], __METHOD__ );
 			$filter = $this->filter;
 
 			foreach ( $res as $row ) {
@@ -134,7 +128,7 @@ class DbTestPreviewer extends TestRecorder {
 					printf( "\n%4d %s\n", $count, $label );
 
 					foreach ( $breakdown[$code] as $differing_test_name => $statusInfo ) {
-						// @phan-suppress-next-line SecurityCheck-XSS CLI-only script
+						// @phan-suppress-next-line SecurityCheck-XSS CLI tool
 						print "      * $differing_test_name  [$statusInfo]\n";
 					}
 				}
@@ -157,16 +151,14 @@ class DbTestPreviewer extends TestRecorder {
 	private function getTestStatusInfo( $testname, $after ) {
 		// If we're looking at a test that has just been removed, then say when it first appeared.
 		if ( $after == 'n' ) {
-			$changedRun = $this->db->newSelectQueryBuilder()
-				->select( 'MIN(ti_run)' )
-				->from( 'testitem' )
-				->where( [ 'ti_name' => $testname ] )
-				->caller( __METHOD__ )->fetchField();
-			$appear = $this->db->newSelectQueryBuilder()
-				->select( [ 'tr_date', 'tr_mw_version' ] )
-				->from( 'testrun' )
-				->where( [ 'tr_id' => $changedRun ] )
-				->caller( __METHOD__ )->fetchRow();
+			$changedRun = $this->db->selectField( 'testitem',
+				'MIN(ti_run)',
+				[ 'ti_name' => $testname ],
+				__METHOD__ );
+			$appear = $this->db->selectRow( 'testrun',
+				[ 'tr_date', 'tr_mw_version' ],
+				[ 'tr_id' => $changedRun ],
+				__METHOD__ );
 
 			return "First recorded appearance: "
 				. date( "d-M-Y H:i:s", strtotime( $appear->tr_date ) )
@@ -180,14 +172,10 @@ class DbTestPreviewer extends TestRecorder {
 			'ti_success' => ( $after == 'f' ? "1" : "0" ) ];
 
 		if ( $this->curRun ) {
-			$conds[] = $this->db->expr( 'ti_run', '!=', $this->curRun );
+			$conds[] = "ti_run != " . $this->db->addQuotes( $this->curRun );
 		}
 
-		$changedRun = $this->db->newSelectQueryBuilder()
-			->select( 'MAX(ti_run)' )
-			->from( 'testitem' )
-			->where( $conds )
-			->caller( __METHOD__ )->fetchField();
+		$changedRun = $this->db->selectField( 'testitem', 'MAX(ti_run)', $conds, __METHOD__ );
 
 		// If no record of ever having had a different result.
 		if ( $changedRun === null ) {
@@ -201,18 +189,16 @@ class DbTestPreviewer extends TestRecorder {
 		// Otherwise, we're looking at a test whose status has changed.
 		// (i.e. it used to work, but now doesn't; or used to fail, but is now fixed.)
 		// In this situation, give as much info as we can as to when it changed status.
-		$pre = $this->db->newSelectQueryBuilder()
-			->select( [ 'tr_date', 'tr_mw_version' ] )
-			->from( 'testrun' )
-			->where( [ 'tr_id' => $changedRun ] )
-			->caller( __METHOD__ )->fetchRow();
-		$post = $this->db->newSelectQueryBuilder()
-			->select( [ 'tr_date', 'tr_mw_version' ] )
-			->from( 'testrun' )
-			->where( $this->db->expr( 'tr_id', '>', $changedRun ) )
-			->orderBy( 'tr_id' )
-			->limit( 1 )
-			->caller( __METHOD__ )->fetchRow();
+		$pre = $this->db->selectRow( 'testrun',
+			[ 'tr_date', 'tr_mw_version' ],
+			[ 'tr_id' => $changedRun ],
+			__METHOD__ );
+		$post = $this->db->selectRow( 'testrun',
+			[ 'tr_date', 'tr_mw_version' ],
+			[ "tr_id > " . $this->db->addQuotes( $changedRun ) ],
+			__METHOD__,
+			[ "LIMIT" => 1, "ORDER BY" => 'tr_id' ]
+		);
 
 		if ( $post ) {
 			$postDate = date( "d-M-Y H:i:s", strtotime( $post->tr_date ) ) . ", {$post->tr_mw_version}";

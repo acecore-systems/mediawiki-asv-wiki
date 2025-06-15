@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel transport server class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 'use strict';
@@ -47,12 +47,14 @@ ve.dm.TransportServer.prototype.onConnection = function ( getRoom, socket ) {
 		return function () {
 			const args = Array.prototype.slice.call( arguments );
 			args.splice( 0, 0, context );
-			return server.ensureLoaded( docName ).then( () => f.apply( server, args ) );
+			return server.ensureLoaded( docName ).then( function () {
+				return f.apply( server, args );
+			} );
 		};
 	}
 
 	socket.join( docName );
-	return server.ensureLoaded( docName ).then( () => {
+	return server.ensureLoaded( docName ).then( function () {
 		const context = server.authenticate( docName, authorId, token );
 		context.broadcast = function () {
 			const room = getRoom( docName );

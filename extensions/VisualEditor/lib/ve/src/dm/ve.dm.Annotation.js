@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel Annotation class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -105,7 +105,7 @@ ve.dm.Annotation.static.toDomElements = null;
  * @return {Object} An object containing a subset of the annotation's properties
  */
 ve.dm.Annotation.prototype.getComparableObject = function () {
-	const hashObject = this.getHashObject();
+	var hashObject = this.getHashObject();
 	delete hashObject.originalDomElementsHash;
 	return hashObject;
 };
@@ -119,14 +119,14 @@ ve.dm.Annotation.prototype.getComparableObject = function () {
  * @return {Object} An object all HTML attributes except data-parsoid & RESTBase IDs
  */
 ve.dm.Annotation.prototype.getComparableHtmlAttributes = function () {
-	const domElements = this.store && this.getOriginalDomElements( this.store );
+	var domElements = this.store && this.getOriginalDomElements( this.store );
 
 	if ( domElements && domElements[ 0 ] ) {
-		const comparableAttributes = ve.getDomAttributes( domElements[ 0 ] );
+		var comparableAttributes = ve.getDomAttributes( domElements[ 0 ] );
 		delete comparableAttributes[ 'data-parsoid' ];
 
 		if ( comparableAttributes.id ) {
-			const metadataIdRegExp = ve.init.platform.getMetadataIdRegExp();
+			var metadataIdRegExp = ve.init.platform.getMetadataIdRegExp();
 			if ( metadataIdRegExp && metadataIdRegExp.test( comparableAttributes.id ) ) {
 				delete comparableAttributes.id;
 			}
@@ -147,7 +147,7 @@ ve.dm.Annotation.prototype.getComparableHtmlAttributes = function () {
  * @return {Object} An object containing a subset of the annotation's properties and HTML attributes
  */
 ve.dm.Annotation.prototype.getComparableObjectForSerialization = function () {
-	const object = this.getComparableObject(),
+	var object = this.getComparableObject(),
 		htmlAttributes = this.getComparableHtmlAttributes();
 
 	if ( !ve.isEmptyObject( htmlAttributes ) ) {

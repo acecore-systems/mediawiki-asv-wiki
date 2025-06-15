@@ -11,7 +11,7 @@ class WikibaseEntitySelector extends SearchInputWidget {
 		$this->addClasses( [ 'mw-math-widget-wb-entity-selector' ] );
 	}
 
-	protected function getJavaScriptClassName(): string {
+	protected function getJavaScriptClassName() {
 		return 'mw.widgets.MathWbEntitySelector';
 	}
 }

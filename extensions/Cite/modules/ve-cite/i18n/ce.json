@@ -25,6 +25,7 @@
 	"cite-ve-dialog-reference-editing-reused-long": "ХӀара хьажорг лелайо {{PLURAL:$1|цкъа|2=шозза}}. Кхузахь бина хийцамаш лелар бу иза лелош йолчу массо а меттигашкахь.",
 	"cite-ve-dialog-reference-options-group-label": "Лелайе хӀара тоба",
 	"cite-ve-dialog-reference-options-group-placeholder": "Йукъара хььажоргаш",
+	"cite-ve-dialog-reference-options-name-label": "ХӀокху цӀарца йуха лелайе",
 	"cite-ve-dialog-reference-options-responsive-label": "Лелайе бӀогӀамийн адаптацин макет",
 	"cite-ve-dialog-reference-options-section": "Параметраш",
 	"cite-ve-dialog-reference-placeholder": "Йазйе йа копийе хьайн тӀетовжам кхуза, йа хьостан кеп чуйилла.",
@@ -44,7 +45,8 @@
 	"cite-ve-referenceslist-isempty-default": "ХӀокху могӀаман йукъатоха, хӀокху агӀонгахь йац хьажоргаш.",
 	"cite-ve-referenceslist-missingref": "ХӀара тӀетовжам билгалбаьккхина бу кепан чохь йа кхечу генераци йинчу блокехь, карарчу хенахь хийца йиш йу йуьхьанцара текстан хийцаран ражехь бен.",
 	"cite-ve-referenceslist-missingref-in-list": "ХӀара билгалдаккхар бу кепан чохь йа кхечу генераци йинчу блокехь, карарчу хенахь цуьнга хьалххе хьажа вики-кодан ражехь бен йиш йац.",
-	"cite-ve-referenceslist-missingreflist": "ХӀара билгалдахарш кепаца генерацийина ду.",
 	"cite-ve-toolbar-group-label": "Хьосташ",
-	"cite-ve-othergroup-item": "$1 билгалдаккхар"
+	"cite-ve-othergroup-item": "$1 билгалдаккхар",
+	"visualeditor-internal-list-diff-default-group-name-mwreference": "ТӀетовжамаш",
+	"visualeditor-internal-list-diff-group-name-mwreference": "ТӀетовжамин тобана цӀе: «$1»"
 }

@@ -1,7 +1,5 @@
 <?php
 
-namespace MediaWiki\Api;
-
 use MediaWiki\Auth\AuthManager;
 use MediaWiki\ParamValidator\TypeDef\UserDef;
 use MediaWiki\User\UserFactory;
@@ -13,9 +11,18 @@ use Wikimedia\ParamValidator\ParamValidator;
  */
 class ApiValidatePassword extends ApiBase {
 
-	private AuthManager $authManager;
-	private UserFactory $userFactory;
+	/** @var AuthManager */
+	private $authManager;
 
+	/** @var UserFactory */
+	private $userFactory;
+
+	/**
+	 * @param ApiMain $mainModule
+	 * @param string $moduleName
+	 * @param AuthManager $authManager
+	 * @param UserFactory $userFactory
+	 */
 	public function __construct(
 		ApiMain $mainModule,
 		string $moduleName,
@@ -103,6 +110,3 @@ class ApiValidatePassword extends ApiBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Validatepassword';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiValidatePassword::class, 'ApiValidatePassword' );

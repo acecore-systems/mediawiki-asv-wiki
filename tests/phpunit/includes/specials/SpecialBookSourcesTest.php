@@ -1,9 +1,6 @@
 <?php
 
-use MediaWiki\Specials\SpecialBookSources;
-use MediaWiki\Title\TitleFactory;
-
-class SpecialBookSourcesTest extends SpecialPageTestBase {
+class SpecialBooksourcesTest extends SpecialPageTestBase {
 	public static function provideISBNs() {
 		return [
 			[ '978-0-300-14424-6', true ],
@@ -31,7 +28,7 @@ class SpecialBookSourcesTest extends SpecialPageTestBase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Specials\SpecialBookSources::isValidISBN
+	 * @covers SpecialBookSources::isValidISBN
 	 * @dataProvider provideISBNs
 	 */
 	public function testIsValidISBN( $isbn, $isValid ) {
@@ -42,18 +39,17 @@ class SpecialBookSourcesTest extends SpecialPageTestBase {
 		$services = $this->getServiceContainer();
 		return new SpecialBookSources(
 			$services->getRevisionLookup(),
-			$services->getTitleFactory()
+			$services->getContentLanguage()
 		);
 	}
 
 	/**
-	 * @covers \MediaWiki\Specials\SpecialBookSources::execute
+	 * @covers SpecialBookSources::execute
 	 */
 	public function testExecute() {
-		$this->setService( 'TitleFactory', $this->createMock( TitleFactory::class ) );
-		[ $html, ] = $this->executeSpecialPage( 'Invalid', null, 'qqx' );
+		list( $html, ) = $this->executeSpecialPage( 'Invalid', null, 'qqx' );
 		$this->assertStringContainsString( '(booksources-invalid-isbn)', $html );
-		[ $html, ] = $this->executeSpecialPage( '0-7475-3269-9', null, 'qqx' );
+		list( $html, ) = $this->executeSpecialPage( '0-7475-3269-9', null, 'qqx' );
 		$this->assertStringNotContainsString( '(booksources-invalid-isbn)', $html );
 		$this->assertStringContainsString( '(booksources-text)', $html );
 	}

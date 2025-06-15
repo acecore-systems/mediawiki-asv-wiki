@@ -1,7 +1,5 @@
 <?php
 
-use MediaWiki\Specials\SpecialRedirect;
-
 /**
  * Test class for SpecialRedirect class
  *
@@ -12,15 +10,17 @@ use MediaWiki\Specials\SpecialRedirect;
  */
 class SpecialRedirectTest extends MediaWikiIntegrationTestCase {
 
+	protected $tablesUsed = [ 'user' ];
+
 	private const CREATE_USER = 'create_user';
 
 	/**
 	 * @dataProvider provideDispatch
-	 * @covers \MediaWiki\Specials\SpecialRedirect::dispatchUser
-	 * @covers \MediaWiki\Specials\SpecialRedirect::dispatchFile
-	 * @covers \MediaWiki\Specials\SpecialRedirect::dispatchRevision
-	 * @covers \MediaWiki\Specials\SpecialRedirect::dispatchPage
-	 * @covers \MediaWiki\Specials\SpecialRedirect::dispatchLog
+	 * @covers SpecialRedirect::dispatchUser()
+	 * @covers SpecialRedirect::dispatchFile()
+	 * @covers SpecialRedirect::dispatchRevision()
+	 * @covers SpecialRedirect::dispatchPage()
+	 * @covers SpecialRedirect::dispatchLog()
 	 */
 	public function testDispatch( $method, $type, $value, $expectedStatus ) {
 		$userFactory = $this->getServiceContainer()->getUserFactory();
@@ -40,7 +40,7 @@ class SpecialRedirectTest extends MediaWikiIntegrationTestCase {
 
 		$status = $page->$method();
 		$this->assertSame(
-			$expectedStatus === 'good', $status->isGood(),
+			$status->isGood(), $expectedStatus === 'good',
 			$method . ' does not return expected status "' . $expectedStatus . '"'
 		);
 	}

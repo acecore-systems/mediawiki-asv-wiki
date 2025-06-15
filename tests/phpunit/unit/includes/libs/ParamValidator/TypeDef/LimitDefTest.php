@@ -1,14 +1,12 @@
 <?php
 
-namespace Wikimedia\Tests\ParamValidator\TypeDef;
+namespace Wikimedia\ParamValidator\TypeDef;
 
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\SimpleCallbacks;
-use Wikimedia\ParamValidator\TypeDef\IntegerDef;
-use Wikimedia\ParamValidator\TypeDef\LimitDef;
 
 /**
- * @covers \Wikimedia\ParamValidator\TypeDef\LimitDef
+ * @covers Wikimedia\ParamValidator\TypeDef\LimitDef
  */
 class LimitDefTest extends TypeDefTestCase {
 

@@ -18,15 +18,7 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
-use Exception;
-use InvalidArgumentException;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Message\Message;
-use RuntimeException;
-use stdClass;
-use UnexpectedValueException;
 
 /**
  * This class represents the result of the API operations.
@@ -150,12 +142,8 @@ class ApiResult implements ApiSerializable {
 	 */
 	public const META_BC_SUBELEMENTS = '_BC_subelements';
 
-	/** @var mixed */
-	private $data;
-	private int $size;
-	/** @var int|false */
-	private $maxSize;
-	private ApiErrorFormatter $errorFormatter;
+	private $data, $size, $maxSize;
+	private $errorFormatter;
 
 	/**
 	 * @param int|false $maxSize Maximum result "size", or false for no limit
@@ -295,7 +283,7 @@ class ApiResult implements ApiSerializable {
 			if ( $flags & self::ADD_ON_TOP ) {
 				array_unshift( $arr, $value );
 			} else {
-				$arr[] = $value;
+				array_push( $arr, $value );
 			}
 			return;
 		}
@@ -355,10 +343,6 @@ class ApiResult implements ApiSerializable {
 						$ex
 					);
 				}
-			} elseif ( $value instanceof \Wikimedia\Message\MessageParam ) {
-				// HACK Support code that puts $msg->getParams() directly into API responses
-				// (e.g. ApiErrorFormatter::formatRawMessage()).
-				$value = $value->getType() === 'text' ? $value->getValue() : $value->jsonSerialize();
 			} elseif ( is_callable( [ $value, '__toString' ] ) ) {
 				$value = (string)$value;
 			} else {
@@ -378,7 +362,11 @@ class ApiResult implements ApiSerializable {
 				$value[$k] = self::validateValue( $v );
 			}
 		} elseif ( $value !== null && !is_scalar( $value ) ) {
-			$type = get_debug_type( $value );
+			$type = gettype( $value );
+			// phpcs:ignore MediaWiki.Usage.ForbiddenFunctions.is_resource
+			if ( is_resource( $value ) ) {
+				$type .= '(' . get_resource_type( $value ) . ')';
+			}
 			throw new InvalidArgumentException( "Cannot add $type to ApiResult" );
 		} elseif ( is_float( $value ) && !is_finite( $value ) ) {
 			throw new InvalidArgumentException( 'Cannot add non-finite floats to ApiResult' );
@@ -1231,9 +1219,9 @@ class ApiResult implements ApiSerializable {
 	 */
 	public static function formatExpiry( $expiry, $infinity = 'infinity' ) {
 		static $dbInfinity;
-		$dbInfinity ??= MediaWikiServices::getInstance()->getConnectionProvider()
-			->getReplicaDatabase()
-			->getInfinity();
+		if ( $dbInfinity === null ) {
+			$dbInfinity = wfGetDB( DB_REPLICA )->getInfinity();
+		}
 
 		if ( $expiry === '' || $expiry === null || $expiry === false ||
 			wfIsInfinity( $expiry ) || $expiry === $dbInfinity
@@ -1256,6 +1244,3 @@ class ApiResult implements ApiSerializable {
  *
  * vim: foldmarker=//\ region,//\ endregion foldmethod=marker
  */
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiResult::class, 'ApiResult' );

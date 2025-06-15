@@ -1,17 +1,14 @@
 <?php
 
-namespace MediaWiki\Tests\Parser;
-
 use MediaWiki\Parser\Parsoid\PageBundleJsonTrait;
-use MediaWikiIntegrationTestCase;
 use Wikimedia\Parsoid\Core\PageBundle;
 
 /**
- * @covers \MediaWiki\Parser\Parsoid\PageBundleJsonTrait
+ * @covers MediaWiki\Parser\Parsoid\PageBundleJsonTrait
  */
 class PageBundleJsonTraitTest extends MediaWikiIntegrationTestCase {
 
-	private const BUNDLE_DATA = [
+	private $bundleData = [
 		'html' => '<h1>woohoo</h1>',
 		'parsoid' => [ 'metadata' => 'foo' ],
 		'mw' => null,
@@ -26,7 +23,7 @@ class PageBundleJsonTraitTest extends MediaWikiIntegrationTestCase {
 				newPageBundleFromJson as public;
 			}
 		};
-		$bundle = $trait->newPageBundleFromJson( self::BUNDLE_DATA );
+		$bundle = $trait->newPageBundleFromJson( $this->bundleData );
 		$this->assertInstanceOf( PageBundle::class, $bundle );
 		$this->assertEquals( '<h1>woohoo</h1>', $bundle->html );
 		$this->assertEquals( 'default', $bundle->contentmodel );
@@ -39,9 +36,9 @@ class PageBundleJsonTraitTest extends MediaWikiIntegrationTestCase {
 				jsonSerializePageBundle as public;
 			}
 		};
-		$bundle = new PageBundle( ...array_values( self::BUNDLE_DATA ) );
+		$bundle = new PageBundle( ...array_values( $this->bundleData ) );
 		$json = $trait->jsonSerializePageBundle( $bundle );
-		$this->assertEquals( PageBundle::class, $json['_type_'] );
+		$this->assertEquals( 'Wikimedia\Parsoid\Core\PageBundle', $json['_type_'] );
 		$this->assertEquals( '<h1>woohoo</h1>', $json['html'] );
 		$this->assertNull( $json['mw'] );
 	}

@@ -8,7 +8,7 @@ use MediaWiki\Auth\AuthenticationResponse;
 use MediaWiki\Extension\OATHAuth\IModule;
 use MediaWiki\Extension\OATHAuth\OATHAuth;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\User\User;
+use User;
 
 class SecondaryAuthenticationProvider extends AbstractSecondaryAuthenticationProvider {
 	/**
@@ -48,8 +48,8 @@ class SecondaryAuthenticationProvider extends AbstractSecondaryAuthenticationPro
 			return AuthenticationResponse::newAbstain();
 		}
 
-		return $this->getProviderForModule( $module )
-			->beginSecondaryAuthentication( $user, $reqs );
+		$provider = $this->getProviderForModule( $module );
+		return $provider->beginSecondaryAuthentication( $user, $reqs );
 	}
 
 	/**

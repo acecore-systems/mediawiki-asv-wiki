@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel MWBlockImageNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -10,8 +10,8 @@
  *
  * @class
  * @extends ve.dm.BranchNode
- * @mixes ve.dm.MWImageNode
- * @mixes ve.dm.ClassAttributeNode
+ * @mixins ve.dm.MWImageNode
+ * @mixins ve.dm.ClassAttributeNode
  *
  * @constructor
  * @param {Object} [element] Reference to element in linear model
@@ -42,7 +42,7 @@ OO.mixinClass( ve.dm.MWBlockImageNode, ve.dm.ClassAttributeNode );
 ve.dm.MWBlockImageNode.static.name = 'mwBlockImage';
 
 ve.dm.MWBlockImageNode.static.preserveHtmlAttributes = function ( attribute ) {
-	const attributes = [ 'typeof', 'class', 'src', 'resource', 'width', 'height', 'href', 'rel', 'data-mw', 'alt' ];
+	var attributes = [ 'typeof', 'class', 'src', 'resource', 'width', 'height', 'href', 'rel', 'data-mw' ];
 	return attributes.indexOf( attribute ) === -1;
 };
 
@@ -64,33 +64,26 @@ ve.dm.MWBlockImageNode.static.classAttributes = {
 };
 
 ve.dm.MWBlockImageNode.static.toDataElement = function ( domElements, converter ) {
-	const figure = domElements[ 0 ];
-	const img = figure.querySelector( '.mw-file-element' ); // <img>, <video>, <audio>, or <span> if mw:Error
-	// Images copied from the old parser output can have typeof=mw:Image but no resource information. T337438
-	if ( !img || !img.hasAttribute( 'resource' ) ) {
-		return [];
-	}
-	const imgWrapper = img.parentNode; // <a> or <span>
-	// NB: A caption could contain another block image with a caption, but the outer
-	// image must always contain a caption for that to happen, and that one will match first.
-	const captionNode = figure.querySelector( 'figcaption' );
-	const classAttr = figure.getAttribute( 'class' );
-	const typeofAttrs = figure.getAttribute( 'typeof' ).trim().split( /\s+/ );
-	const mwDataJSON = figure.getAttribute( 'data-mw' );
-	const mwData = mwDataJSON ? JSON.parse( mwDataJSON ) : {};
-	const errorIndex = typeofAttrs.indexOf( 'mw:Error' );
-	const isError = errorIndex !== -1;
-	const errorText = isError ? img.textContent : null;
-	const width = img.getAttribute( isError ? 'data-width' : 'width' );
-	const height = img.getAttribute( isError ? 'data-height' : 'height' );
+	var figure = domElements[ 0 ];
+	var imgWrapper = figure.children[ 0 ]; // <a> or <span>
+	var img = imgWrapper.children[ 0 ]; // <img>, <video>, <audio>, or <span> if mw:Error
+	var captionNode = figure.children[ 1 ]; // <figcaption> or undefined
+	var classAttr = figure.getAttribute( 'class' );
+	var typeofAttrs = figure.getAttribute( 'typeof' ).trim().split( /\s+/ );
+	var mwDataJSON = figure.getAttribute( 'data-mw' );
+	var mwData = mwDataJSON ? JSON.parse( mwDataJSON ) : {};
+	var errorIndex = typeofAttrs.indexOf( 'mw:Error' );
+	var isError = errorIndex !== -1;
+	var width = img.getAttribute( isError ? 'data-width' : 'width' );
+	var height = img.getAttribute( isError ? 'data-height' : 'height' );
 
-	let href = imgWrapper.getAttribute( 'href' );
+	var href = imgWrapper.getAttribute( 'href' );
 	if ( href ) {
 		// Convert absolute URLs to relative if the href refers to a page on this wiki.
 		// Otherwise Parsoid generates |link= options for copy-pasted images (T193253).
-		const targetData = mw.libs.ve.getTargetDataFromHref( href, converter.getTargetHtmlDocument() );
+		var targetData = mw.libs.ve.getTargetDataFromHref( href, converter.getTargetHtmlDocument() );
 		if ( targetData.isInternal ) {
-			href = mw.libs.ve.encodeParsoidResourceName( targetData.title );
+			href = './' + targetData.rawTitle;
 		}
 	}
 
@@ -98,9 +91,9 @@ ve.dm.MWBlockImageNode.static.toDataElement = function ( domElements, converter 
 		typeofAttrs.splice( errorIndex, 1 );
 	}
 
-	const types = this.rdfaToTypes[ typeofAttrs[ 0 ] ];
+	var types = this.rdfaToTypes[ typeofAttrs[ 0 ] ];
 
-	const attributes = {
+	var attributes = {
 		mediaClass: types.mediaClass,
 		mediaTag: img.nodeName.toLowerCase(),
 		type: types.frameType,
@@ -113,8 +106,7 @@ ve.dm.MWBlockImageNode.static.toDataElement = function ( domElements, converter 
 		height: height !== null && height !== '' ? +height : null,
 		alt: img.getAttribute( 'alt' ),
 		mw: mwData,
-		isError: isError,
-		errorText: errorText
+		isError: isError
 	};
 
 	this.setClassAttributes( attributes, classAttr );
@@ -137,7 +129,7 @@ ve.dm.MWBlockImageNode.static.toDataElement = function ( domElements, converter 
 			// rather than default MediaWiki configuration dimensions.
 			// We must force local wiki default in edit mode for default
 			// size images.
-			const newDimensions = this.scaleToThumbnailSize( attributes );
+			var newDimensions = this.scaleToThumbnailSize( attributes );
 			if ( newDimensions ) {
 				attributes.width = newDimensions.width;
 				attributes.height = newDimensions.height;
@@ -145,7 +137,7 @@ ve.dm.MWBlockImageNode.static.toDataElement = function ( domElements, converter 
 		}
 	}
 
-	let caption;
+	var caption;
 	if ( captionNode ) {
 		caption = converter.getDataFromDomClean( captionNode, { type: 'mwImageCaption' } );
 	} else {
@@ -157,26 +149,26 @@ ve.dm.MWBlockImageNode.static.toDataElement = function ( domElements, converter 
 		];
 	}
 
-	const dataElement = { type: this.name, attributes: attributes };
+	var dataElement = { type: this.name, attributes: attributes };
 
 	this.storeGeneratedContents( dataElement, dataElement.attributes.src, converter.getStore() );
 
-	return [].concat(
-		dataElement,
-		caption,
-		{ type: '/' + this.name }
-	);
+	return [ dataElement ]
+		.concat( caption )
+		.concat( { type: '/' + this.name } );
 };
 
 // TODO: At this moment node is not resizable but when it will be then adding defaultSize class
 // should be more conditional.
 ve.dm.MWBlockImageNode.static.toDomElements = function ( data, doc, converter ) {
-	const dataElement = data[ 0 ],
+	var dataElement = data[ 0 ],
 		attributes = dataElement.attributes,
 		figure = doc.createElement( 'figure' ),
 		imgWrapper = doc.createElement( attributes.href ? 'a' : 'span' ),
 		img = doc.createElement( attributes.isError ? 'span' : attributes.mediaTag ),
-		classAttr = this.getClassAttrFromAttributes( attributes );
+		wrapper = doc.createElement( 'div' ),
+		classAttr = this.getClassAttrFromAttributes( attributes ),
+		captionData = data.slice( 1, -1 );
 
 	// RDFa type
 	figure.setAttribute( 'typeof', this.getRdfa( attributes.mediaClass, attributes.type, attributes.isError ) );
@@ -193,7 +185,8 @@ ve.dm.MWBlockImageNode.static.toDomElements = function ( data, doc, converter ) 
 		imgWrapper.setAttribute( 'href', attributes.href );
 	}
 
-	if ( attributes.imageClassAttr ) {
+	// At the moment, preserving this is only relevant on mw:Error spans
+	if ( attributes.isError && attributes.imageClassAttr ) {
 		// eslint-disable-next-line mediawiki/class-doc
 		img.className = attributes.imageClassAttr;
 	}
@@ -203,8 +196,8 @@ ve.dm.MWBlockImageNode.static.toDomElements = function ( data, doc, converter ) 
 		imgWrapper.className = attributes.imgWrapperClassAttr;
 	}
 
-	let width = attributes.width;
-	let height = attributes.height;
+	var width = attributes.width;
+	var height = attributes.height;
 	// If defaultSize is set, and was set on the way in, use the original width and height
 	// we got on the way in.
 	if ( attributes.defaultSize ) {
@@ -216,7 +209,7 @@ ve.dm.MWBlockImageNode.static.toDomElements = function ( data, doc, converter ) 
 		}
 	}
 
-	const srcAttr = this.tagsToSrcAttrs[ img.nodeName.toLowerCase() ];
+	var srcAttr = this.tagsToSrcAttrs[ img.nodeName.toLowerCase() ];
 	if ( srcAttr && !attributes.isError ) {
 		img.setAttribute( srcAttr, attributes.src );
 	}
@@ -224,8 +217,8 @@ ve.dm.MWBlockImageNode.static.toDomElements = function ( data, doc, converter ) 
 		if ( converter.isForPreview() ) {
 			imgWrapper.classList.add( 'new' );
 		}
-		const filename = mw.libs.ve.normalizeParsoidResourceName( attributes.resource || '' );
-		img.appendChild( doc.createTextNode( attributes.errorText ? attributes.errorText : filename ) );
+		var filename = mw.libs.ve.normalizeParsoidResourceName( attributes.resource || '' );
+		img.appendChild( doc.createTextNode( filename ) );
 	}
 
 	if ( width !== null ) {
@@ -243,14 +236,12 @@ ve.dm.MWBlockImageNode.static.toDomElements = function ( data, doc, converter ) 
 	figure.appendChild( imgWrapper );
 	imgWrapper.appendChild( img );
 
-	const captionData = data.slice( 1, -1 );
 	// If length of captionData is smaller or equal to 2 it means that there is no caption or that
 	// it is empty - in both cases we are going to skip appending <figcaption>.
 	if ( captionData.length > 2 ) {
-		const captionWrapper = doc.createElement( 'div' );
-		converter.getDomSubtreeFromData( captionData, captionWrapper );
-		while ( captionWrapper.firstChild ) {
-			figure.appendChild( captionWrapper.firstChild );
+		converter.getDomSubtreeFromData( data.slice( 1, -1 ), wrapper );
+		while ( wrapper.firstChild ) {
+			figure.appendChild( wrapper.firstChild );
 		}
 	}
 	return [ figure ];
@@ -264,7 +255,7 @@ ve.dm.MWBlockImageNode.static.toDomElements = function ( data, doc, converter ) 
  * @return {ve.dm.MWImageCaptionNode|null} Caption node, if present
  */
 ve.dm.MWBlockImageNode.prototype.getCaptionNode = function () {
-	const node = this.children[ 0 ];
+	var node = this.children[ 0 ];
 	return node instanceof ve.dm.MWImageCaptionNode ? node : null;
 };
 
@@ -273,7 +264,7 @@ ve.dm.MWBlockImageNode.prototype.getCaptionNode = function () {
  */
 ve.dm.MWBlockImageNode.prototype.suppressSlugType = function () {
 	// TODO: Have alignment attribute changes trigger a parent branch node re-render
-	const align = this.getAttribute( 'align' );
+	var align = this.getAttribute( 'align' );
 	return align !== 'none' && align !== 'center' ? 'float' : null;
 };
 

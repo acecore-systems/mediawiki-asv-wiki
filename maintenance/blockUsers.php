@@ -20,12 +20,9 @@
  * @ingroup Maintenance
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
-use MediaWiki\Maintenance\Maintenance;
-use MediaWiki\User\User;
+use MediaWiki\MediaWikiServices;
 
 class BlockUsers extends Maintenance {
 
@@ -103,7 +100,7 @@ class BlockUsers extends Maintenance {
 
 		$this->addOption(
 			'disable-hardblock',
-			'Don\'t block logged in accounts from a blocked IP address (will still block temporary accounts)',
+			'Don\'t block logged in accounts from a blocked IP address',
 			false
 		);
 
@@ -121,8 +118,9 @@ class BlockUsers extends Maintenance {
 		$reblock = $this->hasOption( 'reblock' );
 		$expiry = $this->getOption( 'expiry', 'indefinite' );
 
+		$performer = null;
 		if ( $performerName ) {
-			$performer = $this->getServiceContainer()->getUserFactory()->newFromName( $performerName );
+			$performer = User::newFromName( $performerName );
 		} else {
 			$performer = User::newSystemUser( User::MAINTENANCE_SCRIPT_USER, [ 'steal' => true ] );
 		}
@@ -143,8 +141,8 @@ class BlockUsers extends Maintenance {
 		}
 
 		# Handle each entry
-		$blockUserFactory = $this->getServiceContainer()->getBlockUserFactory();
-		$unblockUserFactory = $this->getServiceContainer()->getUnblockUserFactory();
+		$blockUserFactory = MediaWikiServices::getInstance()->getBlockUserFactory();
+		$unblockUserFactory = MediaWikiServices::getInstance()->getUnblockUserFactory();
 		$action = $unblocking ? "Unblocking" : "Blocking";
 		for ( $linenum = 1; !feof( $file ); $linenum++ ) {
 			$line = trim( fgets( $file ) );
@@ -184,7 +182,5 @@ class BlockUsers extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = BlockUsers::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

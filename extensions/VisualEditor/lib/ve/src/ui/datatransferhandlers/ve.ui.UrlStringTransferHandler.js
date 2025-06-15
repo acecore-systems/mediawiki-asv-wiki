@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface UrlStringTransferHandler class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -35,10 +35,11 @@ ve.ui.UrlStringTransferHandler.static.types = [
 	// Firefox type, preserves title
 	'text/x-moz-url',
 	// Used in GNOME drag-and-drop
-	'text/x-uri',
+	'text/x-uri'
+].concat(
 	// Identify links in pasted plain text as well
-	...ve.ui.UrlStringTransferHandler.super.static.types
-];
+	ve.ui.UrlStringTransferHandler.super.static.types
+);
 
 ve.ui.UrlStringTransferHandler.static.handlesPaste = true;
 
@@ -50,9 +51,8 @@ ve.ui.UrlStringTransferHandler.static.handlesPaste = true;
  */
 ve.ui.UrlStringTransferHandler.static.urlRegExp = null; // Initialized below
 
-ve.init.Platform.static.initializedPromise.then( () => {
+ve.init.Platform.static.initializedPromise.then( function () {
 	ve.ui.UrlStringTransferHandler.static.urlRegExp =
-
 		new RegExp(
 			ve.init.platform.getExternalLinkUrlProtocolsRegExp().source +
 				'\\S+$',
@@ -80,12 +80,12 @@ ve.ui.UrlStringTransferHandler.static.matchFunction = function ( item ) {
  * @inheritdoc
  */
 ve.ui.UrlStringTransferHandler.prototype.process = function () {
-	const surface = this.surface,
+	var surface = this.surface,
 		store = surface.getModel().getDocument().getStore(),
 		linkAction = ve.ui.actionFactory.create( 'link', surface ),
 		data = this.item.getAsString();
 
-	let links;
+	var links;
 	switch ( this.item.type ) {
 		case 'text/uri-list':
 			// text/uri-list has embedded comments; remove them before
@@ -95,22 +95,26 @@ ve.ui.UrlStringTransferHandler.prototype.process = function () {
 			// links with the comment information if you can find a
 			// spec for how it should be done.
 			links = data.replace( /^#.*(\r\n?|\n|$)/mg, '' ).trim()
-				.split( /[\r\n]+/g ).map( ( line ) => ( { href: line } ) );
+				.split( /[\r\n]+/g ).map( function ( line ) {
+					return { href: line };
+				} );
 			// Support: Chrome
 			// When Chrome uses this mime type the link titles can
 			// be extracted from the 'text/html' version of the item.
 			// Let's try that.
 			if ( this.item.data.htmlStringData ) {
-				const html = this.item.data.htmlStringData;
-				const doc = ve.createDocumentFromHtml( html );
+				var html = this.item.data.htmlStringData;
+				var doc = ve.createDocumentFromHtml( html );
 				links = $.makeArray( doc.querySelectorAll( 'a[href]' ) )
-					.map( ( a ) => ( { href: a.href, title: a.textContent } ) );
+					.map( function ( a ) {
+						return { href: a.href, title: a.textContent };
+					} );
 			}
 			break;
 
 		case 'text/x-moz-url':
 			// text/x-moz-url includes titles with the links (alternating lines)
-			links = data.match( /^(.*)(\r\n?|\n)(.*)$/mg ).map( ( item ) => {
+			links = data.match( /^(.*)(\r\n?|\n)(.*)$/mg ).map( function ( item ) {
 				item = item.split( /[\r\n]+/ );
 				return { href: item[ 0 ], title: item[ 1 ] };
 			} );
@@ -123,9 +127,9 @@ ve.ui.UrlStringTransferHandler.prototype.process = function () {
 	}
 
 	// Create linked text.
-	const result = [];
-	links.forEach( ( link ) => {
-		const annotation = linkAction.getLinkAnnotation( link.href ),
+	var result = [];
+	links.forEach( function ( link ) {
+		var annotation = linkAction.getLinkAnnotation( link.href ),
 			annotationSet = new ve.dm.AnnotationSet( store, store.hashAll( [
 				annotation
 			] ) ),
@@ -138,7 +142,7 @@ ve.ui.UrlStringTransferHandler.prototype.process = function () {
 		}
 
 		ve.dm.Document.static.addAnnotationsToData( content, annotationSet );
-		for ( let i = 0; i < content.length; i++ ) {
+		for ( var i = 0; i < content.length; i++ ) {
 			result.push( content[ i ] );
 		}
 	} );

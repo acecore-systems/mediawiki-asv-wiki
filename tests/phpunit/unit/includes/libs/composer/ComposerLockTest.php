@@ -1,19 +1,20 @@
 <?php
 
-namespace Wikimedia\Tests\Composer;
+class ComposerLockTest extends PHPUnit\Framework\TestCase {
 
-use PHPUnit\Framework\TestCase;
-use Wikimedia\Composer\ComposerLock;
+	private $lock;
 
-/**
- * @covers \Wikimedia\Composer\ComposerLock
- */
-class ComposerLockTest extends TestCase {
+	protected function setUp(): void {
+		parent::setUp();
+		$this->lock = __DIR__ . "/../../../../data/composer/composer.lock";
+	}
 
-	private const LOCK = __DIR__ . '/../../../../data/composer/composer.lock';
-
+	/**
+	 * @covers ComposerLock::__construct
+	 * @covers ComposerLock::getInstalledDependencies
+	 */
 	public function testGetInstalledDependencies() {
-		$lock = new ComposerLock( self::LOCK );
+		$lock = new ComposerLock( $this->lock );
 		$this->assertEquals( [
 			'wikimedia/cdb' => [
 				'version' => '1.0.1',
@@ -115,4 +116,5 @@ class ComposerLockTest extends TestCase {
 			],
 		], $lock->getInstalledDependencies() );
 	}
+
 }

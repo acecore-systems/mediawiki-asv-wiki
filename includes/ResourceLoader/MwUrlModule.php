@@ -41,3 +41,6 @@ class MwUrlModule {
 		return 'module.exports = /' . strtr( $content, [ '/' => '\/' ] ) . '/;';
 	}
 }
+
+/** @deprecated since 1.39 */
+class_alias( MwUrlModule::class, 'ResourceLoaderMwUrlModule' );

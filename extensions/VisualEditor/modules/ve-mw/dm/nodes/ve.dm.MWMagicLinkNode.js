@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel MWMagicLinkNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -10,7 +10,7 @@
  *
  * @class
  * @extends ve.dm.LeafNode
- * @mixes ve.dm.FocusableNode
+ * @mixins ve.dm.FocusableNode
  *
  * @constructor
  * @param {Object} [element] Reference to element in linear model
@@ -39,9 +39,6 @@ ve.dm.MWMagicLinkNode.static.matchTagNames = [ 'a' ];
 
 ve.dm.MWMagicLinkNode.static.matchRdfaTypes = [ 'mw:WikiLink', 'mw:ExtLink' ];
 
-// Allow additional 'rel' values in Parsoid output (T321437)
-ve.dm.MWMagicLinkNode.static.allowedRdfaTypes = [ 'nofollow', 'noreferrer', 'noopener' ];
-
 ve.dm.MWMagicLinkNode.static.disallowedAnnotationTypes = [ 'link' ];
 
 /**
@@ -51,10 +48,10 @@ ve.dm.MWMagicLinkNode.static.disallowedAnnotationTypes = [ 'link' ];
  * @return {boolean} True if the element is a magic link
  */
 ve.dm.MWMagicLinkNode.static.matchFunction = function ( element ) {
-	const children = element.childNodes,
+	var children = element.childNodes,
 		href = element.getAttribute( 'href' );
 	// All children must be text nodes, or a <span> representing an entity.
-	for ( let i = 0; i < children.length; i++ ) {
+	for ( var i = 0; i < children.length; i++ ) {
 		if ( children[ i ].nodeType === Node.TEXT_NODE ) {
 			continue;
 		}
@@ -88,7 +85,7 @@ ve.dm.MWMagicLinkNode.static.matchFunction = function ( element ) {
  *   type (or any type).
  */
 ve.dm.MWMagicLinkNode.static.validateContent = function ( content, optType ) {
-	const type = ve.dm.MWMagicLinkType.static.fromContent( content );
+	var type = ve.dm.MWMagicLinkType.static.fromContent( content );
 	if ( type === null || ( optType !== undefined && type.type !== optType ) ) {
 		// Not a valid magic link, or a magic link of the wrong type.
 		return false;
@@ -107,7 +104,7 @@ ve.dm.MWMagicLinkNode.static.validateContent = function ( content, optType ) {
  *   True if the content string and href are valid for a magic link.
  */
 ve.dm.MWMagicLinkNode.static.validateHref = function ( content, href ) {
-	const type = ve.dm.MWMagicLinkType.static.fromContent( content );
+	var type = ve.dm.MWMagicLinkType.static.fromContent( content );
 	return type && type.matchHref( href );
 };
 
@@ -120,7 +117,7 @@ ve.dm.MWMagicLinkNode.static.validateHref = function ( content, href ) {
  * @return {ve.dm.MWExternalLinkAnnotation|ve.dm.MWInternalLinkAnnotation|null}
  */
 ve.dm.MWMagicLinkNode.static.annotationFromContent = function ( content ) {
-	const type = ve.dm.MWMagicLinkType.static.fromContent( content );
+	var type = ve.dm.MWMagicLinkType.static.fromContent( content );
 	return type !== null ? type.getAnnotation() : null;
 };
 
@@ -128,7 +125,7 @@ ve.dm.MWMagicLinkNode.static.annotationFromContent = function ( content ) {
  * @inheritdoc
  */
 ve.dm.MWMagicLinkNode.static.toDataElement = function ( domElements ) {
-	const textContent = domElements[ 0 ].textContent,
+	var textContent = domElements[ 0 ].textContent,
 		htmlContent = domElements[ 0 ].innerHTML;
 	return {
 		type: this.name,
@@ -147,7 +144,7 @@ ve.dm.MWMagicLinkNode.static.toDataElement = function ( domElements ) {
  * @inheritdoc
  */
 ve.dm.MWMagicLinkNode.static.toDomElements = function ( dataElement, doc ) {
-	const content = dataElement.attributes.content,
+	var content = dataElement.attributes.content,
 		type = ve.dm.MWMagicLinkType.static.fromContent( content ),
 		href = type.getHref(),
 		domElement = doc.createElement( 'a' );
@@ -170,7 +167,7 @@ ve.dm.MWMagicLinkNode.static.toDomElements = function ( dataElement, doc ) {
  * @return {string} Link href
  */
 ve.dm.MWMagicLinkNode.prototype.getHref = function () {
-	const content = this.element.attributes.content,
+	var content = this.element.attributes.content,
 		type = ve.dm.MWMagicLinkType.static.fromContent( content );
 	return type.getHref();
 };
@@ -181,7 +178,7 @@ ve.dm.MWMagicLinkNode.prototype.getHref = function () {
  * @return {string} Either "mw:ExtLink" or "mw:WikiLink"
  */
 ve.dm.MWMagicLinkNode.prototype.getRel = function () {
-	const content = this.element.attributes.content,
+	var content = this.element.attributes.content,
 		type = ve.dm.MWMagicLinkType.static.fromContent( content );
 	return type.rel;
 };
@@ -192,7 +189,7 @@ ve.dm.MWMagicLinkNode.prototype.getRel = function () {
  * @return {string} Magic link type
  */
 ve.dm.MWMagicLinkNode.prototype.getMagicType = function () {
-	const content = this.element.attributes.content,
+	var content = this.element.attributes.content,
 		type = ve.dm.MWMagicLinkType.static.fromContent( content );
 	return type.type;
 };
@@ -203,7 +200,7 @@ ve.dm.MWMagicLinkNode.prototype.getMagicType = function () {
  * @return {string}
  */
 ve.dm.MWMagicLinkNode.prototype.getCode = function () {
-	const content = this.element.attributes.content,
+	var content = this.element.attributes.content,
 		type = ve.dm.MWMagicLinkType.static.fromContent( content );
 	return type.num;
 };
@@ -249,7 +246,7 @@ ve.dm.MWMagicLinkType.prototype.getAnnotation = function () {
  * @protected
  */
 ve.dm.MWMagicLinkType.prototype.getCode = function () {
-	const m = /^([A-Z]+)[\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+(\d+)$/.exec( this.content );
+	var m = /^([A-Z]+)[\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+(\d+)$/.exec( this.content );
 	if ( !m || m[ 1 ] !== this.type ) {
 		return null;
 	}
@@ -257,7 +254,7 @@ ve.dm.MWMagicLinkType.prototype.getCode = function () {
 };
 
 /**
- * @method ve.dm.MWMagicLinkNode.getHref
+ * @method getHref
  * @inheritdoc ve.dm.MWMagicLinkNode#getHref
  */
 
@@ -268,7 +265,7 @@ ve.dm.MWMagicLinkType.prototype.getCode = function () {
  * @return {boolean}
  */
 ve.dm.MWMagicLinkType.prototype.matchHref = function ( href ) {
-	return href.replace( /^https?:/i, '' ) === this.getHref().replace( /^https?:/i, '' );
+	return href.replace( /^https?:/i, '' ) === this.getHref();
 };
 
 /**
@@ -280,9 +277,9 @@ ve.dm.MWMagicLinkType.prototype.matchHref = function ( href ) {
  * @return {ve.dm.MWMagicLinkType|null}
  */
 ve.dm.MWMagicLinkType.static.fromContent = function ( content ) {
-	let type = null;
-	const m = /^(ISBN|PMID|RFC)/.exec( content ),
-		typeStr = m && m[ 1 ];
+	var m = /^(ISBN|PMID|RFC)/.exec( content ),
+		typeStr = m && m[ 1 ],
+		type = null;
 	if ( typeStr === 'ISBN' ) {
 		type = new ve.dm.MWMagicLinkIsbnType( content );
 	} else if ( typeStr === 'PMID' ) {
@@ -315,7 +312,7 @@ OO.inheritClass( ve.dm.MWMagicLinkIsbnType, ve.dm.MWMagicLinkType );
  * @inheritdoc
  */
 ve.dm.MWMagicLinkIsbnType.prototype.getAnnotation = function () {
-	const conf = mw.config.get( 'wgVisualEditorConfig' ),
+	var conf = mw.config.get( 'wgVisualEditorConfig' ),
 		title = mw.Title.newFromText( conf.specialBooksources + '/' + this.code );
 	return ve.dm.MWInternalLinkAnnotation.static.newFromTitle( title );
 };
@@ -324,15 +321,15 @@ ve.dm.MWMagicLinkIsbnType.prototype.getAnnotation = function () {
  * @inheritdoc
  */
 ve.dm.MWMagicLinkIsbnType.prototype.getCode = function () {
-	const content = this.content;
+	var content = this.content;
 
 	if ( !/^ISBN[^-0-9][\s\S]+[0-9Xx]$/.test( content ) ) {
 		return null;
 	}
 
 	// Remove unicode whitespace and dashes
-	const spaceOrDash = /[-\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+/g;
-	const isbnCode = content.replace( spaceOrDash, '' ).replace( /^ISBN/, '' );
+	var spaceOrDash = /[-\t \u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+/g;
+	var isbnCode = content.replace( spaceOrDash, '' ).replace( /^ISBN/, '' );
 
 	// Verify format of ISBN
 	if ( !/^(97[89])?\d{9}[0-9Xx]$/.test( isbnCode ) ) {
@@ -345,7 +342,7 @@ ve.dm.MWMagicLinkIsbnType.prototype.getCode = function () {
  * @inheritdoc
  */
 ve.dm.MWMagicLinkIsbnType.prototype.getHref = function () {
-	const conf = mw.config.get( 'wgVisualEditorConfig' );
+	var conf = mw.config.get( 'wgVisualEditorConfig' );
 	return './' + conf.specialBooksources + '/' + this.code;
 };
 
@@ -353,14 +350,14 @@ ve.dm.MWMagicLinkIsbnType.prototype.getHref = function () {
  * @inheritdoc
  */
 ve.dm.MWMagicLinkIsbnType.prototype.matchHref = function ( href ) {
-	const conf = mw.config.get( 'wgVisualEditorConfig' ),
+	var conf = mw.config.get( 'wgVisualEditorConfig' ),
 		matches = /^(?:[.]+\/)*([^/]+)\/(\d+[Xx]?)$/.exec( href );
 
 	if ( !matches ) {
 		return false;
 	}
 	// conf.specialBooksources has localized name for Special:Booksources
-	const normalized = mw.libs.ve.decodeURIComponentIntoArticleTitle( matches[ 1 ], true ).replace( ' ', '_' );
+	var normalized = mw.libs.ve.decodeURIComponentIntoArticleTitle( matches[ 1 ], true ).replace( ' ', '_' );
 	if ( normalized !== 'Special:BookSources' && normalized !== conf.specialBooksources ) {
 		return false;
 	}

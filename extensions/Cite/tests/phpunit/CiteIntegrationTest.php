@@ -4,58 +4,66 @@ namespace Cite\Tests;
 
 use Cite\Cite;
 use Cite\ErrorReporter;
-use Cite\ReferenceListFormatter;
+use Cite\ReferencesFormatter;
 use Cite\ReferenceStack;
-use MediaWiki\Language\Language;
-use MediaWiki\MainConfigNames;
-use MediaWiki\Parser\Parser;
-use MediaWiki\Parser\ParserOptions;
+use Language;
+use Parser;
+use ParserOptions;
 use Wikimedia\TestingAccessWrapper;
 
 /**
- * @covers \Cite\Cite
+ * @coversDefaultClass \Cite\Cite
+ *
  * @license GPL-2.0-or-later
  */
 class CiteIntegrationTest extends \MediaWikiIntegrationTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->overrideConfigValue( MainConfigNames::LanguageCode, 'qqx' );
+
+		$this->setMwGlobals( [
+			'wgLanguageCode' => 'qqx',
+		] );
 	}
 
 	/**
+	 * @covers ::checkRefsNoReferences
 	 * @dataProvider provideCheckRefsNoReferences
 	 */
 	public function testCheckRefsNoReferences(
 		array $initialRefs, bool $isSectionPreview, string $expectedOutput
 	) {
-		$this->overrideConfigValue( 'CiteResponsiveReferences', true );
+		global $wgCiteResponsiveReferences;
+		$wgCiteResponsiveReferences = true;
 
 		$mockErrorReporter = $this->createMock( ErrorReporter::class );
 		$mockErrorReporter->method( 'halfParsed' )->willReturnCallback(
-			static fn ( $parser, ...$args ) => '(' . implode( '|', $args ) . ')'
+			static function ( $parser, ...$args ) {
+				return '(' . implode( '|', $args ) . ')';
+			}
 		);
 
-		$referenceStack = new ReferenceStack();
-		TestingAccessWrapper::newFromObject( $referenceStack )->refs = TestUtils::refGroupsFromArray( $initialRefs );
+		/** @var ReferenceStack $referenceStack */
+		$referenceStack = TestingAccessWrapper::newFromObject( new ReferenceStack( $mockErrorReporter ) );
+		$referenceStack->refs = $initialRefs;
 
-		$formatter = $this->createMock( ReferenceListFormatter::class );
-		$formatter->method( 'formatReferences' )->willReturn( '<references />' );
+		$referencesFormatter = $this->createMock( ReferencesFormatter::class );
+		$referencesFormatter->method( 'formatReferences' )->willReturn( '<references />' );
 
 		$cite = $this->newCite();
 		/** @var Cite $spy */
 		$spy = TestingAccessWrapper::newFromObject( $cite );
 		$spy->referenceStack = $referenceStack;
 		$spy->errorReporter = $mockErrorReporter;
-		$spy->referenceListFormatter = $formatter;
+		$spy->referencesFormatter = $referencesFormatter;
 		$spy->isSectionPreview = $isSectionPreview;
 
-		$parser = $this->createNoOpMock( Parser::class );
-		$output = $cite->checkRefsNoReferences( $parser, $isSectionPreview );
+		$output = $cite->checkRefsNoReferences(
+			$this->createMock( Parser::class ), $isSectionPreview );
 		$this->assertSame( $expectedOutput, $output );
 	}
 
-	public static function provideCheckRefsNoReferences() {
+	public function provideCheckRefsNoReferences() {
 		return [
 			'Default group' => [
 				[ '' => [ [ 'name' => 'a' ] ] ],
@@ -72,7 +80,7 @@ class CiteIntegrationTest extends \MediaWikiIntegrationTestCase {
 			'Named group' => [
 				[ 'foo' => [ [ 'name' => 'a' ] ] ],
 				false,
-				"\n<br />(cite_error_group_refs_without_references|foo)"
+				"\n" . '<br />(cite_error_group_refs_without_references|foo)'
 			],
 			'Named group in preview' => [
 				[ 'foo' => [ [ 'name' => 'a' ] ] ],
@@ -85,17 +93,17 @@ class CiteIntegrationTest extends \MediaWikiIntegrationTestCase {
 	}
 
 	private function newCite(): Cite {
-		$language = $this->createNoOpMock( Language::class );
-
 		$mockOptions = $this->createMock( ParserOptions::class );
 		$mockOptions->method( 'getIsPreview' )->willReturn( false );
 		$mockOptions->method( 'getIsSectionPreview' )->willReturn( false );
-
-		$mockParser = $this->createNoOpMock( Parser::class, [ 'getOptions', 'getContentLanguage' ] );
+		$mockOptions->method( 'getUserLangObj' )->willReturn(
+			$this->createMock( Language::class ) );
+		$mockParser = $this->createMock( Parser::class );
 		$mockParser->method( 'getOptions' )->willReturn( $mockOptions );
-		$mockParser->method( 'getContentLanguage' )->willReturn( $language );
-		$config = $this->getServiceContainer()->getMainConfig();
-		return new Cite( $mockParser, $config );
+		$mockParser->method( 'getContentLanguage' )->willReturn(
+			$this->createMock( Language::class ) );
+		/** @var Parser $mockParser */
+		return new Cite( $mockParser );
 	}
 
 }

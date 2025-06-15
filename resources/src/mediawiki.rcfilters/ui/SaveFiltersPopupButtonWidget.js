@@ -5,15 +5,17 @@
  * default.
  *
  * @class mw.rcfilters.ui.SaveFiltersPopupButtonWidget
- * @ignore
  * @extends OO.ui.PopupButtonWidget
  *
+ * @constructor
  * @param {mw.rcfilters.Controller} controller Controller
  * @param {mw.rcfilters.dm.SavedQueriesModel} model View model
  * @param {Object} [config] Configuration object
  */
-const SaveFiltersPopupButtonWidget = function MwRcfiltersUiSaveFiltersPopupButtonWidget( controller, model, config ) {
-	const $popupContent = $( '<div>' );
+var SaveFiltersPopupButtonWidget = function MwRcfiltersUiSaveFiltersPopupButtonWidget( controller, model, config ) {
+	var layout,
+		checkBoxLayout,
+		$popupContent = $( '<div>' );
 
 	config = config || {};
 
@@ -21,7 +23,7 @@ const SaveFiltersPopupButtonWidget = function MwRcfiltersUiSaveFiltersPopupButto
 	this.model = model;
 
 	// Parent
-	SaveFiltersPopupButtonWidget.super.call( this, Object.assign( {
+	SaveFiltersPopupButtonWidget.parent.call( this, $.extend( {
 		framed: false,
 		icon: 'bookmark',
 		title: mw.msg( 'rcfilters-savedqueries-add-new-title' ),
@@ -29,26 +31,23 @@ const SaveFiltersPopupButtonWidget = function MwRcfiltersUiSaveFiltersPopupButto
 			classes: [ 'mw-rcfilters-ui-saveFiltersPopupButtonWidget-popup' ],
 			padded: true,
 			head: true,
-			// Make the popup slightly wider to accommodate titles and labels
-			// from languages that are longer than the original English ones.
-			// See T217304
-			width: 450,
-			icon: 'bookmark',
 			label: mw.msg( 'rcfilters-savedqueries-add-new-title' ),
 			$content: $popupContent
 		}
 	}, config ) );
+	// // HACK: Add an icon to the popup head label
+	this.popup.$head.prepend( ( new OO.ui.IconWidget( { icon: 'bookmark' } ) ).$element );
 
 	this.input = new OO.ui.TextInputWidget( {
 		placeholder: mw.msg( 'rcfilters-savedqueries-new-name-placeholder' )
 	} );
-	const layout = new OO.ui.FieldLayout( this.input, {
+	layout = new OO.ui.FieldLayout( this.input, {
 		label: mw.msg( 'rcfilters-savedqueries-new-name-label' ),
 		align: 'top'
 	} );
 
 	this.setAsDefaultCheckbox = new OO.ui.CheckboxInputWidget();
-	const checkBoxLayout = new OO.ui.FieldLayout( this.setAsDefaultCheckbox, {
+	checkBoxLayout = new OO.ui.FieldLayout( this.setAsDefaultCheckbox, {
 		label: mw.msg( 'rcfilters-savedqueries-setdefault' ),
 		align: 'inline'
 	} );
@@ -125,7 +124,7 @@ SaveFiltersPopupButtonWidget.prototype.onInputChange = function ( value ) {
  * Respond to input keyup event, this is the way to intercept 'escape' key
  *
  * @param {jQuery.Event} e Event data
- * @return {boolean|undefined} false
+ * @return {boolean} false
  */
 SaveFiltersPopupButtonWidget.prototype.onInputKeyup = function ( e ) {
 	if ( e.which === OO.ui.Keys.ESCAPE ) {
@@ -148,7 +147,12 @@ SaveFiltersPopupButtonWidget.prototype.onPopupReady = function () {
  */
 SaveFiltersPopupButtonWidget.prototype.onSetAsDefaultChange = function ( checked ) {
 	this.applyButton
-		.setIcon( checked ? 'pushPin' : null );
+		.setIcon( checked ? 'pushPin' : null )
+		.setLabel( mw.msg(
+			checked ?
+				'rcfilters-savedqueries-apply-and-setdefault-label' :
+				'rcfilters-savedqueries-apply-label'
+		) );
 };
 
 /**
@@ -169,7 +173,7 @@ SaveFiltersPopupButtonWidget.prototype.onApplyButtonClick = function () {
  * Apply and add the new quick link
  */
 SaveFiltersPopupButtonWidget.prototype.apply = function () {
-	const label = this.input.getValue().trim();
+	var label = this.input.getValue().trim();
 
 	// This condition is more for double-checking, since the
 	// apply button should be disabled if the label is empty

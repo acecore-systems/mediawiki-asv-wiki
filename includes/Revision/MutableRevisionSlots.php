@@ -22,7 +22,7 @@
 
 namespace MediaWiki\Revision;
 
-use MediaWiki\Content\Content;
+use Content;
 
 /**
  * Mutable version of RevisionSlots, for constructing a new revision.

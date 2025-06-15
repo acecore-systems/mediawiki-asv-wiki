@@ -3,8 +3,8 @@
 namespace MediaWiki\Page\Hook;
 
 use Article;
-use MediaWiki\Context\IContextSource;
-use MediaWiki\Title\Title;
+use IContextSource;
+use Title;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface LinkInspectorTool classes.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -26,12 +26,12 @@ ve.ui.LinkInspectorTool.static.modelClasses = [ ve.dm.LinkAnnotation ];
 ve.ui.LinkInspectorTool.static.commandName = 'link';
 
 ve.ui.LinkInspectorTool.prototype.getSelectedModels = function ( fragment ) {
-	const selection = fragment && fragment.getSelection();
+	var selection = fragment && fragment.getSelection();
 
 	// Ask the CE surface about selected models, so it can give the right
 	// answer about links based on the CE selection.
 	if ( selection instanceof ve.dm.LinearSelection ) {
-		const surfaceView = this.toolbar.getSurface().getView();
+		var surfaceView = this.toolbar.getSurface().getView();
 		if ( selection.equals( surfaceView.getModel().getSelection() ) ) {
 			return surfaceView.getSelectedModels();
 		}

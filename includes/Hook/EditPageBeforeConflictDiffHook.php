@@ -2,8 +2,8 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\EditPage\EditPage;
-use MediaWiki\Output\OutputPage;
+use EditPage;
+use OutputPage;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

@@ -20,12 +20,10 @@
 
 namespace MediaWiki\Permissions;
 
-use HtmlArmor;
-use MediaWiki\Html\Html;
-use MediaWiki\Language\Language;
+use Language;
 use MediaWiki\Languages\LanguageFactory;
 use MediaWiki\Linker\LinkRenderer;
-use MediaWiki\SpecialPage\SpecialPage;
+use SpecialPage;
 
 /**
  * This separate service is needed because the ::getGrantsLink method requires a LinkRenderer
@@ -37,11 +35,24 @@ use MediaWiki\SpecialPage\SpecialPage;
  * @since 1.38
  */
 class GrantsLocalization {
-	private GrantsInfo $grantsInfo;
-	private LinkRenderer $linkRenderer;
-	private LanguageFactory $languageFactory;
-	private Language $contentLanguage;
+	/** @var GrantsInfo */
+	private $grantsInfo;
 
+	/** @var LinkRenderer */
+	private $linkRenderer;
+
+	/** @var LanguageFactory */
+	private $languageFactory;
+
+	/** @var Language */
+	private $contentLanguage;
+
+	/**
+	 * @param GrantsInfo $grantsInfo
+	 * @param LinkRenderer $linkRenderer
+	 * @param LanguageFactory $languageFactory
+	 * @param Language $contentLanguage
+	 */
 	public function __construct(
 		GrantsInfo $grantsInfo,
 		LinkRenderer $linkRenderer,
@@ -91,51 +102,21 @@ class GrantsLocalization {
 	 * Fetch the descriptions for the grants.
 	 * @param string[] $grants
 	 * @param Language|string|null $lang
-	 * @return string[] Corresponding grant descriptions, keyed by grant name
+	 * @return string[] Corresponding grant descriptions
 	 */
 	public function getGrantDescriptions( array $grants, $lang = null ): array {
 		$ret = [];
 
 		foreach ( $grants as $grant ) {
-			$ret[$grant] = $this->getGrantDescription( $grant, $lang );
+			$ret[] = $this->getGrantDescription( $grant, $lang );
 		}
 		return $ret;
 	}
 
 	/**
-	 * Fetch the descriptions for the grants, like getGrantDescriptions, but with HTML classes
-	 * for styling. The HTML is wikitext-compatible.
-	 * @param string[] $grants
-	 * @param Language|string|null $lang
-	 * @return string[] Grant description HTML for each grant, in the same order
-	 */
-	public function getGrantDescriptionsWithClasses( array $grants, $lang = null ): array {
-		$riskGroupsByGrant = $this->grantsInfo->getRiskGroupsByGrant( 'unknown' );
-		$grantDescriptions = $this->getGrantDescriptions( $grants, $lang );
-		$results = [];
-		foreach ( $grantDescriptions as $grant => $description ) {
-			$riskGroup = $riskGroupsByGrant[$grant] ?? 'unknown';
-			// Messages used here: grantriskgroup-vandalism, grantriskgroup-security,
-			// grantriskgroup-internal
-			$riskGroupMsg = wfMessage( "grantriskgroup-$riskGroup" );
-			if ( $lang ) {
-				$riskGroupMsg->inLanguage( $lang );
-			}
-			if ( $riskGroupMsg->exists() ) {
-				$riskDescription = $riskGroupMsg->text();
-			} else {
-				$riskDescription = '';
-			}
-			$results[] = htmlspecialchars( $description ) . ' ' .
-				Html::element( 'span', [ 'class' => "mw-grant mw-grantriskgroup-$riskGroup" ], $riskDescription );
-		}
-		return $results;
-	}
-
-	/**
 	 * Generate a link to Special:ListGrants for a particular grant name.
 	 *
-	 * This can be used to link end users to a full description of what
+	 * This should be used to link end users to a full description of what
 	 * rights they are giving when they authorize a grant.
 	 *
 	 * @param string $grant the grant name
@@ -143,20 +124,14 @@ class GrantsLocalization {
 	 * @return string (proto-relative) HTML link
 	 */
 	public function getGrantsLink( string $grant, $lang = null ): string {
-		$riskGroupsByGrant = $this->grantsInfo->getRiskGroupsByGrant( 'unknown' );
-		$riskGroup = $riskGroupsByGrant[$grant] ?? 'unknown';
 		return $this->linkRenderer->makeKnownLink(
 			SpecialPage::getTitleFor( 'Listgrants', false, $grant ),
-			new HtmlArmor( $this->getGrantDescriptionsWithClasses( [ $grant ], $lang )[ 0 ] )
+			$this->getGrantDescription( $grant, $lang )
 		);
 	}
 
 	/**
-	 * Generate wikitext to display a list of grants. It will be in the format
-	 *     * <grant-group-$group>
-	 *     : <grant-$grant>; <grant-$grant>; ...
-	 *     * ...
-	 * with some HTML classes for styling.
+	 * Generate wikitext to display a list of grants.
 	 * @param string[]|null $grantsFilter If non-null, only display these grants.
 	 * @param Language|string|null $lang
 	 * @return string Wikitext
@@ -173,7 +148,6 @@ class GrantsLocalization {
 			if ( $group === 'hidden' ) {
 				continue; // implicitly granted
 			}
-			$grantDescriptionsWithClasses = $this->getGrantDescriptionsWithClasses( $grants, $lang );
 			// Give grep a chance to find the usages:
 			// grant-group-page-interaction, grant-group-file-interaction
 			// grant-group-watchlist-interaction, grant-group-email,
@@ -183,7 +157,7 @@ class GrantsLocalization {
 			$s .= "*<span class=\"mw-grantgroup\">" .
 				// TODO: replace wfMessage with something that can be injected like TextFormatter
 				wfMessage( "grant-group-$group" )->inLanguage( $lang )->text() . "</span>\n";
-			$s .= ":" . $lang->semicolonList( $grantDescriptionsWithClasses ) . "\n";
+			$s .= ":" . $lang->semicolonList( $this->getGrantDescriptions( $grants, $lang ) ) . "\n";
 		}
 		return "$s\n";
 	}

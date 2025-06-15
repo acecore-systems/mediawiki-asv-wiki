@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Storage\Hook;
 
-use MediaWiki\User\User;
+use User;
 use WikiPage;
 
 /**

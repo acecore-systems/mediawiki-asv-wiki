@@ -48,6 +48,13 @@ See <https://www.mediawiki.org/wiki/Manual:$wgSiteNotice>.
 ```
 Controls whether the category button should be displayed.
 
+#### $wgMinervaApplyKnownTemplateHacks
+
+* Type: `Boolean`
+* Default: `false`
+
+When enabled and hacks.less exists, hacks.less workarounds are included in stylesheet. These should only be needed for Wikimedia based wikis or wikis using common templates such as Template:Infobox on those wikis.
+
 #### $wgMinervaDonateLink
 
 * Type: `Array`
@@ -59,6 +66,18 @@ Controls whether the category button should be displayed.
 ```
 
 When enabled a donate link will be added to the main menu. The donate link uses the `sitesupport` and `sitesupport-url` mediawiki messages.
+
+#### $wgMinervaPageIssuesNewTreatment
+
+* Type: `Array`
+* Default:
+```php
+  [
+    'base' => false,
+    'beta' => true,
+  ]
+```
+Controls whether page issues should be replaced with a "Page issues" link (false) or displayed inline (true).
 
 #### $wgMinervaTalkAtTop
 
@@ -125,6 +144,10 @@ Controls whether a personal menu appears in the header chrome. This menu contain
 ```
 Controls whether the overflow link appears in the page actions menu.
 
+```
+Controls whether the share feature should be added to the page actions menu.
+
+
 #### $wgMinervaAlwaysShowLanguageButton
 
 * Type: `Boolean`
@@ -153,7 +176,7 @@ Group assignment is universal no matter how many tests are running since both
 Group membership can be debugged from the console via:
 
 ```js
-  const AB = require('skins.minerva.scripts/AB')
+  const AB = mw.mobileFrontend.require('skins.minerva.scripts/AB')
   new AB({
     testName: 'WME.PageIssuesAB',
     samplingRate: mw.config.get( 'wgMinervaABSamplingRate', 0 ),
@@ -164,33 +187,3 @@ Group membership can be debugged from the console via:
 And since session ID is an input in calculating the group, reassignment occurs
 when clearing it: `mw.storage.session.remove('mwuser-sessionId')`.
 
-#### $wgMinervaNightMode
-
-* Type: `array`
-* Default:
-```php
-  [
-    'base' => false,
-  ]
-```
-
-Temporary feature flag for enabling the night mode feature.
-
-
-#### $wgMinervaNightModeOptions
-
-* Type: `array`
-* Default:
-```php
-  [
-    "exclude" => [
-        "mainpage" => false,
-        "querystring" => [],
-        "namespaces" => [],
-        "pagetitles" => []
-    ]
-  ]
-```
-
-Allows the disabling of the night theme on certain pages.
-NOTE: Vector skin must be enabled to use this functionality.

@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Api\Hook;
 
-use MediaWiki\Api\ApiQueryBase;
+use ApiQueryBase;
 use Wikimedia\Rdbms\IResultWrapper;
 
 /**

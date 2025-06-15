@@ -2,11 +2,6 @@
 
 namespace MediaWiki\Widget;
 
-use OOUI\CheckboxInputWidget;
-use OOUI\Exception;
-use OOUI\FieldLayout;
-use OOUI\Widget;
-
 /**
  * Namespace input widget. Displays a dropdown box with the choice of available namespaces, plus two
  * checkboxes to include associated namespace or to invert selection.
@@ -14,19 +9,13 @@ use OOUI\Widget;
  * @copyright 2011-2015 MediaWiki Widgets Team and others; see AUTHORS.txt
  * @license MIT
  */
-class ComplexNamespaceInputWidget extends Widget {
+class ComplexNamespaceInputWidget extends \OOUI\Widget {
 
-	/** @var array */
 	protected $config;
-	/** @var NamespaceInputWidget */
 	protected $namespace;
-	/** @var CheckboxInputWidget|null */
 	protected $associated = null;
-	/** @var FieldLayout|null */
 	protected $associatedLabel = null;
-	/** @var CheckboxInputWidget|null */
 	protected $invert = null;
-	/** @var FieldLayout|null */
 	protected $invertLabel = null;
 
 	/**
@@ -45,8 +34,6 @@ class ComplexNamespaceInputWidget extends Widget {
 	 *   - array $config['associatedLabel'] Configuration for the FieldLayout with label
 	 *     wrapping the "include associated namespace" checkbox
 	 *   - string $config['associatedLabel']['label'] Label text for the label
-	 *
-	 * @throws Exception
 	 */
 	public function __construct( array $config = [] ) {
 		// Configuration initialization
@@ -69,12 +56,12 @@ class ComplexNamespaceInputWidget extends Widget {
 
 		$this->namespace = new NamespaceInputWidget( $config['namespace'] );
 		if ( $config['associated'] !== null ) {
-			$this->associated = new CheckboxInputWidget( array_merge(
+			$this->associated = new \OOUI\CheckboxInputWidget( array_merge(
 				[ 'value' => '1' ],
 				$config['associated']
 			) );
 			// TODO Should use a LabelWidget? But they don't work like HTML <label>s yet
-			$this->associatedLabel = new FieldLayout(
+			$this->associatedLabel = new \OOUI\FieldLayout(
 				$this->associated,
 				array_merge(
 					[ 'align' => 'inline' ],
@@ -83,12 +70,12 @@ class ComplexNamespaceInputWidget extends Widget {
 			);
 		}
 		if ( $config['invert'] !== null ) {
-			$this->invert = new CheckboxInputWidget( array_merge(
+			$this->invert = new \OOUI\CheckboxInputWidget( array_merge(
 				[ 'value' => '1' ],
 				$config['invert']
 			) );
 			// TODO Should use a LabelWidget? But they don't work like HTML <label>s yet
-			$this->invertLabel = new FieldLayout(
+			$this->invertLabel = new \OOUI\FieldLayout(
 				$this->invert,
 				array_merge(
 					[ 'align' => 'inline' ],

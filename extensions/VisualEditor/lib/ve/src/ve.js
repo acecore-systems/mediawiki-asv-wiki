@@ -1,13 +1,14 @@
 /*!
  * VisualEditor namespace.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
  * Namespace for all VisualEditor classes, static methods and static properties.
  *
- * @namespace ve
+ * @class ve
+ * @singleton
  */
 window.ve = {};
 
@@ -20,12 +21,10 @@ ve.now = function () {
 	// Based on `mw.now` in MediaWiki core.
 	// Optimisation: Cache and re-use the chosen implementation.
 	// Optimisation: Avoid startup overhead by re-defining on first call instead of IIFE.
-	const perf = window.performance;
-	const navStart = perf && perf.timing && perf.timing.navigationStart;
+	var perf = window.performance;
+	var navStart = perf && perf.timing && perf.timing.navigationStart;
 	ve.now = navStart && perf.now ?
-		function () {
-			return navStart + perf.now();
-		} : Date.now;
+		function () { return navStart + perf.now(); } : Date.now;
 
 	return ve.now();
 };

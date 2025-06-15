@@ -1,10 +1,6 @@
 <?php
 
-use MediaWiki\Context\DerivativeContext;
-use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Request\FauxRequest;
-use MediaWiki\Specials\SpecialWatchlist;
 use Wikimedia\TestingAccessWrapper;
 
 /**
@@ -12,15 +8,15 @@ use Wikimedia\TestingAccessWrapper;
  *
  * @group Database
  *
- * @covers \MediaWiki\Specials\SpecialWatchlist
+ * @covers SpecialWatchlist
  */
 class SpecialWatchlistTest extends SpecialPageTestBase {
 	protected function setUp(): void {
 		parent::setUp();
-
+		$this->tablesUsed = [ 'watchlist' ];
 		$this->setTemporaryHook(
 			'ChangesListSpecialPageQuery',
-			HookContainer::NOOP
+			null
 		);
 
 		$this->overrideConfigValues( [
@@ -53,10 +49,8 @@ class SpecialWatchlistTest extends SpecialPageTestBase {
 		return new SpecialWatchlist(
 			$services->getWatchedItemStore(),
 			$services->getWatchlistManager(),
-			$services->getUserOptionsLookup(),
-			$services->getChangeTagsStore(),
-			$services->getUserIdentityUtils(),
-			$services->getTempUserConfig()
+			$services->getDBLoadBalancer(),
+			$services->getUserOptionsLookup()
 		);
 	}
 
@@ -67,7 +61,7 @@ class SpecialWatchlistTest extends SpecialPageTestBase {
 
 	public function testUserWithNoWatchedItems_displaysNoWatchlistMessage() {
 		$user = new TestUser( __METHOD__ );
-		[ $html, ] = $this->executeSpecialPage( '', null, 'qqx', $user->getUser() );
+		list( $html, ) = $this->executeSpecialPage( '', null, 'qqx', $user->getUser() );
 		$this->assertStringContainsString( '(nowatchlist)', $html );
 	}
 
@@ -143,7 +137,7 @@ class SpecialWatchlistTest extends SpecialPageTestBase {
 		);
 	}
 
-	public static function provideFetchOptionsFromRequest() {
+	public function provideFetchOptionsFromRequest() {
 		return [
 			'ignores casing' => [
 				'expectedValuesDefaults' => 'wikiDefaults',

@@ -1,34 +1,33 @@
-/* global moment */
+/* global moment, Uint8Array */
 ( function () {
 
 	/**
-	 * @classdesc Encapsulates the process of uploading a file to MediaWiki
-	 * using the {@link mw.ForeignStructuredUpload} model.
+	 * mw.ForeignStructuredUpload.BookletLayout encapsulates the process
+	 * of uploading a file to MediaWiki using the mw.ForeignStructuredUpload model.
 	 *
-	 * @example
-	 * var uploadDialog = new mw.Upload.Dialog( {
-	 *     bookletClass: mw.ForeignStructuredUpload.BookletLayout,
-	 *     booklet: {
-	 *         target: 'local'
-	 *     }
-	 * } );
-	 * var windowManager = new OO.ui.WindowManager();
-	 * $( document.body ).append( windowManager.$element );
-	 * windowManager.addWindows( [ uploadDialog ] );
+	 *     var uploadDialog = new mw.Upload.Dialog( {
+	 *         bookletClass: mw.ForeignStructuredUpload.BookletLayout,
+	 *         booklet: {
+	 *             target: 'local'
+	 *         }
+	 *     } );
+	 *     var windowManager = new OO.ui.WindowManager();
+	 *     $( document.body ).append( windowManager.$element );
+	 *     windowManager.addWindows( [ uploadDialog ] );
 	 *
 	 * @class mw.ForeignStructuredUpload.BookletLayout
+	 * @uses mw.ForeignStructuredUpload
 	 * @extends mw.Upload.BookletLayout
 	 *
 	 * @constructor
-	 * @description Create an instance of `mw.ForeignStructuredUpload.BookletLayout`.
 	 * @param {Object} config Configuration options
-	 * @param {string} [config.target] Used to choose the target repository.
+	 * @cfg {string} [target] Used to choose the target repository.
 	 *     If nothing is passed, the {@link mw.ForeignUpload#property-target default} is used.
 	 */
 	mw.ForeignStructuredUpload.BookletLayout = function ( config ) {
 		config = config || {};
 		// Parent constructor
-		mw.ForeignStructuredUpload.BookletLayout.super.call( this, config );
+		mw.ForeignStructuredUpload.BookletLayout.parent.call( this, config );
 
 		this.target = config.target;
 	};
@@ -41,93 +40,98 @@
 
 	/**
 	 * @inheritdoc
-	 * @ignore
 	 */
 	mw.ForeignStructuredUpload.BookletLayout.prototype.initialize = function () {
-		const booklet = this;
-		return mw.ForeignStructuredUpload.BookletLayout.super.prototype.initialize.call( this ).then(
-			() => $.when(
-				// Point the CategoryMultiselectWidget to the right wiki
-				booklet.upload.getApi().then( ( api ) => {
-					// If this is a ForeignApi, it will have a apiUrl, otherwise we don't need to do anything
-					if ( api.apiUrl ) {
-						// Can't reuse the same object, CategoryMultiselectWidget calls #abort on its mw.Api instance
-						booklet.categoriesWidget.api = new mw.ForeignApi( api.apiUrl );
-					}
-					return $.Deferred().resolve();
-				} ),
-				// Set up booklet fields and license messages to match configuration
-				booklet.upload.loadConfig().then( ( config ) => {
-					const isLocal = booklet.upload.target === 'local',
-						fields = config.fields,
-						msgs = config.licensemessages[ isLocal ? 'local' : 'foreign' ];
+		var booklet = this;
+		return mw.ForeignStructuredUpload.BookletLayout.parent.prototype.initialize.call( this ).then(
+			function () {
+				return $.when(
+					// Point the CategoryMultiselectWidget to the right wiki
+					booklet.upload.getApi().then( function ( api ) {
+						// If this is a ForeignApi, it will have a apiUrl, otherwise we don't need to do anything
+						if ( api.apiUrl ) {
+							// Can't reuse the same object, CategoryMultiselectWidget calls #abort on its mw.Api instance
+							booklet.categoriesWidget.api = new mw.ForeignApi( api.apiUrl );
+						}
+						return $.Deferred().resolve();
+					} ),
+					// Set up booklet fields and license messages to match configuration
+					booklet.upload.loadConfig().then( function ( config ) {
+						var
+							msgPromise,
+							isLocal = booklet.upload.target === 'local',
+							fields = config.fields,
+							msgs = config.licensemessages[ isLocal ? 'local' : 'foreign' ];
 
-					// Hide disabled fields
-					booklet.descriptionField.toggle( !!fields.description );
-					booklet.categoriesField.toggle( !!fields.categories );
-					booklet.dateField.toggle( !!fields.date );
-					// Update form validity
-					booklet.onInfoFormChange();
+						// Hide disabled fields
+						booklet.descriptionField.toggle( !!fields.description );
+						booklet.categoriesField.toggle( !!fields.categories );
+						booklet.dateField.toggle( !!fields.date );
+						// Update form validity
+						booklet.onInfoFormChange();
 
-					let msgPromise;
-					// Load license messages from the remote wiki if we don't have these messages locally
-					// (this means that we only load messages from the foreign wiki for custom config)
-					// These messages are documented where msgPromise resolves
-					if ( mw.message( 'upload-form-label-own-work-message-' + msgs ).exists() ) {
-						msgPromise = $.Deferred().resolve();
-					} else {
-						msgPromise = booklet.upload.apiPromise.then( ( api ) => api.loadMessages( [
-							// These messages are documented where msgPromise resolves
-							'upload-form-label-own-work-message-' + msgs,
-							'upload-form-label-not-own-work-message-' + msgs,
-							'upload-form-label-not-own-work-local-' + msgs
-						] ) );
-					}
-
-					// Update license messages
-					return msgPromise.then( () => {
-						// The following messages are used here:
-						// * upload-form-label-own-work-message-generic-local
-						// * upload-form-label-own-work-message-generic-foreign
-						booklet.$ownWorkMessage.msg( 'upload-form-label-own-work-message-' + msgs );
-						// * upload-form-label-not-own-work-message-generic-local
-						// * upload-form-label-not-own-work-message-generic-foreign
-						booklet.$notOwnWorkMessage.msg( 'upload-form-label-not-own-work-message-' + msgs );
-						// * upload-form-label-not-own-work-local-generic-local
-						// * upload-form-label-not-own-work-local-generic-foreign
-						booklet.$notOwnWorkLocal.msg( 'upload-form-label-not-own-work-local-' + msgs );
-
-						const $labels = $( [
-							booklet.$ownWorkMessage[ 0 ],
-							booklet.$notOwnWorkMessage[ 0 ],
-							booklet.$notOwnWorkLocal[ 0 ]
-						] );
-
-						// Improve the behavior of links inside these labels, which may point to important
-						// things like licensing requirements or terms of use
-						$labels.find( 'a' )
-							.attr( 'target', '_blank' )
-							.on( 'click', ( e ) => {
-								// OO.ui.FieldLayout#onLabelClick is trying to prevent default on all clicks,
-								// which causes the links to not be openable. Don't let it do that.
-								e.stopPropagation();
+						// Load license messages from the remote wiki if we don't have these messages locally
+						// (this means that we only load messages from the foreign wiki for custom config)
+						// These messages are documented where msgPromise resolves
+						if ( mw.message( 'upload-form-label-own-work-message-' + msgs ).exists() ) {
+							msgPromise = $.Deferred().resolve();
+						} else {
+							msgPromise = booklet.upload.apiPromise.then( function ( api ) {
+								return api.loadMessages( [
+									// These messages are documented where msgPromise resolves
+									'upload-form-label-own-work-message-' + msgs,
+									'upload-form-label-not-own-work-message-' + msgs,
+									'upload-form-label-not-own-work-local-' + msgs
+								] );
 							} );
-					} );
-				}, ( errorMsg ) => {
-					// eslint-disable-next-line mediawiki/msg-doc
-					booklet.getPage( 'upload' ).$element.msg( errorMsg );
-					return $.Deferred().resolve();
-				} )
-			)
+						}
+
+						// Update license messages
+						return msgPromise.then( function () {
+							var $labels;
+							// The following messages are used here:
+							// * upload-form-label-own-work-message-generic-local
+							// * upload-form-label-own-work-message-generic-foreign
+							booklet.$ownWorkMessage.msg( 'upload-form-label-own-work-message-' + msgs );
+							// * upload-form-label-not-own-work-message-generic-local
+							// * upload-form-label-not-own-work-message-generic-foreign
+							booklet.$notOwnWorkMessage.msg( 'upload-form-label-not-own-work-message-' + msgs );
+							// * upload-form-label-not-own-work-local-generic-local
+							// * upload-form-label-not-own-work-local-generic-foreign
+							booklet.$notOwnWorkLocal.msg( 'upload-form-label-not-own-work-local-' + msgs );
+
+							$labels = $( [
+								booklet.$ownWorkMessage[ 0 ],
+								booklet.$notOwnWorkMessage[ 0 ],
+								booklet.$notOwnWorkLocal[ 0 ]
+							] );
+
+							// Improve the behavior of links inside these labels, which may point to important
+							// things like licensing requirements or terms of use
+							$labels.find( 'a' )
+								.attr( 'target', '_blank' )
+								.on( 'click', function ( e ) {
+									// OO.ui.FieldLayout#onLabelClick is trying to prevent default on all clicks,
+									// which causes the links to not be openable. Don't let it do that.
+									e.stopPropagation();
+								} );
+						} );
+					}, function ( errorMsg ) {
+						// eslint-disable-next-line mediawiki/msg-doc
+						booklet.getPage( 'upload' ).$element.msg( errorMsg );
+						return $.Deferred().resolve();
+					} )
+				);
+			}
 		).catch(
 			// Always resolve, never reject
-			() => $.Deferred().resolve()
+			function () { return $.Deferred().resolve(); }
 		);
 	};
 
 	/**
 	 * Returns a {@link mw.ForeignStructuredUpload mw.ForeignStructuredUpload}
-	 * with the `target` specified in config.
+	 * with the {@link #cfg-target target} specified in config.
 	 *
 	 * @protected
 	 * @return {mw.Upload}
@@ -149,7 +153,8 @@
 	 * @inheritdoc
 	 */
 	mw.ForeignStructuredUpload.BookletLayout.prototype.renderUploadForm = function () {
-		const layout = this;
+		var fieldset,
+			layout = this;
 
 		// These elements are filled with text in #initialize
 		// TODO Refactor this to be in one place
@@ -157,7 +162,7 @@
 		this.$notOwnWorkMessage = $( '<p>' );
 		this.$notOwnWorkLocal = $( '<p>' );
 
-		this.selectFileWidget = new OO.ui.SelectFileInputWidget( {
+		this.selectFileWidget = new OO.ui.SelectFileWidget( {
 			showDropTarget: true
 		} );
 		this.messageLabel = new OO.ui.LabelWidget( {
@@ -166,11 +171,11 @@
 				this.$notOwnWorkLocal
 			)
 		} );
-		this.ownWorkCheckbox = new OO.ui.CheckboxInputWidget().on( 'change', ( on ) => {
+		this.ownWorkCheckbox = new OO.ui.CheckboxInputWidget().on( 'change', function ( on ) {
 			layout.messageLabel.toggle( !on );
 		} );
 
-		const fieldset = new OO.ui.FieldsetLayout();
+		fieldset = new OO.ui.FieldsetLayout();
 		fieldset.addItems( [
 			new OO.ui.FieldLayout( this.selectFileWidget, {
 				align: 'top'
@@ -191,8 +196,8 @@
 		this.selectFileWidget.on( 'change', this.onUploadFormChange.bind( this ) );
 		this.ownWorkCheckbox.on( 'change', this.onUploadFormChange.bind( this ) );
 
-		this.selectFileWidget.on( 'change', () => {
-			const file = layout.getFile();
+		this.selectFileWidget.on( 'change', function () {
+			var file = layout.getFile();
 
 			// Set the date to lastModified once we have the file
 			if ( layout.getDateFromLastModified( file ) !== undefined ) {
@@ -200,7 +205,7 @@
 			}
 
 			// Check if we have EXIF data and set to that where available
-			layout.getDateFromExif( file ).done( ( date ) => {
+			layout.getDateFromExif( file ).done( function ( date ) {
 				layout.dateWidget.setValue( date );
 			} );
 
@@ -214,7 +219,7 @@
 	 * @inheritdoc
 	 */
 	mw.ForeignStructuredUpload.BookletLayout.prototype.onUploadFormChange = function () {
-		const file = this.selectFileWidget.getValue(),
+		var file = this.selectFileWidget.getValue(),
 			ownWork = this.ownWorkCheckbox.isSelected(),
 			valid = !!file && ownWork;
 		this.emit( 'uploadValid', valid );
@@ -224,6 +229,8 @@
 	 * @inheritdoc
 	 */
 	mw.ForeignStructuredUpload.BookletLayout.prototype.renderInfoForm = function () {
+		var fieldset;
+
 		this.filePreview = new OO.ui.Widget( {
 			classes: [ 'mw-upload-bookletLayout-filePreview' ]
 		} );
@@ -273,7 +280,7 @@
 			align: 'top'
 		} );
 
-		const fieldset = new OO.ui.FieldsetLayout( {
+		fieldset = new OO.ui.FieldsetLayout( {
 			label: mw.msg( 'upload-form-label-infoform-title' )
 		} );
 		fieldset.addItems( [
@@ -292,9 +299,9 @@
 		this.descriptionWidget.on( 'change', this.onInfoFormChange.bind( this ) );
 		this.dateWidget.on( 'change', this.onInfoFormChange.bind( this ) );
 
-		this.on( 'fileUploadProgress', ( progress ) => {
+		this.on( 'fileUploadProgress', function ( progress ) {
 			this.progressBarWidget.setProgress( progress * 100 );
-		} );
+		}.bind( this ) );
 
 		return this.infoForm;
 	};
@@ -303,7 +310,7 @@
 	 * @inheritdoc
 	 */
 	mw.ForeignStructuredUpload.BookletLayout.prototype.onInfoFormChange = function () {
-		const layout = this,
+		var layout = this,
 			validityPromises = [];
 
 		validityPromises.push( this.filenameWidget.getValidity() );
@@ -314,9 +321,9 @@
 			validityPromises.push( this.dateWidget.getValidity() );
 		}
 
-		$.when( ...validityPromises ).done( () => {
+		$.when.apply( $, validityPromises ).done( function () {
 			layout.emit( 'infoValid', true );
-		} ).fail( () => {
+		} ).fail( function () {
 			layout.emit( 'infoValid', false );
 		} );
 	};
@@ -332,7 +339,7 @@
 			titles: filename.getPrefixedDb(),
 			formatversion: 2
 		} ).then(
-			( result ) => {
+			function ( result ) {
 				// if the file already exists, reject right away, before
 				// ever firing finishStashUpload()
 				if ( !result.query.pages[ 0 ].missing ) {
@@ -342,10 +349,12 @@
 					) );
 				}
 			},
-			// API call failed - this could be a connection hiccup...
-			// Let's just ignore this validation step and turn this
-			// failure into a successful resolve ;)
-			() => $.Deferred().resolve()
+			function () {
+				// API call failed - this could be a connection hiccup...
+				// Let's just ignore this validation step and turn this
+				// failure into a successful resolve ;)
+				return $.Deferred().resolve();
+			}
 		);
 	};
 
@@ -353,14 +362,14 @@
 	 * @inheritdoc
 	 */
 	mw.ForeignStructuredUpload.BookletLayout.prototype.saveFile = function () {
-		const title = mw.Title.newFromText(
+		var title = mw.Title.newFromText(
 			this.getFilename(),
 			mw.config.get( 'wgNamespaceIds' ).file
 		);
 
 		return this.uploadPromise
 			.then( this.validateFilename.bind( this, title ) )
-			.then( mw.ForeignStructuredUpload.BookletLayout.super.prototype.saveFile.bind( this ) );
+			.then( mw.ForeignStructuredUpload.BookletLayout.parent.prototype.saveFile.bind( this ) );
 	};
 
 	/* Getters */
@@ -369,8 +378,10 @@
 	 * @inheritdoc
 	 */
 	mw.ForeignStructuredUpload.BookletLayout.prototype.getText = function () {
-		const language = mw.config.get( 'wgContentLanguage' ),
-			categories = this.categoriesWidget.getItems().map( ( item ) => item.data );
+		var language = mw.config.get( 'wgContentLanguage' ),
+			categories = this.categoriesWidget.getItems().map( function ( item ) {
+				return item.data;
+			} );
 		this.upload.clearDescriptions();
 		this.upload.addDescription( language, this.descriptionWidget.getValue() );
 		this.upload.setDate( this.dateWidget.getValue() );
@@ -380,32 +391,32 @@
 	};
 
 	/**
-	 * Get original date from EXIF data.
+	 * Get original date from EXIF data
 	 *
-	 * @param {File} file
+	 * @param {Object} file
 	 * @return {jQuery.Promise} Promise resolved with the EXIF date
 	 */
 	mw.ForeignStructuredUpload.BookletLayout.prototype.getDateFromExif = function ( file ) {
-		const deferred = $.Deferred();
+		var fileReader,
+			deferred = $.Deferred();
 
 		if ( file && file.type === 'image/jpeg' ) {
-			const fileReader = new FileReader();
+			fileReader = new FileReader();
 			fileReader.onload = function () {
-				const jpegmeta = require( 'mediawiki.libs.jpegmeta' );
+				var fileStr, arr, i, metadata,
+					jpegmeta = require( 'mediawiki.libs.jpegmeta' );
 
-				let fileStr;
 				if ( typeof fileReader.result === 'string' ) {
 					fileStr = fileReader.result;
 				} else {
 					// Array buffer; convert to binary string for the library.
-					const arr = new Uint8Array( fileReader.result );
+					arr = new Uint8Array( fileReader.result );
 					fileStr = '';
-					for ( let i = 0; i < arr.byteLength; i++ ) {
+					for ( i = 0; i < arr.byteLength; i++ ) {
 						fileStr += String.fromCharCode( arr[ i ] );
 					}
 				}
 
-				let metadata;
 				try {
 					metadata = jpegmeta( fileStr, file.name );
 				} catch ( e ) {
@@ -434,10 +445,10 @@
 	};
 
 	/**
-	 * Get last modified date from file.
+	 * Get last modified date from file
 	 *
-	 * @param {File} file
-	 * @return {string|undefined} Last modified date from file
+	 * @param {Object} file
+	 * @return {Object} Last modified date from file
 	 */
 	mw.ForeignStructuredUpload.BookletLayout.prototype.getDateFromLastModified = function ( file ) {
 		if ( file && file.lastModified ) {
@@ -451,7 +462,7 @@
 	 * @inheritdoc
 	 */
 	mw.ForeignStructuredUpload.BookletLayout.prototype.clear = function () {
-		mw.ForeignStructuredUpload.BookletLayout.super.prototype.clear.call( this );
+		mw.ForeignStructuredUpload.BookletLayout.parent.prototype.clear.call( this );
 
 		this.ownWorkCheckbox.setSelected( false );
 		this.categoriesWidget.setValue( [] );

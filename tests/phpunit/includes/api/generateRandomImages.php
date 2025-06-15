@@ -1,9 +1,4 @@
 <?php
-
-namespace MediaWiki\Tests\Api;
-
-use MediaWiki\Maintenance\Maintenance;
-
 /**
  * Bootstrapping for test image file generation
  *
@@ -26,16 +21,18 @@ class GenerateRandomImages extends Maintenance {
 			'maxWidth::',
 			'minHeight::',
 			'maxHeight::',
+			'shapesToDraw::',
+			'shape::',
 
 			'number::',
 			'format::'
 		];
-		$options = getopt( '', $getOptSpec );
+		$options = getopt( null, $getOptSpec );
 
-		$format = $options['format'] ?? 'svg';
+		$format = $options['format'] ?? 'jpg';
 		unset( $options['format'] );
 
-		$number = (int)( $options['number'] ?? 1 );
+		$number = (int)( $options['number'] ?? 10 );
 		unset( $options['number'] );
 
 		$randomImageGenerator = new RandomImageGenerator( $options );

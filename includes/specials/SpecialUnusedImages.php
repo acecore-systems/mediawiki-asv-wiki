@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Unusedimages
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,27 +18,25 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
 use MediaWiki\MainConfigNames;
-use MediaWiki\SpecialPage\ImageQueryPage;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
- * List of unused images
+ * A special page that lists unused images
  *
  * @ingroup SpecialPage
  */
 class SpecialUnusedImages extends ImageQueryPage {
 
 	/**
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 */
-	public function __construct( IConnectionProvider $dbProvider ) {
+	public function __construct( ILoadBalancer $loadBalancer ) {
 		parent::__construct( 'Unusedimages' );
-		$this->setDatabaseProvider( $dbProvider );
+		$this->setDBLoadBalancer( $loadBalancer );
 	}
 
 	public function isExpensive() {
@@ -59,7 +59,7 @@ class SpecialUnusedImages extends ImageQueryPage {
 				'title' => 'img_name',
 				'value' => 'img_timestamp',
 			],
-			'conds' => [ 'il_to' => null ],
+			'conds' => [ 'il_to IS NULL' ],
 			'join_conds' => [ 'imagelinks' => [ 'LEFT JOIN', 'il_to = img_name' ] ]
 		];
 
@@ -68,7 +68,7 @@ class SpecialUnusedImages extends ImageQueryPage {
 			$retval['tables'] = [ 'image', 'page', 'categorylinks',
 				'imagelinks' ];
 			$retval['conds']['page_namespace'] = NS_FILE;
-			$retval['conds']['cl_from'] = null;
+			$retval['conds'][] = 'cl_from IS NULL';
 			$retval['conds'][] = 'img_name = page_title';
 			$retval['join_conds']['categorylinks'] = [
 				'LEFT JOIN', 'cl_from = page_id' ];
@@ -96,9 +96,3 @@ class SpecialUnusedImages extends ImageQueryPage {
 		return 'maintenance';
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialUnusedImages::class, 'SpecialUnusedImages' );

@@ -20,19 +20,12 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
-use DumpStringOutput;
 use MediaWiki\Export\WikiExporterFactory;
 use MediaWiki\MainConfigNames;
-use MediaWiki\MediaWikiServices;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleFactory;
-use MediaWiki\Title\TitleFormatter;
-use WikiExporter;
 use Wikimedia\ObjectFactory\ObjectFactory;
 use Wikimedia\ParamValidator\ParamValidator;
-use XmlDumpWriter;
+use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * This is the main query class. It behaves similar to ApiMain: based on the
@@ -64,7 +57,6 @@ class ApiQuery extends ApiBase {
 				'ActorMigration',
 				'UserGroupManager',
 				'GroupPermissionsLookup',
-				'TempUserConfig'
 			]
 		],
 		'deletedrevisions' => [
@@ -78,9 +70,6 @@ class ApiQuery extends ApiBase {
 				'LinkBatchFactory',
 				'ContentRenderer',
 				'ContentTransformer',
-				'CommentFormatter',
-				'TempUserCreator',
-				'UserFactory',
 			]
 		],
 		'duplicatefiles' => [
@@ -91,9 +80,6 @@ class ApiQuery extends ApiBase {
 		],
 		'extlinks' => [
 			'class' => ApiQueryExternalLinks::class,
-			'services' => [
-				'UrlUtils',
-			],
 		],
 		'fileusage' => [
 			'class' => ApiQueryBacklinksprop::class,
@@ -126,12 +112,6 @@ class ApiQuery extends ApiBase {
 				'LanguageConverterFactory',
 				'RestrictionStore',
 				'LinksMigration',
-				'TempUserCreator',
-				'UserFactory',
-				'IntroMessageBuilder',
-				'PreloadedContentBuilder',
-				'RevisionLookup',
-				'UrlUtils',
 			],
 		],
 		'links' => [
@@ -151,16 +131,12 @@ class ApiQuery extends ApiBase {
 		],
 		'iwlinks' => [
 			'class' => ApiQueryIWLinks::class,
-			'services' => [
-				'UrlUtils',
-			]
 		],
 		'langlinks' => [
 			'class' => ApiQueryLangLinks::class,
 			'services' => [
 				'LanguageNameUtils',
 				'ContentLanguage',
-				'UrlUtils',
 			]
 		],
 		'pageprops' => [
@@ -187,10 +163,6 @@ class ApiQuery extends ApiBase {
 				'ActorMigration',
 				'ContentRenderer',
 				'ContentTransformer',
-				'CommentFormatter',
-				'TempUserCreator',
-				'UserFactory',
-				'TitleFormatter',
 			]
 		],
 		'stashimageinfo' => [
@@ -237,9 +209,6 @@ class ApiQuery extends ApiBase {
 				'NamespaceInfo',
 				'ContentRenderer',
 				'ContentTransformer',
-				'CommentFormatter',
-				'TempUserCreator',
-				'UserFactory',
 			]
 		],
 		'allfileusages' => [
@@ -295,9 +264,6 @@ class ApiQuery extends ApiBase {
 				'NamespaceInfo',
 				'ContentRenderer',
 				'ContentTransformer',
-				'CommentFormatter',
-				'TempUserCreator',
-				'UserFactory',
 			]
 		],
 		'mystashedfiles' => [
@@ -319,7 +285,6 @@ class ApiQuery extends ApiBase {
 				'UserGroupManager',
 				'GroupPermissionsLookup',
 				'ContentLanguage',
-				'TempUserConfig',
 			]
 		],
 		'backlinks' => [
@@ -331,11 +296,9 @@ class ApiQuery extends ApiBase {
 		'blocks' => [
 			'class' => ApiQueryBlocks::class,
 			'services' => [
-				'DatabaseBlockStore',
 				'BlockActionInfo',
 				'BlockRestrictionStore',
 				'CommentStore',
-				'HideUserUtils',
 			],
 		],
 		'categorymembers' => [
@@ -362,9 +325,6 @@ class ApiQuery extends ApiBase {
 		],
 		'exturlusage' => [
 			'class' => ApiQueryExtLinksUsage::class,
-			'services' => [
-				'UrlUtils',
-			],
 		],
 		'filearchive' => [
 			'class' => ApiQueryFilearchive::class,
@@ -391,8 +351,6 @@ class ApiQuery extends ApiBase {
 				'CommentStore',
 				'RowCommentFormatter',
 				'ChangeTagDefStore',
-				'UserNameUtils',
-				'LogFormatterFactory',
 			],
 		],
 		'pageswithprop' => [
@@ -432,9 +390,6 @@ class ApiQuery extends ApiBase {
 				'ChangeTagDefStore',
 				'SlotRoleStore',
 				'SlotRoleRegistry',
-				'UserNameUtils',
-				'TempUserConfig',
-				'LogFormatterFactory',
 			],
 		],
 		'search' => [
@@ -442,14 +397,10 @@ class ApiQuery extends ApiBase {
 			'services' => [
 				'SearchEngineConfig',
 				'SearchEngineFactory',
-				'TitleMatcher',
 			],
 		],
 		'tags' => [
 			'class' => ApiQueryTags::class,
-			'services' => [
-				'ChangeTagsStore',
-			]
 		],
 		'usercontribs' => [
 			'class' => ApiQueryUserContribs::class,
@@ -460,7 +411,6 @@ class ApiQuery extends ApiBase {
 				'RevisionStore',
 				'ChangeTagDefStore',
 				'ActorMigration',
-				'CommentFormatter',
 			],
 		],
 		'users' => [
@@ -481,9 +431,6 @@ class ApiQuery extends ApiBase {
 				'ContentLanguage',
 				'NamespaceInfo',
 				'GenderCache',
-				'CommentFormatter',
-				'TempUserConfig',
-				'LogFormatterFactory',
 			],
 		],
 		'watchlistraw' => [
@@ -528,14 +475,12 @@ class ApiQuery extends ApiBase {
 				'ContentLanguage',
 				'NamespaceInfo',
 				'InterwikiLookup',
-				'ParserFactory',
+				'Parser',
 				'MagicWordFactory',
 				'SpecialPageFactory',
 				'SkinFactory',
 				'DBLoadBalancer',
 				'ReadOnlyMode',
-				'UrlUtils',
-				'TempUserConfig'
 			]
 		],
 		'userinfo' => [
@@ -573,22 +518,29 @@ class ApiQuery extends ApiBase {
 	 */
 	private $mPageSet;
 
-	/** @var array */
 	private $mParams;
-	/** @var ApiModuleManager */
+	private $mNamedDB = [];
 	private $mModuleMgr;
 
-	private WikiExporterFactory $wikiExporterFactory;
-	private TitleFormatter $titleFormatter;
-	private TitleFactory $titleFactory;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
 
+	/** @var WikiExporterFactory */
+	private $wikiExporterFactory;
+
+	/**
+	 * @param ApiMain $main
+	 * @param string $action
+	 * @param ObjectFactory $objectFactory
+	 * @param ILoadBalancer $loadBalancer
+	 * @param WikiExporterFactory $wikiExporterFactory
+	 */
 	public function __construct(
 		ApiMain $main,
-		string $action,
+		$action,
 		ObjectFactory $objectFactory,
-		WikiExporterFactory $wikiExporterFactory,
-		TitleFormatter $titleFormatter,
-		TitleFactory $titleFactory
+		ILoadBalancer $loadBalancer,
+		WikiExporterFactory $wikiExporterFactory
 	) {
 		parent::__construct( $main, $action );
 
@@ -610,9 +562,8 @@ class ApiQuery extends ApiBase {
 
 		// Create PageSet that will process titles/pageids/revids/generator
 		$this->mPageSet = new ApiPageSet( $this );
+		$this->loadBalancer = $loadBalancer;
 		$this->wikiExporterFactory = $wikiExporterFactory;
-		$this->titleFormatter = $titleFormatter;
-		$this->titleFactory = $titleFactory;
 	}
 
 	/**
@@ -621,6 +572,29 @@ class ApiQuery extends ApiBase {
 	 */
 	public function getModuleManager() {
 		return $this->mModuleMgr;
+	}
+
+	/**
+	 * Get a cached database connection with a given name.
+	 *
+	 * If no such connection has been requested before, it will be created.
+	 * Subsequent calls with the same $name will return the same connection
+	 * as the first, regardless of the values of $db and $groups.
+	 *
+	 * @deprecated since 1.39 Use or override ApiBase::getDB() and optionally
+	 *  pass a query group to wfGetDB() or ILoadBalancer::getConnectionRef().
+	 * @param string $name Name to assign to the database connection
+	 * @param int $db One of the DB_* constants
+	 * @param string|string[] $groups Query groups
+	 * @return IDatabase
+	 */
+	public function getNamedDB( $name, $db, $groups ) {
+		wfDeprecated( __METHOD__, '1.39' );
+		if ( !array_key_exists( $name, $this->mNamedDB ) ) {
+			$this->mNamedDB[$name] = $this->loadBalancer->getConnectionRef( $db, $groups );
+		}
+
+		return $this->mNamedDB[$name];
 	}
 
 	/**
@@ -673,19 +647,11 @@ class ApiQuery extends ApiBase {
 		$modules = $continuationManager->getRunModules();
 		'@phan-var ApiQueryBase[] $modules';
 
-		$statsFactory = MediaWikiServices::getInstance()->getStatsFactory();
-
 		if ( !$continuationManager->isGeneratorDone() ) {
 			// Query modules may optimize data requests through the $this->getPageSet()
 			// object by adding extra fields from the page table.
 			foreach ( $modules as $module ) {
-				// Augment api-query.$module.executeTiming metric with timings for requestExtraData()
-				$timer = $statsFactory->getTiming( 'api_query_extraDataTiming_seconds' )
-					->setLabel( 'module', $module->getModuleName() )
-					->copyToStatsdAt( 'api-query.' . $module->getModuleName() . '.extraDataTiming' );
-				$timer->start();
 				$module->requestExtraData( $this->mPageSet );
-				$timer->stop();
 			}
 			// Populate page/revision information
 			$this->mPageSet->execute();
@@ -699,19 +665,10 @@ class ApiQuery extends ApiBase {
 
 		// Execute all unfinished modules
 		foreach ( $modules as $module ) {
-			// Break down of the api.query.executeTiming metric by query module.
-			$timer = $statsFactory->getTiming( 'api_query_executeTiming_seconds' )
-				->setLabel( 'module', $module->getModuleName() )
-				->copyToStatsdAt( 'api-query.' . $module->getModuleName() . '.executeTiming' );
-			$timer->start();
-
 			$params = $module->extractRequestParams();
 			$cacheMode = $this->mergeCacheMode(
 				$cacheMode, $module->getCacheMode( $params ) );
 			$module->execute();
-
-			$timer->stop();
-
 			$this->getHookRunner()->onAPIQueryAfterExecute( $module );
 		}
 
@@ -819,16 +776,13 @@ class ApiQuery extends ApiBase {
 		}
 
 		// Page elements
-		// Cannot use ApiPageSet::getInvalidTitlesAndRevisions, it does not set $fakeId
 		$pages = [];
 
 		// Report any missing titles
-		foreach ( $pageSet->getMissingPages() as $fakeId => $page ) {
+		foreach ( $pageSet->getMissingTitles() as $fakeId => $title ) {
 			$vals = [];
-			$vals['ns'] = $page->getNamespace();
-			$vals['title'] = $this->titleFormatter->getPrefixedText( $page );
+			ApiQueryBase::addTitleInfo( $vals, $title );
 			$vals['missing'] = true;
-			$title = $this->titleFactory->newFromPageIdentity( $page );
 			if ( $title->isKnown() ) {
 				$vals['known'] = true;
 			}
@@ -846,13 +800,11 @@ class ApiQuery extends ApiBase {
 			];
 		}
 		// Report special pages
-		/** @var \MediaWiki\Page\PageReference $page */
-		foreach ( $pageSet->getSpecialPages() as $fakeId => $page ) {
+		/** @var Title $title */
+		foreach ( $pageSet->getSpecialTitles() as $fakeId => $title ) {
 			$vals = [];
-			$vals['ns'] = $page->getNamespace();
-			$vals['title'] = $this->titleFormatter->getPrefixedText( $page );
+			ApiQueryBase::addTitleInfo( $vals, $title );
 			$vals['special'] = true;
-			$title = $this->titleFactory->newFromPageReference( $page );
 			if ( !$title->isKnown() ) {
 				$vals['missing'] = true;
 			}
@@ -860,11 +812,10 @@ class ApiQuery extends ApiBase {
 		}
 
 		// Output general page information for found titles
-		foreach ( $pageSet->getGoodPages() as $pageid => $page ) {
+		foreach ( $pageSet->getGoodTitles() as $pageid => $title ) {
 			$vals = [];
 			$vals['pageid'] = $pageid;
-			$vals['ns'] = $page->getNamespace();
-			$vals['title'] = $this->titleFormatter->getPrefixedText( $page );
+			ApiQueryBase::addTitleInfo( $vals, $title );
 			$pages[$pageid] = $vals;
 		}
 
@@ -998,22 +949,6 @@ class ApiQuery extends ApiBase {
 		return false;
 	}
 
-	public function isWriteMode() {
-		// Ask each module if it requires write mode. If any require write mode this returns true.
-		$modules = [];
-		$this->mParams = $this->extractRequestParams();
-		$this->instantiateModules( $modules, 'list' );
-		$this->instantiateModules( $modules, 'meta' );
-		$this->instantiateModules( $modules, 'prop' );
-		foreach ( $modules as $module ) {
-			if ( $module->isWriteMode() ) {
-				return true;
-			}
-		}
-
-		return false;
-	}
-
 	protected function getExamplesMessages() {
 		$title = Title::newMainPage()->getPrefixedText();
 		$mp = rawurlencode( $title );
@@ -1036,6 +971,3 @@ class ApiQuery extends ApiBase {
 		];
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiQuery::class, 'ApiQuery' );

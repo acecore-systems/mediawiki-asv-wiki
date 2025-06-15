@@ -19,8 +19,6 @@
  */
 
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Title\Title;
-use Wikimedia\FileBackend\FSFile\FSFile;
 
 /**
  * File without associated database record.
@@ -43,7 +41,7 @@ class UnregisteredLocalFile extends File {
 	/** @var string */
 	protected $path;
 
-	/** @var string|false */
+	/** @var bool|string */
 	protected $mime;
 
 	/** @var array[]|bool[] Dimension data */
@@ -77,14 +75,15 @@ class UnregisteredLocalFile extends File {
 	 * Create an UnregisteredLocalFile based on a path or a (title,repo) pair.
 	 * A FileRepo object is not required here, unlike most other File classes.
 	 *
-	 * @param Title|false $title
-	 * @param FileRepo|false $repo
-	 * @param string|false $path
-	 * @param string|false $mime
+	 * @throws MWException
+	 * @param Title|bool $title
+	 * @param FileRepo|bool $repo
+	 * @param string|bool $path
+	 * @param string|bool $mime
 	 */
 	public function __construct( $title = false, $repo = false, $path = false, $mime = false ) {
 		if ( !( $title && $repo ) && !$path ) {
-			throw new BadMethodCallException( __METHOD__ .
+			throw new MWException( __METHOD__ .
 				': not enough parameters, must specify title and repo, or a full path' );
 		}
 		if ( $title instanceof Title ) {
@@ -110,7 +109,7 @@ class UnregisteredLocalFile extends File {
 
 	/**
 	 * @param int $page
-	 * @return array|false
+	 * @return array|bool
 	 */
 	private function cachePageDimensions( $page = 1 ) {
 		$page = (int)$page;
@@ -157,7 +156,7 @@ class UnregisteredLocalFile extends File {
 	}
 
 	/**
-	 * @return string|false
+	 * @return bool|string
 	 */
 	public function getMimeType() {
 		if ( !isset( $this->mime ) ) {
@@ -208,7 +207,7 @@ class UnregisteredLocalFile extends File {
 	}
 
 	/**
-	 * @return string|false
+	 * @return bool|string
 	 */
 	public function getURL() {
 		if ( $this->repo ) {

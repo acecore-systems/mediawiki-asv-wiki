@@ -2,17 +2,17 @@
 
 namespace Wikimedia\Tests\Rdbms;
 
-use MediaWikiUnitTestCase;
+use PHPUnit\Framework\TestCase;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\LoadBalancer;
 use Wikimedia\Rdbms\SessionConsistentConnectionManager;
 
 /**
- * @covers \Wikimedia\Rdbms\SessionConsistentConnectionManager
+ * @covers Wikimedia\Rdbms\SessionConsistentConnectionManager
  *
  * @author Daniel Kinzler
  */
-class SessionConsistentConnectionManagerTest extends MediaWikiUnitTestCase {
+class SessionConsistentConnectionManagerTest extends TestCase {
 
 	public function testGetReadConnection() {
 		$database = $this->createMock( IDatabase::class );
@@ -72,5 +72,18 @@ class SessionConsistentConnectionManagerTest extends MediaWikiUnitTestCase {
 		$manager = new SessionConsistentConnectionManager( $lb );
 		$manager->prepareForUpdates();
 		$manager->getReadConnection();
+	}
+
+	public function testReleaseConnection() {
+		$database = $this->createMock( IDatabase::class );
+		$lb = $this->createMock( LoadBalancer::class );
+
+		$lb->expects( $this->once() )
+			->method( 'reuseConnection' )
+			->with( $database )
+			->willReturn( null );
+
+		$manager = new SessionConsistentConnectionManager( $lb );
+		$manager->releaseConnection( $database );
 	}
 }

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel LinkAnnotation class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -42,14 +42,14 @@ ve.dm.LinkAnnotation.static.toDataElement = function ( domElements ) {
 };
 
 ve.dm.LinkAnnotation.static.toDomElements = function ( dataElement, doc ) {
-	const domElement = doc.createElement( 'a' );
+	var domElement = doc.createElement( 'a' );
 	domElement.setAttribute( 'href', this.getHref( dataElement ) );
 	return [ domElement ];
 };
 
 ve.dm.LinkAnnotation.static.describeChange = function ( key, change ) {
 	if ( key === 'href' ) {
-		const diff = this.getAttributeDiff( change.from, change.to );
+		var diff = this.getAttributeDiff( change.from, change.to );
 		if ( diff ) {
 			return ve.htmlMsg( 'visualeditor-changedesc-link-href-diff', diff );
 		} else {
@@ -57,7 +57,7 @@ ve.dm.LinkAnnotation.static.describeChange = function ( key, change ) {
 		}
 	}
 	// Parent method
-	return ve.dm.LinkAnnotation.super.static.describeChange.apply( this, arguments );
+	return ve.dm.LinkAnnotation.parent.static.describeChange.apply( this, arguments );
 };
 
 /**
@@ -103,12 +103,12 @@ ve.dm.LinkAnnotation.prototype.getDisplayTitle = function () {
  * @return {string|null} The fragment, or null if none is present
  */
 ve.dm.LinkAnnotation.prototype.getFragment = function () {
-	const href = this.getHref(),
-		hashIndex = href.indexOf( '#' );
-	if ( hashIndex === -1 ) {
+	var href = this.getHref(),
+		hash = href.indexOf( '#' );
+	if ( hash === -1 ) {
 		return null;
 	}
-	return href.slice( hashIndex + 1 );
+	return href.slice( hash + 1 );
 };
 
 /**
@@ -125,7 +125,7 @@ ve.dm.LinkAnnotation.prototype.getComparableObject = function () {
  * @inheritdoc
  */
 ve.dm.LinkAnnotation.prototype.getComparableHtmlAttributes = function () {
-	const comparableAttributes = ve.dm.LinkAnnotation.super.prototype.getComparableHtmlAttributes.call( this );
+	var comparableAttributes = ve.dm.LinkAnnotation.super.prototype.getComparableHtmlAttributes.call( this );
 	delete comparableAttributes.href;
 	return comparableAttributes;
 };

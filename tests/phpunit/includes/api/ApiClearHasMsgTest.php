@@ -1,15 +1,9 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
-use MediaWiki\Permissions\UltimateAuthority;
-use MediaWiki\User\UserIdentityValue;
-
 /**
  * @group API
  * @group medium
- * @group Database
- * @covers \MediaWiki\Api\ApiClearHasMsg
+ * @covers ApiClearHasMsg
  */
 class ApiClearHasMsgTest extends ApiTestCase {
 
@@ -17,18 +11,13 @@ class ApiClearHasMsgTest extends ApiTestCase {
 	 * Test clearing hasmsg flag for current user
 	 */
 	public function testClearFlag() {
-		$user = new UserIdentityValue( 42, __METHOD__ );
+		$user = self::$users['sysop']->getUser();
 		$talkPageNotificationManager = $this->getServiceContainer()
 			->getTalkPageNotificationManager();
 		$talkPageNotificationManager->setUserHasNewMessages( $user );
 		$this->assertTrue( $talkPageNotificationManager->userHasNewMessages( $user ) );
 
-		$data = $this->doApiRequest(
-			[ 'action' => 'clearhasmsg' ],
-			[],
-			false,
-			new UltimateAuthority( $user )
-		);
+		$data = $this->doApiRequest( [ 'action' => 'clearhasmsg' ], [] );
 
 		$this->assertEquals( 'success', $data[0]['clearhasmsg'] );
 		$this->assertFalse( $talkPageNotificationManager->userHasNewMessages( $user ) );

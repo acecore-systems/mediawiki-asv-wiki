@@ -18,11 +18,8 @@
  *
  */
 
-use MediaWiki\Registration\ExtensionJsonValidationError;
-use MediaWiki\Registration\ExtensionJsonValidator;
-
 /**
- * @covers \MediaWiki\Registration\ExtensionJsonValidator
+ * @covers ExtensionJsonValidator
  */
 class ExtensionJsonValidatorTest extends MediaWikiUnitTestCase {
 
@@ -47,7 +44,7 @@ class ExtensionJsonValidatorTest extends MediaWikiUnitTestCase {
 		);
 	}
 
-	public static function provideValidate() {
+	public function provideValidate() {
 		return [
 			[
 				'notjson.txt',

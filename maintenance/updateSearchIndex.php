@@ -28,15 +28,10 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\Deferred\SearchUpdate;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Revision\SlotRecord;
-use MediaWiki\Title\Title;
-use MediaWiki\WikiMap\WikiMap;
-use Wikimedia\Rdbms\IDBAccessObject;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script for periodic off-peak updating of the search index.
@@ -95,7 +90,7 @@ class UpdateSearchIndex extends Maintenance {
 
 		$wgDisableSearchUpdate = false;
 
-		$dbw = $this->getPrimaryDB();
+		$dbw = $this->getDB( DB_PRIMARY );
 
 		$this->output( "Updating searchindex between $start and $end\n" );
 
@@ -103,16 +98,19 @@ class UpdateSearchIndex extends Maintenance {
 		$start = $dbw->timestamp( $start );
 		$end = $dbw->timestamp( $end );
 
-		$res = $dbw->newSelectQueryBuilder()
-			->select( 'rc_cur_id' )
-			->from( 'recentchanges' )
-			->join( 'page', null, 'rc_cur_id=page_id AND rc_this_oldid=page_latest' )
-			->where( [
-				$dbw->expr( 'rc_type', '!=', RC_LOG ),
-				$dbw->expr( 'rc_timestamp', '>=', $start ),
-				$dbw->expr( 'rc_timestamp', '<=', $end ),
-			] )
-			->caller( __METHOD__ )->fetchResultSet();
+		$res = $dbw->select(
+			[ 'recentchanges', 'page' ],
+			'rc_cur_id',
+			[
+				'rc_type != ' . $dbw->addQuotes( RC_LOG ),
+				'rc_timestamp BETWEEN ' . $dbw->addQuotes( $start ) . ' AND ' . $dbw->addQuotes( $end )
+			],
+			__METHOD__,
+			[],
+			[
+				'page' => [ 'JOIN', 'rc_cur_id=page_id AND rc_this_oldid=page_latest' ]
+			]
+		);
 
 		foreach ( $res as $row ) {
 			$this->updateSearchIndexForPage( (int)$row->rc_cur_id );
@@ -127,7 +125,7 @@ class UpdateSearchIndex extends Maintenance {
 	 */
 	private function updateSearchIndexForPage( int $pageId ) {
 		// Get current revision
-		$rev = $this->getServiceContainer()
+		$rev = MediaWikiServices::getInstance()
 			->getRevisionLookup()
 			->getRevisionByPageId( $pageId, 0, IDBAccessObject::READ_LATEST );
 		$title = null;
@@ -145,7 +143,5 @@ class UpdateSearchIndex extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = UpdateSearchIndex::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

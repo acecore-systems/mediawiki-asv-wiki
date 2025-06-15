@@ -2,8 +2,8 @@
 
 namespace MediaWiki\Api\Hook;
 
-use MediaWiki\Api\ApiOptions;
-use MediaWiki\User\User;
+use ApiOptions;
+use User;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

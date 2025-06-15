@@ -20,17 +20,12 @@
 
 namespace MediaWiki\Block;
 
-use MediaWiki\CommentStore\CommentStoreComment;
-use MediaWiki\HookContainer\HookContainer;
-use MediaWiki\HookContainer\HookRunner;
-use MediaWiki\Language\Language;
-use MediaWiki\Language\LocalizationContext;
-use MediaWiki\Languages\LanguageFactory;
-use MediaWiki\Message\Message;
+use CommentStoreComment;
+use Language;
 use MediaWiki\Page\PageReferenceValue;
-use MediaWiki\Title\TitleFormatter;
 use MediaWiki\User\UserIdentity;
-use MediaWiki\User\UserIdentityUtils;
+use Message;
+use TitleFormatter;
 
 /**
  * A service class for getting formatted information about a block.
@@ -40,32 +35,16 @@ use MediaWiki\User\UserIdentityUtils;
  */
 class BlockErrorFormatter {
 
-	private TitleFormatter $titleFormatter;
-	private HookRunner $hookRunner;
-	private UserIdentityUtils $userIdentityUtils;
-	private LocalizationContext $uiContext;
-	private LanguageFactory $languageFactory;
-
-	public function __construct(
-		TitleFormatter $titleFormatter,
-		HookContainer $hookContainer,
-		UserIdentityUtils $userIdentityUtils,
-		LanguageFactory $languageFactory,
-		LocalizationContext $uiContext
-	) {
-		$this->titleFormatter = $titleFormatter;
-		$this->hookRunner = new HookRunner( $hookContainer );
-		$this->userIdentityUtils = $userIdentityUtils;
-
-		$this->languageFactory = $languageFactory;
-		$this->uiContext = $uiContext;
-	}
+	/** @var TitleFormatter */
+	private $titleFormatter;
 
 	/**
-	 * @return Language
+	 * @param TitleFormatter $titleFormatter
 	 */
-	private function getLanguage(): Language {
-		return $this->languageFactory->getLanguage( $this->uiContext->getLanguageCode() );
+	public function __construct(
+		TitleFormatter $titleFormatter
+	) {
+		$this->titleFormatter = $titleFormatter;
 	}
 
 	/**
@@ -73,46 +52,21 @@ class BlockErrorFormatter {
 	 * block features. Message parameters are formatted for the specified user and
 	 * language.
 	 *
-	 * If passed a CompositeBlock, will get a generic message stating that there are
-	 * multiple blocks. To get all the block messages, use getMessages instead.
-	 *
 	 * @param Block $block
 	 * @param UserIdentity $user
-	 * @param mixed $language Unused since 1.42
+	 * @param Language $language
 	 * @param string $ip
 	 * @return Message
 	 */
 	public function getMessage(
 		Block $block,
 		UserIdentity $user,
-		$language,
-		string $ip
-	): Message {
-		$key = $this->getBlockErrorMessageKey( $block, $user );
-		$params = $this->getBlockErrorMessageParams( $block, $user, $ip );
-		return $this->uiContext->msg( $key, $params );
-	}
-
-	/**
-	 * Get block error messages for all of the blocks that apply to a user.
-	 *
-	 * @since 1.42
-	 * @param Block $block
-	 * @param UserIdentity $user
-	 * @param string $ip
-	 * @return Message[]
-	 */
-	public function getMessages(
-		Block $block,
-		UserIdentity $user,
-		string $ip
-	): array {
-		$messages = [];
-		foreach ( $block->toArray() as $singleBlock ) {
-			$messages[] = $this->getMessage( $singleBlock, $user, null, $ip );
-		}
-
-		return $messages;
+		Language $language,
+		$ip
+	) {
+		$key = $this->getBlockErrorMessageKey( $block );
+		$params = $this->getBlockErrorMessageParams( $block, $user, $language, $ip );
+		return new Message( $key, $params );
 	}
 
 	/**
@@ -146,15 +100,15 @@ class BlockErrorFormatter {
 	 * @since 1.35
 	 * @param Block $block
 	 * @param UserIdentity $user
+	 * @param Language $language
 	 * @return mixed[] See getBlockErrorInfo
 	 */
 	private function getFormattedBlockErrorInfo(
 		Block $block,
-		UserIdentity $user
+		UserIdentity $user,
+		Language $language
 	) {
 		$info = $this->getBlockErrorInfo( $block );
-
-		$language = $this->getLanguage();
 
 		$info['expiry'] = $language->formatExpiry( $info['expiry'], true, 'infinity', $user );
 		$info['timestamp'] = $language->userTimeAndDate( $info['timestamp'], $user );
@@ -187,16 +141,15 @@ class BlockErrorFormatter {
 	 * case their page cannot be linked.
 	 *
 	 * @param ?UserIdentity $blocker
+	 * @param Language $language
 	 * @return string Link to the blocker's page; blocker's name if not a local user
 	 */
-	private function formatBlockerLink( ?UserIdentity $blocker ) {
+	private function formatBlockerLink( ?UserIdentity $blocker, Language $language ) {
 		if ( !$blocker ) {
 			// TODO should we say something? This is just matching the code before
 			// the refactoring in late July 2021
 			return '';
 		}
-
-		$language = $this->getLanguage();
 
 		if ( $blocker->getId() === 0 ) {
 			// Foreign user
@@ -218,15 +171,13 @@ class BlockErrorFormatter {
 	 * Determine the block error message key by examining the block.
 	 *
 	 * @param Block $block
-	 * @param UserIdentity $user
 	 * @return string Message key
 	 */
-	private function getBlockErrorMessageKey( Block $block, UserIdentity $user ) {
-		$isTempUser = $this->userIdentityUtils->isTemp( $user );
-		$key = $isTempUser ? 'blockedtext-tempuser' : 'blockedtext';
+	private function getBlockErrorMessageKey( Block $block ) {
+		$key = 'blockedtext';
 		if ( $block instanceof DatabaseBlock ) {
 			if ( $block->getType() === Block::TYPE_AUTO ) {
-				$key = $isTempUser ? 'autoblockedtext-tempuser' : 'autoblockedtext';
+				$key = 'autoblockedtext';
 			} elseif ( !$block->isSitewide() ) {
 				$key = 'blockedtext-partial';
 			}
@@ -235,10 +186,6 @@ class BlockErrorFormatter {
 		} elseif ( $block instanceof CompositeBlock ) {
 			$key = 'blockedtext-composite';
 		}
-
-		// Allow extensions to modify the block error message
-		$this->hookRunner->onGetBlockErrorMessageKey( $block, $key );
-
 		return $key;
 	}
 
@@ -248,6 +195,7 @@ class BlockErrorFormatter {
 	 *
 	 * @param Block $block
 	 * @param UserIdentity $user
+	 * @param Language $language
 	 * @param string $ip
 	 * @return mixed[] Params used by standard block error messages, in order:
 	 *  - blockerLink: Link to the blocker's user page, if any; otherwise same as blockerName
@@ -262,26 +210,30 @@ class BlockErrorFormatter {
 	private function getBlockErrorMessageParams(
 		Block $block,
 		UserIdentity $user,
-		string $ip
+		Language $language,
+		$ip
 	) {
-		$info = $this->getFormattedBlockErrorInfo( $block, $user );
+		$info = $this->getFormattedBlockErrorInfo( $block, $user, $language );
 
 		// Add params that are specific to the standard block errors
 		$info['ip'] = $ip;
-		$info['blockerLink'] = $this->formatBlockerLink( $block->getBlocker() );
+		$info['blockerLink'] = $this->formatBlockerLink(
+			$block->getBlocker(),
+			$language
+		);
 
 		// Display the CompositeBlock identifier as a message containing relevant block IDs
 		if ( $block instanceof CompositeBlock ) {
-			$ids = $this->getLanguage()->commaList( array_map(
+			$ids = $language->commaList( array_map(
 				static function ( $id ) {
 					return '#' . $id;
 				},
 				array_filter( $info['identifier'], 'is_int' )
 			) );
 			if ( $ids === '' ) {
-				$idsMsg = $this->uiContext->msg( 'blockedtext-composite-no-ids', [] );
+				$idsMsg = new Message( 'blockedtext-composite-no-ids', [], $language );
 			} else {
-				$idsMsg = $this->uiContext->msg( 'blockedtext-composite-ids', [ $ids ] );
+				$idsMsg = new Message( 'blockedtext-composite-ids', [ $ids ], $language );
 			}
 			$info['identifier'] = $idsMsg->plain();
 		}
@@ -305,5 +257,4 @@ class BlockErrorFormatter {
 
 		return $params;
 	}
-
 }

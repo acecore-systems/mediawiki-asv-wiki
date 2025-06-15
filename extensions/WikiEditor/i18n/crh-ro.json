@@ -42,14 +42,8 @@
 	"wikieditor-toolbar-help-page-file": "Dosiyalar",
 	"wikieditor-toolbar-help-page-discussion": "Muhabbet",
 	"wikieditor-toolbar-help-content-italic-description": "Kursiv",
-	"wikieditor-toolbar-help-content-italic-example": "Kursiv metín",
 	"wikieditor-toolbar-help-content-bold-description": "Kalîn",
-	"wikieditor-toolbar-help-content-bold-example": "Kalîn metín",
-	"wikieditor-toolbar-help-content-bolditalic-description": "Kalîn we kursiv",
-	"wikieditor-toolbar-help-content-bolditalic-example": "Kalîn we kursiv metín",
 	"wikieditor-toolbar-help-content-ilink-description": "Sayt íşínde baylantî",
 	"wikieditor-toolbar-help-content-signaturetimestamp-description": "İmza we tarih",
-	"wikieditor-toolbar-help-content-signature-description": "İmza",
-	"wikieditor-toolbar-help-content-signature-example": "[[$1:$3|$3]] ([[$2:$3|muhabbet]])",
-	"wikieditor-toolbar-help-content-signature-username": "Kullanuwşî atî"
+	"wikieditor-toolbar-help-content-signature-description": "İmza"
 }

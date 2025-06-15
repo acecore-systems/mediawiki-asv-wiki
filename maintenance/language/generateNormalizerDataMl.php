@@ -21,9 +21,7 @@
  * @ingroup MaintenanceLanguage
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/../Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 use Wikimedia\StaticArrayWriter;
 
@@ -80,7 +78,5 @@ class GenerateNormalizerDataMl extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = GenerateNormalizerDataMl::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

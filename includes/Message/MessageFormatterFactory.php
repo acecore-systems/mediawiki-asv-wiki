@@ -2,6 +2,7 @@
 
 namespace MediaWiki\Message;
 
+use Message;
 use Wikimedia\Message\IMessageFormatterFactory;
 use Wikimedia\Message\ITextFormatter;
 
@@ -33,7 +34,7 @@ class MessageFormatterFactory implements IMessageFormatterFactory {
 	public function getTextFormatter( $langCode ): ITextFormatter {
 		if ( !isset( $this->textFormatters[$langCode] ) ) {
 			$this->textFormatters[$langCode] = new TextFormatter(
-				$langCode, $this->format );
+				$langCode, new Converter(), $this->format );
 		}
 		return $this->textFormatters[$langCode];
 	}

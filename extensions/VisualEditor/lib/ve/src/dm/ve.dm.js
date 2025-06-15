@@ -1,13 +1,14 @@
 /*!
  * VisualEditor DataModel namespace.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
  * Namespace for all VisualEditor DataModel classes, static methods and static properties.
  *
- * @namespace
+ * @class
+ * @singleton
  */
 ve.dm = {
 	// modelRegistry: Initialized in ve.dm.ModelRegistry.js

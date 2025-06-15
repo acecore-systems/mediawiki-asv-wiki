@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable MWResizableNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -34,7 +34,7 @@ OO.inheritClass( ve.ce.MWResizableNode, ve.ce.ResizableNode );
  * @return {Object} Attribute changes
  */
 ve.ce.MWResizableNode.prototype.getAttributeChanges = function ( width, height ) {
-	const attrChanges = ve.ce.ResizableNode.prototype.getAttributeChanges.call( this, width, height );
+	var attrChanges = ve.ce.ResizableNode.prototype.getAttributeChanges.call( this, width, height );
 	if ( !ve.isEmptyObject( attrChanges ) ) {
 		attrChanges.defaultSize = false;
 	}

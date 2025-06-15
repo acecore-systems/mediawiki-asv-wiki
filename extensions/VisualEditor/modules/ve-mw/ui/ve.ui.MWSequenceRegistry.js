@@ -1,7 +1,7 @@
 /*!
  * VisualEditor MediaWiki SequenceRegistry registrations.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -16,7 +16,7 @@ ve.ui.sequenceRegistry.register(
 );
 ( function () {
 	// As the user keeps pressing '=', reduce the heading level
-	for ( let level = 3; level <= 6; level++ ) {
+	for ( var level = 3; level <= 6; level++ ) {
 		ve.ui.sequenceRegistry.register(
 			new ve.ui.Sequence(
 				'wikitextHeadingLevel' + level, 'heading' + level,

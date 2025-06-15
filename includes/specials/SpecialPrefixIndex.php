@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Prefixindex
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,59 +18,50 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
-use MediaWiki\Cache\LinkCache;
-use MediaWiki\Html\Html;
-use MediaWiki\HTMLForm\Field\HTMLCheckField;
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\Title\Title;
-use Wikimedia\Rdbms\IConnectionProvider;
-use Wikimedia\Rdbms\IExpression;
-use Wikimedia\Rdbms\LikeValue;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * Implements Special:Prefixindex
  *
  * @ingroup SpecialPage
- * @ingroup Search
  */
-class SpecialPrefixIndex extends SpecialAllPages {
+class SpecialPrefixindex extends SpecialAllPages {
 
 	/**
 	 * Whether to remove the searched prefix from the displayed link. Useful
-	 * for inclusion of a set of subpages in a root page.
-	 * @var bool
+	 * for inclusion of a set of sub pages in a root page.
 	 */
 	protected $stripPrefix = false;
 
-	/** @var bool */
 	protected $hideRedirects = false;
 
 	// Inherit $maxPerPage
 
-	// phpcs:ignore MediaWiki.Commenting.PropertyDocumentation.WrongStyle
-	private IConnectionProvider $dbProvider;
-	private LinkCache $linkCache;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
+
+	/** @var LinkCache */
+	private $linkCache;
 
 	/**
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param LinkCache $linkCache
 	 */
 	public function __construct(
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		LinkCache $linkCache
 	) {
-		parent::__construct( $dbProvider );
+		parent::__construct( $loadBalancer );
 		$this->mName = 'Prefixindex';
-		$this->dbProvider = $dbProvider;
+		$this->loadBalancer = $loadBalancer;
 		$this->linkCache = $linkCache;
 	}
 
 	/**
-	 * Entry point: initialise variables and call subfunctions.
+	 * Entry point : initialise variables and call subfunctions.
 	 * @param string|null $par Becomes "FOO" when called like Special:Prefixindex/FOO
 	 */
 	public function execute( $par ) {
@@ -88,11 +81,9 @@ class SpecialPrefixIndex extends SpecialAllPages {
 		$this->stripPrefix = $request->getBool( 'stripprefix', $this->stripPrefix );
 
 		$namespaces = $this->getContentLanguage()->getNamespaces();
-		$out->setPageTitleMsg(
+		$out->setPageTitle(
 			( $namespace > 0 && array_key_exists( $namespace, $namespaces ) )
-				? $this->msg( 'prefixindex-namespace' )->plaintextParams(
-					str_replace( '_', ' ', $namespaces[$namespace] )
-				)
+				? $this->msg( 'prefixindex-namespace', str_replace( '_', ' ', $namespaces[$namespace] ) )
 				: $this->msg( 'prefixindex' )
 		);
 
@@ -111,17 +102,17 @@ class SpecialPrefixIndex extends SpecialAllPages {
 		if ( $this->including() || $showme != '' || $ns !== null ) {
 			$this->showPrefixChunk( $namespace, $showme, $from );
 		} else {
-			$out->addHTML( $this->namespacePrefixForm( $namespace, '' )->getHTML( false ) );
+			$out->addHTML( $this->namespacePrefixForm( $namespace, '' ) );
 		}
 	}
 
 	/**
-	 * Prepared HTMLForm object for the top form
+	 * HTML for the top form
 	 * @param int $namespace A namespace constant (default NS_MAIN).
 	 * @param string $from DbKey we are starting listing at.
-	 * @return HTMLForm
+	 * @return string
 	 */
-	protected function namespacePrefixForm( $namespace = NS_MAIN, $from = '' ): HTMLForm {
+	protected function namespacePrefixForm( $namespace = NS_MAIN, $from = '' ) {
 		$formDescriptor = [
 			'prefix' => [
 				'label-message' => 'allpagesprefix',
@@ -150,16 +141,13 @@ class SpecialPrefixIndex extends SpecialAllPages {
 				'label-message' => 'prefixindex-strip',
 			],
 		];
-
-		$this->getHookRunner()->onSpecialPrefixIndexGetFormFilters( $this->getContext(), $formDescriptor );
-
 		$htmlForm = HTMLForm::factory( 'ooui', $formDescriptor, $this->getContext() )
 			->setMethod( 'get' )
 			->setTitle( $this->getPageTitle() ) // Remove subpage
 			->setWrapperLegendMsg( 'prefixindex' )
 			->setSubmitTextMsg( 'prefixindex-submit' );
 
-		return $htmlForm->prepareForm();
+		return $htmlForm->prepareForm()->getHTML( false );
 	}
 
 	/**
@@ -168,7 +156,9 @@ class SpecialPrefixIndex extends SpecialAllPages {
 	 * @param string|null $from List all pages from this name (default false)
 	 */
 	protected function showPrefixChunk( $namespace, $prefix, $from = null ) {
-		$from ??= $prefix;
+		if ( $from === null ) {
+			$from = $prefix;
+		}
 
 		$fromList = $this->getNamespaceKeyAndText( $namespace, $from );
 		$prefixList = $this->getNamespaceKeyAndText( $namespace, $prefix );
@@ -176,7 +166,6 @@ class SpecialPrefixIndex extends SpecialAllPages {
 		$res = null;
 		$n = 0;
 		$nextRow = null;
-		$preparedHtmlForm = $this->namespacePrefixForm( $namespace, $prefix );
 
 		if ( !$prefixList || !$fromList ) {
 			$out = $this->msg( 'allpagesbadtitle' )->parseAsBlock();
@@ -185,35 +174,33 @@ class SpecialPrefixIndex extends SpecialAllPages {
 			$out = $this->msg( 'allpages-bad-ns', $namespace )->parse();
 			$namespace = NS_MAIN;
 		} else {
-			[ $namespace, $prefixKey, $prefix ] = $prefixList;
-			[ /* $fromNS */, $fromKey, ] = $fromList;
+			list( $namespace, $prefixKey, $prefix ) = $prefixList;
+			list( /* $fromNS */, $fromKey, ) = $fromList;
 
 			# ## @todo FIXME: Should complain if $fromNs != $namespace
 
-			$dbr = $this->dbProvider->getReplicaDatabase();
-			$queryBuiler = $dbr->newSelectQueryBuilder()
-				->select( LinkCache::getSelectFields() )
-				->from( 'page' )
-				->where( [
-					'page_namespace' => $namespace,
-					$dbr->expr(
-						'page_title',
-						IExpression::LIKE,
-						new LikeValue( $prefixKey, $dbr->anyString() )
-					),
-					$dbr->expr( 'page_title', '>=', $fromKey ),
-				] )
-				->orderBy( 'page_title' )
-				->limit( $this->maxPerPage + 1 )
-				->useIndex( 'page_name_title' );
+			$dbr = $this->loadBalancer->getConnectionRef( ILoadBalancer::DB_REPLICA );
+
+			$conds = [
+				'page_namespace' => $namespace,
+				'page_title' . $dbr->buildLike( $prefixKey, $dbr->anyString() ),
+				'page_title >= ' . $dbr->addQuotes( $fromKey ),
+			];
 
 			if ( $this->hideRedirects ) {
-				$queryBuiler->andWhere( [ 'page_is_redirect' => 0 ] );
+				$conds['page_is_redirect'] = 0;
 			}
 
-			$this->getHookRunner()->onSpecialPrefixIndexQuery( $preparedHtmlForm->mFieldData, $queryBuiler );
-
-			$res = $queryBuiler->caller( __METHOD__ )->fetchResultSet();
+			$res = $dbr->select( 'page',
+				LinkCache::getSelectFields(),
+				$conds,
+				__METHOD__,
+				[
+					'ORDER BY' => 'page_title',
+					'LIMIT' => $this->maxPerPage + 1,
+					'USE INDEX' => 'page_name_title',
+				]
+			);
 
 			// @todo FIXME: Side link to previous
 
@@ -248,8 +235,8 @@ class SpecialPrefixIndex extends SpecialAllPages {
 				$out .= Html::closeElement( 'ul' );
 
 				if ( $res->numRows() > 2 ) {
-					// Only apply CSS column styles if there are more than 2 entries.
-					// Otherwise, rendering is broken as "mw-prefixindex-body"'s CSS column count is 3.
+					// Only apply CSS column styles if there's more than 2 entries.
+					// Otherwise rendering is broken as "mw-prefixindex-body"'s CSS column count is 3.
 					$out = Html::rawElement( 'div', [ 'class' => 'mw-prefixindex-body' ], $out );
 				}
 			} else {
@@ -260,13 +247,13 @@ class SpecialPrefixIndex extends SpecialAllPages {
 		$output = $this->getOutput();
 
 		if ( $this->including() ) {
-			// We don't show the nav-links and the form when included in other
-			// pages, so let's just finish here.
+			// We don't show the nav-links and the form when included into other
+			// pages so let's just finish here.
 			$output->addHTML( $out );
 			return;
 		}
 
-		$topOut = $preparedHtmlForm->getHTML( false );
+		$topOut = $this->namespacePrefixForm( $namespace, $prefix );
 
 		if ( $res && ( $n == $this->maxPerPage ) && $nextRow ) {
 			$query = [
@@ -312,9 +299,3 @@ class SpecialPrefixIndex extends SpecialAllPages {
 		return 'pages';
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialPrefixIndex::class, 'SpecialPrefixindex' );

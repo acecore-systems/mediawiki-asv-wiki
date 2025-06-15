@@ -1,7 +1,7 @@
 /*!
  * VisualEditor MediaWiki temporary wikitext editor widget
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -20,10 +20,10 @@ mw.libs.ve = mw.libs.ve || {};
  *
  * @constructor
  * @param {Object} config Configuration options
- * @param {string} config.value Raw wikitext to edit
+ * @cfg {string} value Raw wikitext to edit
  */
 mw.libs.ve.MWTempWikitextEditorWidget = function VeUiMwTempWikitextEditorWidget( config ) {
-	const conf = mw.config.get( 'wgVisualEditor' ),
+	var conf = mw.config.get( 'wgVisualEditor' ),
 		dir = conf.pageLanguageDir,
 		lang = conf.pageLanguageCode;
 
@@ -94,7 +94,7 @@ mw.libs.ve.MWTempWikitextEditorWidget.prototype.getValue = function () {
  * @return {Object} Object containing numbers 'from' and 'to'
  */
 mw.libs.ve.MWTempWikitextEditorWidget.prototype.getRange = function () {
-	const input = this.$element[ 0 ],
+	var input = this.$element[ 0 ],
 		start = input.selectionStart,
 		end = input.selectionEnd,
 		isBackwards = input.selectionDirection === 'backward';

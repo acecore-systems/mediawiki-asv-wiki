@@ -21,14 +21,7 @@
  * @ingroup SpecialPage
  */
 
-namespace MediaWiki\SpecialPage;
-
-use ImageGalleryBase;
-use MediaWiki\Output\OutputPage;
-use MediaWiki\Title\Title;
-use Skin;
-use stdClass;
-use Wikimedia\Rdbms\IReadableDatabase;
+use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IResultWrapper;
 
 /**
@@ -49,7 +42,7 @@ abstract class ImageQueryPage extends QueryPage {
 	 *
 	 * @param OutputPage $out OutputPage to print to
 	 * @param Skin $skin User skin to use [unused]
-	 * @param IReadableDatabase $dbr (read) connection to use
+	 * @param IDatabase $dbr (read) connection to use
 	 * @param IResultWrapper $res Result pointer
 	 * @param int $num Number of available result rows
 	 * @param int $offset Paging offset
@@ -65,8 +58,8 @@ abstract class ImageQueryPage extends QueryPage {
 				$i++;
 				$namespace = $row->namespace ?? NS_FILE;
 				$title = Title::makeTitleSafe( $namespace, $row->title );
-				if ( $title instanceof Title && $title->inNamespace( NS_FILE ) ) {
-					$gallery->add( $title, $this->getCellHtml( $row ), '', '', [], ImageGalleryBase::LOADING_LAZY );
+				if ( $title instanceof Title && $title->getNamespace() === NS_FILE ) {
+					$gallery->add( $title, $this->getCellHtml( $row ) );
 				}
 				if ( $i === $num ) {
 					break;
@@ -101,6 +94,3 @@ abstract class ImageQueryPage extends QueryPage {
 		return '';
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( ImageQueryPage::class, 'ImageQueryPage' );

@@ -2,15 +2,15 @@
 
 namespace MediaWiki\Extension\AbuseFilter\View;
 
+use HTMLForm;
+use IContextSource;
+use Linker;
 use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Context\IContextSource;
 use MediaWiki\Extension\AbuseFilter\AbuseFilterPermissionManager;
 use MediaWiki\Extension\AbuseFilter\Filter\FilterNotFoundException;
 use MediaWiki\Extension\AbuseFilter\FilterLookup;
 use MediaWiki\Extension\AbuseFilter\Pager\AbuseFilterHistoryPager;
 use MediaWiki\Extension\AbuseFilter\SpecsFormatter;
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\Linker\Linker;
 use MediaWiki\Linker\LinkRenderer;
 use MediaWiki\User\UserNameUtils;
 use OOUI;
@@ -71,7 +71,6 @@ class AbuseFilterViewHistory extends AbuseFilterView {
 		$out->enableOOUI();
 		$filter = $this->getRequest()->getIntOrNull( 'filter' ) ?: $this->filter;
 		$canViewPrivate = $this->afPermManager->canViewPrivateFilters( $this->getAuthority() );
-		$canViewProtectedVars = $this->afPermManager->canViewProtectedVariables( $this->getAuthority() );
 
 		if ( $filter ) {
 			try {
@@ -83,17 +82,12 @@ class AbuseFilterViewHistory extends AbuseFilterView {
 				$out->addWikiMsg( 'abusefilter-history-error-hidden' );
 				return;
 			}
-			if ( isset( $filterObj ) && $filterObj->isProtected() && !$canViewProtectedVars ) {
-				$out->addWikiMsg( 'abusefilter-history-error-protected' );
-				return;
-			}
 		}
 
 		if ( $filter ) {
-			// Parse wikitext in this message to allow formatting of numero signs (T343994#9209383)
-			$out->setPageTitle( $this->msg( 'abusefilter-history' )->numParams( $filter )->parse() );
+			$out->setPageTitle( $this->msg( 'abusefilter-history' )->numParams( $filter ) );
 		} else {
-			$out->setPageTitleMsg( $this->msg( 'abusefilter-filter-log' ) );
+			$out->setPageTitle( $this->msg( 'abusefilter-filter-log' ) );
 		}
 
 		// Useful links
@@ -167,8 +161,7 @@ class AbuseFilterViewHistory extends AbuseFilterView {
 			$this->specsFormatter,
 			$filter,
 			$user,
-			$canViewPrivate,
-			$canViewProtectedVars
+			$canViewPrivate
 		);
 
 		$out->addParserOutputContent( $pager->getFullOutput() );

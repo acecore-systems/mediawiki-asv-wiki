@@ -20,16 +20,6 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
-use HtmlArmor;
-use ISearchResultSet;
-use MediaWiki\Search\TitleMatcher;
-use MediaWiki\Status\Status;
-use SearchEngine;
-use SearchEngineConfig;
-use SearchEngineFactory;
-use SearchResult;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\TypeDef\EnumDef;
 
@@ -39,22 +29,33 @@ use Wikimedia\ParamValidator\TypeDef\EnumDef;
  * @ingroup API
  */
 class ApiQuerySearch extends ApiQueryGeneratorBase {
-	use \MediaWiki\Api\SearchApi;
+	use SearchApi;
 
-	private TitleMatcher $titleMatcher;
+	/** @var array list of api allowed params */
+	private $allowedParams;
 
+	/** @var SearchEngineConfig */
+	private $searchEngineConfig;
+
+	/** @var SearchEngineFactory */
+	private $searchEngineFactory;
+
+	/**
+	 * @param ApiQuery $query
+	 * @param string $moduleName
+	 * @param SearchEngineConfig $searchEngineConfig
+	 * @param SearchEngineFactory $searchEngineFactory
+	 */
 	public function __construct(
 		ApiQuery $query,
-		string $moduleName,
+		$moduleName,
 		SearchEngineConfig $searchEngineConfig,
-		SearchEngineFactory $searchEngineFactory,
-		TitleMatcher $titleMatcher
+		SearchEngineFactory $searchEngineFactory
 	) {
 		parent::__construct( $query, $moduleName, 'sr' );
 		// Services also needed in SearchApi trait
 		$this->searchEngineConfig = $searchEngineConfig;
 		$this->searchEngineFactory = $searchEngineFactory;
-		$this->titleMatcher = $titleMatcher;
 	}
 
 	public function execute() {
@@ -104,7 +105,8 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 		} elseif ( $what == 'nearmatch' ) {
 			// near matches must receive the user input as provided, otherwise
 			// the near matches within namespaces are lost.
-			$matches = $this->titleMatcher->getNearMatchResultSet( $params['search'] );
+			$matches = $search->getNearMatcher( $this->getConfig() )
+				->getNearMatchResultSet( $params['search'] );
 		} else {
 			// We default to title searches; this is a terrible legacy
 			// of the way we initially set up the MySQL fulltext-based
@@ -383,7 +385,11 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 	}
 
 	public function getAllowedParams() {
-		$allowedParams = $this->buildCommonApiParams() + [
+		if ( $this->allowedParams !== null ) {
+			return $this->allowedParams;
+		}
+
+		$this->allowedParams = $this->buildCommonApiParams() + [
 			'what' => [
 				ParamValidator::PARAM_TYPE => [
 					'title',
@@ -431,21 +437,21 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 
 		// Generators only add info/properties if explicitly requested. T263841
 		if ( $this->isInGeneratorMode() ) {
-			$allowedParams['prop'][ParamValidator::PARAM_DEFAULT] = '';
-			$allowedParams['info'][ParamValidator::PARAM_DEFAULT] = '';
+			$this->allowedParams['prop'][ParamValidator::PARAM_DEFAULT] = '';
+			$this->allowedParams['info'][ParamValidator::PARAM_DEFAULT] = '';
 		}
 
 		// If we have more than one engine the list of available sorts is
 		// difficult to represent. For now don't expose it.
 		$alternatives = $this->searchEngineConfig->getSearchTypes();
 		if ( count( $alternatives ) == 1 ) {
-			$allowedParams['sort'] = [
+			$this->allowedParams['sort'] = [
 				ParamValidator::PARAM_DEFAULT => SearchEngine::DEFAULT_SORT,
 				ParamValidator::PARAM_TYPE => $this->searchEngineFactory->create()->getValidSorts(),
 			];
 		}
 
-		return $allowedParams;
+		return $this->allowedParams;
 	}
 
 	public function getSearchProfileParams() {
@@ -472,6 +478,3 @@ class ApiQuerySearch extends ApiQueryGeneratorBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Search';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiQuerySearch::class, 'ApiQuerySearch' );

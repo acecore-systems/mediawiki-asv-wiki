@@ -1,27 +1,15 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
-use InvalidArgumentException;
-use MediaWiki\Api\ApiDisabled;
-use MediaWiki\Api\ApiFeedContributions;
-use MediaWiki\Api\ApiFeedRecentChanges;
-use MediaWiki\Api\ApiLogout;
-use MediaWiki\Api\ApiMain;
-use MediaWiki\Api\ApiModuleManager;
-use MediaWiki\Api\ApiRsd;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\Tests\Unit\DummyServicesTrait;
 use MediaWiki\User\UserFactory;
-use MediaWikiUnitTestCase;
+use Psr\Container\ContainerInterface;
+use Wikimedia\ObjectFactory\ObjectFactory;
 
 /**
- * @covers \MediaWiki\Api\ApiModuleManager
+ * @covers ApiModuleManager
  * @group API
  * @group medium
  */
 class ApiModuleManagerTest extends MediaWikiUnitTestCase {
-	use DummyServicesTrait;
 
 	private function getModuleManager() {
 		// getContext is called in ApiBase::__construct
@@ -29,15 +17,16 @@ class ApiModuleManagerTest extends MediaWikiUnitTestCase {
 		$apiMain->method( 'getContext' )
 			->willReturn( $this->createMock( RequestContext::class ) );
 
+		$containerInterface = $this->createMock( ContainerInterface::class );
 		// Only needs to be able to provide the services used in the tests below, we
 		// don't need a full copy of MediaWikiServices's services. The only service
 		// actually used is a UserFactory, for demonstration purposes
-		$objectFactory = $this->getDummyObjectFactory( [
-			'UserFactory' => $this->createMock( UserFactory::class ),
-		] );
+		$containerInterface->method( 'get' )
+			->with( 'UserFactory' )
+			->willReturn( $this->createMock( UserFactory::class ) );
 		return new ApiModuleManager(
 			$apiMain,
-			$objectFactory
+			new ObjectFactory( $containerInterface )
 		);
 	}
 
@@ -155,7 +144,7 @@ class ApiModuleManagerTest extends MediaWikiUnitTestCase {
 		$moduleManager = $this->getModuleManager();
 		$moduleManager->addModules( $modules, $group );
 
-		foreach ( $modules as $name => $_ ) {
+		foreach ( array_keys( $modules ) as $name ) {
 			$this->assertTrue( $moduleManager->isDefined( $name, $group ), 'isDefined' );
 			$this->assertNotNull( $moduleManager->getModule( $name, $group, true ), 'getModule' );
 		}
@@ -207,7 +196,7 @@ class ApiModuleManagerTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Api\ApiModuleManager::getModule
+	 * @covers ApiModuleManager::getModule
 	 * @dataProvider getModuleProvider
 	 */
 	public function testGetModule( $modules, $name, $expectedClass ) {
@@ -232,7 +221,7 @@ class ApiModuleManagerTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Api\ApiModuleManager::getModule
+	 * @covers ApiModuleManager::getModule
 	 */
 	public function testGetModule_null() {
 		$modules = [
@@ -248,7 +237,7 @@ class ApiModuleManagerTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Api\ApiModuleManager::getNames
+	 * @covers ApiModuleManager::getNames
 	 */
 	public function testGetNames() {
 		$fooModules = [
@@ -274,7 +263,7 @@ class ApiModuleManagerTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Api\ApiModuleManager::getNamesWithClasses
+	 * @covers ApiModuleManager::getNamesWithClasses
 	 */
 	public function testGetNamesWithClasses() {
 		$fooModules = [
@@ -303,7 +292,7 @@ class ApiModuleManagerTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Api\ApiModuleManager::getModuleGroup
+	 * @covers ApiModuleManager::getModuleGroup
 	 */
 	public function testGetModuleGroup() {
 		$fooModules = [
@@ -326,7 +315,7 @@ class ApiModuleManagerTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Api\ApiModuleManager::getGroups
+	 * @covers ApiModuleManager::getGroups
 	 */
 	public function testGetGroups() {
 		$fooModules = [
@@ -348,7 +337,7 @@ class ApiModuleManagerTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Api\ApiModuleManager::getClassName
+	 * @covers ApiModuleManager::getClassName
 	 */
 	public function testGetClassName() {
 		$fooModules = [
@@ -389,7 +378,7 @@ class ApiModuleManagerTest extends MediaWikiUnitTestCase {
 	public function testAddModuleWithIncompleteSpec() {
 		$moduleManager = $this->getModuleManager();
 
-		$this->expectException( InvalidArgumentException::class );
+		$this->expectException( \InvalidArgumentException::class );
 		$this->expectExceptionMessage( '$spec must define a class name' );
 		$moduleManager->addModule(
 			'logout',

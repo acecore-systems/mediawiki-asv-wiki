@@ -1,7 +1,7 @@
 /*!
  * VisualEditor user interface DiffDialog class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -44,7 +44,7 @@ ve.ui.DiffDialog.static.actions = [
  */
 ve.ui.DiffDialog.prototype.initialize = function () {
 	// Parent method
-	ve.ui.DiffDialog.super.prototype.initialize.apply( this, arguments );
+	ve.ui.DiffDialog.parent.prototype.initialize.apply( this, arguments );
 
 	this.diffElement = null;
 
@@ -61,14 +61,14 @@ ve.ui.DiffDialog.prototype.initialize = function () {
  */
 ve.ui.DiffDialog.prototype.getSetupProcess = function ( data ) {
 	return ve.ui.DiffDialog.super.prototype.getSetupProcess.call( this, data )
-		.next( () => {
+		.next( function () {
 			this.diffElement = new ve.ui.DiffElement( new ve.dm.VisualDiff( data.oldDoc, data.newDoc ) );
 			ve.targetLinksToNewWindow( this.diffElement.$document[ 0 ] );
 
 			this.content.$element.append(
 				this.diffElement.$element
 			);
-		} );
+		}, this );
 };
 
 /**
@@ -76,9 +76,9 @@ ve.ui.DiffDialog.prototype.getSetupProcess = function ( data ) {
  */
 ve.ui.DiffDialog.prototype.getReadyProcess = function ( data ) {
 	return ve.ui.DiffDialog.super.prototype.getReadyProcess.call( this, data )
-		.next( () => {
+		.next( function () {
 			this.positionDiffElement();
-		} );
+		}, this );
 };
 
 /**
@@ -86,7 +86,7 @@ ve.ui.DiffDialog.prototype.getReadyProcess = function ( data ) {
  */
 ve.ui.DiffDialog.prototype.setDimensions = function () {
 	// Parent method
-	ve.ui.DiffDialog.super.prototype.setDimensions.apply( this, arguments );
+	ve.ui.DiffDialog.parent.prototype.setDimensions.apply( this, arguments );
 
 	if ( !this.positioning ) {
 		this.positionDiffElement();
@@ -99,14 +99,15 @@ ve.ui.DiffDialog.prototype.setDimensions = function () {
  * Should be called whenever the diff element's container has changed width.
  */
 ve.ui.DiffDialog.prototype.positionDiffElement = function () {
-	setTimeout( () => {
-		this.withoutSizeTransitions( () => {
-			this.positioning = true;
-			if ( this.diffElement && this.isVisible() ) {
-				this.diffElement.positionDescriptions();
-				this.updateSize();
+	var dialog = this;
+	setTimeout( function () {
+		dialog.withoutSizeTransitions( function () {
+			dialog.positioning = true;
+			if ( dialog.diffElement && dialog.isVisible() ) {
+				dialog.diffElement.positionDescriptions();
+				dialog.updateSize();
 			}
-			this.positioning = false;
+			dialog.positioning = false;
 		} );
 	}, OO.ui.theme.getDialogTransitionDuration() );
 };
@@ -116,9 +117,9 @@ ve.ui.DiffDialog.prototype.positionDiffElement = function () {
  */
 ve.ui.DiffDialog.prototype.getTeardownProcess = function ( data ) {
 	return ve.ui.DiffDialog.super.prototype.getTeardownProcess.call( this, data )
-		.next( () => {
+		.next( function () {
 			this.diffElement.$element.remove();
-		} );
+		}, this );
 };
 
 /* Registration */

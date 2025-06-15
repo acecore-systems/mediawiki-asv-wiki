@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface BlockquoteAction class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2018 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -11,7 +11,6 @@
  * @extends ve.ui.Action
  * @constructor
  * @param {ve.ui.Surface} surface Surface to act on
- * @param {string} [source]
  */
 ve.ui.BlockquoteAction = function VeUiBlockquoteAction() {
 	// Parent constructor
@@ -36,7 +35,7 @@ ve.ui.BlockquoteAction.static.methods = [ 'wrap', 'unwrap', 'toggle' ];
  * @return {boolean} Current selection is wrapped in a blockquote
  */
 ve.ui.BlockquoteAction.prototype.isWrapped = function () {
-	const fragment = this.surface.getModel().getFragment();
+	var fragment = this.surface.getModel().getFragment();
 	return fragment.hasMatchingAncestor( 'blockquote' );
 };
 
@@ -55,21 +54,21 @@ ve.ui.BlockquoteAction.prototype.toggle = function () {
  * @return {boolean} Action was executed
  */
 ve.ui.BlockquoteAction.prototype.wrap = function () {
-	const surfaceModel = this.surface.getModel(),
+	var surfaceModel = this.surface.getModel(),
 		selection = surfaceModel.getSelection();
 
 	if ( !( selection instanceof ve.dm.LinearSelection ) ) {
 		return false;
 	}
 
-	let fragment = surfaceModel.getFragment( null, true );
+	var fragment = surfaceModel.getFragment( null, true );
 	// Trim the selection range to the range of leaf nodes in the selection,
 	// to avoid covering whole nodes where only start/end tag was selected.
 	// For example:
 	//     <p>asdf</p><p>qwer</p>   -->   <p>asdf</p><p>qwer</p>
 	//        ^^^^^^^^^^^                    ^^^^
-	const leaves = fragment.getSelectedLeafNodes();
-	const leavesRange = new ve.Range(
+	var leaves = fragment.getSelectedLeafNodes();
+	var leavesRange = new ve.Range(
 		leaves[ 0 ].getRange().start,
 		leaves[ leaves.length - 1 ].getRange().end
 	);
@@ -80,7 +79,9 @@ ve.ui.BlockquoteAction.prototype.wrap = function () {
 
 	// If the nodes can't be wrapped (e.g. they are list items), wrap the parent
 	while (
-		fragment.getCoveredNodes().some( ( nodeInfo ) => !nodeInfo.node.isAllowedParentNodeType( 'blockquote' ) || nodeInfo.node.isContent() )
+		fragment.getCoveredNodes().some( function ( nodeInfo ) {
+			return !nodeInfo.node.isAllowedParentNodeType( 'blockquote' ) || nodeInfo.node.isContent();
+		} )
 	) {
 		fragment = fragment.expandLinearSelection( 'parent' );
 	}
@@ -97,7 +98,7 @@ ve.ui.BlockquoteAction.prototype.wrap = function () {
  * @return {boolean} Action was executed
  */
 ve.ui.BlockquoteAction.prototype.unwrap = function () {
-	const surfaceModel = this.surface.getModel(),
+	var surfaceModel = this.surface.getModel(),
 		selection = surfaceModel.getSelection();
 
 	if ( !( selection instanceof ve.dm.LinearSelection ) ) {
@@ -108,14 +109,14 @@ ve.ui.BlockquoteAction.prototype.unwrap = function () {
 		return false;
 	}
 
-	let fragment = surfaceModel.getFragment( null, true );
+	var fragment = surfaceModel.getFragment( null, true );
 	// Trim the selection range to the range of leaf nodes in the selection,
 	// to avoid covering whole nodes where only start/end tag was selected.
 	// For example:
 	//     <bq><p>asdf</p></bq><p>qwer</p>   -->   <bq><p>asdf</p></bq><p>qwer</p>
 	//            ^^^^^^^^^^^^^^^^                        ^^^^
-	const leaves = fragment.getSelectedLeafNodes();
-	const leavesRange = new ve.Range(
+	var leaves = fragment.getSelectedLeafNodes();
+	var leavesRange = new ve.Range(
 		leaves[ 0 ].getRange().start,
 		leaves[ leaves.length - 1 ].getRange().end
 	);

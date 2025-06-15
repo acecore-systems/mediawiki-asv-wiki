@@ -9,7 +9,6 @@ use MediaWiki\Auth\AuthenticationRequest;
  * title blacklist check.
  */
 class TitleBlacklistAuthenticationRequest extends AuthenticationRequest {
-	/** @var bool */
 	public $ignoreTitleBlacklist;
 
 	public function getFieldInfo() {

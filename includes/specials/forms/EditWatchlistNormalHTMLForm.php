@@ -18,8 +18,6 @@
  * @file
  */
 
-use MediaWiki\HTMLForm\OOUIHTMLForm;
-
 /**
  * Extend OOUIHTMLForm purely so we can have a more sensible way of getting the section headers
  */

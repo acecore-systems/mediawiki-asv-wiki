@@ -5,14 +5,6 @@
  * @ingroup Actions
  */
 
-use MediaWiki\CommentFormatter\CommentFormatter;
-use MediaWiki\CommentStore\CommentStore;
-use MediaWiki\CommentStore\CommentStoreComment;
-use MediaWiki\Config\Config;
-use MediaWiki\Context\IContextSource;
-use MediaWiki\Html\Html;
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\Linker\Linker;
 use MediaWiki\MainConfigNames;
 use MediaWiki\Permissions\PermissionStatus;
 use MediaWiki\Revision\MutableRevisionRecord;
@@ -20,11 +12,7 @@ use MediaWiki\Revision\RevisionLookup;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\RevisionRenderer;
 use MediaWiki\Revision\SlotRecord;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Status\Status;
 use MediaWiki\Storage\EditResult;
-use MediaWiki\User\User;
-use Wikimedia\Rdbms\ReadOnlyMode;
 
 /**
  * Temporary action for MCR undos
@@ -43,42 +31,43 @@ use Wikimedia\Rdbms\ReadOnlyMode;
  */
 class McrUndoAction extends FormAction {
 
-	protected int $undo = 0;
-	protected int $undoafter = 0;
-	protected int $cur = 0;
+	protected $undo = 0, $undoafter = 0, $cur = 0;
 
 	/** @var RevisionRecord|null */
 	protected $curRev = null;
 
-	private ReadOnlyMode $readOnlyMode;
-	private RevisionLookup $revisionLookup;
-	private RevisionRenderer $revisionRenderer;
-	private CommentFormatter $commentFormatter;
-	private bool $useRCPatrol;
+	/** @var ReadOnlyMode */
+	private $readOnlyMode;
+
+	/** @var RevisionLookup */
+	private $revisionLookup;
+
+	/** @var RevisionRenderer */
+	private $revisionRenderer;
+
+	/** @var bool */
+	private $useRCPatrol;
 
 	/**
-	 * @param Article $article
+	 * @param Page $page
 	 * @param IContextSource $context
 	 * @param ReadOnlyMode $readOnlyMode
 	 * @param RevisionLookup $revisionLookup
 	 * @param RevisionRenderer $revisionRenderer
-	 * @param CommentFormatter $commentFormatter
 	 * @param Config $config
 	 */
 	public function __construct(
-		Article $article,
+		Page $page,
 		IContextSource $context,
 		ReadOnlyMode $readOnlyMode,
 		RevisionLookup $revisionLookup,
 		RevisionRenderer $revisionRenderer,
-		CommentFormatter $commentFormatter,
 		Config $config
 	) {
-		parent::__construct( $article, $context );
+		parent::__construct( $page, $context );
 		$this->readOnlyMode = $readOnlyMode;
 		$this->revisionLookup = $revisionLookup;
 		$this->revisionRenderer = $revisionRenderer;
-		$this->commentFormatter = $commentFormatter;
 		$this->useRCPatrol = $config->get( MainConfigNames::UseRCPatrol );
 	}
 
@@ -105,6 +94,12 @@ class McrUndoAction extends FormAction {
 
 		$out = $this->getOutput();
 		$out->setRobotPolicy( 'noindex,nofollow' );
+		if ( $this->getContext()->getConfig()->get( MainConfigNames::UseMediaWikiUIEverywhere ) ) {
+			$out->addModuleStyles( [
+				'mediawiki.ui.input',
+				'mediawiki.ui.checkbox',
+			] );
+		}
 
 		// IP warning headers copied from EditPage
 		// (should more be copied?)
@@ -304,6 +299,8 @@ class McrUndoAction extends FormAction {
 		$out = $this->getOutput();
 
 		try {
+			$previewHTML = '';
+
 			# provide a anchor link to the form
 			$continueEditing = '<span class="mw-continue-editing">' .
 				'[[#mw-mcrundo-form|' .
@@ -313,18 +310,16 @@ class McrUndoAction extends FormAction {
 			$note = $this->context->msg( 'previewnote' )->plain() . ' ' . $continueEditing;
 
 			$parserOptions = $this->getWikiPage()->makeParserOptions( $this->context );
-			$parserOptions->setRenderReason( 'page-preview' );
 			$parserOptions->setIsPreview( true );
 			$parserOptions->setIsSectionPreview( false );
 
 			$parserOutput = $this->revisionRenderer
 				->getRenderedRevision( $rev, $parserOptions, $this->getAuthority() )
 				->getRevisionParserOutput();
-			// TODO T371004 move runOutputPipeline out of $parserOutput
-			$previewHTML = $parserOutput->runOutputPipeline( $parserOptions, [
+			$previewHTML = $parserOutput->getText( [
 				'enableSectionEditLinks' => false,
 				'includeDebugInfo' => true,
-			] )->getContentHolderText();
+			] );
 
 			$out->addParserOutputMetadata( $parserOutput );
 			if ( count( $parserOutput->getWarnings() ) ) {
@@ -349,6 +344,11 @@ class McrUndoAction extends FormAction {
 				$out->parseAsInterface( $note )
 			)
 		);
+
+		$pageViewLang = $this->getTitle()->getPageViewLanguage();
+		$attribs = [ 'lang' => $pageViewLang->getHtmlCode(), 'dir' => $pageViewLang->getDir(),
+			'class' => 'mw-content-' . $pageViewLang->getDir() ];
+		$previewHTML = Html::rawElement( 'div', $attribs, $previewHTML );
 
 		$out->addHTML( $previewhead . $previewHTML );
 	}
@@ -377,7 +377,7 @@ class McrUndoAction extends FormAction {
 
 		$newRev = $this->getNewRevision();
 		if ( !$newRev->hasSameContent( $curRev ) ) {
-			$hookRunner = $this->getHookRunner();
+			$hookRunner = Hooks::runner();
 			foreach ( $newRev->getSlotRoles() as $slotRole ) {
 				$slot = $newRev->getSlot( $slotRole, RevisionRecord::RAW );
 
@@ -398,7 +398,7 @@ class McrUndoAction extends FormAction {
 
 					return $status;
 				} elseif ( !$status->isOK() ) {
-					if ( !$status->getMessages() ) {
+					if ( !$status->getErrors() ) {
 						$status->error( 'hookaborted' );
 					}
 					return $status;
@@ -470,14 +470,8 @@ class McrUndoAction extends FormAction {
 		];
 
 		if ( $request->getCheck( 'wpSummary' ) ) {
-			$ret['summarypreview']['default'] = Html::rawElement(
-				'div',
-				[ 'class' => 'mw-summary-preview' ],
-				$this->commentFormatter->formatBlock(
-					trim( $request->getVal( 'wpSummary' ) ),
-					$this->getTitle(),
-					false
-				)
+			$ret['summarypreview']['default'] = Xml::tags( 'div', [ 'class' => 'mw-summary-preview' ],
+				Linker::commentBlock( trim( $request->getVal( 'wpSummary' ) ), $this->getTitle(), false )
 			);
 		} else {
 			unset( $ret['summarypreview'] );

@@ -2,15 +2,15 @@
 
 namespace MediaWiki\Extension\AbuseFilter;
 
-use Wikimedia\Diff\Diff;
-use Wikimedia\Diff\TableDiffFormatter;
+use Diff;
+use TableDiffFormatter;
 
 /**
- * Like TableDiffFormatter, but will always render the full context (even for empty diffs).
- *
+ * Like TableDiffFormatter, but will always render the full context
+ * (even for empty diffs).
  * @todo Consider moving to MW core (as a separate class, or as an option to TableDiffFormatter)
  *
- * @internal
+ * @private
  */
 class TableDiffFormatterFullContext extends TableDiffFormatter {
 	/**
@@ -35,6 +35,8 @@ class TableDiffFormatterFullContext extends TableDiffFormatter {
 		// Just render the diff with no preprocessing
 		$this->startDiff();
 		$this->block( 1, $xlen, 1, $ylen, $diff->edits );
-		return $this->endDiff();
+		$end = $this->endDiff();
+
+		return $end;
 	}
 }

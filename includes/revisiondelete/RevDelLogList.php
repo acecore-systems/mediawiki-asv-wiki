@@ -19,25 +19,18 @@
  * @ingroup RevisionDelete
  */
 
-use MediaWiki\CommentStore\CommentStore;
-use MediaWiki\Context\IContextSource;
-use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\PageIdentity;
-use MediaWiki\SpecialPage\SpecialPage;
-use Wikimedia\Rdbms\IResultWrapper;
+use MediaWiki\Revision\RevisionRecord;
+use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\LBFactory;
-use Wikimedia\Rdbms\SelectQueryBuilder;
 
 /**
  * List for logging table items
  */
 class RevDelLogList extends RevDelList {
 
-	protected const SUPPRESS_BIT = LogPage::DELETED_RESTRICTED;
-
 	/** @var CommentStore */
 	private $commentStore;
-	private LogFormatterFactory $logFormatterFactory;
 
 	/**
 	 * @internal Use RevisionDeleter
@@ -46,19 +39,16 @@ class RevDelLogList extends RevDelList {
 	 * @param array $ids
 	 * @param LBFactory $lbFactory
 	 * @param CommentStore $commentStore
-	 * @param LogFormatterFactory $logFormatterFactory
 	 */
 	public function __construct(
 		IContextSource $context,
 		PageIdentity $page,
 		array $ids,
 		LBFactory $lbFactory,
-		CommentStore $commentStore,
-		LogFormatterFactory $logFormatterFactory
+		CommentStore $commentStore
 	) {
 		parent::__construct( $context, $page, $ids, $lbFactory );
 		$this->commentStore = $commentStore;
-		$this->logFormatterFactory = $logFormatterFactory;
 	}
 
 	public function getType() {
@@ -78,13 +68,12 @@ class RevDelLogList extends RevDelList {
 	}
 
 	public static function suggestTarget( $target, array $ids ) {
-		$dbr = MediaWikiServices::getInstance()->getConnectionProvider()->getReplicaDatabase();
-		$result = $dbr->newSelectQueryBuilder()
-			->select( 'log_type' )
-			->distinct()
-			->from( 'logging' )
-			->where( [ 'log_id' => $ids ] )
-			->caller( __METHOD__ )->fetchResultSet();
+		$result = wfGetDB( DB_REPLICA )->select( 'logging',
+			'log_type',
+			[ 'log_id' => $ids ],
+			__METHOD__,
+			[ 'DISTINCT' ]
+		);
 		if ( $result->numRows() == 1 ) {
 			// If there's only one type, the target can be set to include it.
 			return SpecialPage::getTitleFor( 'Log', $result->current()->log_type );
@@ -94,13 +83,17 @@ class RevDelLogList extends RevDelList {
 	}
 
 	/**
-	 * @param \Wikimedia\Rdbms\IReadableDatabase $db
-	 * @return IResultWrapper
+	 * @param IDatabase $db
+	 * @return mixed
 	 */
 	public function doQuery( $db ) {
 		$ids = array_map( 'intval', $this->ids );
-		$queryBuilder = $db->newSelectQueryBuilder()
-			->select( [
+
+		$commentQuery = $this->commentStore->getJoin( 'log_comment' );
+
+		$queryInfo = [
+			'tables' => [ 'logging', 'actor' ] + $commentQuery['tables'],
+			'fields' => [
 				'log_id',
 				'log_type',
 				'log_action',
@@ -112,30 +105,40 @@ class RevDelLogList extends RevDelList {
 				'log_params',
 				'log_deleted',
 				'log_user' => 'actor_user',
-				'log_user_text' => 'actor_name',
-				'log_comment_text' => 'comment_log_comment.comment_text',
-				'log_comment_data' => 'comment_log_comment.comment_data',
-				'log_comment_cid' => 'comment_log_comment.comment_id'
-			] )
-			->from( 'logging' )
-			->join( 'actor', null, 'actor_id=log_actor' )
-			->join( 'comment', 'comment_log_comment', 'comment_log_comment.comment_id = log_comment_id' )
-			->where( [ 'log_id' => $ids ] )
-			->orderBy( [ 'log_timestamp', 'log_id' ], SelectQueryBuilder::SORT_DESC );
+				'log_user_text' => 'actor_name'
+			] + $commentQuery['fields'],
+			'conds' => [ 'log_id' => $ids ],
+			'options' => [ 'ORDER BY' => 'log_id DESC' ],
+			'join_conds' => [
+				'actor' => [ 'JOIN', 'actor_id=log_actor' ]
+			] + $commentQuery['joins'],
+		];
 
-		MediaWikiServices::getInstance()->getChangeTagsStore()->modifyDisplayQueryBuilder( $queryBuilder, 'logging' );
+		ChangeTags::modifyDisplayQuery(
+			$queryInfo['tables'],
+			$queryInfo['fields'],
+			$queryInfo['conds'],
+			$queryInfo['join_conds'],
+			$queryInfo['options'],
+			''
+		);
 
-		return $queryBuilder->caller( __METHOD__ )->fetchResultSet();
+		return $db->select(
+			$queryInfo['tables'],
+			$queryInfo['fields'],
+			$queryInfo['conds'],
+			__METHOD__,
+			$queryInfo['options'],
+			$queryInfo['join_conds']
+		);
 	}
 
 	public function newItem( $row ) {
-		return new RevDelLogItem(
-			$this,
-			$row,
-			$this->commentStore,
-			MediaWikiServices::getInstance()->getConnectionProvider(),
-			$this->logFormatterFactory
-		);
+		return new RevDelLogItem( $this, $row, $this->commentStore );
+	}
+
+	public function getSuppressBit() {
+		return RevisionRecord::DELETED_RESTRICTED;
 	}
 
 	public function getLogAction() {

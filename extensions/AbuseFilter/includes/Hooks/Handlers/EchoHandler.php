@@ -2,20 +2,22 @@
 
 namespace MediaWiki\Extension\AbuseFilter\Hooks\Handlers;
 
+use EchoAttributeManager;
+use EchoUserLocator;
 use MediaWiki\Extension\AbuseFilter\EchoNotifier;
 use MediaWiki\Extension\AbuseFilter\ThrottleFilterPresentationModel;
-use MediaWiki\Extension\Notifications\AttributeManager;
-use MediaWiki\Extension\Notifications\Hooks\BeforeCreateEchoEventHook;
-use MediaWiki\Extension\Notifications\UserLocator;
 
-class EchoHandler implements BeforeCreateEchoEventHook {
+/**
+ * @todo Use new hook system once Echo is updated
+ */
+class EchoHandler {
 
 	/**
 	 * @param array &$notifications
 	 * @param array &$notificationCategories
 	 * @param array &$icons
 	 */
-	public function onBeforeCreateEchoEvent(
+	public static function onBeforeCreateEchoEvent(
 		array &$notifications,
 		array &$notificationCategories,
 		array &$icons
@@ -25,9 +27,9 @@ class EchoHandler implements BeforeCreateEchoEventHook {
 			'section' => 'alert',
 			'group' => 'negative',
 			'presentation-model' => ThrottleFilterPresentationModel::class,
-			AttributeManager::ATTR_LOCATORS => [
+			EchoAttributeManager::ATTR_LOCATORS => [
 				[
-					[ UserLocator::class, 'locateFromEventExtra' ],
+					[ EchoUserLocator::class, 'locateFromEventExtra' ],
 					[ 'user' ]
 				]
 			],

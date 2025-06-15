@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface ContentAction class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -12,7 +12,6 @@
  *
  * @constructor
  * @param {ve.ui.Surface} surface Surface to act on
- * @param {string} [source]
  */
 ve.ui.ContentAction = function VeUiContentAction() {
 	// Parent constructor
@@ -40,7 +39,7 @@ ve.ui.ContentAction.static.methods = [ 'insert', 'remove', 'select', 'pasteSpeci
  * @return {boolean} Action was executed
  */
 ve.ui.ContentAction.prototype.insert = function ( content, annotate, collapseToEnd ) {
-	const fragment = this.surface.getModel().getFragment();
+	var fragment = this.surface.getModel().getFragment();
 	fragment.insertContent( content, annotate );
 	if ( collapseToEnd ) {
 		fragment.collapseToEnd().select();
@@ -55,9 +54,9 @@ ve.ui.ContentAction.prototype.insert = function ( content, annotate, collapseToE
  * @return {boolean} Action was executed
  */
 ve.ui.ContentAction.prototype.remove = function ( key ) {
-	let defaultPrevented = false;
+	var defaultPrevented = false;
 	if ( key ) {
-		const e = {
+		var e = {
 			keyCode: key === 'delete' ? OO.ui.Keys.DELETE : OO.ui.Keys.BACKSPACE,
 			preventDefault: function () {
 				defaultPrevented = true;
@@ -114,7 +113,7 @@ ve.ui.ContentAction.prototype.pasteSpecial = function () {
  * @return {boolean} Action was executed
  */
 ve.ui.ContentAction.prototype.changeDirectionality = function () {
-	const documentView = this.surface.getView().getDocument();
+	var documentView = this.surface.getView().getDocument();
 	documentView.setDir( documentView.getDir() === 'ltr' ? 'rtl' : 'ltr' );
 	this.surface.getModel().emit( 'contextChange' );
 	this.surface.getView().emit( 'position' );
@@ -156,7 +155,7 @@ ve.ui.ContentAction.prototype.focusContext = function () {
 		// Disable $focusTrapBefore so it doesn't get matched as the first
 		// focusable item.
 		this.surface.getContext().$focusTrapBefore.prop( 'disabled', true );
-		const $focusable = OO.ui.findFocusable( this.surface.getContext().$element );
+		var $focusable = OO.ui.findFocusable( this.surface.getContext().$element );
 		this.surface.getContext().$focusTrapBefore.prop( 'disabled', false );
 		if ( $focusable.length ) {
 			this.surface.getView().deactivate();

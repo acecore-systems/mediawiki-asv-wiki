@@ -2,15 +2,13 @@
 
 namespace MediaWiki\Settings\Source\Format;
 
-use InvalidArgumentException;
 use LogicException;
-use Stringable;
 use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
 use UnexpectedValueException;
 use Wikimedia\AtEase\AtEase;
 
-class YamlFormat implements Stringable, SettingsFormat {
+class YamlFormat implements SettingsFormat {
 
 	public const PARSER_PHP_YAML = 'php-yaml';
 
@@ -48,7 +46,7 @@ class YamlFormat implements Stringable, SettingsFormat {
 			case self::PARSER_SYMFONY:
 				return true;
 			default:
-				throw new InvalidArgumentException( 'Unknown parser: ' . $parser );
+				throw new LogicException( 'Unknown parser: ' . $parser );
 		}
 	}
 
@@ -64,11 +62,12 @@ class YamlFormat implements Stringable, SettingsFormat {
 			case self::PARSER_SYMFONY:
 				return $this->parseWithSymfony( $data );
 			default:
-				throw new InvalidArgumentException( 'Unknown parser: ' . $parser );
+				throw new LogicException( 'Unknown parser: ' . $parser );
 		}
 	}
 
 	private function parseWithPhp( string $data ): array {
+		// @phan-suppress-next-line PhanTypeMismatchArgumentInternal Scalar okay with php8.1
 		$previousValue = ini_set( 'yaml.decode_php', false );
 		try {
 			$ndocs = 0;

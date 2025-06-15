@@ -1,21 +1,21 @@
 /**
- * Widget to select and display target page on Special:RecentChangesLinked (AKA Related Changes).
+ * Widget to select and display target page on Special:RecentChangesLinked (AKA Related Changes)
  *
  * @class mw.rcfilters.ui.RclTargetPageWidget
- * @ignore
  * @extends OO.ui.Widget
  *
+ * @constructor
  * @param {mw.rcfilters.Controller} controller
  * @param {mw.rcfilters.dm.FilterItem} targetPageModel
  * @param {Object} [config] Configuration object
  */
-const RclTargetPageWidget = function MwRcfiltersUiRclTargetPageWidget(
+var RclTargetPageWidget = function MwRcfiltersUiRclTargetPageWidget(
 	controller, targetPageModel, config
 ) {
 	config = config || {};
 
 	// Parent
-	RclTargetPageWidget.super.call( this, config );
+	RclTargetPageWidget.parent.call( this, config );
 
 	this.controller = controller;
 	this.model = targetPageModel;
@@ -71,7 +71,7 @@ RclTargetPageWidget.prototype.onLookupInputBlur = function () {
  * Respond to the model being updated
  */
 RclTargetPageWidget.prototype.updateUiBasedOnModel = function () {
-	const title = mw.Title.newFromText( this.model.getValue() ),
+	var title = mw.Title.newFromText( this.model.getValue() ),
 		text = title ? title.toText() : this.model.getValue();
 	this.titleSearch.setValue( text );
 	this.titleSearch.setTitle( text );

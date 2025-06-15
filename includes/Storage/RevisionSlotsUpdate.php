@@ -1,5 +1,7 @@
 <?php
 /**
+ * Value object representing a modification of revision slots.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -20,7 +22,7 @@
 
 namespace MediaWiki\Storage;
 
-use MediaWiki\Content\Content;
+use Content;
 use MediaWiki\Revision\MutableRevisionSlots;
 use MediaWiki\Revision\RevisionAccessException;
 use MediaWiki\Revision\RevisionSlots;
@@ -55,7 +57,7 @@ class RevisionSlotsUpdate {
 	 */
 	public static function newFromRevisionSlots(
 		RevisionSlots $newSlots,
-		?RevisionSlots $parentSlots = null
+		RevisionSlots $parentSlots = null
 	) {
 		$modified = $newSlots->getSlots();
 		$removed = [];
@@ -88,7 +90,7 @@ class RevisionSlotsUpdate {
 	 *
 	 * @return RevisionSlotsUpdate
 	 */
-	public static function newFromContent( array $newContent, ?RevisionSlots $parentSlots = null ) {
+	public static function newFromContent( array $newContent, RevisionSlots $parentSlots = null ) {
 		$modified = [];
 
 		foreach ( $newContent as $role => $content ) {

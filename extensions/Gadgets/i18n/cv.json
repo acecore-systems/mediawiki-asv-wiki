@@ -1,13 +1,13 @@
 {
 	"@metadata": {
 		"authors": [
-			"Astahar",
 			"Chuvash",
-			"Chuvash2014"
+			"Chuvash2014",
+			"Astahar"
 		]
 	},
 	"prefs-gadgets": "Гаджетсем",
-	"special-gadgets": "Гаджетсем",
+	"gadgets": "Гаджетсем",
 	"gadgetusage-gadget": "Гаджет",
 	"gadgetusage-usercount": "Хутшӑнакансен йышӗ",
 	"gadgetusage-noresults": "Нимӗнле гаджет та тупӑнмарӗ",

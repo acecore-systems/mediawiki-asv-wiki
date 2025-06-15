@@ -3,7 +3,7 @@
 /**
  * API userrights module
  *
- * Copyright © 2009 Roan Kattouw <roan.kattouw@gmail.com>
+ * Copyright © 2009 Roan Kattouw "<Firstname>.<Lastname>@gmail.com"
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,53 +23,33 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
-use ChangeTags;
-use MediaWiki\MainConfigNames;
 use MediaWiki\ParamValidator\TypeDef\UserDef;
-use MediaWiki\Specials\SpecialUserRights;
-use MediaWiki\Title\Title;
-use MediaWiki\User\Options\UserOptionsLookup;
+use MediaWiki\Permissions\Authority;
 use MediaWiki\User\UserGroupManager;
-use MediaWiki\User\UserIdentity;
-use MediaWiki\Watchlist\WatchedItemStoreInterface;
-use MediaWiki\Watchlist\WatchlistManager;
 use Wikimedia\ParamValidator\ParamValidator;
-use Wikimedia\ParamValidator\TypeDef\ExpiryDef;
-use Wikimedia\Rdbms\IDBAccessObject;
 
 /**
  * @ingroup API
  */
 class ApiUserrights extends ApiBase {
 
-	use ApiWatchlistTrait;
-
-	/** @var UserIdentity|null */
 	private $mUser = null;
 
-	private UserGroupManager $userGroupManager;
-	private WatchedItemStoreInterface $watchedItemStore;
+	/** @var UserGroupManager */
+	private $userGroupManager;
 
+	/**
+	 * @param ApiMain $mainModule
+	 * @param string $moduleName
+	 * @param UserGroupManager $userGroupManager
+	 */
 	public function __construct(
 		ApiMain $mainModule,
-		string $moduleName,
-		UserGroupManager $userGroupManager,
-		WatchedItemStoreInterface $watchedItemStore,
-		WatchlistManager $watchlistManager,
-		UserOptionsLookup $userOptionsLookup
+		$moduleName,
+		UserGroupManager $userGroupManager
 	) {
 		parent::__construct( $mainModule, $moduleName );
 		$this->userGroupManager = $userGroupManager;
-		$this->watchedItemStore = $watchedItemStore;
-
-		// Variables needed in ApiWatchlistTrait trait
-		$this->watchlistExpiryEnabled = $this->getConfig()->get( MainConfigNames::WatchlistExpiry );
-		$this->watchlistMaxDuration =
-			$this->getConfig()->get( MainConfigNames::WatchlistExpiryMaxDuration );
-		$this->watchlistManager = $watchlistManager;
-		$this->userOptionsLookup = $userOptionsLookup;
 	}
 
 	public function execute() {
@@ -78,7 +58,7 @@ class ApiUserrights extends ApiBase {
 		// Deny if the user is blocked and doesn't have the full 'userrights' permission.
 		// This matches what Special:UserRights does for the web UI.
 		if ( !$this->getAuthority()->isAllowed( 'userrights' ) ) {
-			$block = $pUser->getBlock( IDBAccessObject::READ_LATEST );
+			$block = $pUser->getBlock( Authority::READ_LATEST );
 			if ( $block && $block->isSitewide() ) {
 				$this->dieBlocked( $block );
 			}
@@ -87,7 +67,12 @@ class ApiUserrights extends ApiBase {
 		$params = $this->extractRequestParams();
 
 		// Figure out expiry times from the input
-		$expiry = (array)$params['expiry'];
+		// $params['expiry'] is not set in CentralAuth's ApiGlobalUserRights subclass
+		if ( isset( $params['expiry'] ) ) {
+			$expiry = (array)$params['expiry'];
+		} else {
+			$expiry = [ 'infinity' ];
+		}
 		$add = (array)$params['add'];
 		if ( !$add ) {
 			$expiry = [];
@@ -107,7 +92,7 @@ class ApiUserrights extends ApiBase {
 		$groupExpiries = [];
 		foreach ( $expiry as $index => $expiryValue ) {
 			$group = $add[$index];
-			$groupExpiries[$group] = SpecialUserRights::expiryToTimestamp( $expiryValue );
+			$groupExpiries[$group] = UserrightsPage::expiryToTimestamp( $expiryValue );
 
 			if ( $groupExpiries[$group] === false ) {
 				$this->dieWithError( [ 'apierror-invalidexpiry', wfEscapeWikiText( $expiryValue ) ] );
@@ -131,38 +116,16 @@ class ApiUserrights extends ApiBase {
 			}
 		}
 
-		$form = new SpecialUserRights();
+		$form = new UserrightsPage();
 		$form->setContext( $this->getContext() );
 		$r = [];
 		$r['user'] = $user->getName();
-		$r['userid'] = $user->getId( $user->getWikiId() );
-		[ $r['added'], $r['removed'] ] = $form->doSaveUserGroups(
-			$user,
-			$add,
+		$r['userid'] = $user->getId();
+		list( $r['added'], $r['removed'] ) = $form->doSaveUserGroups(
 			// Don't pass null to doSaveUserGroups() for array params, cast to empty array
-			(array)$params['remove'],
-			$params['reason'],
-			(array)$tags,
-			$groupExpiries
+			$user, $add, (array)$params['remove'],
+			$params['reason'], (array)$tags, $groupExpiries
 		);
-
-		$watchlistExpiry = $this->getExpiryFromParams( $params );
-		$watchuser = $params['watchuser'];
-		$userPage = Title::makeTitle( NS_USER, $user->getName() );
-		if ( $watchuser && $user->getWikiId() === UserIdentity::LOCAL ) {
-			$this->setWatch( 'watch', $userPage, $this->getUser(), null, $watchlistExpiry );
-		} else {
-			$watchuser = false;
-			$watchlistExpiry = null;
-		}
-		$r['watchuser'] = $watchuser;
-		if ( $watchlistExpiry !== null ) {
-			$r['watchlistexpiry'] = $this->getWatchlistExpiry(
-				$this->watchedItemStore,
-				$userPage,
-				$this->getUser()
-			);
-		}
 
 		$result = $this->getResult();
 		ApiResult::setIndexedTagName( $r['added'], 'group' );
@@ -172,7 +135,7 @@ class ApiUserrights extends ApiBase {
 
 	/**
 	 * @param array $params
-	 * @return UserIdentity
+	 * @return User
 	 */
 	private function getUrUser( array $params ) {
 		if ( $this->mUser !== null ) {
@@ -183,7 +146,7 @@ class ApiUserrights extends ApiBase {
 
 		$user = $params['user'] ?? '#' . $params['userid'];
 
-		$form = new SpecialUserRights();
+		$form = new UserrightsPage();
 		$form->setContext( $this->getContext() );
 		$status = $form->fetchUser( $user );
 		if ( !$status->isOK() ) {
@@ -210,7 +173,7 @@ class ApiUserrights extends ApiBase {
 			sort( $allGroups );
 		}
 
-		$params = [
+		return [
 			'user' => [
 				ParamValidator::PARAM_TYPE => 'user',
 				UserDef::PARAM_ALLOWED_USER_TYPES => [ 'name', 'id' ],
@@ -243,23 +206,7 @@ class ApiUserrights extends ApiBase {
 				ParamValidator::PARAM_TYPE => 'tags',
 				ParamValidator::PARAM_ISMULTI => true
 			],
-			'watchuser' => false,
 		];
-
-		// Params appear in the docs in the order they are defined,
-		// which is why this is here and not at the bottom.
-		// @todo Find better way to support insertion at arbitrary position
-		if ( $this->watchlistExpiryEnabled ) {
-			$params += [
-				'watchlistexpiry' => [
-					ParamValidator::PARAM_TYPE => 'expiry',
-					ExpiryDef::PARAM_MAX => $this->watchlistMaxDuration,
-					ExpiryDef::PARAM_USE_MAX => true,
-				]
-			];
-		}
-
-		return $params;
 	}
 
 	public function needsToken() {
@@ -285,6 +232,3 @@ class ApiUserrights extends ApiBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:User_group_membership';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiUserrights::class, 'ApiUserrights' );

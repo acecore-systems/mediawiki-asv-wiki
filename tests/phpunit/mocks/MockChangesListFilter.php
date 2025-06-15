@@ -1,10 +1,8 @@
 <?php
 
-use MediaWiki\Html\FormOptions;
-
 class MockChangesListFilter extends ChangesListFilter {
 	public function displaysOnUnstructuredUi() {
-		throw new LogicException(
+		throw new MWException(
 			'Not implemented: If the test relies on this, put it one of the ' .
 			'subclasses\' tests (e.g. ChangesListBooleanFilterTest) ' .
 			'instead of testing the abstract class'

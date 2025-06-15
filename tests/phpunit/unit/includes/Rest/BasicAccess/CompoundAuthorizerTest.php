@@ -7,13 +7,12 @@ use MediaWiki\Rest\BasicAccess\CompoundAuthorizer;
 use MediaWiki\Rest\BasicAccess\StaticBasicAuthorizer;
 use MediaWiki\Rest\Handler;
 use MediaWiki\Rest\RequestInterface;
-use MediaWikiUnitTestCase;
 
 /**
  * @covers \MediaWiki\Rest\BasicAccess\CompoundAuthorizer
  */
-class CompoundAuthorizerTest extends MediaWikiUnitTestCase {
-	public static function provideAuthorize() {
+class CompoundAuthorizerTest extends \MediaWikiUnitTestCase {
+	public function provideAuthorize() {
 		yield 'No authorizers' => [
 			[], null, null
 		];

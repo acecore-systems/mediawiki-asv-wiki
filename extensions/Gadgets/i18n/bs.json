@@ -9,9 +9,8 @@
 	},
 	"gadgets-desc": "Omogućava korisnicima da odaberu vlastite [[Special:Gadgets|CSS i JavaScript dodatke]] (gadgets) u svojim [[Special:Preferences#mw-prefsection-gadgets|postavkama]]",
 	"prefs-gadgets": "Dodaci",
-	"prefs-description-gadgets": "Uključite dodatne mogućnosti za svoj račun.",
 	"gadgets-prefstext": "Ovo je spisak posebnih dodataka koje možete uključiti za svoj korisnički račun.\nOvi dodaci se najčešće zasnivaju na JavaScriptu, tako da ga morate uključiti u svom pregledniku da bi mogli raditi.\nZapamtite da ovi dodaci nemaju utjecaj na ovu stranicu s postavkama.\n\nZapamtite da ovi posebni dodaci nisu dio MediaWiki softvera, te ih obično prave i razvijaju korisnici na lokalnim wikijima.\nAdministratori mogu mijenjati dostupne dodatke koristeći [[MediaWiki:Gadgets-definition|definicije]] i [[Special:Gadgets|opise]]. Broj korisnika koji koriste svaki dodatak na ovom wikiju naveden je se u [[Special:GadgetUsage|statistici korištenja dodataka]].",
-	"special-gadgets": "Dodaci (gadgets)",
+	"gadgets": "Dodaci (gadgets)",
 	"gadgetusage": "Statistika korištenja dodataka",
 	"gadgetusage-gadget": "Dodatak",
 	"gadgetusage-usercount": "Broj korisnika",
@@ -29,5 +28,9 @@
 	"gadgets-export-title": "Izvoz dodatka",
 	"gadgets-not-found": "Dodatak \"$1\" nije pronađen.",
 	"gadgets-export-text": "Za izvoz dodatka $1, kliknite na dugme \"{{int:gadgets-export-download}}\", spremite skinutu datoteku,\nidite na Posebno:Uvoz na odredišnu wiki i postavite je. Zatim dodajte sljedeće na stranicu MediaWiki:Gadgets-definition:\n<pre>$2</pre>\nMorate imati odgovarajuća prava na odredišnoj wiki (uključujući pravo da uređujete sistemske poruke) i uvoz iz postavljenih datoteka mora biti omogućen.",
-	"gadgets-export-download": "Skidanje"
+	"gadgets-export-download": "Skidanje",
+	"right-gadgets-edit": "Uređivanje JavaScript i CSS stranica dodataka",
+	"action-gadgets-edit": "uredite JavaScript ili CSS stranicu ovog dodatka",
+	"right-gadgets-definition-edit": "Uređivanje definicija dodataka",
+	"action-gadgets-definition-edit": "uredite definiciju ovog dodatka"
 }

@@ -1,34 +1,37 @@
 <?php
 
-use MediaWiki\Config\Config;
-use MediaWiki\Config\ConfigException;
-use MediaWiki\Config\ConfigFactory;
-use MediaWiki\Config\GlobalVarConfig;
-use MediaWiki\Config\HashConfig;
-
-/**
- * @covers \MediaWiki\Config\ConfigFactory
- */
 class ConfigFactoryTest extends \MediaWikiIntegrationTestCase {
 
+	/**
+	 * @covers ConfigFactory::register
+	 */
 	public function testRegister() {
 		$factory = new ConfigFactory();
 		$factory->register( 'unittest', 'GlobalVarConfig::newInstance' );
 		$this->assertInstanceOf( GlobalVarConfig::class, $factory->makeConfig( 'unittest' ) );
 	}
 
+	/**
+	 * @covers ConfigFactory::register
+	 */
 	public function testRegisterInvalid() {
 		$factory = new ConfigFactory();
 		$this->expectException( InvalidArgumentException::class );
 		$factory->register( 'invalid', 'Invalid callback' );
 	}
 
+	/**
+	 * @covers ConfigFactory::register
+	 */
 	public function testRegisterInvalidInstance() {
 		$factory = new ConfigFactory();
 		$this->expectException( InvalidArgumentException::class );
 		$factory->register( 'invalidInstance', (object)[] );
 	}
 
+	/**
+	 * @covers ConfigFactory::register
+	 */
 	public function testRegisterInstance() {
 		$config = GlobalVarConfig::newInstance();
 		$factory = new ConfigFactory();
@@ -36,6 +39,9 @@ class ConfigFactoryTest extends \MediaWikiIntegrationTestCase {
 		$this->assertSame( $config, $factory->makeConfig( 'unittest' ) );
 	}
 
+	/**
+	 * @covers ConfigFactory::register
+	 */
 	public function testRegisterAgain() {
 		$factory = new ConfigFactory();
 		$factory->register( 'unittest', 'GlobalVarConfig::newInstance' );
@@ -47,6 +53,9 @@ class ConfigFactoryTest extends \MediaWikiIntegrationTestCase {
 		$this->assertNotSame( $config1, $config2 );
 	}
 
+	/**
+	 * @covers ConfigFactory::salvage
+	 */
 	public function testSalvage() {
 		$oldFactory = new ConfigFactory();
 		$oldFactory->register( 'foo', 'GlobalVarConfig::newInstance' );
@@ -80,6 +89,9 @@ class ConfigFactoryTest extends \MediaWikiIntegrationTestCase {
 		$newFactory->makeConfig( 'quux' );
 	}
 
+	/**
+	 * @covers ConfigFactory::getConfigNames
+	 */
 	public function testGetConfigNames() {
 		$factory = new ConfigFactory();
 		$factory->register( 'foo', 'GlobalVarConfig::newInstance' );
@@ -88,6 +100,9 @@ class ConfigFactoryTest extends \MediaWikiIntegrationTestCase {
 		$this->assertEquals( [ 'foo', 'bar' ], $factory->getConfigNames() );
 	}
 
+	/**
+	 * @covers ConfigFactory::makeConfig
+	 */
 	public function testMakeConfigWithCallback() {
 		$factory = new ConfigFactory();
 		$factory->register( 'unittest', 'GlobalVarConfig::newInstance' );
@@ -97,6 +112,9 @@ class ConfigFactoryTest extends \MediaWikiIntegrationTestCase {
 		$this->assertSame( $conf, $factory->makeConfig( 'unittest' ) );
 	}
 
+	/**
+	 * @covers ConfigFactory::makeConfig
+	 */
 	public function testMakeConfigWithObject() {
 		$factory = new ConfigFactory();
 		$conf = new HashConfig();
@@ -104,6 +122,9 @@ class ConfigFactoryTest extends \MediaWikiIntegrationTestCase {
 		$this->assertSame( $conf, $factory->makeConfig( 'test' ) );
 	}
 
+	/**
+	 * @covers ConfigFactory::makeConfig
+	 */
 	public function testMakeConfigFallback() {
 		$factory = new ConfigFactory();
 		$factory->register( '*', 'GlobalVarConfig::newInstance' );
@@ -111,12 +132,18 @@ class ConfigFactoryTest extends \MediaWikiIntegrationTestCase {
 		$this->assertInstanceOf( Config::class, $conf );
 	}
 
+	/**
+	 * @covers ConfigFactory::makeConfig
+	 */
 	public function testMakeConfigWithNoBuilders() {
 		$factory = new ConfigFactory();
 		$this->expectException( ConfigException::class );
 		$factory->makeConfig( 'nobuilderregistered' );
 	}
 
+	/**
+	 * @covers ConfigFactory::makeConfig
+	 */
 	public function testMakeConfigWithInvalidCallback() {
 		$factory = new ConfigFactory();
 		$factory->register( 'unittest', static function () {
@@ -126,6 +153,9 @@ class ConfigFactoryTest extends \MediaWikiIntegrationTestCase {
 		$factory->makeConfig( 'unittest' );
 	}
 
+	/**
+	 * @covers ConfigFactory::getDefaultInstance
+	 */
 	public function testGetDefaultInstance() {
 		// NOTE: the global config factory returned here has been overwritten
 		// for operation in test mode. It may not reflect LocalSettings.

@@ -7,15 +7,13 @@
  * mapping expected inputs to outputs, which is used then run by QUnit.
  */
 
-use MediaWiki\Json\FormatJson;
-use MediaWiki\Languages\LanguageFactory;
-use MediaWiki\Maintenance\Maintenance;
+use MediaWiki\ResourceLoader\LanguageDataModule;
 
 require __DIR__ . '/../../../maintenance/Maintenance.php';
 
 class GenerateJqueryMsgData extends Maintenance {
 
-	private const KEY_TO_TEST_ARGS = [
+	private static $keyToTestArgs = [
 		'undelete_short' => [
 			[ 0 ],
 			[ 1 ],
@@ -32,10 +30,7 @@ class GenerateJqueryMsgData extends Maintenance {
 		]
 	];
 
-	private const TEST_LANGS = [ 'en', 'fr', 'ar', 'jp', 'zh', 'nl', 'ml', 'hi' ];
-
-	/** @var LanguageFactory */
-	private $languageFactory;
+	private static $testLangs = [ 'en', 'fr', 'ar', 'jp', 'zh', 'nl', 'ml', 'hi' ];
 
 	public function __construct() {
 		parent::__construct();
@@ -44,7 +39,6 @@ class GenerateJqueryMsgData extends Maintenance {
 	}
 
 	public function execute() {
-		$this->languageFactory = $this->getServiceContainer()->getLanguageFactory();
 		$data = $this->getData();
 		$this->writeJsonFile( $data, __DIR__ . '/mediawiki.jqueryMsg.data.json' );
 	}
@@ -53,10 +47,9 @@ class GenerateJqueryMsgData extends Maintenance {
 		$messages = [];
 		$tests = [];
 		$jsData = [];
-		foreach ( self::TEST_LANGS as $languageCode ) {
-			$language = $this->languageFactory->getLanguage( $languageCode );
-			$jsData[$languageCode] = $language->getJsData();
-			foreach ( self::KEY_TO_TEST_ARGS as $key => $testArgs ) {
+		foreach ( self::$testLangs as $languageCode ) {
+			$jsData[$languageCode] = LanguageDataModule::getData( $languageCode );
+			foreach ( self::$keyToTestArgs as $key => $testArgs ) {
 				foreach ( $testArgs as $args ) {
 					// Get the raw message, without any transformations.
 					$template = wfMessage( $key )->useDatabase( false )

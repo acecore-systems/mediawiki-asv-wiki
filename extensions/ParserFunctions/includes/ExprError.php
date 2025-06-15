@@ -19,7 +19,7 @@
 namespace MediaWiki\Extension\ParserFunctions;
 
 use Exception;
-use MediaWiki\Message\Message;
+use Message;
 
 class ExprError extends Exception {
 	/** @var Message */

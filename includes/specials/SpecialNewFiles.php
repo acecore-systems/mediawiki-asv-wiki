@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Newimages
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,29 +18,13 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- */
-
-namespace MediaWiki\Specials;
-
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Context\DerivativeContext;
-use MediaWiki\Context\IContextSource;
-use MediaWiki\Html\FormOptions;
-use MediaWiki\Html\Html;
-use MediaWiki\HTMLForm\Field\HTMLUserTextField;
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\Pager\NewFilesPager;
-use MediaWiki\Permissions\GroupPermissionsLookup;
-use MediaWiki\Request\DerivativeRequest;
-use MediaWiki\SpecialPage\IncludableSpecialPage;
-use Wikimedia\Mime\MimeAnalyzer;
-use Wikimedia\Rdbms\IConnectionProvider;
-
-/**
- * Implements Special:Newimages
- *
  * @ingroup SpecialPage
  */
+
+use MediaWiki\Cache\LinkBatchFactory;
+use MediaWiki\Permissions\GroupPermissionsLookup;
+use Wikimedia\Rdbms\ILoadBalancer;
+
 class SpecialNewFiles extends IncludableSpecialPage {
 	/** @var FormOptions */
 	protected $opts;
@@ -46,25 +32,30 @@ class SpecialNewFiles extends IncludableSpecialPage {
 	/** @var string[] */
 	protected $mediaTypes;
 
-	private GroupPermissionsLookup $groupPermissionsLookup;
-	private IConnectionProvider $dbProvider;
-	private LinkBatchFactory $linkBatchFactory;
+	/** @var GroupPermissionsLookup */
+	private $groupPermissionsLookup;
+
+	/** @var ILoadBalancer */
+	private $loadBalancer;
+
+	/** @var LinkBatchFactory */
+	private $linkBatchFactory;
 
 	/**
 	 * @param MimeAnalyzer $mimeAnalyzer
 	 * @param GroupPermissionsLookup $groupPermissionsLookup
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param LinkBatchFactory $linkBatchFactory
 	 */
 	public function __construct(
 		MimeAnalyzer $mimeAnalyzer,
 		GroupPermissionsLookup $groupPermissionsLookup,
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		LinkBatchFactory $linkBatchFactory
 	) {
 		parent::__construct( 'Newimages' );
 		$this->groupPermissionsLookup = $groupPermissionsLookup;
-		$this->dbProvider = $dbProvider;
+		$this->loadBalancer = $loadBalancer;
 		$this->mediaTypes = $mimeAnalyzer->getMediaTypes();
 		$this->linkBatchFactory = $linkBatchFactory;
 	}
@@ -117,17 +108,13 @@ class SpecialNewFiles extends IncludableSpecialPage {
 			) );
 		}
 
-		// Avoid unexpected query or query errors to assoc array input, or nested arrays via
-		// URL query params. Keep only string values (T321133).
-		$mediaTypes = $opts->getValue( 'mediatype' );
-		$mediaTypes = array_filter( $mediaTypes, 'is_string' );
-		// Avoid unbounded query size with bogus values. Keep only known types.
-		$mediaTypes = array_values( array_intersect( $this->mediaTypes, $mediaTypes ) );
-		// Optimization: Remove redundant IN() query condition if all types are checked.
-		if ( !array_diff( $this->mediaTypes, $mediaTypes ) ) {
-			$mediaTypes = [];
+		// if all media types have been selected, wipe out the array to prevent
+		// the pointless IN(...) query condition (which would have no effect
+		// because every possible type has been selected)
+		$missingMediaTypes = array_diff( $this->mediaTypes, $opts->getValue( 'mediatype' ) );
+		if ( empty( $missingMediaTypes ) ) {
+			$opts->setValue( 'mediatype', [] );
 		}
-		$opts->setValue( 'mediatype', $mediaTypes );
 
 		$opts->validateIntBounds( 'limit', 0, 500 );
 
@@ -143,7 +130,7 @@ class SpecialNewFiles extends IncludableSpecialPage {
 			$this->groupPermissionsLookup,
 			$this->linkBatchFactory,
 			$this->getLinkRenderer(),
-			$this->dbProvider,
+			$this->loadBalancer,
 			$opts
 		);
 
@@ -256,9 +243,3 @@ class SpecialNewFiles extends IncludableSpecialPage {
 		}
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialNewFiles::class, 'SpecialNewFiles' );

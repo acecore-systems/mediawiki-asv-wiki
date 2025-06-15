@@ -22,9 +22,9 @@
 
 namespace MonoBook;
 
+use MediaWiki\Hook\OutputPageBodyAttributesHook;
 use MediaWiki\Hook\SkinTemplateNavigation__UniversalHook;
-use MediaWiki\Output\Hook\OutputPageBodyAttributesHook;
-use MediaWiki\Output\OutputPage;
+use OutputPage;
 use Skin;
 use SkinTemplate;
 

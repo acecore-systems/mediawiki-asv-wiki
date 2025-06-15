@@ -51,8 +51,9 @@ class JpegHandler extends ExifBitmapHandler {
 	public function validateParam( $name, $value ) {
 		if ( $name === 'quality' ) {
 			return self::validateQuality( $value );
+		} else {
+			return parent::validateParam( $name, $value );
 		}
-		return parent::validateParam( $name, $value );
 	}
 
 	/** Validate and normalize quality value to be between 1 and 100 (inclusive).
@@ -106,7 +107,7 @@ class JpegHandler extends ExifBitmapHandler {
 			$meta = BitmapMetadataHandler::Jpeg( $filename );
 			if ( !is_array( $meta ) ) {
 				// This should never happen, but doesn't hurt to be paranoid.
-				throw new InvalidJpegException( 'Metadata array is not an array' );
+				throw new MWException( 'Metadata array is not an array' );
 			}
 			$meta['MEDIAWIKI_EXIF_VERSION'] = Exif::version();
 
@@ -121,7 +122,9 @@ class JpegHandler extends ExifBitmapHandler {
 			unset( $meta['SOF'] );
 			$info['metadata'] = $meta;
 			return $info;
-		} catch ( InvalidJpegException $e ) {
+		} catch ( MWException $e ) {
+			// BitmapMetadataHandler throws an exception in certain exceptional
+			// cases like if file does not exist.
 			wfDebug( __METHOD__ . ': ' . $e->getMessage() );
 
 			// This used to return an integer-like string from getMetadata(),
@@ -165,8 +168,9 @@ class JpegHandler extends ExifBitmapHandler {
 			}
 
 			return false;
+		} else {
+			return parent::rotate( $file, $params );
 		}
-		return parent::rotate( $file, $params );
 	}
 
 	public function supportsBucketing() {
@@ -270,13 +274,13 @@ class JpegHandler extends ExifBitmapHandler {
 		// Make a regex out of the source data to match it to an array of color
 		// spaces in a case-insensitive way
 		$colorSpaceRegex = '/' . preg_quote( $data[0], '/' ) . '/i';
-		if ( !preg_grep( $colorSpaceRegex, $colorSpaces ) ) {
+		if ( empty( preg_grep( $colorSpaceRegex, $colorSpaces ) ) ) {
 			// We can't establish that this file matches the color space, don't process it
 			return false;
 		}
 
 		$profileRegex = '/' . preg_quote( $data[1], '/' ) . '/i';
-		if ( !preg_grep( $profileRegex, $oldProfileStrings ) ) {
+		if ( empty( preg_grep( $profileRegex, $oldProfileStrings ) ) ) {
 			// We can't establish that this file has the expected ICC profile, don't process it
 			return false;
 		}

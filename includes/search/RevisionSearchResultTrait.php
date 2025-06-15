@@ -1,11 +1,9 @@
 <?php
 
-use MediaWiki\HookContainer\HookRunner;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Revision\RevisionLookup;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\SlotRecord;
-use MediaWiki\Title\Title;
-use Wikimedia\Rdbms\IDBAccessObject;
 
 /**
  * Transitional trait used to share the methods between SearchResult and RevisionSearchResult.
@@ -46,12 +44,12 @@ trait RevisionSearchResultTrait {
 		if ( $title !== null ) {
 			$services = MediaWikiServices::getInstance();
 			$id = false;
-			( new HookRunner( $services->getHookContainer() ) )->onSearchResultInitFromTitle( $title, $id );
+			Hooks::runner()->onSearchResultInitFromTitle( $title, $id );
 
 			$this->mRevisionRecord = $services->getRevisionLookup()->getRevisionByTitle(
 				$title,
 				$id,
-				IDBAccessObject::READ_NORMAL
+				RevisionLookup::READ_NORMAL
 			);
 			if ( $title->getNamespace() === NS_FILE ) {
 				$this->mImage = $services->getRepoGroup()->findFile( $title );
@@ -115,13 +113,6 @@ trait RevisionSearchResultTrait {
 	}
 
 	/**
-	 * @return string Name of the field containing the text snippet, '' if not supported
-	 */
-	public function getTextSnippetField() {
-		return '';
-	}
-
-	/**
 	 * @return string Highlighted title, '' if not supported
 	 */
 	public function getTitleSnippet() {
@@ -129,23 +120,9 @@ trait RevisionSearchResultTrait {
 	}
 
 	/**
-	 * @return string Name of the field containing the title snippet, '' if not supported
-	 */
-	public function getTitleSnippetField() {
-		return '';
-	}
-
-	/**
 	 * @return string Highlighted redirect name (redirect to this page), '' if none or not supported
 	 */
 	public function getRedirectSnippet() {
-		return '';
-	}
-
-	/**
-	 * @return string Name of the field containing the redirect snippet, '' if not supported
-	 */
-	public function getRedirectSnippetField() {
 		return '';
 	}
 
@@ -164,13 +141,6 @@ trait RevisionSearchResultTrait {
 	}
 
 	/**
-	 * @return string Name of the field containing the section snippet, '' if not supported
-	 */
-	public function getSectionSnippetField() {
-		return '';
-	}
-
-	/**
 	 * @return Title|null Title object (pagename+fragment) for the section,
 	 *  null if none or not supported
 	 */
@@ -182,13 +152,6 @@ trait RevisionSearchResultTrait {
 	 * @return string Highlighted relevant category name or '' if none or not supported
 	 */
 	public function getCategorySnippet() {
-		return '';
-	}
-
-	/**
-	 * @return string Name of the field containing the category snippet, '' if not supported
-	 */
-	public function getCategorySnippetField() {
 		return '';
 	}
 

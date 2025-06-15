@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface Linear Context class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -27,7 +27,6 @@ ve.ui.LinearContext = function VeUiLinearContext() {
 	this.afterContextChangeTimeout = null;
 	this.afterContextChangeHandler = this.afterContextChange.bind( this );
 	this.updateDimensionsDebounced = ve.debounce( this.updateDimensions.bind( this ) );
-	this.persistentSources = [];
 
 	// Events
 	this.surface.getModel().connect( this, {
@@ -87,7 +86,7 @@ ve.ui.LinearContext.prototype.onDocumentUpdate = function () {
  * Handle debounced context change events.
  */
 ve.ui.LinearContext.prototype.afterContextChange = function () {
-	const selectedNode = this.surface.getModel().getSelectedNode();
+	var selectedNode = this.surface.getModel().getSelectedNode();
 
 	// Reset debouncing state
 	this.afterContextChangeTimeout = null;
@@ -96,10 +95,8 @@ ve.ui.LinearContext.prototype.afterContextChange = function () {
 		if ( !this.isEmpty() ) {
 			if ( this.isInspectable() ) {
 				// Change state: menu -> menu
-				// Make a copy of items so setupMenuItems can compare it
-				const previousItems = this.items.slice();
 				this.teardownMenuItems();
-				this.setupMenuItems( previousItems );
+				this.setupMenuItems();
 				this.updateDimensionsDebounced();
 			} else {
 				// Change state: menu -> closed
@@ -135,7 +132,8 @@ ve.ui.LinearContext.prototype.afterContextChange = function () {
  * @param {Object} data Window opening data
  */
 ve.ui.LinearContext.prototype.onInspectorOpening = function ( win, opening ) {
-	const observer = this.surface.getView().surfaceObserver;
+	var context = this,
+		observer = this.surface.getView().surfaceObserver;
 
 	this.isOpening = true;
 	this.inspector = win;
@@ -147,41 +145,41 @@ ve.ui.LinearContext.prototype.onInspectorOpening = function ( win, opening ) {
 	observer.stopTimerLoop();
 
 	opening
-		.progress( ( data ) => {
-			this.isOpening = false;
+		.progress( function ( data ) {
+			context.isOpening = false;
 			if ( data.state === 'setup' ) {
-				if ( !this.isVisible() ) {
+				if ( !context.isVisible() ) {
 					// Change state: closed -> inspector
-					this.toggle( true );
+					context.toggle( true );
 				}
-				if ( !this.isEmpty() ) {
+				if ( !context.isEmpty() ) {
 					// Change state: menu -> inspector
-					this.toggleMenu( false );
+					context.toggleMenu( false );
 				}
 			}
-			this.updateDimensionsDebounced();
+			context.updateDimensionsDebounced();
 		} )
-		.then( ( opened ) => {
-			opened.then( ( closed ) => {
-				closed.always( () => {
+		.then( function ( opened ) {
+			opened.then( function ( closed ) {
+				closed.always( function () {
 					// Don't try to close the inspector if a second
 					// opening has already been triggered
-					if ( this.isOpening ) {
+					if ( context.isOpening ) {
 						return;
 					}
 
-					this.inspector = null;
+					context.inspector = null;
 
 					// Reenable observer
 					observer.startTimerLoop();
 
-					if ( this.isInspectable() ) {
+					if ( context.isInspectable() ) {
 						// Change state: inspector -> menu
-						this.toggleMenu( true );
-						this.updateDimensionsDebounced();
+						context.toggleMenu( true );
+						context.updateDimensionsDebounced();
 					} else {
 						// Change state: inspector -> closed
-						this.toggle( false );
+						context.toggle( false );
 					}
 				} );
 			} );
@@ -207,37 +205,12 @@ ve.ui.LinearContext.prototype.isInspectable = function () {
 };
 
 /**
- * Add a persistent source that will stay visible until manually removed.
- *
- * @param {Object} source Object containing `name`, `model` and `config` properties.
- *   See #getRelatedSources.
- */
-ve.ui.LinearContext.prototype.addPersistentSource = function ( source ) {
-	this.persistentSources.push(
-		ve.extendObject( { type: 'persistent' }, source )
-	);
-
-	this.onContextChange();
-};
-
-/**
- * Remove a persistent source by name
- *
- * @param {string} name Source name
- */
-ve.ui.LinearContext.prototype.removePersistentSource = function ( name ) {
-	this.persistentSources = this.persistentSources.filter( ( source ) => source.name !== name );
-
-	this.onContextChange();
-};
-
-/**
- * @inheritdoc Also adds the `embeddable` property to each object.
+ * @inheritdoc
  */
 ve.ui.LinearContext.prototype.getRelatedSources = function () {
-	const surfaceModel = this.surface.getModel(),
-		selection = surfaceModel.getSelection();
-	let selectedModels = [];
+	var surfaceModel = this.surface.getModel(),
+		selection = surfaceModel.getSelection(),
+		selectedModels = [];
 
 	if ( !this.relatedSources ) {
 		this.relatedSources = [];
@@ -249,7 +222,6 @@ ve.ui.LinearContext.prototype.getRelatedSources = function () {
 		if ( selectedModels.length ) {
 			this.relatedSources = this.getRelatedSourcesFromModels( selectedModels );
 		}
-		this.relatedSources.push( ...this.persistentSources );
 	}
 
 	return this.relatedSources;
@@ -262,11 +234,11 @@ ve.ui.LinearContext.prototype.getRelatedSources = function () {
  * @return {Object[]} See #getRelatedSources
  */
 ve.ui.LinearContext.prototype.getRelatedSourcesFromModels = function ( selectedModels ) {
-	const models = [],
+	var models = [],
 		relatedSources = [],
 		items = ve.ui.contextItemFactory.getRelatedItems( selectedModels );
 
-	let i, len;
+	var i, len;
 	for ( i = 0, len = items.length; i < len; i++ ) {
 		if ( !items[ i ].model.isInspectable() ) {
 			continue;
@@ -281,13 +253,13 @@ ve.ui.LinearContext.prototype.getRelatedSourcesFromModels = function ( selectedM
 			model: items[ i ].model
 		} );
 	}
-	const tools = ve.ui.toolFactory.getRelatedItems( selectedModels );
+	var tools = ve.ui.toolFactory.getRelatedItems( selectedModels );
 	for ( i = 0, len = tools.length; i < len; i++ ) {
 		if ( !tools[ i ].model.isInspectable() ) {
 			continue;
 		}
 		if ( models.indexOf( tools[ i ].model ) === -1 ) {
-			const toolClass = ve.ui.toolFactory.lookup( tools[ i ].name );
+			var toolClass = ve.ui.toolFactory.lookup( tools[ i ].name );
 			relatedSources.push( {
 				type: 'tool',
 				embeddable: !toolClass || toolClass.static.makesEmbeddableContextItem,

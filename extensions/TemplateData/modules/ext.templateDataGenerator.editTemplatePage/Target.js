@@ -1,4 +1,4 @@
-const Dialog = require( './Dialog.js' ),
+var Dialog = require( './Dialog.js' ),
 	DataModule = require( 'ext.templateDataGenerator.data' ),
 	Model = DataModule.Model,
 	SourceHandler = DataModule.SourceHandler;
@@ -15,6 +15,8 @@ const Dialog = require( './Dialog.js' ),
  * @param {Object} config
  */
 function Target( $textarea, config ) {
+	var target = this;
+
 	// Parent constructor
 	Target.super.call( this, config );
 
@@ -37,7 +39,7 @@ function Target( $textarea, config ) {
 	} )
 		.toggle( false );
 
-	const $helpLink = $( '<a>' )
+	var $helpLink = $( '<a>' )
 		.attr( {
 			href: mw.msg( 'templatedata-helplink-target' ),
 			target: '_blank'
@@ -61,30 +63,30 @@ function Target( $textarea, config ) {
 	} );
 
 	// Check if there's already a templatedata in a related page
-	const relatedPage = this.isDocPage ? this.parentPage : this.pageName + '/' + this.docSubpage;
+	var relatedPage = this.isDocPage ? this.parentPage : this.pageName + '/' + this.docSubpage;
 	this.sourceHandler.getApi( relatedPage )
-		.then( ( result ) => {
-			const response = result.query.pages[ result.query.pageids[ 0 ] ];
+		.then( function ( result ) {
+			var response = result.query.pages[ result.query.pageids[ 0 ] ];
 			// HACK: When checking whether a related page (parent for /doc page or
 			// vice versa) already has a templatedata string, we shouldn't
 			// ask for the 'templatedata' action but rather the actual content
 			// of the related page, otherwise we get embedded templatedata and
 			// wrong information is presented.
 			if ( response.missing === undefined ) {
-				const content = response.revisions[ 0 ][ '*' ];
+				var content = response.revisions[ 0 ][ '*' ];
 				// There's a templatedata string
-				if ( /<templatedata>/i.test( content ) ) {
+				if ( content.match( /<templatedata>/i ) ) {
 					// HACK: Setting a link in the messages doesn't work. The bug report offers
 					// a somewhat hacky work around that includes setting a separate message
 					// to be parsed.
 					// https://phabricator.wikimedia.org/T49395#490610
-					let msg = mw.message( 'templatedata-exists-on-related-page', relatedPage ).plain();
+					var msg = mw.message( 'templatedata-exists-on-related-page', relatedPage ).plain();
 					mw.messages.set( { 'templatedata-string-exists-hack-message': msg } );
 					msg = new OO.ui.HtmlSnippet(
 						mw.message( 'templatedata-string-exists-hack-message' ).parse()
 					);
 
-					this.setEditNoticeMessage( msg, 'warning' );
+					target.setEditNoticeMessage( msg, 'warning' );
 				}
 			}
 		} );
@@ -152,17 +154,19 @@ Target.prototype.openEditDialog = function ( dataModel ) {
  * @method onEditOpenDialogButton
  */
 Target.prototype.onEditOpenDialogButton = function () {
+	var target = this;
+
 	this.originalWikitext = this.$textarea.textSelection( 'getContents' );
 
 	// Build the model
 	this.sourceHandler.buildModel( this.originalWikitext )
 		.then(
 			// Success
-			( model ) => {
-				this.openEditDialog( model );
+			function ( model ) {
+				target.openEditDialog( model );
 			},
 			// Failure
-			() => {
+			function () {
 				// Open a message dialog
 				OO.ui.getWindowManager().openWindow( 'message', {
 					title: mw.msg( 'templatedata-modal-title' ),
@@ -180,14 +184,14 @@ Target.prototype.onEditOpenDialogButton = function () {
 							flags: 'safe'
 						}
 					]
-				} ).closed.then( ( data ) => {
+				} ).closed.then( function ( data ) {
 					if ( data && data.action === 'accept' ) {
 						// Open the dialog with an empty model
-						const model = Model.static.newFromObject(
+						var model = Model.static.newFromObject(
 							null,
-							this.sourceHandler.getTemplateSourceCodeParams()
+							target.sourceHandler.getTemplateSourceCodeParams()
 						);
-						this.openEditDialog( model );
+						target.openEditDialog( model );
 					}
 				} );
 			}
@@ -202,10 +206,10 @@ Target.prototype.onEditOpenDialogButton = function () {
  * @param {Object} newTemplateData New templatedata
  */
 Target.prototype.replaceTemplateData = function ( newTemplateData ) {
-	const templateDataJSON = JSON.stringify( newTemplateData, null, '\t' ),
+	var templateDataJSON = JSON.stringify( newTemplateData, null, '\t' ),
 		templatedataPattern = /(<templatedata>\s*)([\s\S]*?)\s*<\/templatedata>/i;
 
-	let matches, templateDataOutput;
+	var matches, templateDataOutput;
 	if ( ( matches = this.originalWikitext.match( templatedataPattern ) ) ) {
 		// Move cursor to select withing existing <templatedata> and whitespace
 		this.$textarea.textSelection( 'setSelection', {
@@ -242,6 +246,8 @@ Target.prototype.replaceTemplateData = function ( newTemplateData ) {
  * @param {Object} templateData New templatedata
  */
 Target.prototype.onDialogApply = function ( templateData ) {
+	var target = this;
+
 	if (
 		Object.keys( templateData ).length > 1 ||
 		Object.keys( templateData.params ).length > 0
@@ -262,9 +268,9 @@ Target.prototype.onDialogApply = function ( templateData ) {
 					label: mw.msg( 'templatedata-modal-button-apply' )
 				}
 			]
-		} ).closed.then( ( data ) => {
+		} ).closed.then( function ( data ) {
 			if ( data && data.action === 'apply' ) {
-				this.replaceTemplateData( templateData );
+				target.replaceTemplateData( templateData );
 			}
 		} );
 	}

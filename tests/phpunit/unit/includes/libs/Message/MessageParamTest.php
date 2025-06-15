@@ -2,8 +2,6 @@
 
 namespace Wikimedia\Tests\Message;
 
-use PHPUnit\Framework\TestCase;
-use stdClass;
 use Wikimedia\Message\MessageParam;
 use Wikimedia\Message\ParamType;
 use Wikimedia\TestingAccessWrapper;
@@ -11,7 +9,7 @@ use Wikimedia\TestingAccessWrapper;
 /**
  * @covers \Wikimedia\Message\MessageParam
  */
-class MessageParamTest extends TestCase {
+class MessageParamTest extends \PHPUnit\Framework\TestCase {
 
 	public function testGetType() {
 		$mp = $this->getMockForAbstractClass( MessageParam::class );
@@ -21,7 +19,7 @@ class MessageParamTest extends TestCase {
 	}
 
 	public function testGetValue() {
-		$dummy = new stdClass;
+		$dummy = new \stdClass;
 
 		$mp = $this->getMockForAbstractClass( MessageParam::class );
 		TestingAccessWrapper::newFromObject( $mp )->value = $dummy;

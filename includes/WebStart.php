@@ -25,12 +25,19 @@
  * @file
  */
 
-use MediaWiki\Context\RequestContext;
-use MediaWiki\Settings\SettingsBuilder;
+/**
+ * @defgroup entrypoint Entry points
+ *
+ * These primary scripts live in the root directory. They are the ones used by
+ * web requests to interact with the wiki. Other PHP files in the repository
+ * do not need to be accessed directly by the web.
+ */
 
 # T17461: Make IE8 turn off content sniffing. Everybody else should ignore this
 # We're adding it here so that it's *always* set, even for alternate entry
 # points and when $wgOut gets disabled or overridden.
+use MediaWiki\Settings\SettingsBuilder;
+
 header( 'X-Content-Type-Options: nosniff' );
 
 # Valid web server entry point, enable includes.
@@ -48,7 +55,7 @@ function wfWebStartNoLocalSettings( SettingsBuilder $settings ) {
 	# LocalSettings.php is the per-site customization file. If it does not exist
 	# the wiki installer needs to be launched or the generated file uploaded to
 	# the root wiki directory. Give a hint, if it is not readable by the server.
-	require_once __DIR__ . '/Output/NoLocalSettings.php';
+	require_once __DIR__ . '/NoLocalSettings.php';
 	die();
 }
 
@@ -64,16 +71,10 @@ if ( !defined( 'MW_CONFIG_CALLBACK' ) ) {
 }
 
 function wfWebStartSetup( SettingsBuilder $settings ) {
-	// Initialize the default MediaWiki output buffering if no buffer is already active.
-	// This avoids clashes with existing buffers in order to avoid problems,
-	// like mixing gzip and non-gzip output.
+	// Initialise output buffering
+	// Check for previously set up buffers, to avoid a mix of gzip and non-gzip output.
 	if ( ob_get_level() == 0 ) {
-		// During HTTP requests, MediaWiki normally buffers the response body in a string
-		// within OutputPage and prints it when ready. PHP buffers provide protection against
-		// premature sending of HTTP headers due to output from PHP warnings and notices.
-		// They also can be used to implement gzip support in PHP without the webserver knowing
-		// which requests yield HTML and which yield large files that can be streamed.
-		ob_start( [ MediaWiki\Output\OutputHandler::class, 'handle' ] );
+		ob_start( 'MediaWiki\\OutputHandler::handle' );
 	}
 }
 
@@ -102,7 +103,7 @@ if ( !defined( 'MW_API' ) && !defined( 'MW_REST_API' ) &&
 	$content = <<<HTML
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8" /><meta name="color-scheme" content="light dark" /></head>
+<head><meta charset="UTF-8" /></head>
 <body>
 $errorHtml
 </body>

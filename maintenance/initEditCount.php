@@ -22,13 +22,9 @@
  * @ingroup Maintenance
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
-use MediaWiki\WikiMap\WikiMap;
-use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\RawSQLValue;
+use MediaWiki\MediaWikiServices;
 
 class InitEditCount extends Maintenance {
 	public function __construct() {
@@ -42,7 +38,7 @@ class InitEditCount extends Maintenance {
 	}
 
 	public function execute() {
-		$dbw = $this->getPrimaryDB();
+		$dbw = $this->getDB( DB_PRIMARY );
 
 		// Autodetect mode...
 		if ( $this->hasOption( 'background' ) ) {
@@ -50,40 +46,40 @@ class InitEditCount extends Maintenance {
 		} elseif ( $this->hasOption( 'quick' ) ) {
 			$backgroundMode = false;
 		} else {
-			$lb = $this->getServiceContainer()->getDBLoadBalancer();
-			$backgroundMode = $lb->hasReplicaServers();
+			$lb = MediaWikiServices::getInstance()->getDBLoadBalancer();
+			$backgroundMode = $lb->getServerCount() > 1;
 		}
+
+		$actorQuery = ActorMigration::newMigration()->getJoin( 'rev_user' );
 
 		if ( $backgroundMode ) {
 			$this->output( "Using replication-friendly background mode...\n" );
 
-			$dbr = $this->getReplicaDB();
+			$dbr = $this->getDB( DB_REPLICA );
 			$chunkSize = 100;
-			$lastUser = $dbr->newSelectQueryBuilder()
-				->select( 'MAX(user_id)' )
-				->from( 'user' )
-				->caller( __METHOD__ )->fetchField();
+			$lastUser = $dbr->selectField( 'user', 'MAX(user_id)', '', __METHOD__ );
 
 			$start = microtime( true );
 			$migrated = 0;
+			$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
 			for ( $min = 0; $min <= $lastUser; $min += $chunkSize ) {
 				$max = $min + $chunkSize;
 
-				$result = $dbr->newSelectQueryBuilder()
-					->select( [ 'user_id', 'user_editcount' => "COUNT(actor_rev_user.actor_user)" ] )
-					->from( 'user' )
-					->join( 'actor', 'actor_rev_user', 'user_id = actor_rev_user.actor_user' )
-					->leftJoin( 'revision', 'rev', 'actor_rev_user.actor_id = rev.rev_actor' )
-					->where( $dbr->expr( 'user_id', '>', $min )->and( 'user_id', '<=', $max ) )
-					->groupBy( 'user_id' )
-					->caller( __METHOD__ )->fetchResultSet();
+				$revUser = $actorQuery['fields']['rev_user'];
+				$result = $dbr->select(
+					[ 'user', 'rev' => [ 'revision' ] + $actorQuery['tables'] ],
+					[ 'user_id', 'user_editcount' => "COUNT($revUser)" ],
+					"user_id > $min AND user_id <= $max",
+					__METHOD__,
+					[ 'GROUP BY' => 'user_id' ],
+					[ 'rev' => [ 'LEFT JOIN', "user_id = $revUser" ] ] + $actorQuery['joins']
+				);
 
 				foreach ( $result as $row ) {
-					$dbw->newUpdateQueryBuilder()
-						->update( 'user' )
-						->set( [ 'user_editcount' => $row->user_editcount ] )
-						->where( [ 'user_id' => $row->user_id ] )
-						->caller( __METHOD__ )->execute();
+					$dbw->update( 'user',
+						[ 'user_editcount' => $row->user_editcount ],
+						[ 'user_id' => $row->user_id ],
+						__METHOD__ );
 					++$migrated;
 				}
 
@@ -96,31 +92,26 @@ class InitEditCount extends Maintenance {
 					$delta,
 					$rate ) );
 
-				$this->waitForReplication();
+				$lbFactory->waitForReplication();
 			}
 		} else {
 			$this->output( "Using single-query mode...\n" );
 
-			$subquery = $dbw->newSelectQueryBuilder()
-				->select( 'COUNT(*)' )
-				->from( 'revision' )
-				->join( 'actor', 'actor_rev_user', 'actor_rev_user.actor_id = rev_actor' )
-				->where( 'user_id = actor_rev_user.actor_user' )
-				->caller( __METHOD__ )->getSQL();
-
-			$dbw->newUpdateQueryBuilder()
-				->table( 'user' )
-				->set( [ 'user_editcount' => new RawSQLValue( "($subquery)" ) ] )
-				->where( IDatabase::ALL_ROWS )
-				->caller( __METHOD__ )
-				->execute();
+			$user = $dbw->tableName( 'user' );
+			$subquery = $dbw->selectSQLText(
+				[ 'revision' ] + $actorQuery['tables'],
+				[ 'COUNT(*)' ],
+				[ 'user_id = ' . $actorQuery['fields']['rev_user'] ],
+				__METHOD__,
+				[],
+				$actorQuery['joins']
+			);
+			$dbw->query( "UPDATE $user SET user_editcount=($subquery)", __METHOD__ );
 		}
 
 		$this->output( "Done!\n" );
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = InitEditCount::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

@@ -2,11 +2,12 @@
 
 namespace MediaWiki\Tests\Message;
 
-use MediaWiki\Message\Message;
+use MediaWiki\Message\Converter;
 use MediaWiki\Message\TextFormatter;
 use MediaWiki\Message\UserGroupMembershipParam;
 use MediaWiki\User\UserIdentityValue;
 use MediaWikiIntegrationTestCase;
+use Message;
 use Wikimedia\Message\MessageValue;
 use Wikimedia\Message\ParamType;
 use Wikimedia\Message\ScalarParam;
@@ -23,14 +24,13 @@ class TextFormatterTest extends MediaWikiIntegrationTestCase {
 		$includeWikitext = false,
 		$format = Message::FORMAT_TEXT
 	) {
-		$formatter = $this->getMockBuilder( TextFormatter::class )
+		$converter = $this->getMockBuilder( Converter::class )
 			->onlyMethods( [ 'createMessage' ] )
-			->setConstructorArgs( [ $langCode, $format ] )
 			->getMock();
-		$formatter->method( 'createMessage' )
-			->willReturnCallback( function ( $spec ) use ( $includeWikitext ) {
+		$converter->method( 'createMessage' )
+			->willReturnCallback( function ( $key ) use ( $includeWikitext ) {
 				$message = $this->getMockBuilder( Message::class )
-					->setConstructorArgs( [ $spec ] )
+					->setConstructorArgs( [ $key ] )
 					->onlyMethods( [ 'fetchMessage' ] )
 					->getMock();
 
@@ -47,11 +47,11 @@ class TextFormatterTest extends MediaWikiIntegrationTestCase {
 				return $message;
 			} );
 
-		return $formatter;
+		return new TextFormatter( $langCode, $converter, $format );
 	}
 
 	public function testGetLangCode() {
-		$formatter = new TextFormatter( 'fr' );
+		$formatter = new TextFormatter( 'fr', new Converter );
 		$this->assertSame( 'fr', $formatter->getLangCode() );
 	}
 
@@ -79,7 +79,7 @@ class TextFormatterTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( 'test a, 100 bps $2', $result );
 	}
 
-	public static function provideTestFormatMessage() {
+	public function provideTestFormatMessage() {
 		yield [ ( new MessageValue( 'test' ) )
 			->params( new MessageValue( 'test2', [ 'a', 'b' ] ) )
 			->commaListParams( [
@@ -87,7 +87,7 @@ class TextFormatterTest extends MediaWikiIntegrationTestCase {
 				new ScalarParam( ParamType::BITRATE, 100 ),
 				new MessageValue( 'test3', [ 'c', new MessageValue( 'test4', [ 'd', 'e' ] ) ] )
 			] ),
-			'test (test2: a, b) x(comma-separator)(bitrate-bits)(comma-separator)(test3: c, (test4: d, e))'
+			'test test2 a b x(comma-separator)(bitrate-bits)(comma-separator)test3 c test4 d e'
 		];
 
 		yield [ ( new MessageValue( 'test' ) )
@@ -95,8 +95,7 @@ class TextFormatterTest extends MediaWikiIntegrationTestCase {
 			'test (group-bot) $2'
 		];
 
-		// Deprecated, silence deprecation warnings
-		@yield [ ( new MessageValue( 'test' ) )
+		yield [ ( new MessageValue( 'test' ) )
 			->objectParams(
 				new UserGroupMembershipParam( 'bot', new UserIdentityValue( 1, 'user' ) )
 			),

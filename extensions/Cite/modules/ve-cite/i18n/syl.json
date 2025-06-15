@@ -22,9 +22,9 @@
 	"cite-ve-citationneeded-title": "ꠟꠈ ꠅꠞ ꠖꠞꠇꠣꠞ ꠀꠍꠦ",
 	"cite-ve-dialog-reference-editing-reused": "ꠁ ꠟꠇꠁꠇꠣꠘ ꠁ ꠙ꠆ꠞꠤꠡ꠆ꠑꠣꠔ {{PLURAL:$1|ꠄꠇꠛꠣꠞ|2=ꠖꠥꠁꠛꠣꠞ|$1 ꠛꠣꠞ}} ꠛꠦꠛꠢꠣꠞ ꠇꠞꠣ ꠅꠁꠍꠦ ⁕",
 	"cite-ve-dialog-reference-editing-reused-long": "ꠄꠁ ꠞꠦꠚꠣꠞꠦꠘ꠆ꠡꠐꠤ ꠄꠁ ꠙ꠆ꠞꠤꠡ꠆ꠑꠣꠎ {{PLURAL:$1|ꠄꠇꠛꠣꠞ|2=ꠖꠥꠁꠛꠣꠞ|$1 ꠛꠣꠞ}} ꠛ꠆ꠎꠛꠢꠣꠞ ꠇꠞꠣ ꠢꠎꠦꠍꠦ। ꠄꠈꠣꠘꠦ ꠇꠞꠣ ꠙꠞꠤꠛꠞ꠆ꠔꠘꠉꠥꠟꠤ ꠡꠝꠡ꠆ꠔ ꠎꠣꠎꠉꠣꠎ ꠙ꠆ꠞꠎꠧꠉ ꠇꠞꠣ ꠢꠛꠦ ꠎꠦꠈꠣꠘꠦ ꠄꠁ ꠞꠦꠚꠣꠞꠦꠘ꠆ꠡꠐꠤ ꠙꠥꠘꠞꠣꠎ ꠛ꠆ꠎꠛꠢꠣꠞ ꠇꠞꠣ ꠢꠎꠦꠍꠦ ⁕",
-	"cite-ve-dialog-reference-editing-extends": "ꠄꠐꠤ ꠀꠞꠦꠇꠐꠤ ꠞꠦꠚꠣꠞꠦꠘ꠆ꠡꠦꠞ ꠄꠇ꠆ꠡꠐꠦꠘꠡꠘ ⁕",
 	"cite-ve-dialog-reference-options-group-label": "ꠅꠃ ꠉꠥꠞꠥꠙ ꠛꠦꠛꠀꠞ ꠇꠞꠂꠘ",
 	"cite-ve-dialog-reference-options-group-placeholder": "ꠡꠣꠗꠣꠞꠘ ꠟꠈꠟꠣꠕꠥꠞꠣ",
+	"cite-ve-dialog-reference-options-name-label": "ꠅꠃꠘꠣꠝꠦ ꠢꠤꠞꠛꠣꠞ ꠛꠦꠛꠀꠞ ꠇꠞꠂꠘ",
 	"cite-ve-dialog-reference-options-responsive-label": "ꠙ꠆ꠞꠔꠤꠇ꠆ꠞꠤꠎꠣꠡꠤꠟ ꠇꠟꠣꠝ ꠛꠤꠘ꠆ꠎꠣꠡ ꠛ꠆ꠎꠛꠢꠣꠞ ꠇꠞꠥꠘ",
 	"cite-ve-dialog-reference-options-section": "ꠃꠙꠣꠄꠀꠁꠘꠔ / ꠙꠕꠅꠇꠟ",
 	"cite-ve-dialog-reference-placeholder": "ꠄꠈꠣꠘꠦ ꠀꠙꠘꠣꠞ ꠞꠦꠚꠣꠞꠦꠘ꠆ꠡ ꠟꠤꠈꠥꠘ ꠛꠣ ꠙꠦꠡ꠆ꠐ ꠇꠞꠥꠘ, ꠅꠕꠛꠣ ꠄꠇꠐꠤ ꠃꠖ꠆ꠗ꠆ꠞꠤꠔꠤ ꠐꠦꠝꠙ꠆ꠟꠦꠐ ꠡꠘ꠆ꠘꠤꠛꠦꠡ ꠇꠞꠥꠘ ⁕",
@@ -44,7 +44,7 @@
 	"cite-ve-referenceslist-isempty-default": "ꠄꠁ ꠔꠣꠟꠤꠇꠣꠎ ꠅꠘ꠆ꠔꠞ꠆ꠜꠥꠇ꠆ꠔ ꠇꠞꠣꠞ ꠎꠘ꠆ꠎ ꠄꠁ ꠙ꠆ꠞꠤꠡ꠆ꠑꠣꠎ ꠇꠧꠘ ꠔꠕ꠆ꠎꠡꠥꠔ꠆ꠞ ꠘꠦꠁ ⁕",
 	"cite-ve-referenceslist-missingref": "ꠄꠁ ꠞꠦꠚꠣꠞꠦꠘ꠆ꠡꠐꠤ ꠄꠇꠐꠤ ꠐꠦꠝꠙ꠆ꠟꠦꠐ ꠛꠣ ꠅꠘ꠆ꠎ ꠎꠦꠘꠣꠞꠦꠐꠦꠒ ꠛ꠆ꠟꠇꠦ ꠡꠋꠎ꠆ꠘꠣꠎꠤꠔ ꠇꠞꠣ ꠢꠎꠦꠍꠦ ꠄꠛꠋ ꠀꠙꠣꠔꠔ ꠡꠥꠗꠥꠝꠣꠔ꠆ꠞ ꠡꠧꠞ꠆ꠡ ꠝꠧꠒꠦ ꠡꠝ꠆ꠙꠣꠖꠘꠣ ꠇꠞꠣ ꠎꠦꠔꠦ ꠙꠣꠞꠦ ⁕",
 	"cite-ve-referenceslist-missingref-in-list": "ꠁ ꠟꠇꠁꠇꠣꠘ ꠄꠉꠥ ꠐꠦꠝꠙ꠆ꠟꠦꠐ ꠘꠣꠄ ꠅꠁꠘ꠆ꠘ ꠎꠦꠘꠣꠞꠦꠐꠦꠒ ꠛ꠆ꠟꠇꠅ ꠛꠣꠔꠣꠁꠀ ꠖꠦꠅꠀ ꠅꠁꠍꠦ ꠀꠞ ꠀꠙꠣꠔꠔ ꠈꠣꠟꠤ ꠍꠃꠞ꠆ꠍ ꠝꠥꠒꠅ ꠀꠉꠞꠟꠣꠈꠣꠘ ꠖꠦꠈꠣ ꠎꠣꠁꠔꠅ ꠙꠣꠞꠦ ⁕",
-	"cite-ve-referenceslist-missingreflist": "ꠁ ꠟꠇꠞ ꠟꠤꠡ꠆ꠐꠤ ꠄꠇꠣꠘ ꠐꠦꠝꠙ꠆ꠟꠦꠐꠖꠤ ꠛꠣꠞꠇꠞꠣ ꠅꠁꠍꠦ ⁕",
 	"cite-ve-toolbar-group-label": "ꠟꠇ ꠖꠦꠅꠀ",
-	"cite-ve-othergroup-item": "$1 ꠟꠇ"
+	"cite-ve-othergroup-item": "$1 ꠟꠇ",
+	"visualeditor-internal-list-diff-default-group-name-mwreference": "ꠟꠈꠟꠣꠕꠥꠞꠣ"
 }

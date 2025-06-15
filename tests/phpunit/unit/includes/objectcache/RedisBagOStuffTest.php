@@ -1,10 +1,8 @@
 <?php
 
-use Wikimedia\ObjectCache\RedisBagOStuff;
 use Wikimedia\TestingAccessWrapper;
 
 /**
- * @covers \Wikimedia\ObjectCache\RedisBagOStuff
  * @group BagOStuff
  */
 class RedisBagOStuffTest extends MediaWikiUnitTestCase {
@@ -20,6 +18,7 @@ class RedisBagOStuffTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers RedisBagOStuff::unserialize
 	 * @dataProvider unserializeProvider
 	 */
 	public function testUnserialize( $expected, $input, $message ) {
@@ -27,7 +26,7 @@ class RedisBagOStuffTest extends MediaWikiUnitTestCase {
 		$this->assertSame( $expected, $actual, $message );
 	}
 
-	public static function unserializeProvider() {
+	public function unserializeProvider() {
 		return [
 			[
 				-1,
@@ -58,6 +57,7 @@ class RedisBagOStuffTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers RedisBagOStuff::serialize
 	 * @dataProvider serializeProvider
 	 */
 	public function testSerialize( $expected, $input, $message ) {

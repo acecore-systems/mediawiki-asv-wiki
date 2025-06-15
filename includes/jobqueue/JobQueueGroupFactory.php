@@ -20,21 +20,20 @@
 
 namespace MediaWiki\JobQueue;
 
+use ConfiguredReadOnlyMode;
+use IBufferingStatsdDataFactory;
 use JobQueueGroup;
-use LogicException;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\MainConfigNames;
-use MediaWiki\WikiMap\WikiMap;
-use Wikimedia\ObjectCache\WANObjectCache;
-use Wikimedia\Rdbms\ReadOnlyMode;
-use Wikimedia\Stats\IBufferingStatsdDataFactory;
+use WANObjectCache;
+use WikiMap;
 use Wikimedia\UUID\GlobalIdGenerator;
 
 /**
- * Factory for JobQueueGroup objects.
+ * Class to construct JobQueueGroups
  *
- * @since 1.37
  * @ingroup JobQueue
+ * @since 1.37
  */
 class JobQueueGroupFactory {
 	/**
@@ -53,7 +52,7 @@ class JobQueueGroupFactory {
 	/** @var ServiceOptions */
 	private $options;
 
-	/** @var ReadOnlyMode */
+	/** @var ConfiguredReadOnlyMode */
 	private $readOnlyMode;
 
 	/** @var IBufferingStatsdDataFactory */
@@ -67,14 +66,14 @@ class JobQueueGroupFactory {
 
 	/**
 	 * @param ServiceOptions $options
-	 * @param ReadOnlyMode $readOnlyMode
+	 * @param ConfiguredReadOnlyMode $readOnlyMode
 	 * @param IBufferingStatsdDataFactory $statsdDataFactory
 	 * @param WANObjectCache $wanCache
 	 * @param GlobalIdGenerator $globalIdGenerator
 	 */
 	public function __construct(
 		ServiceOptions $options,
-		ReadOnlyMode $readOnlyMode,
+		ConfiguredReadOnlyMode $readOnlyMode,
 		IBufferingStatsdDataFactory $statsdDataFactory,
 		WANObjectCache $wanCache,
 		GlobalIdGenerator $globalIdGenerator
@@ -99,26 +98,24 @@ class JobQueueGroupFactory {
 			$domain = WikiMap::getCurrentWikiDbDomain()->getId();
 		}
 
-		// Make sure jobs are not getting pushed to bogus wikis. This can confuse
-		// the job runner system into spawning endless RPC requests that fail (T171371).
-		$wikiId = WikiMap::getWikiIdFromDbDomain( $domain );
-		if (
-			!WikiMap::isCurrentWikiDbDomain( $domain ) &&
-			!in_array( $wikiId, $this->options->get( MainConfigNames::LocalDatabases ) )
-		) {
-			// Do not enqueue job that cannot be run (T171371)
-			throw new LogicException( "Domain '{$domain}' is not recognized." );
-		}
-
-		$localJobClasses = WikiMap::isCurrentWikiDbDomain( $domain )
-			? $this->options->get( MainConfigNames::JobClasses )
-			: null;
-
 		if ( !isset( $this->instances[$domain] ) ) {
+			// Make sure jobs are not getting pushed to bogus wikis. This can confuse
+			// the job runner system into spawning endless RPC requests that fail (T171371).
+			$wikiId = WikiMap::getWikiIdFromDbDomain( $domain );
+			if (
+				!WikiMap::isCurrentWikiDbDomain( $domain ) &&
+				!in_array( $wikiId, $this->options->get( MainConfigNames::LocalDatabases ) )
+			) {
+				$invalidDomain = true;
+			} else {
+				$invalidDomain = false;
+			}
+
 			$this->instances[$domain] = new JobQueueGroup(
 				$domain,
 				$this->readOnlyMode,
-				$localJobClasses,
+				$invalidDomain,
+				$this->options->get( MainConfigNames::JobClasses ),
 				$this->options->get( MainConfigNames::JobTypeConf ),
 				$this->options->get( MainConfigNames::JobTypesExcludedFromDefaultQueue ),
 				$this->statsdDataFactory,

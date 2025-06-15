@@ -2,7 +2,7 @@
 /**
  * Import XML dump files into the current wiki.
  *
- * Copyright © 2005 Brooke Vibber <bvibber@wikimedia.org>
+ * Copyright © 2005 Brion Vibber <brion@pobox.com>
  * https://www.mediawiki.org/
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,12 +25,9 @@
  */
 
 use MediaWiki\Linker\LinkTarget;
-use MediaWiki\Permissions\UltimateAuthority;
-use MediaWiki\User\User;
+use MediaWiki\MediaWikiServices;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script that imports XML dump files into the current wiki.
@@ -118,7 +115,7 @@ TEXT
 	}
 
 	public function execute() {
-		if ( $this->getServiceContainer()->getReadOnlyMode()->isReadOnly() ) {
+		if ( MediaWikiServices::getInstance()->getReadOnlyMode()->isReadOnly() ) {
 			$this->fatalError( "Wiki is in read-only mode; you'll need to disable it for import to work." );
 		}
 
@@ -159,7 +156,7 @@ TEXT
 	}
 
 	private function getNsIndex( $namespace ) {
-		$contLang = $this->getServiceContainer()->getContentLanguage();
+		$contLang = MediaWikiServices::getInstance()->getContentLanguage();
 		$result = $contLang->getNsIndex( $namespace );
 		if ( $result !== false ) {
 			return $result;
@@ -173,6 +170,7 @@ TEXT
 
 	/**
 	 * @param LinkTarget|null $title
+	 * @throws MWException
 	 * @return bool
 	 */
 	private function skippedNamespace( $title ) {
@@ -229,10 +227,9 @@ TEXT
 			if ( !$this->dryRun ) {
 				// bluuuh hack
 				// call_user_func( $this->uploadCallback, $revision );
-				$importer = $this->getServiceContainer()->getWikiRevisionUploadImporter();
-				$statusValue = $importer->import( $revision );
+				$dbw = $this->getDB( DB_PRIMARY );
 
-				return $statusValue->isGood();
+				return $dbw->deadlockLoop( [ $revision, 'importUpload' ] );
 			}
 		}
 
@@ -277,7 +274,7 @@ TEXT
 				$this->progress( "$this->revCount ($revrate revs/sec)" );
 			}
 		}
-		$this->waitForReplication();
+		MediaWikiServices::getInstance()->getDBLoadBalancerFactory()->waitForReplication();
 	}
 
 	private function progress( $string ) {
@@ -313,12 +310,10 @@ TEXT
 	private function importFromHandle( $handle ) {
 		$this->startTime = microtime( true );
 
-		$user = User::newSystemUser( User::MAINTENANCE_SCRIPT_USER, [ 'steal' => true ] );
-
 		$source = new ImportStreamSource( $handle );
-		$importer = $this->getServiceContainer()
+		$importer = MediaWikiServices::getInstance()
 			->getWikiImporterFactory()
-			->getWikiImporter( $source, new UltimateAuthority( $user ) );
+			->getWikiImporter( $source );
 
 		// Updating statistics require a lot of time so disable it
 		$importer->disableStatisticsUpdate();
@@ -337,7 +332,7 @@ TEXT
 			$statusRootPage = $importer->setTargetRootPage( $this->getOption( 'rootpage' ) );
 			if ( !$statusRootPage->isGood() ) {
 				// Die here so that it doesn't print "Done!"
-				$this->fatalError( $statusRootPage );
+				$this->fatalError( $statusRootPage->getMessage( false, false, 'en' )->text() );
 			}
 		}
 		if ( $this->hasOption( 'skip-to' ) ) {
@@ -370,7 +365,5 @@ TEXT
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = BackupReader::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

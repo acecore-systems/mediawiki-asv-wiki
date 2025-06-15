@@ -23,15 +23,15 @@
 namespace MediaWiki\User;
 
 use InvalidArgumentException;
+use Language;
+use MalformedTitleException;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\HookContainer\HookRunner;
-use MediaWiki\Language\Language;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Title\MalformedTitleException;
-use MediaWiki\Title\TitleParser;
 use MediaWiki\User\TempUser\TempUserConfig;
 use Psr\Log\LoggerInterface;
+use TitleParser;
 use Wikimedia\IPUtils;
 use Wikimedia\Message\ITextFormatter;
 use Wikimedia\Message\MessageValue;
@@ -53,26 +53,46 @@ class UserNameUtils implements UserRigorOptions {
 	];
 
 	/**
-	 * For use by isIP() and isLikeIPv4DashRange()
+	 * RIGOR_* constants are inherited from UserRigorOptions
 	 */
-	private const IPV4_ADDRESS = '\d{1,3}\.\d{1,3}\.\d{1,3}\.(?:xxx|\d{1,3})';
 
-	// RIGOR_* constants are inherited from UserRigorOptions
+	/**
+	 * @var ServiceOptions
+	 */
+	private $options;
 
-	// phpcs:ignore MediaWiki.Commenting.PropertyDocumentation.WrongStyle
-	private ServiceOptions $options;
-	private Language $contentLang;
-	private LoggerInterface $logger;
-	private TitleParser $titleParser;
-	private ITextFormatter $textFormatter;
+	/**
+	 * @var Language
+	 */
+	private $contentLang;
+
+	/**
+	 * @var LoggerInterface
+	 */
+	private $logger;
+
+	/**
+	 * @var TitleParser
+	 */
+	private $titleParser;
+
+	/**
+	 * @var ITextFormatter
+	 */
+	private $textFormatter;
 
 	/**
 	 * @var string[]|false Cache for isUsable()
 	 */
 	private $reservedUsernames = false;
 
-	private HookRunner $hookRunner;
-	private TempUserConfig $tempUserConfig;
+	/**
+	 * @var HookRunner
+	 */
+	private $hookRunner;
+
+	/** @var TempUserConfig */
+	private $tempUserConfig;
 
 	/**
 	 * @param ServiceOptions $options
@@ -106,9 +126,9 @@ class UserNameUtils implements UserRigorOptions {
 	 * Is the input a valid username?
 	 *
 	 * Checks if the input is a valid username, we don't want an empty string,
-	 * an IP address, any type of IP range, anything that contains slashes
-	 * (would mess up subpages), is longer than the maximum allowed username
-	 * size or doesn't begin with a capital letter.
+	 * an IP address, anything that contains slashes (would mess up subpages),
+	 * is longer than the maximum allowed username size or doesn't begin with
+	 * a capital letter.
 	 *
 	 * @param string $name Name to match
 	 * @return bool
@@ -116,9 +136,7 @@ class UserNameUtils implements UserRigorOptions {
 	public function isValid( string $name ): bool {
 		if ( $name === ''
 			|| $this->isIP( $name )
-			|| $this->isValidIPRange( $name )
-			|| $this->isLikeIPv4DashRange( $name )
-			|| str_contains( $name, '/' )
+			|| strpos( $name, '/' ) !== false
 			|| strlen( $name ) > $this->options->get( MainConfigNames::MaxNameChars )
 			|| $name !== $this->contentLang->ucfirst( $name )
 		) {
@@ -178,7 +196,7 @@ class UserNameUtils implements UserRigorOptions {
 			$reservedUsernames = $this->options->get( MainConfigNames::ReservedUsernames );
 			$this->hookRunner->onUserGetReservedNames( $reservedUsernames );
 			foreach ( $reservedUsernames as &$reserved ) {
-				if ( str_starts_with( $reserved, 'msg:' ) ) {
+				if ( substr( $reserved, 0, 4 ) === 'msg:' ) {
 					$reserved = $this->textFormatter->format(
 						MessageValue::new( substr( $reserved, 4 ) )
 					);
@@ -191,18 +209,6 @@ class UserNameUtils implements UserRigorOptions {
 		if ( in_array( $name, $this->reservedUsernames, true ) ) {
 			return false;
 		}
-
-		// Treat this name as not usable if it is reserved by the temp user system and either:
-		// * Temporary account creation is disabled
-		// * The name is not a temporary account
-		// This is necessary to ensure that CentralAuth auto-creation will be denied (T342475).
-		if (
-			$this->isTempReserved( $name ) &&
-			( !$this->tempUserConfig->isEnabled() || !$this->isTemp( $name ) )
-		) {
-			return false;
-		}
-
 		return true;
 	}
 
@@ -240,7 +246,7 @@ class UserNameUtils implements UserRigorOptions {
 			return false;
 		}
 
-		if ( $this->isTempReserved( $name ) ) {
+		if ( $this->isTemp( $name ) ) {
 			$this->logger->debug(
 				__METHOD__ . ": '$name' uncreatable due to TempUserConfig"
 			);
@@ -309,11 +315,20 @@ class UserNameUtils implements UserRigorOptions {
 		// RIGOR_NONE handled above
 		switch ( $validate ) {
 			case self::RIGOR_VALID:
-				return $this->isValid( $name ) ? $name : false;
+				if ( !$this->isValid( $name ) ) {
+					return false;
+				}
+				return $name;
 			case self::RIGOR_USABLE:
-				return $this->isUsable( $name ) ? $name : false;
+				if ( !$this->isUsable( $name ) ) {
+					return false;
+				}
+				return $name;
 			case self::RIGOR_CREATABLE:
-				return $this->isCreatable( $name ) ? $name : false;
+				if ( !$this->isCreatable( $name ) ) {
+					return false;
+				}
+				return $name;
 			default:
 				throw new InvalidArgumentException(
 					"Invalid parameter value for validation ($validate) in " .
@@ -341,7 +356,7 @@ class UserNameUtils implements UserRigorOptions {
 	 * @return bool
 	 */
 	public function isIP( string $name ): bool {
-		$anyIPv4 = '/^' . self::IPV4_ADDRESS . '$/';
+		$anyIPv4 = '/^\d{1,3}\.\d{1,3}\.\d{1,3}\.(?:xxx|\d{1,3})$/';
 		$validIP = IPUtils::isValid( $name );
 		return $validIP || preg_match( $anyIPv4, $name );
 	}
@@ -357,42 +372,13 @@ class UserNameUtils implements UserRigorOptions {
 	}
 
 	/**
-	 * Validates IPv4 and IPv4-like ranges in the form of 1.2.3.4-5.6.7.8,
-	 * (which we'd like to avoid as a username/title pattern).
-	 *
-	 * @since 1.42
-	 * @param string $range IPv4 dash range to check
-	 * @return bool
-	 */
-	public function isLikeIPv4DashRange( string $range ): bool {
-		return preg_match(
-			'/^' . self::IPV4_ADDRESS . '-' . self::IPV4_ADDRESS . '$/',
-			$range
-		);
-	}
-
-	/**
-	 * Does the username indicate a temporary user?
+	 * Is the user name reserved for temporary auto-created users?
 	 *
 	 * @since 1.39
 	 * @param string $name
 	 * @return bool
 	 */
 	public function isTemp( string $name ) {
-		return $this->tempUserConfig->isTempName( $name );
-	}
-
-	/**
-	 * Is the username uncreatable due to it being reserved by the temp username
-	 * system? Note that unlike isTemp(), this does not imply that a user having
-	 * this name is an actual temp account. This should only be used to deny
-	 * account creation.
-	 *
-	 * @since 1.41
-	 * @param string $name
-	 * @return bool
-	 */
-	public function isTempReserved( string $name ) {
 		return $this->tempUserConfig->isReservedName( $name );
 	}
 

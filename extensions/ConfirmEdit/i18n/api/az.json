@@ -1,8 +1,7 @@
 {
 	"@metadata": {
 		"authors": [
-			"NMW03",
-			"Nemoralis"
+			"NMW03"
 		]
 	},
 	"captcha-apihelp-param-captchaword": "CAPTCHA-ya cavab",

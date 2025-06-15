@@ -1,7 +1,6 @@
 {
 	"@metadata": {
 		"authors": [
-			"555",
 			"Dianakc",
 			"Eduardo Addad de Oliveira",
 			"Eduardo.mps",
@@ -10,7 +9,8 @@
 			"Giro720",
 			"He7d3r",
 			"Helder.wiki",
-			"Jesielt"
+			"Jesielt",
+			555
 		]
 	},
 	"captcha-edit": "Para editar esta página, por favor, resolva a seguinte tarefa abaixo e insira a resposta na caixa ([[Special:Captcha/help|mais informações]]):",

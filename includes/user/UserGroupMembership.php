@@ -20,13 +20,8 @@
  * @file
  */
 
-namespace MediaWiki\User;
-
-use InvalidArgumentException;
-use MediaWiki\Context\IContextSource;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Message\Message;
-use MediaWiki\Title\Title;
+use MediaWiki\User\UserIdentity;
 
 /**
  * Represents a "user group membership" -- a specific instance of a user belonging
@@ -60,7 +55,7 @@ class UserGroupMembership {
 		$this->userId = $userId;
 		$this->group = $group;
 		$this->expiry = $expiry ?: null;
-		$this->expired = $expiry && wfTimestampNow() > $expiry;
+		$this->expired = $expiry ? wfTimestampNow() > $expiry : false;
 	}
 
 	/**
@@ -96,8 +91,6 @@ class UserGroupMembership {
 	/**
 	 * Gets a link for a user group, possibly including the expiry date if relevant.
 	 *
-	 * @deprecated since 1.41 use getLinkWiki or getLinkHTML directly
-	 *
 	 * @param string|UserGroupMembership $ugm Either a group name as a string, or
 	 *   a UserGroupMembership object
 	 * @param IContextSource $context
@@ -108,106 +101,12 @@ class UserGroupMembership {
 	 *   group name message ("Administrators"), omit this parameter.
 	 * @return string
 	 */
-	public static function getLink( $ugm, IContextSource $context, string $format, $userName = null ) {
-		switch ( $format ) {
-			case 'wiki':
-				return self::getLinkWiki( $ugm, $context, $userName );
-			case 'html':
-				return self::getLinkHTML( $ugm, $context, $userName );
-			default:
-				throw new InvalidArgumentException( 'UserGroupMembership::getLink() $format parameter should be ' .
-					"'wiki' or 'html'" );
-		}
-	}
-
-	/**
-	 * Gets a link for a user group, possibly including the expiry date if relevant.
-	 * @since 1.41
-	 *
-	 * @param string|UserGroupMembership $ugm Either a group name as a string, or
-	 *   a UserGroupMembership object
-	 * @param IContextSource $context
-	 * @param string|null $userName If you want to use the group member message
-	 *   ("administrator"), pass the name of the user who belongs to the group; it
-	 *   is used for GENDER of the group member message. If you instead want the
-	 *   group name message ("Administrators"), omit this parameter.
-	 * @return string
-	 */
-	public static function getLinkHTML( $ugm, IContextSource $context, $userName = null ): string {
-		[
-			'expiry' => $expiry,
-			'linkTitle' => $linkTitle,
-			'groupName' => $groupName
-		] = self::getLinkInfo( $ugm, $context, $userName );
-
-		// link to the group description page, if it exists
-		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
-		if ( $linkTitle ) {
-			$groupLink = $linkRenderer->makeLink( $linkTitle, $groupName );
-		} else {
-			$groupLink = htmlspecialchars( $groupName );
+	public static function getLink( $ugm, IContextSource $context, $format, $userName = null ) {
+		if ( $format !== 'wiki' && $format !== 'html' ) {
+			throw new MWException( 'UserGroupMembership::getLink() $format parameter should be ' .
+				"'wiki' or 'html'" );
 		}
 
-		if ( $expiry ) {
-			[
-				'expiryDT' => $expiryDT,
-				'expiryD' => $expiryD,
-				'expiryT' => $expiryT
-			] = self::getLinkExpiryParams( $context, $expiry );
-			$groupLink = Message::rawParam( $groupLink );
-			return $context->msg( 'group-membership-link-with-expiry' )
-				->params( $groupLink, $expiryDT, $expiryD, $expiryT )->escaped();
-		}
-		return $groupLink;
-	}
-
-	/**
-	 * Gets a link for a user group, possibly including the expiry date if relevant.
-	 * @since 1.41
-	 *
-	 * @param string|UserGroupMembership $ugm Either a group name as a string, or
-	 *   a UserGroupMembership object
-	 * @param IContextSource $context
-	 * @param string|null $userName If you want to use the group member message
-	 *   ("administrator"), pass the name of the user who belongs to the group; it
-	 *   is used for GENDER of the group member message. If you instead want the
-	 *   group name message ("Administrators"), omit this parameter.
-	 * @return string
-	 */
-	public static function getLinkWiki( $ugm, IContextSource $context, $userName = null ): string {
-		[
-			'expiry' => $expiry,
-			'linkTitle' => $linkTitle,
-			'groupName' => $groupName
-		] = self::getLinkInfo( $ugm, $context, $userName );
-
-		// link to the group description page, if it exists
-		if ( $linkTitle ) {
-			$linkPage = $linkTitle->getFullText();
-			$groupLink = "[[$linkPage|$groupName]]";
-		} else {
-			$groupLink = $groupName;
-		}
-
-		if ( $expiry ) {
-			[
-				'expiryDT' => $expiryDT,
-				'expiryD' => $expiryD,
-				'expiryT' => $expiryT
-			] = self::getLinkExpiryParams( $context, $expiry );
-			return $context->msg( 'group-membership-link-with-expiry' )
-				->params( $groupLink, $expiryDT, $expiryD, $expiryT )->text();
-		}
-		return $groupLink;
-	}
-
-	/**
-	 * @param self|string $ugm
-	 * @param IContextSource $context
-	 * @param string|null $userName
-	 * @return array
-	 */
-	private static function getLinkInfo( $ugm, $context, $userName = null ): array {
 		if ( $ugm instanceof UserGroupMembership ) {
 			$expiry = $ugm->getExpiry();
 			$group = $ugm->getGroup();
@@ -216,29 +115,72 @@ class UserGroupMembership {
 			$group = $ugm;
 		}
 
-		$uiLanguage = $context->getLanguage();
 		if ( $userName !== null ) {
-			$groupName = $uiLanguage->getGroupMemberName( $group, $userName );
+			$groupName = self::getGroupMemberName( $group, $userName );
 		} else {
-			$groupName = $uiLanguage->getGroupName( $group );
+			$groupName = self::getGroupName( $group );
 		}
+
+		// link to the group description page, if it exists
 		$linkTitle = self::getGroupPage( $group );
-		return [ 'expiry' => $expiry, 'linkTitle' => $linkTitle, 'groupName' => $groupName ];
+		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
+		if ( $format === 'wiki' ) {
+			if ( $linkTitle ) {
+				$linkPage = $linkTitle->getFullText();
+				$groupLink = "[[$linkPage|$groupName]]";
+			} else {
+				$groupLink = $groupName;
+			}
+		} else {
+			if ( $linkTitle ) {
+				$groupLink = $linkRenderer->makeLink( $linkTitle, $groupName );
+			} else {
+				$groupLink = htmlspecialchars( $groupName );
+			}
+		}
+
+		if ( $expiry ) {
+			// format the expiry to a nice string
+			$uiLanguage = $context->getLanguage();
+			$uiUser = $context->getUser();
+			$expiryDT = $uiLanguage->userTimeAndDate( $expiry, $uiUser );
+			$expiryD = $uiLanguage->userDate( $expiry, $uiUser );
+			$expiryT = $uiLanguage->userTime( $expiry, $uiUser );
+
+			if ( $format === 'wiki' ) {
+				return $context->msg( 'group-membership-link-with-expiry' )
+					->params( $groupLink, $expiryDT, $expiryD, $expiryT )->text();
+			} else {
+				$groupLink = Message::rawParam( $groupLink );
+				return $context->msg( 'group-membership-link-with-expiry' )
+					->params( $groupLink, $expiryDT, $expiryD, $expiryT )->escaped();
+			}
+		}
+		return $groupLink;
 	}
 
 	/**
-	 * @param IContextSource $context
-	 * @param string $expiry
-	 * @return array
+	 * Gets the localized friendly name for a group, if it exists. For example,
+	 * "Administrators" or "Bureaucrats"
+	 *
+	 * @param string $group Internal group name
+	 * @return string Localized friendly group name
+	 * @deprecated since 1.38, use Language::getGroupName or Message::userGroupParams
 	 */
-	private static function getLinkExpiryParams( IContextSource $context, string $expiry ): array {
-		// format the expiry to a nice string
-		$uiLanguage = $context->getLanguage();
-		$uiUser = $context->getUser();
-		$expiryDT = $uiLanguage->userTimeAndDate( $expiry, $uiUser );
-		$expiryD = $uiLanguage->userDate( $expiry, $uiUser );
-		$expiryT = $uiLanguage->userTime( $expiry, $uiUser );
-		return [ 'expiryDT' => $expiryDT, 'expiryD' => $expiryD, 'expiryT' => $expiryT ];
+	public static function getGroupName( $group ) {
+		return RequestContext::getMain()->getLanguage()->getGroupName( $group );
+	}
+
+	/**
+	 * Gets the localized name for a member of a group, if it exists. For example,
+	 * "administrator" or "bureaucrat"
+	 *
+	 * @param string $group Internal group name
+	 * @param string|UserIdentity $member Username or UserIdentity of member for gender
+	 * @return string Localized name for group member
+	 */
+	public static function getGroupMemberName( $group, $member ) {
+		return RequestContext::getMain()->getLanguage()->getGroupMemberName( $group, $member );
 	}
 
 	/**
@@ -246,7 +188,7 @@ class UserGroupMembership {
 	 * of the group appears in the UI, it can link to this page.
 	 *
 	 * @param string $group Internal group name
-	 * @return Title|false Title of the page if it exists, false otherwise
+	 * @return Title|bool Title of the page if it exists, false otherwise
 	 */
 	public static function getGroupPage( $group ) {
 		$msg = wfMessage( "grouppage-$group" )->inContentLanguage();
@@ -275,6 +217,3 @@ class UserGroupMembership {
 	}
 
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( UserGroupMembership::class, 'UserGroupMembership' );

@@ -2,15 +2,16 @@
 	"@metadata": {
 		"authors": [
 			"RebecaRwanda",
-			"RebeccaRwanda",
-			"Rodrigue"
+			"Rodrigue",
+			"RebeccaRwanda"
 		]
 	},
 	"collabpad-import-subtitle": "Byakuwe kuri $1",
 	"collabpad": "Gukoresha",
-	"tooltip-ca-ve-edit": "Kosora uru rupapuro",
-	"tooltip-ca-editsource": "kosora kode y'inkomoko yuru rupapuro",
 	"tooltip-ca-createsource": "Kora kode y'inkomoko yuru rupapuro",
+	"tooltip-ca-edit": "Kosora uru rupapuro ukoresheje wikitext",
+	"tooltip-ca-editsource": "kosora kode y'inkomoko yuru rupapuro",
+	"tooltip-ca-ve-edit": "Kosora uru rupapuro",
 	"visualeditor-advancedsettings-tool": "Igenamikorere ryisumbuye",
 	"visualeditor-annotations-default-description": "Iki gice cy'urupapuro ni igice cy'ibisobanuro",
 	"visualeditor-annotations-default-end": "Iherezo ry'igice cy'ibisobanuro",

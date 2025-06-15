@@ -2,7 +2,7 @@
 
 namespace Wikimedia\Rdbms;
 
-use Stringable;
+use Serializable;
 
 /**
  * An object representing a primary or replica DB position in a replicated setup.
@@ -10,8 +10,9 @@ use Stringable;
  * The implementation details of this opaque type are up to the database subclass.
  *
  * @since 1.37
+ * @stable to implement
  */
-interface DBPrimaryPos extends Stringable {
+interface DBPrimaryPos extends Serializable {
 	/**
 	 * @since 1.25
 	 * @return float UNIX timestamp
@@ -24,6 +25,13 @@ interface DBPrimaryPos extends Stringable {
 	 * @return bool Whether this position is at or higher than $pos
 	 */
 	public function hasReached( DBPrimaryPos $pos );
+
+	/**
+	 * @since 1.27
+	 * @param DBPrimaryPos $pos
+	 * @return bool Whether this position appears to be for the same channel as another
+	 */
+	public function channelsMatch( DBPrimaryPos $pos );
 
 	/**
 	 * @since 1.27

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel MWTransclusionContentModel class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -33,14 +33,14 @@ OO.inheritClass( ve.dm.MWTransclusionContentModel, ve.dm.MWTransclusionPartModel
 /**
  * Emitted when the wikitext changed.
  *
- * @event ve.dm.MWTransclusionContentModel#change
+ * @event change
  */
 
 /* Methods */
 
 /**
  * @param {string} wikitext
- * @fires ve.dm.MWTransclusionContentModel#change
+ * @fires change
  */
 ve.dm.MWTransclusionContentModel.prototype.setWikitext = function ( wikitext ) {
 	if ( this.wikitext !== wikitext ) {

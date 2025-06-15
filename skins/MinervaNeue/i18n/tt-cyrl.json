@@ -2,12 +2,13 @@
 	"@metadata": {
 		"authors": [
 			"Derslek",
-			"Don Alessandro",
 			"Ilnur efende",
 			"Ерней",
-			"Ильнар"
+			"Ильнар",
+			"Don Alessandro"
 		]
 	},
+	"minerva-talk-add-topic": "Фикер алышуны өстәү",
 	"mobile-frontend-editor-edit": "Үзгәртү",
 	"minerva-download": "PDF күчереп алу",
 	"mobile-frontend-editor-redlink-create": "Мәкалә ясау",
@@ -25,6 +26,9 @@
 	"mobile-frontend-meta-data-issues": "Бит буенча сораулар",
 	"mobile-frontend-meta-data-issues-categories": "Бу төркем турында",
 	"mobile-frontend-meta-data-issues-header": "Бит мәсьәләсе",
+	"mobile-frontend-meta-data-issues-header-talk": "Бу бит турында",
+	"mobile-frontend-meta-data-issues-talk": "Бу бәхәс бите турында",
+	"mobile-frontend-notifications-filter": "Сөзгеч",
 	"mobile-frontend-pageaction-edit-tooltip": "Битнең төп бүлеген үзгәртү",
 	"mobile-frontend-placeholder": "{{SITENAME}} эчендә эзләү",
 	"mobile-frontend-random-button": "Очраклы",
@@ -39,6 +43,8 @@
 	"mobile-frontend-user-page-member-since": "$1 {{GENDER:$2|кушылды}}",
 	"mobile-frontend-user-page-talk": "Бәхәс",
 	"minerva-user-menu-button": "Кулланучы менюсы",
+	"minerva-page-actions-permalink": "Даими сылтама",
+	"minerva-page-actions-backlinks": "Бирегә нәрсә сылтый",
 	"minerva-page-actions-language-switcher": "Телләр",
 	"minerva-page-actions-history": "Тарих",
 	"skin-minerva-issue-learn-more": "Күбрәк белү",

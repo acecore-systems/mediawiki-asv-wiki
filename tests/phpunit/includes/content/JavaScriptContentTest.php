@@ -1,16 +1,11 @@
 <?php
 
-use MediaWiki\Content\CssContent;
-use MediaWiki\Content\JavaScriptContent;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Title\Title;
 
 /**
- * Needs database to do link updates.
- *
  * @group ContentHandler
  * @group Database
- * @covers \MediaWiki\Content\JavaScriptContent
+ *        ^--- needed, because we do need the database to test link updates
  */
 class JavaScriptContentTest extends TextContentTest {
 
@@ -18,6 +13,63 @@ class JavaScriptContentTest extends TextContentTest {
 		return new JavaScriptContent( $text );
 	}
 
+	// XXX: Unused function
+	public static function dataGetSection() {
+		return [
+			[ WikitextContentTest::$sections,
+				'0',
+				null
+			],
+			[ WikitextContentTest::$sections,
+				'2',
+				null
+			],
+			[ WikitextContentTest::$sections,
+				'8',
+				null
+			],
+		];
+	}
+
+	// XXX: Unused function
+	public static function dataReplaceSection() {
+		return [
+			[ WikitextContentTest::$sections,
+				'0',
+				'No more',
+				null,
+				null
+			],
+			[ WikitextContentTest::$sections,
+				'',
+				'No more',
+				null,
+				null
+			],
+			[ WikitextContentTest::$sections,
+				'2',
+				"== TEST ==\nmore fun",
+				null,
+				null
+			],
+			[ WikitextContentTest::$sections,
+				'8',
+				'No more',
+				null,
+				null
+			],
+			[ WikitextContentTest::$sections,
+				'new',
+				'No more',
+				'New',
+				null
+			],
+		];
+	}
+
+	/**
+	 * @covers JavaScriptContent::addSectionHeader
+	 */
 	public function testAddSectionHeader() {
 		$content = $this->newContent( 'hello world' );
 		$c = $content->addSectionHeader( 'test' );
@@ -116,6 +168,9 @@ class JavaScriptContentTest extends TextContentTest {
 		];
 	}
 
+	/**
+	 * @covers JavaScriptContent::matchMagicWord
+	 */
 	public function testMatchMagicWord() {
 		$mw = $this->getServiceContainer()->getMagicWordFactory()->get( "staticredirect" );
 
@@ -127,6 +182,7 @@ class JavaScriptContentTest extends TextContentTest {
 	}
 
 	/**
+	 * @covers JavaScriptContent::updateRedirect
 	 * @dataProvider provideUpdateRedirect
 	 */
 	public function testUpdateRedirect( $oldText, $expectedText ) {
@@ -136,7 +192,7 @@ class JavaScriptContentTest extends TextContentTest {
 			MainConfigNames::Script => '/w/index.php',
 			MainConfigNames::ResourceBasePath => '/w',
 		] );
-		$target = Title::makeTitle( NS_MAIN, 'TestUpdateRedirect_target' );
+		$target = Title::newFromText( "testUpdateRedirect_target" );
 
 		$content = new JavaScriptContent( $oldText );
 		$newContent = $content->updateRedirect( $target );
@@ -151,25 +207,31 @@ class JavaScriptContentTest extends TextContentTest {
 				'#REDIRECT [[Someplace]]',
 			],
 			[
-				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=MediaWiki:MonoBook.js&action=raw&ctype=text/javascript");',
-				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=TestUpdateRedirect_target&action=raw&ctype=text/javascript");'
+				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=MediaWiki:MonoBook.js\u0026action=raw\u0026ctype=text/javascript");',
+				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=TestUpdateRedirect_target\u0026action=raw\u0026ctype=text/javascript");'
 			]
 		];
+		// phpcs:enable
 	}
 
+	/**
+	 * @covers JavaScriptContent::getModel
+	 */
 	public function testGetModel() {
 		$content = $this->newContent( "hello world." );
 
 		$this->assertEquals( CONTENT_MODEL_JAVASCRIPT, $content->getModel() );
 	}
 
+	/**
+	 * @covers JavaScriptContent::getContentHandler
+	 */
 	public function testGetContentHandler() {
 		$content = $this->newContent( "hello world." );
 
 		$this->assertEquals( CONTENT_MODEL_JAVASCRIPT, $content->getContentHandler()->getModelID() );
 	}
 
-	// NOTE: Overridden by subclass!
 	public static function dataEquals() {
 		return [
 			[ new JavaScriptContent( "hallo" ), null, false ],
@@ -180,6 +242,7 @@ class JavaScriptContentTest extends TextContentTest {
 	}
 
 	/**
+	 * @covers JavaScriptContent::getRedirectTarget
 	 * @dataProvider provideGetRedirectTarget
 	 */
 	public function testGetRedirectTarget( $title, $text ) {
@@ -194,23 +257,39 @@ class JavaScriptContentTest extends TextContentTest {
 		$this->assertEquals( $title, $target ? $target->getPrefixedText() : null );
 	}
 
+	/**
+	 * Keep this in sync with JavaScriptContentHandlerTest::provideMakeRedirectContent()
+	 */
 	public static function provideGetRedirectTarget() {
-		// Roundtrip testing
-		yield from JavaScriptContentHandlerTest::provideMakeRedirectContent();
-
-		// Additional cases that don't roundtrip (errors, and back-compat)
-		yield 'Missing #REDIRECT comment' => [
-			null,
-			'mw.loader.load("//example.org/w/index.php?title=MediaWiki:NoRedirect.js&action=raw&ctype=text/javascript");'
+		return [
+			[
+				'MediaWiki:MonoBook.js',
+				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=MediaWiki:MonoBook.js\u0026action=raw\u0026ctype=text/javascript");'
+			],
+			[
+				'User:FooBar/common.js',
+				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=User:FooBar/common.js\u0026action=raw\u0026ctype=text/javascript");'
+			],
+			[
+				'Gadget:FooBaz.js',
+				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=Gadget:FooBaz.js\u0026action=raw\u0026ctype=text/javascript");'
+			],
+			// Unicode
+			[
+				'User:😂/unicode.js',
+				'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=User:%F0%9F%98%82/unicode.js\u0026action=raw\u0026ctype=text/javascript");'
+			],
+			// No #REDIRECT comment
+			[
+				null,
+				'mw.loader.load("//example.org/w/index.php?title=MediaWiki:NoRedirect.js\u0026action=raw\u0026ctype=text/javascript");'
+			],
+			// Different domain
+			[
+				null,
+				'/* #REDIRECT */mw.loader.load("//example.com/w/index.php?title=MediaWiki:OtherWiki.js\u0026action=raw\u0026ctype=text/javascript");'
+			],
 		];
-		yield 'Different domain' => [
-			null,
-			'/* #REDIRECT */mw.loader.load("//example.com/w/index.php?title=MediaWiki:OtherWiki.js&action=raw&ctype=text/javascript");'
-		];
-		yield 'Encoding before MW 1.42 (T107289)' => [
-			// \u0026 instead of literal &
-			'MediaWiki:MonoBook.js',
-			'/* #REDIRECT */mw.loader.load("//example.org/w/index.php?title=MediaWiki:MonoBook.js\u0026action=raw\u0026ctype=text/javascript");'
-		];
+		// phpcs:enable
 	}
 }

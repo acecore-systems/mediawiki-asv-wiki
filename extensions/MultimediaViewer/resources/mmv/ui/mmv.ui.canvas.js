@@ -15,23 +15,23 @@
  * along with MediaViewer.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const HtmlUtils = require( '../mmv.HtmlUtils.js' );
-const ThumbnailWidthCalculator = require( '../mmv.ThumbnailWidthCalculator.js' );
-const UiElement = require( './mmv.ui.js' );
+( function () {
+	var C;
 
-/**
- * UI component that contains the multimedia element to be displayed.
- * This first version assumes an image but it can be extended to other
- * media types (video, sound, presentation, etc.).
- */
-class Canvas extends UiElement {
 	/**
+	 * UI component that contains the multimedia element to be displayed.
+	 * This first version assumes an image but it can be extended to other
+	 * media types (video, sound, presentation, etc.).
+	 *
+	 * @class mw.mmv.ui.Canvas
+	 * @extends mw.mmv.ui.Element
+	 * @constructor
 	 * @param {jQuery} $container Canvas' container
 	 * @param {jQuery} $imageWrapper
 	 * @param {jQuery} $mainWrapper
 	 */
-	constructor( $container, $imageWrapper, $mainWrapper ) {
-		super( $container );
+	function Canvas( $container, $imageWrapper, $mainWrapper ) {
+		mw.mmv.ui.Element.call( this, $container );
 
 		/**
 		 * @property {boolean}
@@ -40,10 +40,10 @@ class Canvas extends UiElement {
 		this.dialogOpen = false;
 
 		/**
-		 * @property {ThumbnailWidthCalculator}
+		 * @property {mw.mmv.ThumbnailWidthCalculator}
 		 * @private
 		 */
-		this.thumbnailWidthCalculator = new ThumbnailWidthCalculator();
+		this.thumbnailWidthCalculator = new mw.mmv.ThumbnailWidthCalculator();
 
 		/**
 		 * Contains image.
@@ -74,20 +74,38 @@ class Canvas extends UiElement {
 		/**
 		 * Raw metadata of current image, needed for canvas size calculations.
 		 *
-		 * @property {LightboxImage}
+		 * @property {mw.mmv.LightboxImage}
 		 * @private
 		 */
 		this.imageRawMetadata = null;
 	}
+	OO.inheritClass( Canvas, mw.mmv.ui.Element );
+	C = Canvas.prototype;
+
+	/**
+	 * Maximum blownup factor tolerated
+	 *
+	 * @property {number} MAX_BLOWUP_FACTOR
+	 * @static
+	 */
+	Canvas.MAX_BLOWUP_FACTOR = 11;
+
+	/**
+	 * Blowup factor threshold at which blurring kicks in
+	 *
+	 * @property {number} BLUR_BLOWUP_FACTOR_THRESHOLD
+	 * @static
+	 */
+	Canvas.BLUR_BLOWUP_FACTOR_THRESHOLD = 2;
 
 	/**
 	 * Clears everything.
 	 */
-	empty() {
+	C.empty = function () {
 		this.$imageDiv.addClass( 'empty' ).removeClass( 'error' );
 
 		this.$imageDiv.empty();
-	}
+	};
 
 	/**
 	 * Sets image on the canvas; does not resize it to fit. This is used to make the placeholder
@@ -95,10 +113,10 @@ class Canvas extends UiElement {
 	 * FIXME maybeDisplayPlaceholder() receives the placeholder so it is very unclear why this
 	 * is necessary at all (apart from setting the LightboxImage, which is used in size calculations).
 	 *
-	 * @param {LightboxImage} imageRawMetadata
+	 * @param {mw.mmv.LightboxImage} imageRawMetadata
 	 * @param {jQuery} $imageElement
 	 */
-	set( imageRawMetadata, $imageElement ) {
+	C.set = function ( imageRawMetadata, $imageElement ) {
 		this.$imageDiv.removeClass( 'empty' );
 
 		this.imageRawMetadata = imageRawMetadata;
@@ -106,18 +124,18 @@ class Canvas extends UiElement {
 		this.setUpImageClick();
 
 		this.$imageDiv.html( this.$image );
-	}
+	};
 
 	/**
 	 * Resizes image to the given dimensions and displays it on the canvas.
 	 * This is used to display the actual image; it assumes set function was already called before.
 	 *
-	 * @param {Thumbnail} thumbnail thumbnail information
+	 * @param {mw.mmv.model.Thumbnail} thumbnail thumbnail information
 	 * @param {HTMLImageElement} imageElement
-	 * @param {ThumbnailWidth} imageWidths
+	 * @param {mw.mmv.model.ThumbnailWidth} imageWidths
 	 */
-	setImageAndMaxDimensions( thumbnail, imageElement, imageWidths ) {
-		const $image = $( imageElement );
+	C.setImageAndMaxDimensions = function ( thumbnail, imageElement, imageWidths ) {
+		var $image = $( imageElement );
 
 		// we downscale larger images but do not scale up smaller ones, that would look ugly
 		if ( thumbnail.width > imageWidths.cssWidth ) {
@@ -134,14 +152,14 @@ class Canvas extends UiElement {
 
 			this.setUpImageClick();
 		}
-	}
+	};
 
 	/**
 	 * Handles a "dialog open/close" event from dialogs on the page.
 	 *
 	 * @param {jQuery.Event} e
 	 */
-	handleDialogEvent( e ) {
+	C.handleDialogEvent = function ( e ) {
 		switch ( e.type ) {
 			case 'mmv-download-opened':
 				this.downloadOpen = true;
@@ -155,93 +173,101 @@ class Canvas extends UiElement {
 			case 'mmv-reuse-closed':
 				this.reuseOpen = false;
 				break;
+			case 'mmv-options-opened':
+				this.optionsOpen = true;
+				break;
+			case 'mmv-options-closed':
+				this.optionsOpen = false;
+				break;
 		}
 
-		this.dialogOpen = this.reuseOpen || this.downloadOpen;
+		this.dialogOpen = this.reuseOpen || this.downloadOpen || this.optionsOpen;
 		this.$image.toggleClass( 'mw-mmv-dialog-is-open', this.dialogOpen );
-	}
+	};
 
 	/**
 	 * Registers click listener on the image.
-	 *
-	 * @fires ReuseDialog#mmv-reuse-opened
-	 * @fires ReuseDialog#mmv-reuse-closed
-	 * @fires DownloadDialog#mmv-download-opened
-	 * @fires DownloadDialog#mmv-download-closed
 	 */
-	setUpImageClick() {
+	C.setUpImageClick = function () {
+		var canvas = this;
+
 		this.handleEvent( 'mmv-reuse-opened', this.handleDialogEvent.bind( this ) );
 		this.handleEvent( 'mmv-reuse-closed', this.handleDialogEvent.bind( this ) );
 		this.handleEvent( 'mmv-download-opened', this.handleDialogEvent.bind( this ) );
 		this.handleEvent( 'mmv-download-closed', this.handleDialogEvent.bind( this ) );
+		this.handleEvent( 'mmv-options-opened', this.handleDialogEvent.bind( this ) );
+		this.handleEvent( 'mmv-options-closed', this.handleDialogEvent.bind( this ) );
 
-		this.$image.on( 'click.mmv-canvas', ( e ) => {
+		this.$image.on( 'click.mmv-canvas', function ( e ) {
 			// ignore clicks if the metadata panel or one of the dialogs is open - assume the intent is to
 			// close it in this case; that will be handled elsewhere
-			if ( !this.dialogOpen &&
+			if (
+				!canvas.dialogOpen &&
 				// FIXME a UI component should not know about its parents
-				this.$container.closest( '.metadata-panel-is-open' ).length === 0 ) {
+				canvas.$container.closest( '.metadata-panel-is-open' ).length === 0
+			) {
 				e.stopPropagation(); // don't let $imageWrapper handle this
 				$( document ).trigger( 'mmv-viewfile' );
 			}
 		} );
 
 		// open the download panel on right clicking the image
-		this.$image.on( 'mousedown.mmv-canvas', ( e ) => {
-			if ( e.which === 3 && !this.downloadOpen ) {
+		this.$image.on( 'mousedown.mmv-canvas', function ( e ) {
+			if ( e.which === 3 && !canvas.downloadOpen ) {
 				$( document ).trigger( 'mmv-download-open', e );
 				e.stopPropagation();
 			}
 		} );
-	}
+	};
 
 	/**
 	 * Registers listeners.
-	 *
-	 * @fires MultimediaViewer#mmv-resize-end
 	 */
-	attach() {
-		/**
-		 * Fired when the screen size changes. Debounced to avoid continuous triggering while resizing with a mouse.
-		 *
-		 * @event MultimediaViewer#mmv-resize-end
-		 */
-		$( window ).on( 'resize.mmv-canvas', mw.util.debounce( () => {
-			this.$mainWrapper.trigger( $.Event( 'mmv-resize-end' ) );
+	C.attach = function () {
+		var canvas = this;
+
+		$( window ).on( 'resize.mmv-canvas', mw.util.debounce( function () {
+			canvas.$mainWrapper.trigger( $.Event( 'mmv-resize-end' ) );
 		}, 100 ) );
 
-		this.$imageWrapper.on( 'click.mmv-canvas', () => {
-			if ( this.$container.closest( '.metadata-panel-is-open' ).length > 0 ) {
-				this.$mainWrapper.trigger( 'mmv-panel-close-area-click' );
+		this.$imageWrapper.on( 'click.mmv-canvas', function () {
+			if ( canvas.$container.closest( '.metadata-panel-is-open' ).length > 0 ) {
+				canvas.$mainWrapper.trigger( 'mmv-panel-close-area-click' );
 			}
 		} );
-	}
+	};
 
 	/**
 	 * Clears listeners.
 	 */
-	unattach() {
+	C.unattach = function () {
 		this.clearEvents();
 
 		$( window ).off( 'resize.mmv-canvas' );
 
 		this.$imageWrapper.off( 'click.mmv-canvas' );
-	}
+	};
 
 	/**
-	 * Sets page thumbnail for display if blowupFactor
-	 * <= MAX_BLOWUP_FACTOR. Otherwise thumb is not set.
+	 * Sets page thumbnail for display if blowupFactor <= MAX_BLOWUP_FACTOR. Otherwise thumb is not set.
+	 * The image gets also blured to avoid pixelation if blowupFactor > BLUR_BLOWUP_FACTOR_THRESHOLD.
 	 * We set SVG files to the maximum screen size available.
 	 * Assumes set function called before.
 	 *
 	 * @param {{width: number, height: number}} size
 	 * @param {jQuery} $imagePlaceholder Image placeholder to be displayed while the real image loads.
-	 * @param {ThumbnailWidth} imageWidths
+	 * @param {mw.mmv.model.ThumbnailWidth} imageWidths
+	 * @return {boolean} Whether the image was blured or not
 	 */
-	maybeDisplayPlaceholder( size, $imagePlaceholder, imageWidths ) {
+	C.maybeDisplayPlaceholder = function ( size, $imagePlaceholder, imageWidths ) {
+		var targetWidth,
+			targetHeight,
+			blowupFactor,
+			blurredThumbnailShown = false;
+
 		// Assume natural thumbnail size¸
-		let targetWidth = size.width;
-		let targetHeight = size.height;
+		targetWidth = size.width;
+		targetHeight = size.height;
 
 		// If the image is bigger than the screen we need to resize it
 		if ( size.width > imageWidths.cssWidth ) { // This assumes imageInfo.width in CSS units
@@ -249,44 +275,106 @@ class Canvas extends UiElement {
 			targetHeight = imageWidths.cssHeight;
 		}
 
-		const blowupFactor = targetWidth / $imagePlaceholder.width();
+		blowupFactor = targetWidth / $imagePlaceholder.width();
+
 		// If the placeholder is too blown up, it's not worth showing it
 		if ( blowupFactor > Canvas.MAX_BLOWUP_FACTOR ) {
-			return;
+			return blurredThumbnailShown;
 		}
 
 		$imagePlaceholder.width( targetWidth );
 		$imagePlaceholder.height( targetHeight );
+
+		// Only blur the placeholder if it's blown up significantly
+		if ( blowupFactor > Canvas.BLUR_BLOWUP_FACTOR_THRESHOLD ) {
+			this.blur( $imagePlaceholder );
+			blurredThumbnailShown = true;
+		}
+
 		this.set( this.imageRawMetadata, $imagePlaceholder.show() );
-	}
+
+		return blurredThumbnailShown;
+	};
+
+	/**
+	 * Blur image
+	 *
+	 * @param {jQuery} $image Image to be blurred.
+	 */
+	C.blur = function ( $image ) {
+		// We have to apply the SVG filter here, it doesn't work when defined in the .less file
+		// We can't use an external SVG file because filters can't be accessed cross-domain
+		// We can't embed the SVG file because accessing the filter inside of it doesn't work
+		$image.addClass( 'blurred' ).css( 'filter', 'url("#gaussian-blur")' );
+	};
+
+	/**
+	 * Animates the image into focus
+	 */
+	C.unblurWithAnimation = function () {
+		var self = this,
+			animationLength = 300;
+
+		// The blurred class has an opacity < 1. This animated the image to become fully opaque
+		// FIXME: Use CSS transition
+		// eslint-disable-next-line no-jquery/no-animate
+		this.$image
+			.addClass( 'blurred' )
+			.animate( { opacity: 1.0 }, animationLength );
+
+		// During the same amount of time (animationLength) we animate a blur value from 3.0 to 0.0
+		// We pass that value to an inline CSS Gaussian blur effect
+		// FIXME: Use CSS transition
+		// eslint-disable-next-line no-jquery/no-animate
+		$( { blur: 3.0 } ).animate( { blur: 0.0 }, {
+			duration: animationLength,
+			step: function ( step ) {
+				self.$image.css( { '-webkit-filter': 'blur(' + step + 'px)',
+					filter: 'blur(' + step + 'px)' } );
+			},
+			complete: function () {
+				// When the animation is complete, the blur value is 0, clean things up
+				self.unblur();
+			}
+		} );
+	};
+
+	C.unblur = function () {
+		// We apply empty CSS values to remove the inline styles applied by jQuery
+		// so that they don't get in the way of styles defined in CSS
+		this.$image.css( { '-webkit-filter': '', opacity: '', filter: '' } )
+			.removeClass( 'blurred' );
+	};
 
 	/**
 	 * Displays a message and error icon when loading the image fails.
 	 *
 	 * @param {string} error error message
 	 */
-	showError( error ) {
-		const canvasDimensions = this.getDimensions();
-		const thumbnailDimensions = this.getCurrentImageWidths();
+	C.showError = function ( error ) {
+		var errorDetails, description, errorUri, $retryLink, $reportLink,
+			canvasDimensions = this.getDimensions(),
+			thumbnailDimensions = this.getCurrentImageWidths(),
+			htmlUtils = new mw.mmv.HtmlUtils();
 
+		errorDetails = [
+			'error: ' + error,
+			'URL: ' + location.href,
+			'user agent: ' + navigator.userAgent,
+			'screen size: ' + screen.width + 'x' + screen.height,
+			'canvas size: ' + canvasDimensions.width + 'x' + canvasDimensions.height,
+			'image size: ' + this.imageRawMetadata.originalWidth + 'x' + this.imageRawMetadata.originalHeight,
+			'thumbnail size: CSS: ' + thumbnailDimensions.cssWidth + 'x' + thumbnailDimensions.cssHeight +
+				', screen width: ' + thumbnailDimensions.screen + ', real width: ' + thumbnailDimensions.real
+		];
 		// ** is bolding in Phabricator
-		const description = `**${ mw.msg( 'multimediaviewer-errorreport-privacywarning' ) }**
+		description = '**' + mw.message( 'multimediaviewer-errorreport-privacywarning' ).text() + '**\n\n\n' +
+			'Error details:\n\n' + errorDetails.join( '\n' );
+		errorUri = mw.msg( 'multimediaviewer-report-issue-url', encodeURIComponent( description ) );
 
-
-Error details:
-
-error: ${ error }
-URL: ${ location.href }
-user agent: ${ navigator.userAgent }
-screen size: ${ screen.width }x${ screen.height }
-canvas size: ${ canvasDimensions.width }x${ canvasDimensions.height }
-image size: ${ this.imageRawMetadata.originalWidth }x${ this.imageRawMetadata.originalHeight }
-thumbnail size: CSS: ${ thumbnailDimensions.cssWidth }x${ thumbnailDimensions.cssHeight }, screen width: ${ thumbnailDimensions.screen }, real width: ${ thumbnailDimensions.real }`;
-		const errorUri = mw.msg( 'multimediaviewer-report-issue-url', encodeURIComponent( description ) );
-
-		const $retryLink = $( '<a>' ).addClass( 'mw-mmv-retry-link' ).text(
+		$retryLink = $( '<a>' ).addClass( 'mw-mmv-retry-link' ).text(
 			mw.msg( 'multimediaviewer-thumbnail-error-retry' ) );
-		const $reportLink = $( '<a>' ).attr( 'href', errorUri ).text(
+		$reportLink = $( '<a>' ).attr( 'href', errorUri ).text(
 			mw.msg( 'multimediaviewer-thumbnail-error-report' ) );
 
 		this.$imageDiv.empty()
@@ -299,74 +387,87 @@ thumbnail size: CSS: ${ thumbnailDimensions.cssWidth }x${ thumbnailDimensions.cs
 				).append(
 					$( '<div>' ).addClass( 'mw-mmv-error-description' ).append(
 						mw.msg( 'multimediaviewer-thumbnail-error-description',
-							HtmlUtils.jqueryToHtml( $retryLink ),
+							htmlUtils.jqueryToHtml( $retryLink ),
 							error,
-							HtmlUtils.jqueryToHtml( $reportLink )
+							htmlUtils.jqueryToHtml( $reportLink )
 						)
 					)
 				)
 			);
-		this.$imageDiv.find( '.mw-mmv-retry-link' ).on( 'click', () => {
+		this.$imageDiv.find( '.mw-mmv-retry-link' ).on( 'click', function () {
 			location.reload();
 		} );
-	}
+	};
 
 	/**
 	 * Returns width and height of the canvas area (i.e. the space available for the image).
 	 *
+	 * @param {boolean} forFullscreen if true, return size in fullscreen mode; otherwise, return current size
+	 *  (which might still be fullscreen mode).
 	 * @return {Object} Width and height in CSS pixels
 	 */
-	getDimensions() {
-		const $window = $( window );
-		// eslint-disable-next-line no-jquery/no-global-selector
-		const $aboveFold = $( '.mw-mmv-above-fold' );
-		const isFullscreened = !!$aboveFold.closest( '.jq-fullscreened' ).length;
-		// Don't rely on this.$imageWrapper's sizing because it's fragile.
-		// Depending on what the wrapper contains, its size can be 0 on some browsers.
-		// Therefore, we calculate the available space manually
-		const availableWidth = $window.width();
-		const availableHeight = $window.height() - ( isFullscreened ? 0 : $aboveFold.outerHeight() );
+	C.getDimensions = function ( forFullscreen ) {
+		var $window = $( window ),
+			// eslint-disable-next-line no-jquery/no-global-selector
+			$aboveFold = $( '.mw-mmv-above-fold' ),
+			isFullscreened = !!$aboveFold.closest( '.jq-fullscreened' ).length,
+			// Don't rely on this.$imageWrapper's sizing because it's fragile.
+			// Depending on what the wrapper contains, its size can be 0 on some browsers.
+			// Therefore, we calculate the available space manually
+			availableWidth = $window.width(),
+			availableHeight = $window.height() - ( isFullscreened ? 0 : $aboveFold.outerHeight() );
 
-		return {
-			width: availableWidth,
-			height: availableHeight
-		};
-	}
+		if ( forFullscreen ) {
+			return {
+				width: screen.width,
+				height: screen.height
+			};
+		} else {
+			return {
+				width: availableWidth,
+				height: availableHeight
+			};
+		}
+	};
 
 	/**
 	 * Gets the widths for a given lightbox image.
 	 *
-	 * @param {LightboxImage} image
-	 * @return {ThumbnailWidth}
+	 * @param {mw.mmv.LightboxImage} image
+	 * @return {mw.mmv.model.ThumbnailWidth}
 	 */
-	getLightboxImageWidths( image ) {
-		const thumb = image.thumbnail;
-		const canvasDimensions = this.getDimensions();
+	C.getLightboxImageWidths = function ( image ) {
+		var thumb = image.thumbnail,
+			canvasDimensions = this.getDimensions();
 
 		return this.thumbnailWidthCalculator.calculateWidths(
-			canvasDimensions.width,
-			canvasDimensions.height,
-			image.originalWidth || thumb.width,
-			image.originalHeight || thumb.height
-		);
-	}
+			canvasDimensions.width, canvasDimensions.height, thumb.width, thumb.height );
+	};
+
+	/**
+	 * Gets the fullscreen widths for a given lightbox image.
+	 * Intended for use before the viewer is in fullscreen mode
+	 * (in fullscreen mode getLightboxImageWidths() works fine).
+	 *
+	 * @param {mw.mmv.LightboxImage} image
+	 * @return {mw.mmv.model.ThumbnailWidth}
+	 */
+	C.getLightboxImageWidthsForFullscreen = function ( image ) {
+		var thumb = image.thumbnail,
+			canvasDimensions = this.getDimensions( true );
+
+		return this.thumbnailWidthCalculator.calculateWidths(
+			canvasDimensions.width, canvasDimensions.height, thumb.width, thumb.height );
+	};
 
 	/**
 	 * Gets the widths for the current lightbox image.
 	 *
-	 * @return {ThumbnailWidth}
+	 * @return {mw.mmv.model.ThumbnailWidth}
 	 */
-	getCurrentImageWidths() {
+	C.getCurrentImageWidths = function () {
 		return this.getLightboxImageWidths( this.imageRawMetadata );
-	}
-}
+	};
 
-/**
- * Maximum blowup factor tolerated
- *
- * @property {number} MAX_BLOWUP_FACTOR
- * @static
- */
-Canvas.MAX_BLOWUP_FACTOR = 11;
-
-module.exports = Canvas;
+	mw.mmv.ui.Canvas = Canvas;
+}() );

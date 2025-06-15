@@ -1,25 +1,18 @@
 <?php
 
-namespace MediaWiki\Extension\Scribunto\Tests\Engines\LuaCommon;
-
-use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LuaInterpreterNotFoundError;
 use MediaWiki\Extension\Scribunto\Engines\LuaSandbox\LuaSandboxEngine;
 use MediaWiki\Extension\Scribunto\Engines\LuaStandalone\LuaStandaloneEngine;
 use MediaWiki\Extension\Scribunto\ScribuntoEngineBase;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Parser\Parser;
-use MediaWiki\Parser\ParserOptions;
-use MediaWiki\Title\Title;
 use PHPUnit\Framework\DataProviderTestSuite;
 use PHPUnit\Framework\TestSuite;
 use PHPUnit\Framework\WarningTestCase;
 use PHPUnit\Util\Test;
-use ReflectionClass;
 
 /**
  * Trait that helps LuaEngineTestBase and LuaEngineUnitTestBase
  */
-trait LuaEngineTestHelper {
+trait Scribunto_LuaEngineTestHelper {
 	/** @var array[] */
 	private static $engineConfigurations = [
 		'LuaSandbox' => [
@@ -41,8 +34,6 @@ trait LuaEngineTestHelper {
 	];
 	/** @var int[] */
 	protected $templateLoadCounts = [];
-	/** @var array */
-	protected $extraModules = [];
 
 	/**
 	 * Create a PHPUnit test suite to run the test against all engines
@@ -76,9 +67,9 @@ trait LuaEngineTestHelper {
 				$parser->scribunto_engine = $engine;
 				$engine->setTitle( $parser->getTitle() );
 				$engine->getInterpreter();
-			} catch ( LuaInterpreterNotFoundError $e ) {
+			} catch ( Scribunto_LuaInterpreterNotFoundError $e ) {
 				$suite->addTest(
-					new LuaEngineTestSkip(
+					new Scribunto_LuaEngineTestSkip(
 						$className, "interpreter for $engineName is not available"
 					), [ 'Lua', $engineName ]
 				);
@@ -145,11 +136,9 @@ trait LuaEngineTestHelper {
 	 */
 	protected function getEngine() {
 		if ( !$this->engine ) {
-			$services = MediaWikiServices::getInstance();
-			$parser = $services->getParserFactory()->create();
+			$parser = MediaWikiServices::getInstance()->getParserFactory()->create();
 			$options = ParserOptions::newFromAnon();
 			$options->setTemplateCallback( [ $this, 'templateCallback' ] );
-			$options->setTargetLanguage( $services->getLanguageFactory()->getLanguage( 'en' ) );
 			$parser->startExternalParse( $this->getTestTitle(), $options, Parser::OT_HTML, true );
 
 			// HACK

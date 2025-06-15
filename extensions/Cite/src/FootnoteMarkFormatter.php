@@ -2,24 +2,39 @@
 
 namespace Cite;
 
-use MediaWiki\Parser\Parser;
-use MediaWiki\Parser\Sanitizer;
+use Parser;
+use Sanitizer;
 
 /**
- * Footnote markers in the context of the Cite extension are the numbers in the article text, e.g.
- * [1], that can be hovered or clicked to be able to read the attached footnote.
- *
  * @license GPL-2.0-or-later
  */
 class FootnoteMarkFormatter {
 
-	/** @var array<string,string[]> In-memory cache for the cite_link_label_group-… link label lists */
-	private array $linkLabels = [];
+	/**
+	 * @var string[][]
+	 */
+	private $linkLabels = [];
 
-	private AnchorFormatter $anchorFormatter;
-	private ErrorReporter $errorReporter;
-	private ReferenceMessageLocalizer $messageLocalizer;
+	/**
+	 * @var AnchorFormatter
+	 */
+	private $anchorFormatter;
 
+	/**
+	 * @var ErrorReporter
+	 */
+	private $errorReporter;
+
+	/**
+	 * @var ReferenceMessageLocalizer
+	 */
+	private $messageLocalizer;
+
+	/**
+	 * @param ErrorReporter $errorReporter
+	 * @param AnchorFormatter $anchorFormatter
+	 * @param ReferenceMessageLocalizer $messageLocalizer
+	 */
 	public function __construct(
 		ErrorReporter $errorReporter,
 		AnchorFormatter $anchorFormatter,
@@ -36,40 +51,35 @@ class FootnoteMarkFormatter {
 	 *
 	 * @suppress SecurityCheck-DoubleEscaped
 	 * @param Parser $parser
-	 * @param ReferenceStackItem $ref
+	 * @param string $group
+	 * @param array $ref Dictionary with ReferenceStack ref format
 	 *
-	 * @return string HTML
+	 * @return string
 	 */
-	public function linkRef( Parser $parser, ReferenceStackItem $ref ): string {
-		$label = $this->makeLabel( $ref, $parser );
+	public function linkRef( Parser $parser, string $group, array $ref ): string {
+		$label = $this->getLinkLabel( $parser, $group, $ref['number'] );
+		if ( $label === null ) {
+			$label = $this->messageLocalizer->localizeDigits( $ref['number'] );
+			if ( $group !== Cite::DEFAULT_GROUP ) {
+				$label = "$group $label";
+			}
+		}
+		if ( isset( $ref['extendsIndex'] ) ) {
+			$label .= '.' . $this->messageLocalizer->localizeDigits( $ref['extendsIndex'] );
+		}
 
-		$key = $ref->name ?? $ref->key;
-		// TODO: Use count without decrementing.
-		$count = $ref->name ? $ref->key . '-' . ( $ref->count - 1 ) : null;
-		$subkey = $ref->name ? '-' . $ref->key : null;
+		$key = $ref['name'] ?? $ref['key'];
+		$count = $ref['name'] ? $ref['key'] . '-' . $ref['count'] : null;
+		$subkey = $ref['name'] ? '-' . $ref['key'] : null;
 
 		return $parser->recursiveTagParse(
 			$this->messageLocalizer->msg(
 				'cite_reference_link',
-				$this->anchorFormatter->backLinkTarget( $key, $count ),
-				$this->anchorFormatter->jumpLink( $key . $subkey ),
+				$this->anchorFormatter->refKey( $key, $count ),
+				$this->anchorFormatter->getReferencesKey( $key . $subkey ),
 				Sanitizer::safeEncodeAttribute( $label )
 			)->plain()
 		);
-	}
-
-	private function makeLabel( ReferenceStackItem $ref, Parser $parser ): string {
-		$label = $this->fetchCustomizedLinkLabel( $parser, $ref->group, $ref->number ) ??
-			$this->makeDefaultLabel( $ref );
-		if ( isset( $ref->extendsIndex ) ) {
-			$label .= '.' . $this->messageLocalizer->localizeDigits( (string)$ref->extendsIndex );
-		}
-		return $label;
-	}
-
-	private function makeDefaultLabel( ReferenceStackItem $ref ): string {
-		$label = $this->messageLocalizer->localizeDigits( (string)$ref->number );
-		return $ref->group === Cite::DEFAULT_GROUP ? $label : "$ref->group $label";
 	}
 
 	/**
@@ -84,23 +94,17 @@ class FootnoteMarkFormatter {
 	 *
 	 * @return string|null Returns null if no custom labels for this group exist
 	 */
-	private function fetchCustomizedLinkLabel( Parser $parser, string $group, int $number ): ?string {
-		if ( $group === Cite::DEFAULT_GROUP ) {
-			return null;
-		}
-
+	private function getLinkLabel( Parser $parser, string $group, int $number ): ?string {
 		$message = "cite_link_label_group-$group";
-		if ( !array_key_exists( $group, $this->linkLabels ) ) {
+		if ( !isset( $this->linkLabels[$group] ) ) {
 			$msg = $this->messageLocalizer->msg( $message );
 			$this->linkLabels[$group] = $msg->isDisabled() ? [] : preg_split( '/\s+/', $msg->plain() );
 		}
 
-		// Expected behavior for groups without custom labels
 		if ( !$this->linkLabels[$group] ) {
 			return null;
 		}
 
-		// Error message in case we run out of custom labels
 		return $this->linkLabels[$group][$number - 1] ?? $this->errorReporter->plain(
 			$parser,
 			'cite_error_no_link_label_group',

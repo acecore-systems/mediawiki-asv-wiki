@@ -1,9 +1,6 @@
 <?php
 
-namespace MediaWiki\Tests\Site;
-
 use MediaWiki\MainConfigNames;
-use MediaWiki\Site\MediaWikiSite;
 
 /**
  * This program is free software; you can redistribute it and/or modify
@@ -34,7 +31,7 @@ use MediaWiki\Site\MediaWikiSite;
 class MediaWikiSiteTest extends SiteTest {
 
 	/**
-	 * @covers \MediaWiki\Site\MediaWikiSite::normalizePageName
+	 * @covers MediaWikiSite::normalizePageName
 	 */
 	public function testNormalizePageTitle() {
 		$this->overrideConfigValue( MainConfigNames::CapitalLinks, true );
@@ -48,7 +45,7 @@ class MediaWikiSiteTest extends SiteTest {
 		$this->assertEquals( 'Foo', $site->normalizePageName( ' foo ' ) );
 	}
 
-	public static function fileUrlProvider() {
+	public function fileUrlProvider() {
 		return [
 			// url, filepath, path arg, expected
 			[ 'https://en.wikipedia.org', '/w/$1', 'api.php', 'https://en.wikipedia.org/w/api.php' ],
@@ -76,7 +73,7 @@ class MediaWikiSiteTest extends SiteTest {
 
 	/**
 	 * @dataProvider fileUrlProvider
-	 * @covers \MediaWiki\Site\MediaWikiSite::getFileUrl
+	 * @covers MediaWikiSite::getFileUrl
 	 */
 	public function testGetFileUrl( $url, $filePath, $pathArgument, $expected ) {
 		$site = new MediaWikiSite();
@@ -92,8 +89,7 @@ class MediaWikiSiteTest extends SiteTest {
 			[ 'http://acme.test/wiki/', 'Berlin', '/wiki/' ],
 			[ 'http://acme.test/w/index.php?title=$1', 'Berlin', '/w/index.php?title=Berlin' ],
 			[ 'http://acme.test/wiki/$1', '', '/wiki/' ],
-			[ 'http://acme.test/wiki/$1', 'Berlin/subpage', '/wiki/Berlin/subpage' ],
-			[ 'http://acme.test/wiki/$1', 'Berlin/subpage with spaces', '/wiki/Berlin/subpage_with_spaces' ],
+			[ 'http://acme.test/wiki/$1', 'Berlin/sub page', '/wiki/Berlin/sub_page' ],
 			[ 'http://acme.test/wiki/$1', 'Cork (city)   ', '/Cork_(city)' ],
 			[ 'http://acme.test/wiki/$1', 'M&M', '/wiki/M%26M' ],
 		];
@@ -101,7 +97,7 @@ class MediaWikiSiteTest extends SiteTest {
 
 	/**
 	 * @dataProvider provideGetPageUrl
-	 * @covers \MediaWiki\Site\MediaWikiSite::getPageUrl
+	 * @covers MediaWikiSite::getPageUrl
 	 */
 	public function testGetPageUrl( $path, $page, $expected ) {
 		$site = new MediaWikiSite();

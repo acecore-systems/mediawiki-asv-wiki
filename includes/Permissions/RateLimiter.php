@@ -20,18 +20,16 @@
 
 namespace MediaWiki\Permissions;
 
-use Liuggio\StatsdClient\Factory\StatsdDataFactoryInterface;
+use CentralIdLookup;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\HookContainer\HookRunner;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MainConfigNames;
-use MediaWiki\User\CentralId\CentralIdLookup;
 use MediaWiki\User\UserFactory;
 use MediaWiki\User\UserGroupManager;
 use Psr\Log\LoggerInterface;
 use Wikimedia\IPUtils;
-use Wikimedia\Stats\NullStatsdDataFactory;
 use Wikimedia\WRStats\LimitCondition;
 use Wikimedia\WRStats\WRStatsFactory;
 
@@ -43,37 +41,29 @@ use Wikimedia\WRStats\WRStatsFactory;
  */
 class RateLimiter {
 
-	private LoggerInterface $logger;
-	private StatsdDataFactoryInterface $stats;
+	/** @var LoggerInterface */
+	private $logger;
 
-	private ServiceOptions $options;
-	private WRStatsFactory $wrstatsFactory;
-	private ?CentralIdLookup $centralIdLookup;
-	private UserFactory $userFactory;
-	private UserGroupManager $userGroupManager;
-	private HookContainer $hookContainer;
-	private HookRunner $hookRunner;
+	/** @var WRStatsFactory */
+	private $wrstatsFactory;
+
+	/** @var ServiceOptions */
+	private $options;
 
 	/** @var array */
 	private $rateLimits;
 
-	/**
-	 * Actions that are exempt from all rate limiting.
-	 *
-	 * Actions listed here will bypass all rate limiting,
-	 * including limits implemented in hooks.
-	 *
-	 * This serves as a performance optimization, to avoid overhead for actions
-	 * that are performed a lot and have no need to be limited.
-	 *
-	 * @note This is currently hard-coded to contain just the 'read' action.
-	 * It can be made configurable to extended to include more actions if needed.
-	 *
-	 * @var array<string,bool>
-	 */
-	private array $nonLimitableActions = [
-		'read' => true,
-	];
+	/** @var HookRunner */
+	private $hookRunner;
+
+	/** @var CentralIdLookup|null */
+	private $centralIdLookup;
+
+	/** @var UserGroupManager */
+	private $userGroupManager;
+
+	/** @var UserFactory */
+	private $userFactory;
 
 	/**
 	 * @internal
@@ -83,6 +73,14 @@ class RateLimiter {
 		MainConfigNames::RateLimitsExcludedIPs,
 	];
 
+	/**
+	 * @param ServiceOptions $options
+	 * @param WRStatsFactory $wrstatsFactory
+	 * @param CentralIdLookup|null $centralIdLookup
+	 * @param UserFactory $userFactory
+	 * @param UserGroupManager $userGroupManager
+	 * @param HookContainer $hookContainer
+	 */
 	public function __construct(
 		ServiceOptions $options,
 		WRStatsFactory $wrstatsFactory,
@@ -92,7 +90,6 @@ class RateLimiter {
 		HookContainer $hookContainer
 	) {
 		$this->logger = LoggerFactory::getInstance( 'ratelimit' );
-		$this->stats = new NullStatsdDataFactory();
 
 		$options->assertRequiredOptions( self::CONSTRUCTOR_OPTIONS );
 		$this->options = $options;
@@ -100,18 +97,9 @@ class RateLimiter {
 		$this->centralIdLookup = $centralIdLookup;
 		$this->userFactory = $userFactory;
 		$this->userGroupManager = $userGroupManager;
-		$this->hookContainer = $hookContainer;
 		$this->hookRunner = new HookRunner( $hookContainer );
 
 		$this->rateLimits = $this->options->get( MainConfigNames::RateLimits );
-	}
-
-	public function setStats( StatsdDataFactoryInterface $stats ) {
-		$this->stats = $stats;
-	}
-
-	private function incrementStats( $name ) {
-		$this->stats->increment( "RateLimiter.$name" );
 	}
 
 	/**
@@ -138,55 +126,18 @@ class RateLimiter {
 	}
 
 	/**
-	 * Checks whether the given action may be limited.
-	 * Can be used for optimization, to avoid calling limit() if we can know in advance that no limit will apply.
-	 *
-	 * @param string $action
-	 *
-	 * @return bool
-	 */
-	public function isLimitable( $action ) {
-		// Bypass limit checks for actions that are defined to be non-limitable.
-		// This is a performance optimization.
-		if ( $this->nonLimitableActions[$action] ?? false ) {
-			return false;
-		}
-
-		if ( isset( $this->rateLimits[$action] ) ) {
-			return true;
-		}
-
-		if ( $this->hookContainer->isRegistered( 'PingLimiter' ) ) {
-			return true;
-		}
-
-		return false;
-	}
-
-	/**
 	 * Implements simple rate limits: enforce maximum actions per time period
 	 * to put a brake on flooding.
-	 *
-	 * @note This method will always return false for any action listed in
-	 *       $this->nonLimitableActions. This allows rate limit checks to
-	 *       be bypassed for certain actions to avoid overhead and improve
-	 *       performance.
 	 *
 	 * @param RateLimitSubject $subject The subject of the rate limit, representing the
 	 *        client performing the action.
 	 * @param string $action Action to enforce
-	 * @param int $incrBy Positive amount to increment counter by, 1 by default.
+	 * @param int $incrBy Positive amount to increment counter by, 1 per default.
 	 *        Use 0 to check the limit without bumping the counter.
 	 *
 	 * @return bool True if a rate limit was exceeded.
 	 */
 	public function limit( RateLimitSubject $subject, string $action, int $incrBy = 1 ) {
-		// Bypass limit checks for actions that are defined to be non-limitable.
-		// This is a performance optimization.
-		if ( $this->nonLimitableActions[$action] ?? false ) {
-			return false;
-		}
-
 		$user = $subject->getUser();
 		$ip = $subject->getIP();
 
@@ -194,7 +145,6 @@ class RateLimiter {
 		$result = false;
 		$legacyUser = $this->userFactory->newFromUserIdentity( $user );
 		if ( !$this->hookRunner->onPingLimiter( $legacyUser, $action, $result, $incrBy ) ) {
-			$this->incrementStats( "limit.$action.result." . ( $result ? 'tripped_by_hook' : 'passed_by_hook' ) );
 			return $result;
 		}
 
@@ -204,7 +154,6 @@ class RateLimiter {
 
 		// Some groups shouldn't trigger the ping limiter, ever
 		if ( $this->canBypass( $action ) && $this->isExempt( $subject ) ) {
-			$this->incrementStats( "limit.$action.result.exempt" );
 			return false;
 		}
 
@@ -324,15 +273,9 @@ class RateLimiter {
 					'key' => $type
 				] + $loggerInfo
 			);
-
-			$this->incrementStats( "limit.$action.tripped_by.$type" );
 		}
 
-		$allowed = $batchResult->isAllowed();
-
-		$this->incrementStats( "limit.$action.result." . ( $allowed ? 'passed' : 'tripped' ) );
-
-		return !$allowed;
+		return !$batchResult->isAllowed();
 	}
 
 	private function canBypass( string $action ) {

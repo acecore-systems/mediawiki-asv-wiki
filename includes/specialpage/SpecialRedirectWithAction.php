@@ -1,13 +1,6 @@
 <?php
 
-namespace MediaWiki\SpecialPage;
-
-use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Status\Status;
-use MediaWiki\Title\MalformedTitleException;
-use MediaWiki\Title\Title;
-use SearchEngineFactory;
 
 /**
  * Abstract to simplify creation of redirect special pages
@@ -56,7 +49,7 @@ abstract class SpecialRedirectWithAction extends RedirectSpecialPage {
 		$name,
 		$action,
 		$msgPrefix,
-		?SearchEngineFactory $searchEngineFactory = null
+		SearchEngineFactory $searchEngineFactory = null
 	) {
 		parent::__construct( $name );
 		$this->action = $action;
@@ -155,6 +148,3 @@ abstract class SpecialRedirectWithAction extends RedirectSpecialPage {
 		return 'redirects';
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialRedirectWithAction::class, 'SpecialRedirectWithAction' );

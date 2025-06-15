@@ -4,15 +4,13 @@ use MediaWiki\Cache\CacheKeyHelper;
 use MediaWiki\Page\PageIdentityValue;
 use MediaWiki\Page\PageReference;
 use MediaWiki\Page\PageReferenceValue;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleValue;
 
 /**
  * @group Cache
  */
 class CacheKeyHelperTest extends MediaWikiUnitTestCase {
 
-	public static function provideKeyForPage() {
+	public function provideKeyForPage() {
 		// NOTE: code changes that break these test cases
 		//       will result in incompatible cache keys when deployed!
 
@@ -24,7 +22,7 @@ class CacheKeyHelperTest extends MediaWikiUnitTestCase {
 
 	/**
 	 * @dataProvider provideKeyForPage
-	 * @covers \MediaWiki\Cache\CacheKeyHelper::getKeyForPage
+	 * @covers MediaWiki\Cache\CacheKeyHelper::getKeyForPage
 	 */
 	public function testKeyForPage( $page, $key ) {
 		$this->assertSame( $key, CacheKeyHelper::getKeyForPage( $page ) );

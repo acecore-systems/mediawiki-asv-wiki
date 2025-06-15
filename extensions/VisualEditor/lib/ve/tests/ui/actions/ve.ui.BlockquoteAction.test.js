@@ -1,15 +1,15 @@
 /*!
  * VisualEditor UserInterface Actions BlockquoteAction tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ui.BlockquoteAction' );
 
 /* Tests */
 
-QUnit.test( 'wrap/unwrap/toggle', ( assert ) => {
-	const cases = [
+QUnit.test( 'wrap/unwrap/toggle', function ( assert ) {
+	var cases = [
 		{
 			html: '<p>aa</p><p>bb</p><p>cc</p>',
 			rangeOrSelection: new ve.Range( 6 ),
@@ -193,12 +193,13 @@ QUnit.test( 'wrap/unwrap/toggle', ( assert ) => {
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		ve.test.utils.runActionTest(
-			assert,
+			'blockquote', assert, caseItem.html, false, caseItem.method, [], caseItem.rangeOrSelection, caseItem.msg,
 			{
-				actionName: 'blockquote',
-				...caseItem
+				expectedData: caseItem.expectedData,
+				expectedOriginalData: caseItem.expectedOriginalData,
+				expectedRangeOrSelection: caseItem.expectedRangeOrSelection
 			}
 		);
 	} );

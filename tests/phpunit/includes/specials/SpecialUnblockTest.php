@@ -2,15 +2,12 @@
 
 use MediaWiki\Block\DatabaseBlock;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Request\FauxRequest;
-use MediaWiki\Specials\SpecialUnblock;
-use MediaWiki\Title\Title;
 use Wikimedia\TestingAccessWrapper;
 
 /**
  * @group Blocking
  * @group Database
- * @coversDefaultClass \MediaWiki\Specials\SpecialUnblock
+ * @coversDefaultClass SpecialUnblock
  */
 class SpecialUnblockTest extends SpecialPageTestBase {
 	/**
@@ -21,16 +18,20 @@ class SpecialUnblockTest extends SpecialPageTestBase {
 		return new SpecialUnblock(
 			$services->getUnblockUserFactory(),
 			$services->getBlockUtils(),
-			$services->getDatabaseBlockStore(),
 			$services->getUserNameUtils(),
 			$services->getUserNamePrefixSearch(),
-			$services->getWatchlistManager()
+			$services->getSpecialPageFactory()
 		);
+	}
+
+	protected function tearDown(): void {
+		$this->db->delete( 'ipblocks', '*', __METHOD__ );
+		parent::tearDown();
 	}
 
 	/**
 	 * @dataProvider provideGetFields
-	 * @covers ::getFields
+	 * @covers ::getFields()
 	 */
 	public function testGetFields( $target, $expected ) {
 		$page = TestingAccessWrapper::newFromObject( $this->newSpecialPage() );
@@ -47,7 +48,7 @@ class SpecialUnblockTest extends SpecialPageTestBase {
 		}
 	}
 
-	public static function provideGetFields() {
+	public function provideGetFields() {
 		return [
 			'No target specified' => [
 				'',
@@ -66,7 +67,7 @@ class SpecialUnblockTest extends SpecialPageTestBase {
 
 	/**
 	 * @dataProvider provideProcessUnblockErrors
-	 * @covers ::execute
+	 * @covers ::execute()
 	 */
 	public function testProcessUnblockErrors( $options, $expected ) {
 		$performer = $this->getTestSysop()->getUser();
@@ -94,12 +95,12 @@ class SpecialUnblockTest extends SpecialPageTestBase {
 			'wpTarget' => $target,
 			'wpReason' => '',
 		], true );
-		[ $html, ] = $this->executeSpecialPage( '', $request, 'qqx', $performer );
+		list( $html, ) = $this->executeSpecialPage( '', $request, 'qqx', $performer );
 
 		$this->assertStringContainsString( $expected, $html );
 	}
 
-	public static function provideProcessUnblockErrors() {
+	public function provideProcessUnblockErrors() {
 		return [
 			'Target is not blocked' => [
 				[
@@ -126,7 +127,7 @@ class SpecialUnblockTest extends SpecialPageTestBase {
 	}
 
 	/**
-	 * @covers ::execute
+	 * @covers ::execute()
 	 */
 	public function testProcessUnblockErrorsUnblockSelf() {
 		$performer = $this->getTestSysop()->getUser();
@@ -145,33 +146,8 @@ class SpecialUnblockTest extends SpecialPageTestBase {
 			'wpTarget' => $performer->getName(),
 			'wpReason' => '',
 		], true );
-		[ $html, ] = $this->executeSpecialPage( '', $request, 'qqx', $performer );
+		list( $html, ) = $this->executeSpecialPage( '', $request, 'qqx', $performer );
 
 		$this->assertStringContainsString( 'ipbnounblockself', $html );
-	}
-
-	/**
-	 * @covers ::execute
-	 */
-	public function testWatched() {
-		$performer = $this->getTestSysop()->getUser();
-
-		$target = '1.2.3.4';
-		$block = new DatabaseBlock( [
-			'by' => $performer,
-			'address' => $target,
-		] );
-		$this->getServiceContainer()->getDatabaseBlockStore()->insertBlock( $block );
-
-		$request = new FauxRequest( [
-			'wpTarget' => $target,
-			'wpReason' => '',
-			'wpWatch' => '1',
-		], true );
-		$this->executeSpecialPage( '', $request, 'qqx', $performer );
-
-		$userPage = Title::makeTitle( NS_USER, $target );
-		$this->assertTrue( $this->getServiceContainer()->getWatchlistManager()
-			->isWatched( $performer, $userPage ) );
 	}
 }

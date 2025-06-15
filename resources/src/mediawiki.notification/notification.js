@@ -1,30 +1,35 @@
 ( function () {
 	'use strict';
 
-	let notification = null,
+	var notification,
 		// The .mw-notification-area div that all notifications are contained inside.
 		$area,
 		// Number of open notification boxes at any time
 		openNotificationCount = 0,
-		isPageReady = false;
-	const preReadyNotifQueue = [];
+		isPageReady = false,
+		preReadyNotifQueue = [],
+		rAF = window.requestAnimationFrame || setTimeout;
 
 	/**
-	 * @classdesc Describes a notification. See [mw.notification module]{@link mw.notification}. A Notification object for 1 message.
+	 * A Notification object for 1 message.
 	 *
-	 * The constructor is not publicly accessible; use [mw.notification.notify]{@link mw.notification} instead.
-	 * This does not insert anything into the document. To add to document use
-	 * [mw.notification.notify]{@link mw.notification#notify}.
+	 * The underscore in the name is to avoid a bug <https://github.com/senchalabs/jsduck/issues/304>.
+	 * It is not part of the actual class name.
 	 *
-	 * @class Notification
-	 * @global
-	 * @hideconstructor
+	 * The constructor is not publicly accessible; use mw.notification#notify instead.
+	 * This does not insert anything into the document (see #start).
+	 *
+	 * @class mw.Notification_
+	 * @alternateClassName mw.Notification
+	 * @constructor
+	 * @private
 	 * @param {mw.Message|jQuery|HTMLElement|string} message
-	 * @param {mw.notification.NotificationOptions} options
+	 * @param {Object} options
 	 */
 	function Notification( message, options ) {
+		var $notification, $notificationContent;
 
-		const $notification = $( '<div>' )
+		$notification = $( '<div>' )
 			.data( 'mw-notification', this )
 			.attr( 'role', 'status' )
 			.addClass( [
@@ -68,7 +73,7 @@
 			$notification.addClass( options.classes );
 		}
 
-		const $notificationContent = $( '<div>' ).addClass( 'mw-notification-content' );
+		$notificationContent = $( '<div>' ).addClass( 'mw-notification-content' );
 
 		if ( typeof message === 'object' ) {
 			// Handle mw.Message objects separately from DOM nodes and jQuery objects
@@ -122,6 +127,8 @@
 	 * @private
 	 */
 	Notification.prototype.start = function () {
+		var options, $notification, $tagMatches, autohideCount;
+
 		$area.css( 'display', '' );
 
 		if ( this.isOpen ) {
@@ -131,10 +138,9 @@
 		this.isOpen = true;
 		openNotificationCount++;
 
-		const options = this.options;
-		const $notification = this.$notification;
+		options = this.options;
+		$notification = this.$notification;
 
-		let $tagMatches;
 		if ( options.tag ) {
 			// Find notifications with the same tag
 			$tagMatches = $area.find( '.mw-notification-tag-' + options.tag );
@@ -146,7 +152,7 @@
 			// While there can be only one "open" notif with a given tag, there can be several
 			// matches here because they remain in the DOM until the animation is finished.
 			$tagMatches.each( function () {
-				const notif = $( this ).data( 'mw-notification' );
+				var notif = $( this ).data( 'mw-notification' );
 				if ( notif && notif.isOpen ) {
 					// Detach from render flow with position absolute so that the new tag can
 					// occupy its space instead.
@@ -166,9 +172,9 @@
 				.addClass( 'mw-notification-visible' );
 		} else {
 			$area.append( $notification );
-			requestAnimationFrame( () => {
+			rAF( function () {
 				// This frame renders the element in the area (invisible)
-				requestAnimationFrame( () => {
+				rAF( function () {
 					$notification.addClass( 'mw-notification-visible' );
 				} );
 			} );
@@ -177,16 +183,14 @@
 		// By default a notification is paused.
 		// If this notification is within the first {autoHideLimit} notifications then
 		// start the auto-hide timer as soon as it's created.
-		const autohideCount = $area.find( '.mw-notification-autohide' ).length;
+		autohideCount = $area.find( '.mw-notification-autohide' ).length;
 		if ( autohideCount <= notification.autoHideLimit ) {
 			this.resume();
 		}
 	};
 
 	/**
-	 * Pause any running auto-hide timer for this notification.
-	 *
-	 * @memberof Notification
+	 * Pause any running auto-hide timer for this notification
 	 */
 	Notification.prototype.pause = function () {
 		if ( this.isPaused ) {
@@ -204,11 +208,9 @@
 	 * Start autoHide timer if not already started.
 	 * Does nothing if autoHide is disabled.
 	 * Either to resume from pause or to make the first start.
-	 *
-	 * @memberof Notification
 	 */
 	Notification.prototype.resume = function () {
-		const notif = this;
+		var notif = this;
 
 		if ( !notif.isPaused ) {
 			return;
@@ -216,7 +218,7 @@
 		// Start any autoHide timeouts
 		if ( notif.options.autoHide ) {
 			notif.isPaused = false;
-			notif.timeoutId = notif.timeout.set( () => {
+			notif.timeoutId = notif.timeout.set( function () {
 				// Already finished, so don't try to re-clear it
 				delete notif.timeoutId;
 				notif.close();
@@ -226,11 +228,9 @@
 
 	/**
 	 * Close the notification.
-	 *
-	 * @memberof Notification
 	 */
 	Notification.prototype.close = function () {
-		const notif = this;
+		var notif = this;
 
 		if ( !this.isOpen ) {
 			return;
@@ -251,10 +251,10 @@
 		// notification that has now become one of the first {autoHideLimit} notifications.
 		notification.resume();
 
-		requestAnimationFrame( () => {
+		rAF( function () {
 			notif.$notification.removeClass( 'mw-notification-visible' );
 
-			setTimeout( () => {
+			setTimeout( function () {
 				if ( openNotificationCount === 0 ) {
 					// Hide the area after the last notification closes. Otherwise, the padding on
 					// the area can be obscure content, despite the area being empty/invisible (T54659). // FIXME
@@ -282,7 +282,7 @@
 	 */
 	function callEachNotification( $notifications, fn ) {
 		$notifications.each( function () {
-			const notif = $( this ).data( 'mw-notification' );
+			var notif = $( this ).data( 'mw-notification' );
 			if ( notif ) {
 				notif[ fn ]();
 			}
@@ -296,11 +296,11 @@
 	 * @ignore
 	 */
 	function init() {
-		let offset, $overlay,
+		var offset, $overlay, skinHasArea,
 			isFloating = false;
 
 		function updateAreaMode() {
-			const shouldFloat = window.pageYOffset > offset.top;
+			var shouldFloat = window.pageYOffset > offset.top;
 			if ( isFloating === shouldFloat ) {
 				return;
 			}
@@ -313,7 +313,8 @@
 		// Look for a preset notification area in the skin.
 		// 'data-mw*' attributes are banned from user content in Sanitizer.
 		$area = $( '.mw-notification-area[data-mw="interface"]' ).first();
-		if ( !$area.length ) {
+		skinHasArea = $area.length > 0;
+		if ( !skinHasArea ) {
 			$area = $( '<div>' ).addClass( 'mw-notification-area' );
 			// Create overlay div for the notification area
 			$overlay = $( '<div>' ).addClass( 'mw-notification-area-overlay' );
@@ -332,7 +333,7 @@
 			} )
 			// When clicking on a notification close it.
 			.on( 'click', '.mw-notification', function () {
-				const notif = $( this ).data( 'mw-notification' );
+				var notif = $( this ).data( 'mw-notification' );
 				if ( notif ) {
 					notif.close();
 				}
@@ -340,17 +341,20 @@
 			// Stop click events from <a> and <select> tags from propagating to prevent clicks
 			// from hiding a notification. stopPropagation() bubbles up, not down,
 			// hence this should not conflict with OOUI's own click handlers.
-			.on( 'click', 'a, select, .oo-ui-dropdownInputWidget', ( e ) => {
+			.on( 'click', 'a, select, .oo-ui-dropdownInputWidget', function ( e ) {
 				e.stopPropagation();
 			} );
 
 		// Read from the DOM:
 		// Must be in the next frame to avoid synchronous layout
 		// computation from offset()/getBoundingClientRect().
-		requestAnimationFrame( () => {
-			let notif;
+		rAF( function () {
+			var notif;
 
-			offset = $area.offset();
+			// If a skin provides its own notification area, use its offset. Otherwise, use the
+			// offset of the content area in order to maintain approximate backwards compatibility
+			// (because $area used to be prepended to $content).
+			offset = skinHasArea ? $area.offset() : mw.util.$content.offset();
 
 			// Initial mode (reads, and then maybe writes)
 			updateAreaMode();
@@ -371,10 +375,7 @@
 	}
 
 	/**
-	 * Library for sending notifications to end users.
-	 *
-	 * @namespace mw.notification
-	 * @memberof mw
+	 * @class mw.notification
 	 * @singleton
 	 */
 	notification = {
@@ -382,8 +383,7 @@
 		 * Pause auto-hide timers for all notifications.
 		 * Notifications will not auto-hide until resume is called.
 		 *
-		 * @see Notification#pause
-		 * @memberof mw.notification
+		 * @see mw.Notification#pause
 		 */
 		pause: function () {
 			callEachNotification(
@@ -394,9 +394,7 @@
 
 		/**
 		 * Resume any paused auto-hide timers from the beginning.
-		 * Only the first {@link mw.notification.autoHideLimit} timers will be resumed.
-		 *
-		 * @memberof mw.notification
+		 * Only the first #autoHideLimit timers will be resumed.
 		 */
 		resume: function () {
 			callEachNotification(
@@ -412,17 +410,16 @@
 		/**
 		 * Display a notification message to the user.
 		 *
-		 * @memberof mw.notification
 		 * @param {HTMLElement|HTMLElement[]|jQuery|mw.Message|string} message
-		 * @param {mw.notification.NotificationOptions} [options] The options to use
-		 *  for the notification. Options not specified default to the values in
-		 *  [#defaults]{@link mw.notification.defaults}.
-		 * @return {Notification} Notification object
+		 * @param {Object} [options] The options to use for the notification.
+		 *  See #defaults for details.
+		 * @return {mw.Notification} Notification object
 		 */
 		notify: function ( message, options ) {
-			options = Object.assign( {}, notification.defaults, options );
+			var notif;
+			options = $.extend( {}, notification.defaults, options );
 
-			const notif = new Notification( message, options );
+			notif = new Notification( message, options );
 
 			if ( isPageReady ) {
 				notif.start();
@@ -434,35 +431,42 @@
 		},
 
 		/**
-		 * @memberof mw.notification
-		 * @typedef {Object} NotificationOptions
-		 * @property {boolean} autoHide Whether the notification should automatically
+		 * @property {Object}
+		 * The defaults for #notify options parameter.
+		 *
+		 * - autoHide:
+		 *   A boolean indicating whether the notification should automatically
 		 *   be hidden after shown. Or if it should persist.
-		 * @property {string} autoHideSeconds Key to
-		 *   [#autoHideSeconds]{@link mw.notification.autoHideSeconds} for number of
-		 *   seconds for timeout of auto-hide notifications.
-		 * @property {string|null} tag When a notification is tagged only one message
+		 *
+		 * - autoHideSeconds:
+		 *   Key to #autoHideSeconds for number of seconds for timeout of auto-hide
+		 *   notifications.
+		 *
+		 * - tag:
+		 *   An optional string. When a notification is tagged only one message
 		 *   with that tag will be displayed. Trying to display a new notification
 		 *   with the same tag as one already being displayed will cause the other
 		 *   notification to be closed and this new notification to open up inside
 		 *   the same place as the previous notification.
-		 * @property {string|null} title Title for the notification. Will be displayed
-		 *   above the content. Usually in bold.
-		 * @property {string|null} type The type of the message used for styling.
-		 *   Examples: `info`, `warn`, `error`, `success`.
-		 * @property {boolean} visibleTimeout Whether the autoHide timeout should be
-		 *   based on time the page was visible to user. Or if it should use wall
-		 *   clock time.
-		 * @property {string|false} id HTML ID to set on the notification element.
-		 * @property {string|string[]|false} classes CSS class names to be set on the
-		 *   notification element.
-		 */
-
-		/**
-		 * The defaults for [#notify]{@link mw.notification.notify} options parameter.
 		 *
-		 * @memberof mw.notification
-		 * @type {mw.notification.NotificationOptions}
+		 * - title:
+		 *   An optional title for the notification. Will be displayed above the
+		 *   content. Usually in bold.
+		 *
+		 * - type:
+		 *   An optional string for the type of the message used for styling:
+		 *   Examples: 'info', 'warn', 'error', 'success'.
+		 *
+		 * - visibleTimeout:
+		 *   A boolean indicating if the autoHide timeout should be based on
+		 *   time the page was visible to user. Or if it should use wall clock time.
+		 *
+		 * - id:
+		 *   HTML ID to set on the notification element.
+		 *
+		 * - classes:
+		 *   CSS class names in the form of a single string or
+		 *   array of strings, to be set on the notification element.
 		 */
 		defaults: {
 			autoHide: true,
@@ -476,13 +480,8 @@
 		},
 
 		/**
-		 * Map of predefined auto-hide timeout keys to second values. `short` is
-		 * used by default, and other values can be added for use in [#notify]{@link mw.notification.notify}.
-		 *
-		 * @memberof mw.notification
-		 * @type {Object.<string, number>}
-		 * @property {number} short 5 seconds (default)
-		 * @property {number} long 30 seconds
+		 * @private
+		 * @property {Object}
 		 */
 		autoHideSeconds: {
 			short: 5,
@@ -490,16 +489,14 @@
 		},
 
 		/**
+		 * @property {number}
 		 * Maximum number of simultaneous notifications to start auto-hide timers for.
 		 * Only this number of notifications being displayed will be auto-hidden at one time.
 		 * Any additional notifications in the list will only start counting their timeout for
 		 * auto-hiding after the previous messages have been closed.
 		 *
 		 * This basically represents the minimal number of notifications the user should
-		 * be able to process during the {@link mw.notification.defaults default} `autoHideSeconds` time.
-		 *
-		 * @memberof mw.notification
-		 * @type {number}
+		 * be able to process during the {@link #defaults default} #autoHideSeconds time.
 		 */
 		autoHideLimit: 3
 	};

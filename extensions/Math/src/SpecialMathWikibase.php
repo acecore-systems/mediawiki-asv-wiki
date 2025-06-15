@@ -3,16 +3,16 @@
 namespace MediaWiki\Extension\Math;
 
 use Exception;
+use Html;
 use InvalidArgumentException;
 use MediaWiki\Extension\Math\Widget\WikibaseEntitySelector;
-use MediaWiki\Html\Html;
 use MediaWiki\Logger\LoggerFactory;
-use MediaWiki\MainConfigNames;
-use MediaWiki\Message\Message;
-use MediaWiki\Output\OutputPage;
-use MediaWiki\SpecialPage\SpecialPage;
+use MediaWiki\MediaWikiServices;
+use Message;
 use OOUI\ButtonInputWidget;
 use OOUI\FormLayout;
+use OutputPage;
+use SpecialPage;
 
 class SpecialMathWikibase extends SpecialPage {
 	/**
@@ -23,19 +23,16 @@ class SpecialMathWikibase extends SpecialPage {
 	/**
 	 * @var MathWikibaseConnector Wikibase connection
 	 */
-	private MathWikibaseConnector $wikibase;
+	private $wikibase;
 
 	/**
 	 * @var \Psr\Log\LoggerInterface
 	 */
 	private $logger;
 
-	public function __construct(
-		MathWikibaseConnector $wikibase
-	) {
+	public function __construct() {
 		parent::__construct( 'MathWikibase' );
 
-		$this->wikibase = $wikibase;
 		$this->logger = LoggerFactory::getInstance( 'Math' );
 	}
 
@@ -43,6 +40,10 @@ class SpecialMathWikibase extends SpecialPage {
 	 * @inheritDoc
 	 */
 	public function execute( $par ) {
+		global $wgLanguageCode;
+
+		$this->wikibase = MediaWikiServices::getInstance()->get( 'Math.WikibaseConnector' );
+
 		$request = $this->getRequest();
 		$output = $this->getOutput();
 		$output->enableOOUI();
@@ -62,9 +63,8 @@ class SpecialMathWikibase extends SpecialPage {
 			$this->showForm();
 		} else {
 			$this->logger->debug( "Request qID: " . $requestId );
-			$languageCode = $this->getConfig()->get( MainConfigNames::LanguageCode );
 			try {
-				$info = $this->wikibase->fetchWikibaseFromId( $requestId, $languageCode );
+				$info = $this->wikibase->fetchWikibaseFromId( $requestId, $wgLanguageCode );
 				$this->logger->debug( "Successfully fetched information for qID: " . $requestId );
 				$this->buildPageRepresentation( $info, $requestId, $output );
 			} catch ( Exception $e ) {
@@ -225,10 +225,10 @@ class SpecialMathWikibase extends SpecialPage {
 	 * @return string Raw HTML
 	 */
 	private static function createHTMLHeader( string $header ): string {
-		return Html::element(
+		return Html::rawElement(
 			'h2',
 			[],
-			$header
+			Html::element( 'span', [ 'class' => 'mw-headline' ], $header )
 		);
 	}
 }

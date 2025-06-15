@@ -1,55 +1,48 @@
 <?php
 
-namespace MediaWiki\Tests\Auth;
+namespace MediaWiki\Auth;
 
-use BadMethodCallException;
-use MediaWiki\Auth\AbstractPrimaryAuthenticationProvider;
-use MediaWiki\Auth\AuthenticationRequest;
-use MediaWiki\Auth\AuthenticationResponse;
-use MediaWiki\Auth\AuthManager;
-use MediaWiki\Auth\PrimaryAuthenticationProvider;
 use MediaWiki\Tests\Unit\Auth\AuthenticationProviderTestTrait;
 use MediaWiki\Tests\Unit\DummyServicesTrait;
-use MediaWiki\User\User;
-use MediaWikiIntegrationTestCase;
-use StatusValue;
 
 /**
  * @group AuthManager
  * @covers \MediaWiki\Auth\AbstractPrimaryAuthenticationProvider
  */
-class AbstractPrimaryAuthenticationProviderTest extends MediaWikiIntegrationTestCase {
+class AbstractPrimaryAuthenticationProviderTest extends \MediaWikiIntegrationTestCase {
 	use DummyServicesTrait;
 	use AuthenticationProviderTestTrait;
 
 	public function testAbstractPrimaryAuthenticationProvider() {
-		$user = $this->createMock( User::class );
+		$user = \User::newFromName( 'UTSysop' );
 
 		$provider = $this->getMockForAbstractClass( AbstractPrimaryAuthenticationProvider::class );
 
 		try {
 			$provider->continuePrimaryAuthentication( [] );
 			$this->fail( 'Expected exception not thrown' );
-		} catch ( BadMethodCallException $ex ) {
+		} catch ( \BadMethodCallException $ex ) {
 		}
 
 		try {
 			$provider->continuePrimaryAccountCreation( $user, $user, [] );
 			$this->fail( 'Expected exception not thrown' );
-		} catch ( BadMethodCallException $ex ) {
+		} catch ( \BadMethodCallException $ex ) {
 		}
+
+		$req = $this->getMockForAbstractClass( AuthenticationRequest::class );
 
 		$this->assertTrue( $provider->providerAllowsPropertyChange( 'foo' ) );
 		$this->assertEquals(
-			StatusValue::newGood(),
+			\StatusValue::newGood(),
 			$provider->testForAccountCreation( $user, $user, [] )
 		);
 		$this->assertEquals(
-			StatusValue::newGood(),
+			\StatusValue::newGood(),
 			$provider->testUserForCreation( $user, AuthManager::AUTOCREATE_SOURCE_SESSION )
 		);
 		$this->assertEquals(
-			StatusValue::newGood(),
+			\StatusValue::newGood(),
 			$provider->testUserForCreation( $user, false )
 		);
 
@@ -75,21 +68,20 @@ class AbstractPrimaryAuthenticationProviderTest extends MediaWikiIntegrationTest
 		for ( $i = 0; $i < 3; $i++ ) {
 			$reqs[$i] = $this->createMock( AuthenticationRequest::class );
 		}
-		$username = 'TestProviderRevokeAccessForUser';
 
 		$provider = $this->getMockForAbstractClass( AbstractPrimaryAuthenticationProvider::class );
 		$provider->expects( $this->once() )->method( 'getAuthenticationRequests' )
 			->with(
 				$this->identicalTo( AuthManager::ACTION_REMOVE ),
-				$this->identicalTo( [ 'username' => $username ] )
+				$this->identicalTo( [ 'username' => 'UTSysop' ] )
 			)
 			->willReturn( $reqs );
 		$provider->expects( $this->exactly( 3 ) )->method( 'providerChangeAuthenticationData' )
-			->willReturnCallback( function ( $req ) use ( $username ) {
-				$this->assertSame( $username, $req->username );
+			->willReturnCallback( function ( $req ) {
+				$this->assertSame( 'UTSysop', $req->username );
 			} );
 
-		$provider->providerRevokeAccessForUser( $username );
+		$provider->providerRevokeAccessForUser( 'UTSysop' );
 
 		foreach ( $reqs as $i => $req ) {
 			$this->assertNotNull( $req->username, "#$i" );
@@ -110,18 +102,18 @@ class AbstractPrimaryAuthenticationProviderTest extends MediaWikiIntegrationTest
 		$msg1 = "{$class}::beginPrimaryAccountLink $msg";
 		$msg2 = "{$class}::continuePrimaryAccountLink is not implemented.";
 
-		$user = User::newFromName( 'Whatever' );
+		$user = \User::newFromName( 'Whatever' );
 
 		try {
 			$provider->beginPrimaryAccountLink( $user, [] );
 			$this->fail( 'Expected exception not thrown' );
-		} catch ( BadMethodCallException $ex ) {
+		} catch ( \BadMethodCallException $ex ) {
 			$this->assertSame( $msg1, $ex->getMessage() );
 		}
 		try {
 			$provider->continuePrimaryAccountLink( $user, [] );
 			$this->fail( 'Expected exception not thrown' );
-		} catch ( BadMethodCallException $ex ) {
+		} catch ( \BadMethodCallException $ex ) {
 			$this->assertSame( $msg2, $ex->getMessage() );
 		}
 	}
@@ -148,6 +140,7 @@ class AbstractPrimaryAuthenticationProviderTest extends MediaWikiIntegrationTest
 	 */
 	public function testProviderNormalizeUsername( $name, $expect ) {
 		// fake interwiki map for the 'Interwiki prefix' testcase
+		// DummyServicesTrait::getDummyInterwikiLookup
 		$interwikiLookup = $this->getDummyInterwikiLookup( [ 'interwiki' ] );
 		$this->setService( 'InterwikiLookup', $interwikiLookup );
 

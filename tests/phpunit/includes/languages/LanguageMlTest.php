@@ -7,13 +7,13 @@
 
 /**
  * @group Language
- * @covers \LanguageMl
+ * @covers LanguageMl
  */
 class LanguageMlTest extends LanguageClassesTestCase {
 
 	/**
 	 * @dataProvider provideFormatNum
-	 * @covers \MediaWiki\Language\Language::formatNum
+	 * @covers Language::formatNum
 	 */
 	public function testFormatNum( $value, $result ) {
 		// For T31495
@@ -40,13 +40,13 @@ class LanguageMlTest extends LanguageClassesTestCase {
 	}
 
 	/**
-	 * @covers \LanguageMl::normalize
-	 * @covers \MediaWiki\Language\Language::normalize
+	 * @covers LanguageMl::normalize
+	 * @covers Language::normalize
 	 * @dataProvider provideNormalize
 	 */
 	public function testNormalize( $input, $expected ) {
 		if ( $input === $expected ) {
-			$this->fail( 'Expected output must differ.' );
+			throw new Exception( 'Expected output must differ.' );
 		}
 
 		$this->assertSame(

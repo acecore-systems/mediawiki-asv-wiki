@@ -18,8 +18,6 @@
  * @file
  */
 
-namespace MediaWiki\Maintenance;
-
 /**
  * Class for scripts that perform database maintenance and want to log the
  * update in `updatelog` so we can later skip it
@@ -33,15 +31,11 @@ abstract class LoggedUpdateMaintenance extends Maintenance {
 	}
 
 	public function execute() {
-		$db = $this->getPrimaryDB();
+		$db = $this->getDB( DB_PRIMARY );
 		$key = $this->getUpdateKey();
-		$queryBuilder = $db->newSelectQueryBuilder()
-			->select( '1' )
-			->from( 'updatelog' )
-			->where( [ 'ul_key' => $key ] );
 
 		if ( !$this->hasOption( 'force' )
-			&& $queryBuilder->caller( __METHOD__ )->fetchRow()
+			&& $db->selectRow( 'updatelog', '1', [ 'ul_key' => $key ], __METHOD__ )
 		) {
 			$this->output( "..." . $this->updateSkippedMessage() . "\n" );
 
@@ -52,11 +46,7 @@ abstract class LoggedUpdateMaintenance extends Maintenance {
 			return false;
 		}
 
-		$db->newInsertQueryBuilder()
-			->insertInto( 'updatelog' )
-			->ignore()
-			->row( [ 'ul_key' => $key ] )
-			->caller( __METHOD__ )->execute();
+		$db->insert( 'updatelog', [ 'ul_key' => $key ], __METHOD__, [ 'IGNORE' ] );
 
 		return true;
 	}
@@ -66,7 +56,7 @@ abstract class LoggedUpdateMaintenance extends Maintenance {
 	 * @param bool $forced
 	 */
 	public function setForce( $forced = true ) {
-		$this->setOption( 'force', $forced );
+		$this->mOptions['force'] = $forced;
 	}
 
 	/**
@@ -92,6 +82,3 @@ abstract class LoggedUpdateMaintenance extends Maintenance {
 	 */
 	abstract protected function getUpdateKey();
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( LoggedUpdateMaintenance::class, 'LoggedUpdateMaintenance' );

@@ -19,15 +19,6 @@
  */
 namespace MediaWiki\Minerva;
 
-use MediaWiki\HookContainer\HookContainer;
-use MediaWiki\MediaWikiServices;
-use MediaWiki\Minerva\Hooks\HookRunner;
-use MediaWiki\Minerva\Skins\SkinMinerva;
-use MediaWiki\Minerva\Skins\SkinUserPageHelper;
-use MobileContext;
-use OutOfBoundsException;
-use Skin;
-
 /**
  * A wrapper for all available Skin options.
  */
@@ -44,15 +35,14 @@ final class SkinOptions {
 	public const TABS_ON_SPECIALS = 'tabsOnSpecials';
 	public const MAIN_MENU_EXPANDED = 'mainMenuExpanded';
 	public const PERSONAL_MENU = 'personalMenu';
-	public const SINGLE_ECHO_BUTTON = 'echo';
-	public const NIGHT_MODE = 'nightMode';
+	public const SIMPLIFIED_TALK = 'simplifiedTalk';
 
 	/**
 	 * Note stable skin options default to true for desktop-Minerva and are expected to be
 	 * overridden on mobile.
 	 * @var array skin specific options, initialized with default values
 	 */
-	private array $skinOptions = [
+	private $skinOptions = [
 		self::BETA_MODE => false,
 		self::SHOW_DONATE => true,
 		/**
@@ -76,31 +66,18 @@ final class SkinOptions {
 		self::PERSONAL_MENU => true,
 		/** whether to show a main menu with additional items */
 		self::MAIN_MENU_EXPANDED => true,
-		/** whether Echo should be replaced with a single button */
-		self::SINGLE_ECHO_BUTTON => false,
-		/** whether night mode is available to the user */
-		self::NIGHT_MODE => false,
+		/** whether the simplified talk page is eligible to be shown */
+		self::SIMPLIFIED_TALK => false,
 	];
-
-	private HookContainer $hookContainer;
-	private SkinUserPageHelper $skinUserPageHelper;
-
-	public function __construct(
-		HookContainer $hookContainer,
-		SkinUserPageHelper $skinUserPageHelper
-	) {
-		$this->hookContainer = $hookContainer;
-		$this->skinUserPageHelper = $skinUserPageHelper;
-	}
 
 	/**
 	 * override an existing option or options with new values
 	 * @param array $options
 	 */
-	public function setMultiple( array $options ): void {
+	public function setMultiple( array $options ) {
 		foreach ( $options as $option => $value ) {
 			if ( !array_key_exists( $option, $this->skinOptions ) ) {
-				throw new OutOfBoundsException( "SkinOption $option is not defined" );
+				throw new \OutOfBoundsException( "SkinOption $option is not defined" );
 			}
 		}
 		$this->skinOptions = array_merge( $this->skinOptions, $options );
@@ -111,9 +88,9 @@ final class SkinOptions {
 	 * @param string $key
 	 * @return bool
 	 */
-	public function get( string $key ): bool {
+	public function get( $key ) {
 		if ( !array_key_exists( $key, $this->skinOptions ) ) {
-			throw new OutOfBoundsException( "SkinOption $key doesn't exist" );
+			throw new \OutOfBoundsException( "SkinOption $key doesn't exist" );
 		}
 		return $this->skinOptions[$key];
 	}
@@ -122,7 +99,7 @@ final class SkinOptions {
 	 * Get all skin options
 	 * @return array
 	 */
-	public function getAll(): array {
+	public function getAll() {
 		return $this->skinOptions;
 	}
 
@@ -130,85 +107,12 @@ final class SkinOptions {
 	 * Return whether any of the skin options have been set
 	 * @return bool
 	 */
-	public function hasSkinOptions(): bool {
+	public function hasSkinOptions() {
 		foreach ( $this->skinOptions as $key => $val ) {
 			if ( $val ) {
 				return true;
 			}
 		}
 		return false;
-	}
-
-	/**
-	 * Set the skin options for Minerva
-	 *
-	 * @param MobileContext $mobileContext
-	 * @param Skin $skin
-	 */
-	public function setMinervaSkinOptions(
-		MobileContext $mobileContext, Skin $skin
-	): void {
-		// setSkinOptions is not available
-		if ( $skin instanceof SkinMinerva ) {
-			$services = MediaWikiServices::getInstance();
-			$featuresManager = $services
-				->getService( 'MobileFrontend.FeaturesManager' );
-			$title = $skin->getTitle();
-
-			// T245162 - this should only apply if the context relates to a page view.
-			// Examples:
-			// - parsing wikitext during an REST response
-			// - a ResourceLoader response
-			if ( $title !== null ) {
-				// T232653: TALK_AT_TOP, HISTORY_IN_PAGE_ACTIONS, TOOLBAR_SUBMENU should
-				// be true on user pages and user talk pages for all users
-				$this->skinUserPageHelper
-					->setContext( $mobileContext )
-					->setTitle(
-						$title->inNamespace( NS_USER_TALK ) ? $title->getSubjectPage() : $title
-					);
-
-				$isDiffLink = $mobileContext->getRequest()->getCheck( 'diff' );
-				$isUserPage = $this->skinUserPageHelper->isUserPage();
-				$isUserPageAccessible = $this->skinUserPageHelper->isUserPageAccessibleToCurrentUser();
-				$isUserPageOrUserTalkPage = $isUserPage && $isUserPageAccessible;
-				$requiresHistoryLink = $isUserPageOrUserTalkPage || $isDiffLink;
-			} else {
-				// If no title this must be false
-				$isUserPageOrUserTalkPage = false;
-				$requiresHistoryLink = false;
-			}
-
-			$isBeta = $mobileContext->isBetaGroupMember();
-			$this->setMultiple( [
-				self::SHOW_DONATE => $featuresManager->isFeatureAvailableForCurrentUser( 'MinervaDonateLink' ),
-				self::TALK_AT_TOP => $isUserPageOrUserTalkPage ?
-					true : $featuresManager->isFeatureAvailableForCurrentUser( 'MinervaTalkAtTop' ),
-				self::BETA_MODE
-					=> $isBeta,
-				self::CATEGORIES
-					=> $featuresManager->isFeatureAvailableForCurrentUser( 'MinervaShowCategories' ),
-				self::PAGE_ISSUES
-					=> $featuresManager->isFeatureAvailableForCurrentUser( 'MinervaPageIssuesNewTreatment' ),
-				self::MOBILE_OPTIONS => true,
-				self::PERSONAL_MENU => $featuresManager->isFeatureAvailableForCurrentUser(
-					'MinervaPersonalMenu'
-				),
-				self::MAIN_MENU_EXPANDED => $featuresManager->isFeatureAvailableForCurrentUser(
-					'MinervaAdvancedMainMenu'
-				),
-				// In mobile, always resort to single icon.
-				self::SINGLE_ECHO_BUTTON => true,
-				self::HISTORY_IN_PAGE_ACTIONS => $requiresHistoryLink ?
-					true : $featuresManager->isFeatureAvailableForCurrentUser( 'MinervaHistoryInPageActions' ),
-				self::TOOLBAR_SUBMENU => $isUserPageOrUserTalkPage ?
-					true : $featuresManager->isFeatureAvailableForCurrentUser(
-						Hooks::FEATURE_OVERFLOW_PAGE_ACTIONS
-					),
-				self::TABS_ON_SPECIALS => true,
-				self::NIGHT_MODE => $featuresManager->isFeatureAvailableForCurrentUser( 'MinervaNightMode' ),
-			] );
-			( new HookRunner( $this->hookContainer ) )->onSkinMinervaOptionsInit( $skin, $this );
-		}
 	}
 }

@@ -1,17 +1,10 @@
 <?php
 
-namespace Wikimedia\Tests;
-
-use HashRing;
-use MediaWikiCoversValidator;
-use PHPUnit\Framework\TestCase;
-use Wikimedia\TestingAccessWrapper;
-
 /**
  * @group HashRing
- * @covers \HashRing
+ * @covers HashRing
  */
-class HashRingTest extends TestCase {
+class HashRingTest extends PHPUnit\Framework\TestCase {
 
 	use MediaWikiCoversValidator;
 
@@ -219,7 +212,7 @@ class HashRingTest extends TestCase {
 			'10.0.1.8:11211' => 100
 		];
 		$ring = new HashRing( $map, 'md5' );
-		$wrapper = TestingAccessWrapper::newFromObject( $ring );
+		$wrapper = \Wikimedia\TestingAccessWrapper::newFromObject( $ring );
 
 		$ketama_test = static function ( $count ) use ( $wrapper ) {
 			$baseRing = $wrapper->baseRing;

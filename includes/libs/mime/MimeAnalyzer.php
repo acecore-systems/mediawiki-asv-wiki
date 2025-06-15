@@ -1,5 +1,7 @@
 <?php
 /**
+ * Module defining helper functions for detecting and dealing with MIME types.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -17,27 +19,17 @@
  *
  * @file
  */
-
-namespace Wikimedia\Mime;
-
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use UnexpectedValueException;
 use Wikimedia\AtEase\AtEase;
-use ZipDirectoryReader;
+use Wikimedia\Mime\MimeMap;
+use Wikimedia\Mime\MimeMapMinimal;
 
 /**
- * @defgroup Mime Mime
- *
- * @ingroup Media
- */
-
-/**
- * Detect MIME types of a file by mapping file extensions or parsing file contents.
+ * Implements functions related to MIME types such as detection and mapping to file extension
  *
  * @since 1.28
- * @ingroup Mime
  */
 class MimeAnalyzer implements LoggerAwareInterface {
 	/** @var string */
@@ -65,6 +57,9 @@ class MimeAnalyzer implements LoggerAwareInterface {
 
 	/** @var array Map of file extensions types to MIME types (as a space separated list) */
 	public $mExtToMime = []; // legacy name; field accessed by hooks
+
+	/** @var IEContentAnalyzer */
+	protected $IEAnalyzer;
 
 	/** @var string Extra MIME types, set for example by media handling extensions */
 	private $extraTypes = '';
@@ -162,7 +157,10 @@ class MimeAnalyzer implements LoggerAwareInterface {
 		$lines = explode( "\n", $rawMimeTypes );
 		foreach ( $lines as $s ) {
 			$s = trim( $s );
-			if ( $s === '' || str_starts_with( $s, '#' ) ) {
+			if ( empty( $s ) ) {
+				continue;
+			}
+			if ( strpos( $s, '#' ) === 0 ) {
 				continue;
 			}
 
@@ -175,7 +173,7 @@ class MimeAnalyzer implements LoggerAwareInterface {
 
 			$ext = trim( substr( $s, $i + 1 ) );
 
-			if ( !$ext ) {
+			if ( empty( $ext ) ) {
 				continue;
 			}
 
@@ -195,7 +193,10 @@ class MimeAnalyzer implements LoggerAwareInterface {
 		$lines = explode( "\n", $rawMimeInfo );
 		foreach ( $lines as $s ) {
 			$s = trim( $s );
-			if ( $s === '' || str_starts_with( $s, '#' ) ) {
+			if ( empty( $s ) ) {
+				continue;
+			}
+			if ( strpos( $s, '#' ) === 0 ) {
 				continue;
 			}
 
@@ -224,7 +225,7 @@ class MimeAnalyzer implements LoggerAwareInterface {
 
 			foreach ( $m as $mime ) {
 				$mime = trim( $mime );
-				if ( !$mime ) {
+				if ( empty( $mime ) ) {
 					continue;
 				}
 
@@ -389,12 +390,10 @@ class MimeAnalyzer implements LoggerAwareInterface {
 	 * Returns true if the MIME type is known to represent an image format
 	 * supported by the PHP GD library.
 	 *
-	 * @deprecated since 1.40
 	 * @param string $mime
 	 * @return bool
 	 */
 	public function isPHPImageType( string $mime ): bool {
-		wfDeprecated( __METHOD__, '1.40' );
 		// As defined by imagegetsize and image_type_to_mime
 		static $types = [
 			'image/gif', 'image/jpeg', 'image/png',
@@ -438,7 +437,7 @@ class MimeAnalyzer implements LoggerAwareInterface {
 			'svg',
 
 			// 3D formats
-			'stl', 'glb',
+			'stl',
 		];
 		return in_array( strtolower( $extension ), $types );
 	}
@@ -521,7 +520,7 @@ class MimeAnalyzer implements LoggerAwareInterface {
 				"Use improveTypeFromExtension(\$mime, \$ext) instead." );
 		}
 
-		$mime = $this->doGuessMimeType( $file );
+		$mime = $this->doGuessMimeType( $file, $ext );
 
 		if ( !$mime ) {
 			$this->logger->info( __METHOD__ .
@@ -540,11 +539,14 @@ class MimeAnalyzer implements LoggerAwareInterface {
 	/**
 	 * Guess the MIME type from the file contents.
 	 *
+	 * @todo Remove $ext param
+	 *
 	 * @param string $file
+	 * @param string|bool $ext
 	 * @return bool|string
 	 * @throws UnexpectedValueException
 	 */
-	private function doGuessMimeType( string $file ) {
+	private function doGuessMimeType( string $file, $ext ) {
 		// Read a chunk of the file
 		AtEase::suppressWarnings();
 		$f = fopen( $file, 'rb' );
@@ -587,9 +589,6 @@ class MimeAnalyzer implements LoggerAwareInterface {
 			"\xd7\xcd\xc6\x9a" => 'application/x-msmetafile',
 			'%PDF'             => 'application/pdf',
 			'gimp xcf'         => 'image/x-xcf',
-
-			// 3D
-			"glTF"             => 'model/gltf-binary',
 
 			// Some forbidden fruit...
 			'MZ'               => 'application/octet-stream', // DOS/Windows executable
@@ -713,13 +712,13 @@ class MimeAnalyzer implements LoggerAwareInterface {
 		$script_type = null;
 
 		# detect by shebang
-		if ( str_starts_with( $head, "#!" ) ) {
+		if ( substr( $head, 0, 2 ) == "#!" ) {
 			$script_type = "ASCII";
-		} elseif ( str_starts_with( $head, "\xef\xbb\xbf#!" ) ) {
+		} elseif ( substr( $head, 0, 5 ) == "\xef\xbb\xbf#!" ) {
 			$script_type = "UTF-8";
-		} elseif ( str_starts_with( $head, "\xfe\xff\x00#\x00!" ) ) {
+		} elseif ( substr( $head, 0, 7 ) == "\xfe\xff\x00#\x00!" ) {
 			$script_type = "UTF-16BE";
-		} elseif ( str_starts_with( $head, "\xff\xfe#\x00!" ) ) {
+		} elseif ( substr( $head, 0, 7 ) == "\xff\xfe#\x00!" ) {
 			$script_type = "UTF-16LE";
 		}
 
@@ -899,6 +898,7 @@ class MimeAnalyzer implements LoggerAwareInterface {
 		}
 
 		$callback = $this->detectCallback;
+		$m = null;
 		if ( $callback ) {
 			$m = $callback( $file );
 		} else {
@@ -911,7 +911,9 @@ class MimeAnalyzer implements LoggerAwareInterface {
 			$m = trim( $m );
 			$m = strtolower( $m );
 
-			if ( !str_contains( $m, 'unknown' ) ) {
+			if ( strpos( $m, 'unknown' ) !== false ) {
+				$m = null;
+			} else {
 				$this->logger->info( __METHOD__ . ": magic mime type of $file: $m" );
 				return $m;
 			}
@@ -955,7 +957,7 @@ class MimeAnalyzer implements LoggerAwareInterface {
 	 * @param string|null $mime MIME type. If null it will be guessed using guessMimeType.
 	 * @return string A value to be used with the MEDIATYPE_xxx constants.
 	 */
-	public function getMediaType( ?string $path = null, ?string $mime = null ): string {
+	public function getMediaType( string $path = null, string $mime = null ): string {
 		if ( !$mime && !$path ) {
 			return MEDIATYPE_UNKNOWN;
 		}
@@ -1081,6 +1083,32 @@ class MimeAnalyzer implements LoggerAwareInterface {
 	}
 
 	/**
+	 * Get the MIME types that various versions of Internet Explorer would
+	 * detect from a chunk of the content.
+	 *
+	 * @param string $fileName The file name (unused at present)
+	 * @param string $chunk The first 256 bytes of the file
+	 * @param string $proposed The MIME type proposed by the server
+	 * @return string[]
+	 */
+	public function getIEMimeTypes( string $fileName, string $chunk, string $proposed ): array {
+		$ca = $this->getIEContentAnalyzer();
+		return $ca->getRealMimesFromData( $fileName, $chunk, $proposed );
+	}
+
+	/**
+	 * Get a cached instance of IEContentAnalyzer
+	 *
+	 * @return IEContentAnalyzer
+	 */
+	protected function getIEContentAnalyzer(): IEContentAnalyzer {
+		if ( $this->IEAnalyzer === null ) {
+			$this->IEAnalyzer = new IEContentAnalyzer;
+		}
+		return $this->IEAnalyzer;
+	}
+
+	/**
 	 * Check if major_mime has a value accepted by enum in a database schema.
 	 *
 	 * @since 1.42.0 (also backported to 1.39.7, 1.40.3 and 1.41.1)
@@ -1106,6 +1134,3 @@ class MimeAnalyzer implements LoggerAwareInterface {
 		return in_array( $type, $types );
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( MimeAnalyzer::class, 'MimeAnalyzer' );

@@ -5,13 +5,11 @@ namespace MediaWiki\Extension\TitleBlacklist;
 use MediaWiki\Auth\AbstractPreAuthenticationProvider;
 use MediaWiki\Auth\AuthenticationRequest;
 use MediaWiki\Auth\AuthManager;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\User\User;
+use RequestContext;
 use StatusValue;
+use User;
 
 class TitleBlacklistPreAuthenticationProvider extends AbstractPreAuthenticationProvider {
-
-	/** @var bool */
 	protected $blockAutoAccountCreation;
 
 	public function __construct( $params = [] ) {
@@ -55,7 +53,7 @@ class TitleBlacklistPreAuthenticationProvider extends AbstractPreAuthenticationP
 		$sv = StatusValue::newGood();
 		$creator = RequestContext::getMain()->getUser();
 
-		if ( ( !$autocreate && empty( $options['creating'] ) ) || $this->blockAutoAccountCreation ) {
+		if ( !$autocreate && empty( $options['creating'] ) || $this->blockAutoAccountCreation ) {
 			$sv->merge( Hooks::testUserName(
 				$user->getName(), $creator, true, (bool)$autocreate
 			) );

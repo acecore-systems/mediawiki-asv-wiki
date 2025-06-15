@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface LanguageInputWidget class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -12,15 +12,15 @@
  *
  * @constructor
  * @param {Object} [config] Configuration options
- * @param {string} [config.dirInput='auto'] How to display the directionality input. Options are:
+ * @cfg {string} [dirInput='auto'] How to display the directionality input. Options are:
  *      - none: Directionality input is hidden.
  *      - no-auto: Directionality input is visible and options are LTR or RTL.
  *      - auto: Directionality input is visible and options include "auto" in
  *            addition to LTR and RTL.
- * @param {boolean} [config.readOnly=false] Prevent changes to the value of the input.
- * @param {boolean} [config.hideCodeInput] Prevent user from entering a language code as free text
- * @param {ve.ui.WindowManager} [config.dialogManager] Window manager to launch the language search dialog in
- * @param {string[]} [config.availableLanguages] Available language codes to show in search dialog
+ * @cfg {boolean} [readOnly=false] Prevent changes to the value of the input.
+ * @cfg {boolean} [hideCodeInput] Prevent user from entering a language code as free text
+ * @cfg {ve.ui.WindowManager} [dialogManager] Window manager to launch the language search dialog in
+ * @cfg {string[]} [availableLanguages] Available language codes to show in search dialog
  */
 ve.ui.LanguageInputWidget = function VeUiLanguageInputWidget( config ) {
 	// Configuration initialization
@@ -59,7 +59,7 @@ ve.ui.LanguageInputWidget = function VeUiLanguageInputWidget( config ) {
 		label: ve.msg( 'visualeditor-languageinspector-widget-label-direction' )
 	} );
 
-	const $language = $( '<div>' ).addClass( 've-ui-languageInputWidget-languageInput' );
+	var $language = $( '<div>' ).addClass( 've-ui-languageInputWidget-languageInput' );
 	$language.append(
 		this.findLanguageButton.$element
 	);
@@ -74,7 +74,7 @@ ve.ui.LanguageInputWidget = function VeUiLanguageInputWidget( config ) {
 	this.directionSelect.connect( this, { select: 'onChange' } );
 
 	// Initialization
-	const dirItems = [
+	var dirItems = [
 		new OO.ui.ButtonOptionWidget( {
 			data: 'rtl',
 			icon: 'textDirRTL'
@@ -84,7 +84,7 @@ ve.ui.LanguageInputWidget = function VeUiLanguageInputWidget( config ) {
 			icon: 'textDirLTR'
 		} )
 	];
-	const dirInput = ( config.dirInput === undefined ) ? 'auto' : config.dirInput;
+	var dirInput = ( config.dirInput === undefined ) ? 'auto' : config.dirInput;
 
 	if ( dirInput === 'auto' ) {
 		dirItems.splice(
@@ -95,7 +95,7 @@ ve.ui.LanguageInputWidget = function VeUiLanguageInputWidget( config ) {
 		);
 	}
 	this.directionSelect.addItems( dirItems );
-	$( OO.ui.getTeleportTarget() ).append( this.dialogs.$element );
+	$( document.body ).append( this.dialogs.$element );
 
 	this.$element
 		.addClass( 've-ui-languageInputWidget' )
@@ -113,7 +113,7 @@ OO.inheritClass( ve.ui.LanguageInputWidget, OO.ui.Widget );
 /* Events */
 
 /**
- * @event ve.ui.LanguageInputWidget#change
+ * @event change
  * @param {string} lang Language code
  * @param {string} dir Directionality
  */
@@ -124,13 +124,15 @@ OO.inheritClass( ve.ui.LanguageInputWidget, OO.ui.Widget );
  * Handle find language button click events.
  */
 ve.ui.LanguageInputWidget.prototype.onFindLanguageButtonClick = function () {
+	var widget = this;
+
 	this.dialogs.openWindow( 'languageSearch', {
 		availableLanguages: this.availableLanguages,
 		$returnFocusTo: null
-	} ).closing.then( ( data ) => {
+	} ).closing.then( function ( data ) {
 		data = data || {};
 		if ( data.action === 'done' ) {
-			this.setLangAndDir( data.lang, data.dir );
+			widget.setLangAndDir( data.lang, data.dir );
 		}
 	} );
 };
@@ -143,7 +145,7 @@ ve.ui.LanguageInputWidget.prototype.onChange = function () {
 		return;
 	}
 
-	const selectedItem = this.directionSelect.findSelectedItem();
+	var selectedItem = this.directionSelect.findSelectedItem();
 	this.setLangAndDir(
 		this.languageCodeTextInput.getValue(),
 		selectedItem ? selectedItem.getData() : null
@@ -155,9 +157,9 @@ ve.ui.LanguageInputWidget.prototype.onChange = function () {
  *
  * The inputs value will automatically be updated.
  *
- * @param {string|null} lang Language code
- * @param {string|null} dir Directionality
- * @fires ve.ui.LanguageInputWidget#change
+ * @param {string} lang Language code
+ * @param {string} dir Directionality
+ * @fires change
  * @return {ve.ui.LanguageInputWidget}
  * @chainable
  */
@@ -173,9 +175,8 @@ ve.ui.LanguageInputWidget.prototype.setLangAndDir = function ( lang, dir ) {
 		lang = lang || '';
 		this.languageCodeTextInput.setValue( lang );
 		this.selectedLanguageLabel.setLabel(
-			ve.init.platform.hasLanguageCode( lang.toLowerCase() ) ?
-				ve.init.platform.getLanguageName( lang.toLowerCase() ) :
-				ve.msg( 'visualeditor-languageinspector-widget-changelang' )
+			ve.init.platform.getLanguageName( lang.toLowerCase() ) ||
+			ve.msg( 'visualeditor-languageinspector-widget-changelang' )
 		);
 		this.directionSelect.selectItemByData( dir );
 	} else {
@@ -198,7 +199,7 @@ ve.ui.LanguageInputWidget.prototype.setLangAndDir = function ( lang, dir ) {
 /**
  * Get the language
  *
- * @return {string|null} Language code
+ * @return {string} Language code
  */
 ve.ui.LanguageInputWidget.prototype.getLang = function () {
 	return this.lang;
@@ -207,7 +208,7 @@ ve.ui.LanguageInputWidget.prototype.getLang = function () {
 /**
  * Get the directionality
  *
- * @return {string|null} Directionality (ltr/rtl)
+ * @return {string} Directionality (ltr/rtl)
  */
 ve.ui.LanguageInputWidget.prototype.getDir = function () {
 	return this.dir;
@@ -221,7 +222,7 @@ ve.ui.LanguageInputWidget.prototype.getDir = function () {
  * @return {OO.ui.NumberInputWidget} The widget, for chaining
  */
 ve.ui.LanguageInputWidget.prototype.updateControlsDisabled = function () {
-	const disabled = this.isDisabled() || this.isReadOnly();
+	var disabled = this.isDisabled() || this.isReadOnly();
 	if ( this.findLanguageButton ) {
 		this.findLanguageButton.setDisabled( disabled );
 	}

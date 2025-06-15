@@ -4,12 +4,10 @@ namespace MediaWiki\Tests\ResourceLoader;
 
 use MediaWiki\ResourceLoader\Context;
 use MediaWiki\ResourceLoader\UserOptionsModule;
-use MediaWiki\User\Options\StaticUserOptionsLookup;
-use MediaWiki\User\User;
 use MediaWikiIntegrationTestCase;
+use User;
 
 /**
- * @group ResourceLoader
  * @covers \MediaWiki\ResourceLoader\UserOptionsModule
  */
 class UserOptionsModuleTest extends MediaWikiIntegrationTestCase {
@@ -18,7 +16,7 @@ class UserOptionsModuleTest extends MediaWikiIntegrationTestCase {
 		$module = new UserOptionsModule();
 		$hooks = $this->createHookContainer();
 		$module->setHookContainer( $hooks );
-		$options = new StaticUserOptionsLookup(
+		$options = new \MediaWiki\User\StaticUserOptionsLookup(
 			[
 				'Example1' => [],
 				'Example2' => [ 'y' => '1', 'userjs-extra' => '1' ],
@@ -86,7 +84,7 @@ class UserOptionsModuleTest extends MediaWikiIntegrationTestCase {
 			}
 		] );
 		$module->setHookContainer( $hooks );
-		$options = new StaticUserOptionsLookup(
+		$options = new \MediaWiki\User\StaticUserOptionsLookup(
 			[
 				'User' => [ 'include-explicit' => '1', 'exclude-explicit' => '1' ],
 			],

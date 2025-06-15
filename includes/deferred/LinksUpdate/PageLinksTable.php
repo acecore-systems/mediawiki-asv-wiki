@@ -2,29 +2,12 @@
 
 namespace MediaWiki\Deferred\LinksUpdate;
 
-use MediaWiki\Config\Config;
-use MediaWiki\Config\ServiceOptions;
-use MediaWiki\MainConfigNames;
-use MediaWiki\Parser\ParserOutput;
+use ParserOutput;
 
 /**
  * pagelinks
  */
 class PageLinksTable extends GenericPageLinksTable {
-	private const CONSTRUCTOR_OPTIONS = [
-		MainConfigNames::PageLinksSchemaMigrationStage,
-	];
-
-	/** @var int */
-	private $migrationStage;
-
-	public function __construct( Config $config ) {
-		$options = new ServiceOptions( self::CONSTRUCTOR_OPTIONS, $config );
-		$options->assertRequiredOptions( self::CONSTRUCTOR_OPTIONS );
-
-		$this->migrationStage = $options->get( MainConfigNames::PageLinksSchemaMigrationStage );
-	}
-
 	public function setParserOutput( ParserOutput $parserOutput ) {
 		$this->newLinks = $parserOutput->getLinks();
 	}
@@ -51,13 +34,5 @@ class PageLinksTable extends GenericPageLinksTable {
 
 	protected function getTargetIdField() {
 		return 'pl_target_id';
-	}
-
-	/**
-	 * Normalization stage of the links table (see T222224)
-	 * @return int
-	 */
-	protected function linksTargetNormalizationStage(): int {
-		return $this->migrationStage;
 	}
 }

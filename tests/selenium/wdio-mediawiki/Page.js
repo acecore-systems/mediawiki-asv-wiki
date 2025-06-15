@@ -3,7 +3,7 @@
 const querystring = require( 'querystring' );
 
 /**
- * Based on https://webdriver.io/docs/pageobjects
+ * Based on http://webdriver.io/guide/testrunner/pageobjects.html
  */
 class Page {
 
@@ -11,7 +11,7 @@ class Page {
 	 * Navigate the browser to a given page.
 	 *
 	 * @since 1.0.0
-	 * @see <https://webdriver.io/docs/api/browser/url>
+	 * @see <http://webdriver.io/api/protocol/url.html>
 	 * @param {string} title Page title
 	 * @param {Object} [query] Query parameter
 	 * @param {string} [fragment] Fragment parameter

@@ -10,8 +10,6 @@ See <https://www.mediawiki.org/wiki/Skin:Vector>.
 
 See [skin.json](skin.json).
 
-Also see [configuration.md](doc/configuration/configuration.md)
-
 Development
 -----------
 

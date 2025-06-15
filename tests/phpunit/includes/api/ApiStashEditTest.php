@@ -1,35 +1,18 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
-use MediaWiki\Content\CssContent;
-use MediaWiki\Content\WikitextContent;
 use MediaWiki\Storage\PageEditStash;
-use MediaWiki\Tests\User\TempUser\TempUserTestTrait;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
 use MediaWiki\User\UserIdentity;
-use MediaWiki\User\UserRigorOptions;
 use Psr\Log\NullLogger;
-use stdClass;
-use Wikimedia\ObjectCache\HashBagOStuff;
-use Wikimedia\Stats\StatsFactory;
 use Wikimedia\TestingAccessWrapper;
-use Wikimedia\Timestamp\ConvertibleTimestamp;
 
 /**
- * @covers MediaWiki\Api\ApiStashEdit
+ * @covers ApiStashEdit
  * @covers \MediaWiki\Storage\PageEditStash
  * @group API
  * @group medium
  * @group Database
- * @todo Expand tests for temporary users
  */
 class ApiStashEditTest extends ApiTestCase {
-	use TempUserTestTrait;
-
-	private const CLASS_NAME = 'ApiStashEditTest';
-
 	protected function setUp(): void {
 		parent::setUp();
 		// Hack to make user edit tracker survive service reset.
@@ -40,9 +23,9 @@ class ApiStashEditTest extends ApiTestCase {
 			->getUserEditTracker() );
 		$this->setService( 'PageEditStash', new PageEditStash(
 			new HashBagOStuff( [] ),
-			$this->getServiceContainer()->getConnectionProvider(),
+			$this->getServiceContainer()->getDBLoadBalancer(),
 			new NullLogger(),
-			StatsFactory::newNull(),
+			new NullStatsdDataFactory(),
 			$this->getServiceContainer()->getUserEditTracker(),
 			$this->getServiceContainer()->getUserFactory(),
 			$this->getServiceContainer()->getWikiPageFactory(),
@@ -61,11 +44,11 @@ class ApiStashEditTest extends ApiTestCase {
 	 * @return array
 	 */
 	protected function doStash(
-		array $params = [], ?User $user = null, $expectedResult = 'stashed'
+		array $params = [], User $user = null, $expectedResult = 'stashed'
 	) {
 		$params = array_merge( [
 			'action' => 'stashedit',
-			'title' => self::CLASS_NAME,
+			'title' => __CLASS__,
 			'contentmodel' => 'wikitext',
 			'contentformat' => 'text/x-wiki',
 			'baserevid' => 0,
@@ -105,7 +88,7 @@ class ApiStashEditTest extends ApiTestCase {
 			$this->assertSame( $expectedHash, $hash );
 
 			if ( isset( $params['stashedtexthash'] ) ) {
-				$this->assertSame( $expectedHash, $params['stashedtexthash'] );
+				$this->assertSame( $params['stashedtexthash'], $expectedHash );
 			}
 		} else {
 			$this->assertSame( $origText, $this->getStashedText( $expectedHash ) );
@@ -130,11 +113,11 @@ class ApiStashEditTest extends ApiTestCase {
 	 * Return a key that can be passed to the cache to obtain a stashed edit object.
 	 *
 	 * @param string $title Title of page
-	 * @param string $text Content of edit
+	 * @param string Content $text Content of edit
 	 * @param User|null $user User who made edit
 	 * @return string
 	 */
-	protected function getStashKey( $title = self::CLASS_NAME, $text = 'Content', ?User $user = null ) {
+	protected function getStashKey( $title = __CLASS__, $text = 'Content', User $user = null ) {
 		$titleObj = Title::newFromText( $title );
 		$content = new WikitextContent( $text );
 		if ( !$user ) {
@@ -152,19 +135,24 @@ class ApiStashEditTest extends ApiTestCase {
 
 	public function testBot() {
 		// @todo This restriction seems arbitrary, is there any good reason to keep it?
-		$this->expectApiErrorCode( 'botsnotsupported' );
+		$this->setExpectedApiException( 'apierror-botsnotsupported' );
 
 		$this->doStash( [], $this->getTestUser( [ 'bot' ] )->getUser() );
 	}
 
 	public function testUnrecognizedFormat() {
-		$this->expectApiErrorCode( 'badmodelformat' );
+		$this->setExpectedApiException(
+			[ 'apierror-badformat-generic', 'application/json', 'wikitext' ] );
 
 		$this->doStash( [ 'contentformat' => 'application/json' ] );
 	}
 
 	public function testMissingTextAndStashedTextHash() {
-		$this->expectApiErrorCode( 'missingparam' );
+		$this->setExpectedApiException( [
+			'apierror-missingparam-one-of',
+			Message::listParam( [ '<var>stashedtexthash</var>', '<var>text</var>' ] ),
+			2
+		] );
 		$this->doStash( [ 'text' => null ] );
 	}
 
@@ -175,12 +163,12 @@ class ApiStashEditTest extends ApiTestCase {
 	}
 
 	public function testMalformedStashedTextHash() {
-		$this->expectApiErrorCode( 'missingtext' );
+		$this->setExpectedApiException( 'apierror-stashedit-missingtext' );
 		$this->doStash( [ 'stashedtexthash' => 'abc' ] );
 	}
 
 	public function testMissingStashedTextHash() {
-		$this->expectApiErrorCode( 'missingtext' );
+		$this->setExpectedApiException( 'apierror-stashedit-missingtext' );
 		$this->doStash( [ 'stashedtexthash' => str_repeat( '0', 40 ) ] );
 	}
 
@@ -194,7 +182,7 @@ class ApiStashEditTest extends ApiTestCase {
 	}
 
 	public function testNonexistentBaseRevId() {
-		$this->expectApiErrorCode( 'nosuchrevid' );
+		$this->setExpectedApiException( [ 'apierror-nosuchrevid', pow( 2, 31 ) - 1 ] );
 
 		$name = ucfirst( __FUNCTION__ );
 		$this->editPage( $name, '' );
@@ -203,23 +191,25 @@ class ApiStashEditTest extends ApiTestCase {
 
 	public function testPageWithNoRevisions() {
 		$name = ucfirst( __FUNCTION__ );
-		$revRecord = $this->editPage( $name, '' )->getNewRevision();
+		$revRecord = $this->editPage( $name, '' )->value['revision-record'];
 
-		$this->expectApiErrorCode( 'missingrev' );
+		$this->setExpectedApiException( [ 'apierror-missingrev-pageid', $revRecord->getPageId() ] );
 
 		// Corrupt the database.  @todo Does the API really need to fail gracefully for this case?
-		$this->getDb()->newUpdateQueryBuilder()
-			->update( 'page' )
-			->set( [ 'page_latest' => 0 ] )
-			->where( [ 'page_id' => $revRecord->getPageId() ] )
-			->caller( __METHOD__ )->execute();
+		$dbw = wfGetDB( DB_PRIMARY );
+		$dbw->update(
+			'page',
+			[ 'page_latest' => 0 ],
+			[ 'page_id' => $revRecord->getPageId() ],
+			__METHOD__
+		);
 
 		$this->doStash( [ 'title' => $name, 'baserevid' => $revRecord->getId() ] );
 	}
 
 	public function testExistingPage() {
 		$name = ucfirst( __FUNCTION__ );
-		$revRecord = $this->editPage( $name, '' )->getNewRevision();
+		$revRecord = $this->editPage( $name, '' )->value['revision-record'];
 
 		$this->doStash( [ 'title' => $name, 'baserevid' => $revRecord->getId() ] );
 	}
@@ -228,7 +218,7 @@ class ApiStashEditTest extends ApiTestCase {
 		$this->markTestSkippedIfNoDiff3();
 
 		$name = ucfirst( __FUNCTION__ );
-		$oldRevRecord = $this->editPage( $name, "A\n\nB" )->getNewRevision();
+		$oldRevRecord = $this->editPage( $name, "A\n\nB" )->value['revision-record'];
 		$this->editPage( $name, "A\n\nC" );
 
 		$this->doStash( [
@@ -240,7 +230,7 @@ class ApiStashEditTest extends ApiTestCase {
 
 	public function testEditConflict() {
 		$name = ucfirst( __FUNCTION__ );
-		$oldRevRecord = $this->editPage( $name, 'A' )->getNewRevision();
+		$oldRevRecord = $this->editPage( $name, 'A' )->value['revision-record'];
 		$this->editPage( $name, 'B' );
 
 		$this->doStash( [
@@ -261,7 +251,7 @@ class ApiStashEditTest extends ApiTestCase {
 			'',
 			NS_MAIN,
 			$performer
-		)->getNewRevision();
+		)->value['revision-record'];
 		$this->editPage(
 			$title,
 			new WikitextContent( 'Text' ),
@@ -270,16 +260,20 @@ class ApiStashEditTest extends ApiTestCase {
 			$performer
 		);
 
-		$this->expectApiErrorCode( 'contentmodel-mismatch' );
+		$this->setExpectedApiException(
+			[ 'apierror-contentmodel-mismatch', 'wikitext', 'css' ]
+		);
 		$this->doStash( [ 'title' => $title->getPrefixedText(), 'baserevid' => $revRecord->getId() ] );
 	}
 
 	public function testDeletedRevision() {
 		$name = ucfirst( __FUNCTION__ );
-		$oldRevRecord = $this->editPage( $name, 'A' )->getNewRevision();
+		$oldRevRecord = $this->editPage( $name, 'A' )->value['revision-record'];
 		$this->editPage( $name, 'B' );
 
-		$this->expectApiErrorCode( 'missingrev' );
+		$this->setExpectedApiException(
+			[ 'apierror-missingcontent-pageid', $oldRevRecord->getPageId() ]
+		);
 
 		$this->revisionDelete( $oldRevRecord );
 
@@ -292,10 +286,10 @@ class ApiStashEditTest extends ApiTestCase {
 
 	public function testDeletedRevisionSection() {
 		$name = ucfirst( __FUNCTION__ );
-		$oldRevRecord = $this->editPage( $name, 'A' )->getNewRevision();
+		$oldRevRecord = $this->editPage( $name, 'A' )->value['revision-record'];
 		$this->editPage( $name, 'B' );
 
-		$this->expectApiErrorCode( 'replacefailed' );
+		$this->setExpectedApiException( 'apierror-sectionreplacefailed' );
 
 		$this->revisionDelete( $oldRevRecord );
 
@@ -326,7 +320,7 @@ class ApiStashEditTest extends ApiTestCase {
 	 */
 	protected function doCheckCache( UserIdentity $user, $text = 'Content' ) {
 		return $this->getServiceContainer()->getPageEditStash()->checkCache(
-			Title::makeTitle( NS_MAIN, 'ApiStashEditTest' ),
+			Title::newFromText( __CLASS__ ),
 			new WikitextContent( $text ),
 			$user
 		);
@@ -363,8 +357,7 @@ class ApiStashEditTest extends ApiTestCase {
 	}
 
 	public function testCheckCacheAnon() {
-		$this->disableAutoCreateTempUser();
-		$user = $this->getServiceContainer()->getUserFactory()->newFromName( '174.5.4.6', UserRigorOptions::RIGOR_NONE );
+		$user = User::newFromName( '174.5.4.6', false );
 
 		$this->doStash( [], $user );
 
@@ -381,8 +374,21 @@ class ApiStashEditTest extends ApiTestCase {
 	protected function doStashOld(
 		User $user, $text = 'Content', $howOld = PageEditStash::PRESUME_FRESH_TTL_SEC
 	) {
-		ConvertibleTimestamp::setFakeTime( ConvertibleTimestamp::now( TS_UNIX ) - $howOld - 1 );
 		$this->doStash( [ 'text' => $text ], $user );
+
+		// Monkey with the cache to make the edit look old.  @todo Is there a less fragile way to
+		// fake the time?
+		$key = $this->getStashKey( __CLASS__, $text, $user );
+
+		$editStash = TestingAccessWrapper::newFromObject(
+			$this->getServiceContainer()->getPageEditStash() );
+		$cache = $editStash->cache;
+
+		$editInfo = $cache->get( $key );
+		$editInfo->output->setCacheTime( wfTimestamp( TS_MW,
+			wfTimestamp( TS_UNIX, $editInfo->output->getCacheTime() ) - $howOld - 1 ) );
+
+		$cache->set( $key, $editInfo );
 	}
 
 	public function testCheckCacheOldNoEdits() {
@@ -395,9 +401,8 @@ class ApiStashEditTest extends ApiTestCase {
 	}
 
 	public function testCheckCacheOldNoEditsAnon() {
-		$this->disableAutoCreateTempUser();
 		// Specify a made-up IP address to make sure no edits are lying around
-		$user = $this->getServiceContainer()->getUserFactory()->newFromName( '172.0.2.77', UserRigorOptions::RIGOR_NONE );
+		$user = User::newFromName( '172.0.2.77', false );
 
 		$this->doStashOld( $user );
 
@@ -429,7 +434,7 @@ class ApiStashEditTest extends ApiTestCase {
 		$editStash = TestingAccessWrapper::newFromObject(
 			$this->getServiceContainer()->getPageEditStash() );
 		$cache = $editStash->cache;
-		$key = $this->getStashKey( self::CLASS_NAME, $text );
+		$key = $this->getStashKey( __CLASS__, $text );
 
 		$wrapper = TestingAccessWrapper::newFromObject( $cache );
 
@@ -460,11 +465,11 @@ class ApiStashEditTest extends ApiTestCase {
 		$this->markTestSkipped();
 
 		$key = $this->getStashKey();
-		$this->getDb()->lock( $key, __METHOD__, 0 );
+		$this->db->lock( $key, __METHOD__, 0 );
 		try {
 			$this->doStash( [], null, 'busy' );
 		} finally {
-			$this->getDb()->unlock( $key, __METHOD__ );
+			$this->db->unlock( $key, __METHOD__ );
 		}
 	}
 }

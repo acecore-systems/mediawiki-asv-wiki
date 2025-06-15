@@ -1,7 +1,4 @@
 <?php
-
-namespace MediaWiki\Deferred;
-
 /**
  * Interface that marks a DataUpdate as enqueuable via the JobQueue
  *
@@ -15,10 +12,6 @@ namespace MediaWiki\Deferred;
 interface EnqueueableDataUpdate {
 	/**
 	 * @return array (domain => DB domain ID, job => IJobSpecification)
-	 * @phan-return array{domain: string, job: \IJobSpecification}
 	 */
 	public function getAsJobSpecification();
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( EnqueueableDataUpdate::class, 'EnqueueableDataUpdate' );

@@ -1,10 +1,8 @@
 <?php
 
-// @codeCoverageIgnoreStart
-require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
+use MediaWiki\MediaWikiServices;
 
-use MediaWiki\Title\TitleValue;
+require_once __DIR__ . '/Maintenance.php';
 
 /**
  * Maintenance script that populates normalization column in links tables.
@@ -20,7 +18,7 @@ class MigrateLinksTable extends LoggedUpdateMaintenance {
 		);
 		$this->addOption(
 			'table',
-			'Table name. Like pagelinks.',
+			'Table name. Like templatelinks.',
 			true,
 			true
 		);
@@ -92,9 +90,9 @@ class MigrateLinksTable extends LoggedUpdateMaintenance {
 		$batchSize = $this->getBatchSize();
 		$targetColumn = $mapping[$table]['target_id'];
 		$pageIdColumn = $mapping[$table]['page_id'];
-		// range is inclusive, let's subtract one.
+		// BETWEEN is inclusive, let's subtract one.
 		$highPageId = $lowPageId + $batchSize - 1;
-		$dbw = $this->getPrimaryDB();
+		$dbw = $this->getDB( DB_PRIMARY );
 		$updated = 0;
 
 		while ( true ) {
@@ -102,9 +100,8 @@ class MigrateLinksTable extends LoggedUpdateMaintenance {
 				->select( [ $mapping[$table]['ns'], $mapping[$table]['title'] ] )
 				->from( $table )
 				->where( [
-					$targetColumn => [ null, 0 ],
-					$dbw->expr( $pageIdColumn, '>=', $lowPageId ),
-					$dbw->expr( $pageIdColumn, '<=', $highPageId ),
+					$targetColumn => null,
+					"$pageIdColumn BETWEEN $lowPageId AND $highPageId"
 				] )
 				->limit( 1 )
 				->caller( __METHOD__ )
@@ -118,23 +115,19 @@ class MigrateLinksTable extends LoggedUpdateMaintenance {
 			$title = new TitleValue( (int)$ns, $titleString );
 			$this->output( "Starting backfill of $ns:$titleString " .
 				"title on pages between $lowPageId and $highPageId\n" );
-			$id = $this->getServiceContainer()->getLinkTargetLookup()->acquireLinkTargetId( $title, $dbw );
-			$dbw->newUpdateQueryBuilder()
-				->update( $table )
-				->set( [ $targetColumn => $id ] )
-				->where( [
-					$targetColumn => [ null, 0 ],
-					$mapping[$table]['ns'] => $ns,
-					$mapping[$table]['title'] => $titleString,
-					$dbw->expr( $pageIdColumn, '>=', $lowPageId ),
-					$dbw->expr( $pageIdColumn, '<=', $highPageId ),
-				] )
-				->caller( __METHOD__ )->execute();
+			$id = MediaWikiServices::getInstance()->getLinkTargetLookup()->acquireLinkTargetId( $title, $dbw );
+			$conds = [
+				$targetColumn => null,
+				$mapping[$table]['ns'] => $ns,
+				$mapping[$table]['title'] => $titleString,
+				"$pageIdColumn BETWEEN $lowPageId AND $highPageId"
+			];
+			$dbw->update( $table, [ $targetColumn => $id ], $conds, __METHOD__ );
 			$updatedInThisBatch = $dbw->affectedRows();
 			$updated += $updatedInThisBatch;
 			$this->output( "Updated $updatedInThisBatch rows\n" );
 			// Sleep between batches for replication to catch up
-			$this->waitForReplication();
+			MediaWikiServices::getInstance()->getDBLoadBalancerFactory()->waitForReplication();
 			$sleep = (int)$this->getOption( 'sleep', 0 );
 			if ( $sleep > 0 ) {
 				sleep( $sleep );
@@ -145,7 +138,5 @@ class MigrateLinksTable extends LoggedUpdateMaintenance {
 
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = MigrateLinksTable::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

@@ -1,10 +1,6 @@
 <?php
 
-namespace MediaWiki\Tests\Auth;
-
-use MediaWiki\Auth\AuthManager;
-use MediaWiki\Auth\PasswordAuthenticationRequest;
-use MediaWiki\Message\Message;
+namespace MediaWiki\Auth;
 
 /**
  * @group AuthManager
@@ -66,7 +62,7 @@ class PasswordAuthenticationRequestTest extends AuthenticationRequestTestCase {
 		);
 	}
 
-	public static function provideLoadFromSubmission() {
+	public function provideLoadFromSubmission() {
 		return [
 			'Empty request, login' => [
 				[ AuthManager::ACTION_LOGIN ],
@@ -127,17 +123,16 @@ class PasswordAuthenticationRequestTest extends AuthenticationRequestTestCase {
 	}
 
 	public function testDescribeCredentials() {
-		$username = 'TestDescribeCredentials';
 		$req = new PasswordAuthenticationRequest;
 		$req->action = AuthManager::ACTION_LOGIN;
-		$req->username = $username;
+		$req->username = 'UTSysop';
 		$ret = $req->describeCredentials();
 		$this->assertIsArray( $ret );
 		$this->assertArrayHasKey( 'provider', $ret );
-		$this->assertInstanceOf( Message::class, $ret['provider'] );
+		$this->assertInstanceOf( \Message::class, $ret['provider'] );
 		$this->assertSame( 'authmanager-provider-password', $ret['provider']->getKey() );
 		$this->assertArrayHasKey( 'account', $ret );
-		$this->assertInstanceOf( Message::class, $ret['account'] );
-		$this->assertSame( [ $username ], $ret['account']->getParams() );
+		$this->assertInstanceOf( \Message::class, $ret['account'] );
+		$this->assertSame( [ 'UTSysop' ], $ret['account']->getParams() );
 	}
 }

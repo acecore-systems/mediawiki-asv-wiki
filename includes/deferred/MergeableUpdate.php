@@ -1,7 +1,5 @@
 <?php
 
-namespace MediaWiki\Deferred;
-
 /**
  * Interface that deferrable updates can implement to signal that updates can be combined.
  *
@@ -28,6 +26,3 @@ interface MergeableUpdate extends DeferrableUpdate {
 	 */
 	public function merge( MergeableUpdate $update );
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( MergeableUpdate::class, 'MergeableUpdate' );

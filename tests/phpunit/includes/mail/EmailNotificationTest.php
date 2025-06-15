@@ -1,26 +1,30 @@
 <?php
 
 use MediaWiki\MainConfigNames;
-use MediaWiki\Title\Title;
 
 /**
  * @group Database
- * @group Mail
- * @covers \EmailNotification
  */
 class EmailNotificationTest extends MediaWikiIntegrationTestCase {
 
-	/** @var EmailNotification */
 	protected $emailNotification;
 
 	protected function setUp(): void {
 		parent::setUp();
+
+		$this->tablesUsed = [
+			'watchlist',
+			'watchlist_expiry',
+		];
 
 		$this->emailNotification = new EmailNotification();
 
 		$this->overrideConfigValue( MainConfigNames::WatchlistExpiry, true );
 	}
 
+	/**
+	 * @covers EmailNotification::notifyOnPageChange
+	 */
 	public function testNotifyOnPageChange(): void {
 		$store = $this->getServiceContainer()->getWatchedItemStore();
 

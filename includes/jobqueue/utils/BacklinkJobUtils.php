@@ -1,5 +1,7 @@
 <?php
 /**
+ * Job to update links for a given title.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,13 +18,14 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup JobQueue
  */
 
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\PageIdentity;
 
 /**
- * Helper for a Job that updates links to a given page title.
+ * Class with Backlink related Job helper methods
  *
  * When an asset changes, a base job can be inserted to update all assets that depend on it.
  * The base job splits into per-title "leaf" jobs and a "remnant" job to handle the remaining
@@ -45,8 +48,8 @@ use MediaWiki\Page\PageIdentity;
  * number of workers. Also, with FIFO-per-partition queues, the queue size can be somewhat larger,
  * depending on the number of queue partitions.
  *
- * @since 1.23
  * @ingroup JobQueue
+ * @since 1.23
  */
 class BacklinkJobUtils {
 	/**
@@ -111,8 +114,7 @@ class BacklinkJobUtils {
 		$jobs = [];
 		// Combine the first range (of size $bSize) backlinks into leaf jobs
 		if ( isset( $ranges[0] ) ) {
-			$start = $ranges[0][0];
-			$end = isset( $ranges[1] ) ? $ranges[1][0] - 1 : false;
+			list( $start, $end ) = $ranges[0];
 
 			$iter = $backlinkCache->getLinkPages( $params['table'], $start, $end );
 			$pageSources = iterator_to_array( $iter );

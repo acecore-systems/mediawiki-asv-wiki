@@ -1,9 +1,8 @@
 <?php
 
-namespace MediaWiki\Tests\Sparql;
+namespace MediaWiki\Sparql;
 
 use MediaWiki\Http\HttpRequestFactory;
-use MediaWiki\Sparql\SparqlClient;
 use MWHttpRequest;
 
 /**
@@ -19,7 +18,7 @@ class SparqlClientTest extends \PHPUnit\Framework\TestCase {
 
 	private function getRequestMock( $content ) {
 		$request = $this->createMock( MWHttpRequest::class );
-		$request->method( 'execute' )->willReturn( \MediaWiki\Status\Status::newGood( 200 ) );
+		$request->method( 'execute' )->willReturn( \Status::newGood( 200 ) );
 		$request->method( 'getContent' )->willReturn( $content );
 		return $request;
 	}
@@ -82,12 +81,12 @@ JSON;
 		$request = $this->createMock( MWHttpRequest::class );
 		$client = new SparqlClient( 'http://acme.test/', $this->getRequestFactory( $request ) );
 
-		$request->method( 'execute' )->willReturn( \MediaWiki\Status\Status::newFatal( "Bad query" ) );
-		$this->expectException( \MediaWiki\Sparql\SparqlException::class );
+		$request->method( 'execute' )->willReturn( \Status::newFatal( "Bad query" ) );
+		$this->expectException( \Mediawiki\Sparql\SparqlException::class );
 		$result = $client->query( "TEST SPARQL 3" );
 	}
 
-	public static function optionsProvider() {
+	public function optionsProvider() {
 		return [
 			'defaults' => [
 				'TEST тест SPARQL 4 ',

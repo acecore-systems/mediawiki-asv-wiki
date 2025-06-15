@@ -1,6 +1,8 @@
 <?php
 /** Moroccan Arabic, Darija (الدارجة)
  *
+ * To improve a translation please visit https://translatewiki.net
+ *
  * @file
  * @ingroup Languages
  */
@@ -31,9 +33,7 @@ $namespaceNames = [
 $namespaceAliases = [
 	'نقاش' => NS_TALK,
 	'مستخدم' => NS_USER,
-	'مستخدمة' => NS_USER, // Feminine form from Standard Arabic
 	'نقاش_المستخدم' => NS_USER_TALK,
-	'نقاش_المستخدمة' => NS_USER_TALK, // Feminine form from Standard Arabic
 	'نقاش_$1' => NS_PROJECT_TALK,
 	'ملف' => NS_FILE,
 	'نقاش_الملف' => NS_FILE_TALK,
@@ -43,18 +43,6 @@ $namespaceAliases = [
 	'مساعدة' => NS_HELP,
 	'نقاش_المساعدة' => NS_HELP_TALK,
 	'نقاش_التصنيف' => NS_CATEGORY_TALK,
-];
-
-// Discussed in T354006
-$namespaceGenderAliases = [
-	NS_USER => [
-		'male' => 'خدايمي',
-		'female' => 'خدايمية'
-	],
-	NS_USER_TALK => [
-		'male' => 'لمداكرة_د_لخدايمي',
-		'female' => 'لمداكرة_د_لخدايمية'
-	],
 ];
 
 // (T18469) Override Eastern Arabic numberals, use Western

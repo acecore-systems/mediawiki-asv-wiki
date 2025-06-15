@@ -2,11 +2,9 @@
 
 use MediaWiki\MainConfigNames;
 use MediaWiki\Revision\RevisionRecord;
-use MediaWiki\Title\Title;
-use MediaWiki\Utils\MWTimestamp;
 
 /**
- * @covers \CategoryMembershipChangeJob
+ * @covers CategoryMembershipChangeJob
  *
  * @group JobQueue
  * @group Database
@@ -41,15 +39,14 @@ class CategoryMembershipChangeJobTest extends MediaWikiIntegrationTestCase {
 	 * @return int|null
 	 */
 	private function editPageText( $text ) {
-		$editResult = $this->editPage(
-			$this->title,
-			$text,
-			__METHOD__,
-			NS_MAIN,
-			$this->getTestSysop()->getAuthority()
+		$page = WikiPage::factory( $this->title );
+		$editResult = $page->doUserEditContent(
+			ContentHandler::makeContent( $text, $this->title ),
+			$this->getTestSysop()->getUser(),
+			__METHOD__
 		);
 		/** @var RevisionRecord $revisionRecord */
-		$revisionRecord = $editResult->getNewRevision();
+		$revisionRecord = $editResult->value['revision-record'];
 		$this->runJobs();
 
 		return $revisionRecord->getId();
@@ -88,7 +85,7 @@ class CategoryMembershipChangeJobTest extends MediaWikiIntegrationTestCase {
 	}
 
 	public function testJobSpecRemovesDuplicates() {
-		$jobSpec = CategoryMembershipChangeJob::newSpec( $this->title, MWTimestamp::now(), false );
+		$jobSpec = CategoryMembershipChangeJob::newSpec( $this->title, MWTimestamp::now() );
 		$job = new CategoryMembershipChangeJob(
 			$this->title,
 			$jobSpec->getParams()
@@ -99,8 +96,8 @@ class CategoryMembershipChangeJobTest extends MediaWikiIntegrationTestCase {
 	}
 
 	public function testJobSpecDeduplicationIgnoresRevTimestamp() {
-		$jobSpec1 = CategoryMembershipChangeJob::newSpec( $this->title, '20191008204617', false );
-		$jobSpec2 = CategoryMembershipChangeJob::newSpec( $this->title, '20201008204617', false );
+		$jobSpec1 = CategoryMembershipChangeJob::newSpec( $this->title, '20191008204617' );
+		$jobSpec2 = CategoryMembershipChangeJob::newSpec( $this->title, '20201008204617' );
 		$this->assertArrayEquals( $jobSpec1->getDeduplicationInfo(), $jobSpec2->getDeduplicationInfo() );
 	}
 }

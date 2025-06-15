@@ -18,7 +18,7 @@
  * @file
  */
 
-use MediaWiki\MediaWikiServices;
+use Wikimedia\Rdbms\Database;
 use Wikimedia\Rdbms\DBQueryError;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\ScopedCallback;
@@ -39,9 +39,9 @@ class LCStoreDB implements LCStore {
 
 	/** @var IDatabase|null */
 	private $dbw;
-	/** @var bool Whether write batch was recently written */
+	/** @var bool Whether a batch of writes were recently written */
 	private $writesDone = false;
-	/** @var bool Whether the DB is read-only or otherwise unavailable for writing */
+	/** @var bool Whether the DB is read-only or otherwise unavailable for writes */
 	private $readOnly = false;
 
 	public function __construct( $params ) {
@@ -55,14 +55,15 @@ class LCStoreDB implements LCStore {
 			// sure those changes are always visible.
 			$db = $this->getWriteConnection();
 		} else {
-			$db = MediaWikiServices::getInstance()->getConnectionProvider()->getReplicaDatabase();
+			$db = wfGetDB( DB_REPLICA );
 		}
 
-		$value = $db->newSelectQueryBuilder()
-			->select( 'lc_value' )
-			->from( 'l10n_cache' )
-			->where( [ 'lc_lang' => $code, 'lc_key' => $key ] )
-			->caller( __METHOD__ )->fetchField();
+		$value = $db->selectField(
+			'l10n_cache',
+			'lc_value',
+			[ 'lc_lang' => $code, 'lc_key' => $key ],
+			__METHOD__
+		);
 
 		return ( $value !== false ) ? unserialize( $db->decodeBlob( $value ) ) : null;
 	}
@@ -71,7 +72,7 @@ class LCStoreDB implements LCStore {
 		if ( $this->readOnly ) {
 			return;
 		} elseif ( !$code ) {
-			throw new InvalidArgumentException( __METHOD__ . ": Invalid language \"$code\"" );
+			throw new MWException( __METHOD__ . ": Invalid language \"$code\"" );
 		}
 
 		$dbw = $this->getWriteConnection();
@@ -85,27 +86,21 @@ class LCStoreDB implements LCStore {
 		if ( $this->readOnly ) {
 			return;
 		} elseif ( $this->code === null ) {
-			throw new LogicException( __CLASS__ . ': must call startWrite() before finishWrite()' );
+			throw new MWException( __CLASS__ . ': must call startWrite() before finishWrite()' );
 		}
 
 		$scope = Profiler::instance()->getTransactionProfiler()->silenceForScope();
 		$dbw = $this->getWriteConnection();
 		$dbw->startAtomic( __METHOD__ );
 		try {
-			$dbw->newDeleteQueryBuilder()
-				->deleteFrom( 'l10n_cache' )
-				->where( [ 'lc_lang' => $this->code ] )
-				->caller( __METHOD__ )->execute();
+			$dbw->delete( 'l10n_cache', [ 'lc_lang' => $this->code ], __METHOD__ );
 			foreach ( array_chunk( $this->batch, 500 ) as $rows ) {
-				$dbw->newInsertQueryBuilder()
-					->insertInto( 'l10n_cache' )
-					->rows( $rows )
-					->caller( __METHOD__ )->execute();
+				$dbw->insert( 'l10n_cache', $rows, __METHOD__ );
 			}
 			$this->writesDone = true;
 		} catch ( DBQueryError $e ) {
-			if ( $dbw->isReadOnly() ) {
-				$this->readOnly = true; // just avoid site downtime
+			if ( $dbw->wasReadOnlyError() ) {
+				$this->readOnly = true; // just avoid site down time
 			} else {
 				throw $e;
 			}
@@ -121,7 +116,7 @@ class LCStoreDB implements LCStore {
 		if ( $this->readOnly ) {
 			return;
 		} elseif ( $this->code === null ) {
-			throw new LogicException( __CLASS__ . ': must call startWrite() before set()' );
+			throw new MWException( __CLASS__ . ': must call startWrite() before set()' );
 		}
 
 		$dbw = $this->getWriteConnection();
@@ -139,13 +134,12 @@ class LCStoreDB implements LCStore {
 	private function getWriteConnection() {
 		if ( !$this->dbw ) {
 			if ( $this->server ) {
-				$dbFactory = MediaWikiServices::getInstance()->getDatabaseFactory();
-				$this->dbw = $dbFactory->create( $this->server['type'], $this->server );
+				$this->dbw = Database::factory( $this->server['type'], $this->server );
 				if ( !$this->dbw ) {
-					throw new RuntimeException( __CLASS__ . ': failed to obtain a DB connection' );
+					throw new MWException( __CLASS__ . ': failed to obtain a DB connection' );
 				}
 			} else {
-				$this->dbw = MediaWikiServices::getInstance()->getConnectionProvider()->getPrimaryDatabase();
+				$this->dbw = wfGetDB( DB_PRIMARY );
 			}
 		}
 

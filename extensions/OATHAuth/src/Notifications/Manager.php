@@ -20,16 +20,15 @@
 
 namespace MediaWiki\Extension\OATHAuth\Notifications;
 
-use MediaWiki\Extension\Notifications\Model\Event;
+use EchoEvent;
+use ExtensionRegistry;
 use MediaWiki\Extension\OATHAuth\OATHUser;
-use MediaWiki\Registration\ExtensionRegistry;
-use MediaWiki\SpecialPage\SpecialPage;
+use SpecialPage;
 
 /**
  * Manages logic for configuring and sending out notifications with Echo
  */
 class Manager {
-
 	/**
 	 * Whether Echo is installed and can be used
 	 *
@@ -49,14 +48,12 @@ class Manager {
 		if ( !self::isEnabled() ) {
 			return;
 		}
-		Event::create( [
-			// message used: notification-header-oathauth-disable
+		EchoEvent::create( [
 			'type' => 'oathauth-disable',
 			'title' => SpecialPage::getTitleFor( 'Preferences' ),
 			'agent' => $oUser->getUser(),
 			'extra' => [
 				'self' => $self,
-				'activeDevices' => count( $oUser->getKeys() ),
 			]
 		] );
 	}
@@ -70,36 +67,38 @@ class Manager {
 		if ( !self::isEnabled() ) {
 			return;
 		}
-		Event::create( [
-			// message used: notification-header-oathauth-enable
+		EchoEvent::create( [
 			'type' => 'oathauth-enable',
 			'title' => SpecialPage::getTitleFor( 'Preferences' ),
-			'agent' => $oUser->getUser(),
-			'extra' => [
-				'activeDevices' => count( $oUser->getKeys() ),
-			],
+			'agent' => $oUser->getUser()
 		] );
 	}
 
 	/**
-	 * Send a notification that the user has $tokenCount recovery tokens left
+	 * Hook: BeforeCreateEchoEvent
 	 *
-	 * @param OATHUser $oUser
-	 * @param int $tokenCount
-	 * @param int $generatedCount
+	 * Configure our notification types. We don't register a category since
+	 * these are all "system" messages that cannot be disabled.
+	 *
+	 * @param array &$notifications
 	 */
-	public static function notifyRecoveryTokensRemaining( OATHUser $oUser, int $tokenCount, int $generatedCount ) {
-		if ( !self::isEnabled() ) {
-			return;
-		}
-		Event::create( [
-			// message used: notification-header-oathauth-recoverycodes-count
-			'type' => 'oathauth-recoverycodes-count',
-			'agent' => $oUser->getUser(),
-			'extra' => [
-				'codeCount' => $tokenCount,
-				'generatedCount' => $generatedCount,
-			],
-		] );
+	public static function onBeforeCreateEchoEvent( &$notifications ) {
+		$notifications['oathauth-disable'] = [
+			'category' => 'system',
+			'group' => 'negative',
+			'section' => 'alert',
+			'presentation-model' => DisablePresentationModel::class,
+			'canNotifyAgent' => true,
+			'user-locators' => [ 'EchoUserLocator::locateEventAgent' ],
+		];
+
+		$notifications['oathauth-enable'] = [
+			'category' => 'system',
+			'group' => 'positive',
+			'section' => 'alert',
+			'presentation-model' => EnablePresentationModel::class,
+			'canNotifyAgent' => true,
+			'user-locators' => [ 'EchoUserLocator::locateEventAgent' ],
+		];
 	}
 }

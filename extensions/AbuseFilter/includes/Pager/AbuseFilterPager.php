@@ -2,18 +2,17 @@
 
 namespace MediaWiki\Extension\AbuseFilter\Pager;
 
+use Linker;
 use LogicException;
 use MediaWiki\Cache\LinkBatchFactory;
 use MediaWiki\Extension\AbuseFilter\AbuseFilterPermissionManager;
-use MediaWiki\Extension\AbuseFilter\FilterUtils;
 use MediaWiki\Extension\AbuseFilter\SpecsFormatter;
 use MediaWiki\Extension\AbuseFilter\View\AbuseFilterViewList;
-use MediaWiki\Linker\Linker;
 use MediaWiki\Linker\LinkRenderer;
-use MediaWiki\Pager\TablePager;
-use MediaWiki\SpecialPage\SpecialPage;
+use MWException;
+use SpecialPage;
 use stdClass;
-use UnexpectedValueException;
+use TablePager;
 use Wikimedia\Rdbms\FakeResultWrapper;
 use Wikimedia\Rdbms\IResultWrapper;
 
@@ -39,7 +38,7 @@ class AbuseFilterPager extends TablePager {
 	private $linkBatchFactory;
 
 	/** @var AbuseFilterPermissionManager */
-	private $afPermManager;
+	protected $afPermManager;
 
 	/** @var SpecsFormatter */
 	protected $specsFormatter;
@@ -47,11 +46,11 @@ class AbuseFilterPager extends TablePager {
 	/**
 	 * @var AbuseFilterViewList The associated page
 	 */
-	private $mPage;
+	protected $mPage;
 	/**
 	 * @var array Query WHERE conditions
 	 */
-	private $conds;
+	protected $conds;
 	/**
 	 * @var string|null The pattern being searched
 	 */
@@ -97,7 +96,7 @@ class AbuseFilterPager extends TablePager {
 	 */
 	public function getQueryInfo() {
 		return [
-			'tables' => [ 'abuse_filter', 'actor' ],
+			'tables' => [ 'abuse_filter' ],
 			'fields' => [
 				// All columns but af_comments
 				'af_id',
@@ -106,19 +105,16 @@ class AbuseFilterPager extends TablePager {
 				'af_pattern',
 				'af_global',
 				'af_public_comments',
-				'af_user' => 'actor_user',
-				'af_user_text' => 'actor_name',
 				'af_hidden',
 				'af_hit_count',
 				'af_timestamp',
+				'af_user_text',
+				'af_user',
 				'af_actions',
 				'af_group',
 				'af_throttled'
 			],
 			'conds' => $this->conds,
-			'join_conds' => [
-				'actor' => [ 'JOIN', 'actor_id = af_actor' ],
-			]
 		];
 	}
 
@@ -151,18 +147,11 @@ class AbuseFilterPager extends TablePager {
 			return parent::reallyDoQuery( $offset, $limit, $order );
 		}
 
-		[ $tables, $fields, $conds, $fname, $options, $join_conds ] =
+		list( $tables, $fields, $conds, $fname, $options, $join_conds ) =
 			$this->buildQueryInfo( $offset, $limit, $order );
 
 		unset( $options['LIMIT'] );
-		$res = $this->mDb->newSelectQueryBuilder()
-			->tables( $tables )
-			->fields( $fields )
-			->conds( $conds )
-			->caller( $fname )
-			->options( $options )
-			->joinConds( $join_conds )
-			->fetchResultSet();
+		$res = $this->mDb->select( $tables, $fields, $conds, $fname, $options, $join_conds );
 
 		$filtered = [];
 		foreach ( $res as $row ) {
@@ -206,7 +195,7 @@ class AbuseFilterPager extends TablePager {
 	/**
 	 * Note: this method is called by parent::__construct
 	 * @return array
-	 * @see MediaWiki\Pager\Pager::getFieldNames()
+	 * @see Pager::getFieldNames()
 	 */
 	public function getFieldNames() {
 		$headers = [
@@ -223,10 +212,7 @@ class AbuseFilterPager extends TablePager {
 			$headers['af_hit_count'] = 'abusefilter-list-hitcount';
 		}
 
-		if (
-				$this->afPermManager->canViewPrivateFilters( $performer ) &&
-				$this->searchMode !== null
-		) {
+		if ( $this->afPermManager->canViewPrivateFilters( $performer ) && $this->searchMode !== null ) {
 			// This is also excluded in the default view
 			$headers['af_pattern'] = 'abusefilter-list-pattern';
 		}
@@ -292,17 +278,8 @@ class AbuseFilterPager extends TablePager {
 
 				return $lang->commaList( $statuses );
 			case 'af_hidden':
-				$flagMsgs = [];
-				if ( FilterUtils::isHidden( (int)$value ) ) {
-					$flagMsgs[] = $this->msg( 'abusefilter-hidden' )->parse();
-				}
-				if ( FilterUtils::isProtected( (int)$value ) ) {
-					$flagMsgs[] = $this->msg( 'abusefilter-protected' )->parse();
-				}
-				if ( !$flagMsgs ) {
-					return $this->msg( 'abusefilter-unhidden' )->parse();
-				}
-				return $lang->commaList( $flagMsgs );
+				$msg = $value ? 'abusefilter-hidden' : 'abusefilter-unhidden';
+				return $this->msg( $msg )->parse();
 			case 'af_hit_count':
 				if ( $this->afPermManager->canSeeLogDetailsForFilter( $user, $row->af_hidden ) ) {
 					$count_display = $this->msg( 'abusefilter-hitcount' )
@@ -320,11 +297,11 @@ class AbuseFilterPager extends TablePager {
 			case 'af_timestamp':
 				$userLink =
 					Linker::userLink(
-						$row->af_user ?? 0,
+						$row->af_user,
 						$row->af_user_text
 					) .
 					Linker::userToolLinks(
-						$row->af_user ?? 0,
+						$row->af_user,
 						$row->af_user_text
 					);
 
@@ -349,7 +326,7 @@ class AbuseFilterPager extends TablePager {
 			case 'af_group':
 				return $this->specsFormatter->nameGroup( $value );
 			default:
-				throw new UnexpectedValueException( "Unknown row type $name!" );
+				throw new MWException( "Unknown row type $name!" );
 		}
 	}
 
@@ -453,16 +430,15 @@ class AbuseFilterPager extends TablePager {
 	}
 
 	/**
-	 * @param string $field
-	 *
+	 * @param string $name
 	 * @return bool
 	 */
-	public function isFieldSortable( $field ) {
-		if ( ( $field === 'af_hit_count' || $field === 'af_public_comments' )
+	public function isFieldSortable( $name ) {
+		if ( ( $name === 'af_hit_count' || $name === 'af_public_comments' )
 			&& !$this->afPermManager->canSeeLogDetails( $this->getAuthority() )
 		) {
 			return false;
 		}
-		return isset( self::INDEX_FIELDS[$field] );
+		return isset( self::INDEX_FIELDS[$name] );
 	}
 }

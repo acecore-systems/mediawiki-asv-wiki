@@ -20,8 +20,8 @@
 
 namespace MediaWiki\Session;
 
-use MediaWiki\Request\WebRequest;
-use MediaWiki\User\LoggedOutEditToken;
+use LoggedOutEditToken;
+use WebRequest;
 
 /**
  * Stores and matches CSRF tokens belonging to a given session user.
@@ -35,7 +35,10 @@ class CsrfTokenSet {
 	 */
 	public const DEFAULT_FIELD_NAME = 'wpEditToken';
 
-	private WebRequest $request;
+	/**
+	 * @var WebRequest
+	 */
+	private $request;
 
 	/**
 	 * @param WebRequest $request

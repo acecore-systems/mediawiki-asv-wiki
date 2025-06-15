@@ -1,4 +1,4 @@
-const LanguageResultWidget = require( './LanguageResultWidget.js' );
+var LanguageResultWidget = require( './LanguageResultWidget.js' );
 
 /**
  * Creates a TemplateDataLanguageSearchWidget object.
@@ -12,23 +12,25 @@ const LanguageResultWidget = require( './LanguageResultWidget.js' );
  */
 function LanguageSearchWidget( config ) {
 	// Configuration initialization
-	config = Object.assign( {
+	config = $.extend( {
 		placeholder: mw.msg( 'templatedata-modal-search-input-placeholder' )
 	}, config );
 
 	// Parent constructor
-	LanguageSearchWidget.super.call( this, config );
+	LanguageSearchWidget.parent.call( this, config );
 
 	// Properties
 	this.filteredLanguageResultWidgets = [];
-	const languageCodes = Object.keys( $.uls.data.getAutonyms() ).sort();
-	this.languageResultWidgets = languageCodes.map( ( languageCode ) => new LanguageResultWidget( {
-		data: {
-			code: languageCode,
-			name: $.uls.data.getAutonym( languageCode ),
-			autonym: $.uls.data.getAutonym( languageCode )
-		}
-	} ) );
+	var languageCodes = Object.keys( $.uls.data.getAutonyms() ).sort();
+	this.languageResultWidgets = languageCodes.map( function ( languageCode ) {
+		return new LanguageResultWidget( {
+			data: {
+				code: languageCode,
+				name: $.uls.data.getAutonym( languageCode ),
+				autonym: $.uls.data.getAutonym( languageCode )
+			}
+		} );
+	} );
 	this.setAvailableLanguages();
 
 	// Initialization
@@ -46,7 +48,7 @@ OO.inheritClass( LanguageSearchWidget, OO.ui.SearchWidget );
  */
 LanguageSearchWidget.prototype.onQueryChange = function () {
 	// Parent method
-	LanguageSearchWidget.super.prototype.onQueryChange.apply( this, arguments );
+	LanguageSearchWidget.parent.prototype.onQueryChange.apply( this, arguments );
 
 	// Populate
 	this.addResults();
@@ -63,37 +65,36 @@ LanguageSearchWidget.prototype.setAvailableLanguages = function ( availableLangu
 		return;
 	}
 
-	this.filteredLanguageResultWidgets = this.languageResultWidgets.map( ( languageResult ) => {
-		const data = languageResult.getData();
+	this.filteredLanguageResultWidgets = this.languageResultWidgets.map( function ( languageResult ) {
+		var data = languageResult.getData();
 		if ( availableLanguages.indexOf( data.code ) !== -1 ) {
 			return languageResult;
 		}
 		return null;
-	} ).filter( ( languageResult ) => languageResult );
+	} ).filter( function ( languageResult ) {
+		return languageResult;
+	} );
 };
 
 /**
  * Update search results from current query
  */
 LanguageSearchWidget.prototype.addResults = function () {
-	const matchProperties = [ 'name', 'autonym', 'code' ],
+	var matchProperties = [ 'name', 'autonym', 'code' ],
 		query = this.query.getValue().trim(),
 		compare = window.Intl && Intl.Collator ?
 			new Intl.Collator( this.lang, { sensitivity: 'base' } ).compare :
-			function ( a, b ) {
-				return a.toLowerCase() === b.toLowerCase() ? 0 : 1;
-			},
+			function ( a, b ) { return a.toLowerCase() === b.toLowerCase() ? 0 : 1; },
 		hasQuery = !!query.length,
 		items = [];
 
-	const results = this.getResults();
-	results.clearItems();
+	this.results.clearItems();
 
-	this.filteredLanguageResultWidgets.forEach( ( languageResult ) => {
-		const data = languageResult.getData();
-		let matchedProperty = null;
+	this.filteredLanguageResultWidgets.forEach( function ( languageResult ) {
+		var data = languageResult.getData();
+		var matchedProperty = null;
 
-		matchProperties.some( ( prop ) => {
+		matchProperties.some( function ( prop ) {
 			if ( data[ prop ] && compare( data[ prop ].slice( 0, query.length ), query ) === 0 ) {
 				matchedProperty = prop;
 				return true;
@@ -107,16 +108,13 @@ LanguageSearchWidget.prototype.addResults = function () {
 					.updateLabel( query, matchedProperty, compare )
 					.setSelected( false )
 					.setHighlighted( false )
-					// Forward keyboard-triggered events from the OptionWidget to the SelectWidget
-					.off( 'choose' )
-					.connect( results, { choose: [ 'emit', 'choose' ] } )
 			);
 		}
 	} );
 
-	results.addItems( items );
+	this.results.addItems( items );
 	if ( hasQuery ) {
-		results.highlightItem( results.findFirstSelectableItem() );
+		this.results.highlightItem( this.results.findFirstSelectableItem() );
 	}
 };
 

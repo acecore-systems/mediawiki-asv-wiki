@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Userrights
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,47 +18,24 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
-use LogEventsList;
-use LogPage;
-use ManualLogEntry;
-use MediaWiki\CommentStore\CommentStore;
-use MediaWiki\Html\Html;
-use MediaWiki\HTMLForm\Field\HTMLUserTextField;
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\Linker\Linker;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Output\OutputPage;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Status\Status;
-use MediaWiki\Title\Title;
-use MediaWiki\User\ActorStoreFactory;
-use MediaWiki\User\TempUser\TempUserConfig;
 use MediaWiki\User\UserFactory;
 use MediaWiki\User\UserGroupManager;
 use MediaWiki\User\UserGroupManagerFactory;
-use MediaWiki\User\UserGroupMembership;
 use MediaWiki\User\UserIdentity;
 use MediaWiki\User\UserNamePrefixSearch;
 use MediaWiki\User\UserNameUtils;
-use MediaWiki\Watchlist\WatchlistManager;
-use MediaWiki\WikiMap\WikiMap;
-use MediaWiki\Xml\Xml;
-use MediaWiki\Xml\XmlSelect;
-use PermissionsError;
-use UserBlockedError;
-use Wikimedia\Rdbms\IDBAccessObject;
 
 /**
  * Special page to allow managing user group membership
  *
  * @ingroup SpecialPage
  */
-class SpecialUserRights extends SpecialPage {
+class UserrightsPage extends SpecialPage {
 	/**
 	 * The target of the local right-adjuster's interest.  Can be gotten from
 	 * either a GET parameter or a subpage-style parameter, so have a member
@@ -65,41 +44,34 @@ class SpecialUserRights extends SpecialPage {
 	 */
 	protected $mTarget;
 	/**
-	 * @var null|UserIdentity The user object of the target username or null.
+	 * @var null|User The user object of the target username or null.
 	 */
 	protected $mFetchedUser = null;
-	/** @var bool */
 	protected $isself = false;
 
-	private UserGroupManagerFactory $userGroupManagerFactory;
+	/** @var UserGroupManager */
+	private $userGroupManager;
 
-	/** @var UserGroupManager|null The UserGroupManager of the target username or null */
-	private $userGroupManager = null;
+	/** @var UserNameUtils */
+	private $userNameUtils;
 
-	private UserNameUtils $userNameUtils;
-	private UserNamePrefixSearch $userNamePrefixSearch;
-	private UserFactory $userFactory;
-	private ActorStoreFactory $actorStoreFactory;
-	private WatchlistManager $watchlistManager;
-	private TempUserConfig $tempUserConfig;
+	/** @var UserNamePrefixSearch */
+	private $userNamePrefixSearch;
+
+	/** @var UserFactory */
+	private $userFactory;
 
 	/**
 	 * @param UserGroupManagerFactory|null $userGroupManagerFactory
 	 * @param UserNameUtils|null $userNameUtils
 	 * @param UserNamePrefixSearch|null $userNamePrefixSearch
 	 * @param UserFactory|null $userFactory
-	 * @param ActorStoreFactory|null $actorStoreFactory
-	 * @param WatchlistManager|null $watchlistManager
-	 * @param TempUserConfig|null $tempUserConfig
 	 */
 	public function __construct(
-		?UserGroupManagerFactory $userGroupManagerFactory = null,
-		?UserNameUtils $userNameUtils = null,
-		?UserNamePrefixSearch $userNamePrefixSearch = null,
-		?UserFactory $userFactory = null,
-		?ActorStoreFactory $actorStoreFactory = null,
-		?WatchlistManager $watchlistManager = null,
-		?TempUserConfig $tempUserConfig = null
+		UserGroupManagerFactory $userGroupManagerFactory = null,
+		UserNameUtils $userNameUtils = null,
+		UserNamePrefixSearch $userNamePrefixSearch = null,
+		UserFactory $userFactory = null
 	) {
 		parent::__construct( 'Userrights' );
 		$services = MediaWikiServices::getInstance();
@@ -107,10 +79,10 @@ class SpecialUserRights extends SpecialPage {
 		$this->userNameUtils = $userNameUtils ?? $services->getUserNameUtils();
 		$this->userNamePrefixSearch = $userNamePrefixSearch ?? $services->getUserNamePrefixSearch();
 		$this->userFactory = $userFactory ?? $services->getUserFactory();
-		$this->userGroupManagerFactory = $userGroupManagerFactory ?? $services->getUserGroupManagerFactory();
-		$this->actorStoreFactory = $actorStoreFactory ?? $services->getActorStoreFactory();
-		$this->watchlistManager = $watchlistManager ?? $services->getWatchlistManager();
-		$this->tempUserConfig = $tempUserConfig ?? $services->getTempUserConfig();
+
+		// TODO don't hard code false, use interwiki domains. See T14518
+		$this->userGroupManager = ( $userGroupManagerFactory ?? $services->getUserGroupManagerFactory() )
+			->getUserGroupManager( false );
 	}
 
 	public function doesWrites() {
@@ -120,8 +92,6 @@ class SpecialUserRights extends SpecialPage {
 	/**
 	 * Check whether the current user (from context) can change the target user's rights.
 	 *
-	 * This function can be used without submitting the special page
-	 *
 	 * @param UserIdentity $targetUser User whose rights are being changed
 	 * @param bool $checkIfSelf If false, assume that the current user can add/remove groups defined
 	 *   in $wgGroupsAddToSelf / $wgGroupsRemoveFromSelf, without checking if it's the same as target
@@ -129,22 +99,18 @@ class SpecialUserRights extends SpecialPage {
 	 * @return bool
 	 */
 	public function userCanChangeRights( UserIdentity $targetUser, $checkIfSelf = true ) {
-		if (
-			!$targetUser->isRegistered() ||
-			$this->userNameUtils->isTemp( $targetUser->getName() )
-		) {
+		$isself = $this->getUser()->equals( $targetUser );
+
+		$available = $this->changeableGroups();
+		if ( $targetUser->getId() === 0 ) {
 			return false;
 		}
 
-		$userGroupManager = $this->userGroupManagerFactory
-			->getUserGroupManager( $targetUser->getWikiId() );
-		$available = $userGroupManager->getGroupsChangeableBy( $this->getAuthority() );
 		if ( $available['add'] || $available['remove'] ) {
 			// can change some rights for any user
 			return true;
 		}
 
-		$isself = $this->getUser()->equals( $targetUser );
 		if ( ( $available['add-self'] || $available['remove-self'] )
 			&& ( $isself || !$checkIfSelf )
 		) {
@@ -171,31 +137,24 @@ class SpecialUserRights extends SpecialPage {
 		$out->addModules( [ 'mediawiki.special.userrights' ] );
 
 		$this->mTarget = $par ?? $request->getVal( 'user' );
-		if ( $this->mTarget === null ) {
-			$fetchedStatus = Status::newFatal( 'nouserspecified' );
 
-		} else {
+		if ( is_string( $this->mTarget ) ) {
 			$this->mTarget = trim( $this->mTarget );
-
-			if ( $this->userNameUtils->getCanonical( $this->mTarget ) === $user->getName() ) {
-				$this->isself = true;
-			}
-
-			$fetchedStatus = $this->fetchUser( $this->mTarget, true );
 		}
 
+		if ( $this->mTarget !== null && $this->userNameUtils->getCanonical( $this->mTarget ) === $user->getName() ) {
+			$this->isself = true;
+		}
+
+		$fetchedStatus = $this->mTarget === null ? Status::newFatal( 'nouserspecified' ) :
+			$this->fetchUser( $this->mTarget, true );
 		if ( $fetchedStatus->isOK() ) {
-			$this->mFetchedUser = $fetchedUser = $fetchedStatus->value;
-			// Phan false positive on Status object - T323205
-			'@phan-var UserIdentity $fetchedUser';
-			$wikiId = $fetchedUser->getWikiId();
-			if ( $wikiId === UserIdentity::LOCAL ) {
+			$this->mFetchedUser = $fetchedStatus->value;
+			if ( $this->mFetchedUser instanceof User ) {
 				// Set the 'relevant user' in the skin, so it displays links like Contributions,
 				// User logs, UserRights, etc.
 				$this->getSkin()->setRelevantUser( $this->mFetchedUser );
 			}
-			$this->userGroupManager = $this->userGroupManagerFactory
-				->getUserGroupManager( $wikiId );
 		}
 
 		// show a successbox, if the user rights was saved successfully
@@ -212,7 +171,7 @@ class SpecialUserRights extends SpecialPage {
 					Html::element(
 						'p',
 						[],
-						$this->msg( 'savedrights', $this->getDisplayUsername( $this->mFetchedUser ) )->text()
+						$this->msg( 'savedrights', $this->mFetchedUser->getName() )->text()
 					),
 					'mw-notify-success'
 				)
@@ -262,9 +221,13 @@ class SpecialUserRights extends SpecialPage {
 			}
 
 			$targetUser = $this->mFetchedUser;
+			if ( $targetUser instanceof User ) { // UserRightsProxy doesn't have this method (T63252)
+				$targetUser->clearInstanceCache(); // T40989
+			}
+
 			$conflictCheck = $request->getVal( 'conflictcheck-originalgroups' );
 			$conflictCheck = ( $conflictCheck === '' ) ? [] : explode( ',', $conflictCheck );
-			$userGroups = $this->userGroupManager->getUserGroups( $targetUser, IDBAccessObject::READ_LATEST );
+			$userGroups = $targetUser->getGroups();
 
 			if ( $userGroups !== $conflictCheck ) {
 				$out->addHTML( Html::errorBox(
@@ -272,7 +235,8 @@ class SpecialUserRights extends SpecialPage {
 				) );
 			} else {
 				$status = $this->saveUserGroups(
-					$request->getText( 'user-reason' ),
+					$this->mTarget,
+					$request->getVal( 'user-reason' ),
 					$targetUser
 				);
 
@@ -340,29 +304,17 @@ class SpecialUserRights extends SpecialPage {
 	 * Save user groups changes in the database.
 	 * Data comes from the editUserGroupsForm() form function
 	 *
+	 * @param string $username Username to apply changes to.
 	 * @param string $reason Reason for group change
-	 * @param UserIdentity $user
+	 * @param User|UserRightsProxy $user Target user object.
 	 * @return Status
 	 */
-	protected function saveUserGroups( string $reason, UserIdentity $user ) {
-		if ( $this->userNameUtils->isTemp( $user->getName() ) ) {
-			return Status::newFatal( 'userrights-no-tempuser' );
-		}
-
-		// Prevent cross-wiki assignment of groups to temporary accounts on wikis where the feature is not known.
-		if (
-			$user->getWikiId() !== UserIdentity::LOCAL &&
-			!$this->tempUserConfig->isKnown() &&
-			$this->tempUserConfig->isReservedName( $user->getName() )
-		) {
-			return Status::newFatal( 'userrights-cross-wiki-assignment-for-reserved-name' );
-		}
-
-		$allgroups = $this->userGroupManager->listAllGroups();
+	protected function saveUserGroups( $username, $reason, $user ) {
+		$allgroups = $this->getAllGroups();
 		$addgroup = [];
 		$groupExpiries = []; // associative array of (group name => expiry)
 		$removegroup = [];
-		$existingUGMs = $this->userGroupManager->getUserGroupMemberships( $user );
+		$existingUGMs = $user->getGroupMemberships();
 
 		// This could possibly create a highly unlikely race condition if permissions are changed between
 		//  when the form is loaded and when the form is saved. Ignoring it for the moment.
@@ -414,13 +366,6 @@ class SpecialUserRights extends SpecialPage {
 
 		$this->doSaveUserGroups( $user, $addgroup, $removegroup, $reason, [], $groupExpiries );
 
-		if ( $user->getWikiId() === UserIdentity::LOCAL && $this->getRequest()->getCheck( 'wpWatch' ) ) {
-			$this->watchlistManager->addWatchIgnoringRights(
-				$this->getUser(),
-				Title::makeTitle( NS_USER, $user->getName() )
-			);
-		}
-
 		return Status::newGood();
 	}
 
@@ -428,33 +373,23 @@ class SpecialUserRights extends SpecialPage {
 	 * Save user groups changes in the database. This function does not throw errors;
 	 * instead, it ignores groups that the performer does not have permission to set.
 	 *
-	 * This function can be used without submitting the special page
-	 *
-	 * @param UserIdentity $user
-	 * @param string[] $add Array of groups to add
-	 * @param string[] $remove Array of groups to remove
+	 * @param User|UserRightsProxy $user
+	 * @param array $add Array of groups to add
+	 * @param array $remove Array of groups to remove
 	 * @param string $reason Reason for group change
 	 * @param string[] $tags Array of change tags to add to the log entry
-	 * @param array<string,?string> $groupExpiries Associative array of (group name => expiry),
+	 * @param array $groupExpiries Associative array of (group name => expiry),
 	 *   containing only those groups that are to have new expiry values set
 	 * @return array Tuple of added, then removed groups
 	 */
-	public function doSaveUserGroups( $user, array $add, array $remove, string $reason = '',
+	public function doSaveUserGroups( $user, array $add, array $remove, $reason = '',
 		array $tags = [], array $groupExpiries = []
 	) {
 		// Validate input set...
 		$isself = $user->getName() == $this->getUser()->getName();
-		if ( $this->userGroupManager !== null ) {
-			// Used after form submit
-			$userGroupManager = $this->userGroupManager;
-		} else {
-			// Used as backend-function
-			$userGroupManager = $this->userGroupManagerFactory
-				->getUserGroupManager( $user->getWikiId() );
-		}
-		$groups = $userGroupManager->getUserGroups( $user );
-		$ugms = $userGroupManager->getUserGroupMemberships( $user );
-		$changeable = $userGroupManager->getGroupsChangeableBy( $this->getAuthority() );
+		$groups = $user->getGroups();
+		$ugms = $user->getGroupMemberships();
+		$changeable = $this->changeableGroups();
 		$addable = array_merge( $changeable['add'], $isself ? $changeable['add-self'] : [] );
 		$removable = array_merge( $changeable['remove'], $isself ? $changeable['remove-self'] : [] );
 
@@ -477,23 +412,16 @@ class SpecialUserRights extends SpecialPage {
 				return !in_array( $group, $groups ) || array_key_exists( $group, $groupExpiries );
 			} );
 
-		if ( $user->getWikiId() === UserIdentity::LOCAL ) {
-			// For compatibility local changes are provided as User object to the hook
-			$hookUser = $this->userFactory->newFromUserIdentity( $user );
-		} else {
-			// Interwiki changes are provided as UserIdentity since 1.41, was UserRightsProxy before
-			$hookUser = $user;
-		}
-		$this->getHookRunner()->onChangeUserGroups( $this->getUser(), $hookUser, $add, $remove );
+		$this->getHookRunner()->onChangeUserGroups( $this->getUser(), $user, $add, $remove );
 
 		$oldGroups = $groups;
-		$oldUGMs = $userGroupManager->getUserGroupMemberships( $user );
+		$oldUGMs = $user->getGroupMemberships();
 		$newGroups = $oldGroups;
 
 		// Remove groups, then add new ones/update expiries of existing ones
 		if ( $remove ) {
 			foreach ( $remove as $index => $group ) {
-				if ( !$userGroupManager->removeUserFromGroup( $user, $group ) ) {
+				if ( !$user->removeGroup( $group ) ) {
 					unset( $remove[$index] );
 				}
 			}
@@ -502,20 +430,20 @@ class SpecialUserRights extends SpecialPage {
 		if ( $add ) {
 			foreach ( $add as $index => $group ) {
 				$expiry = $groupExpiries[$group] ?? null;
-				if ( !$userGroupManager->addUserToGroup( $user, $group, $expiry, true ) ) {
+				if ( !$user->addGroup( $group, $expiry ) ) {
 					unset( $add[$index] );
 				}
 			}
 			$newGroups = array_merge( $newGroups, $add );
 		}
 		$newGroups = array_unique( $newGroups );
-		$newUGMs = $userGroupManager->getUserGroupMemberships( $user );
+		$newUGMs = $user->getGroupMemberships();
 
 		// Ensure that caches are cleared
-		$this->userFactory->invalidateCache( $user );
+		$user->invalidateCache();
 
 		// update groups in external authentication database
-		$this->getHookRunner()->onUserGroupsChanged( $hookUser, $add, $remove,
+		$this->getHookRunner()->onUserGroupsChanged( $user, $add, $remove,
 			$this->getUser(), $reason, $oldUGMs, $newUGMs );
 
 		wfDebug( 'oldGroups: ' . print_r( $oldGroups, true ) );
@@ -547,7 +475,7 @@ class SpecialUserRights extends SpecialPage {
 
 	/**
 	 * Add a rights log entry for an action.
-	 * @param UserIdentity $user
+	 * @param User|UserRightsProxy $user
 	 * @param array $oldGroups
 	 * @param array $newGroups
 	 * @param string $reason
@@ -555,17 +483,17 @@ class SpecialUserRights extends SpecialPage {
 	 * @param array $oldUGMs Associative array of (group name => UserGroupMembership)
 	 * @param array $newUGMs Associative array of (group name => UserGroupMembership)
 	 */
-	protected function addLogEntry( $user, array $oldGroups, array $newGroups, string $reason,
+	protected function addLogEntry( $user, array $oldGroups, array $newGroups, $reason,
 		array $tags, array $oldUGMs, array $newUGMs
 	) {
 		// make sure $oldUGMs and $newUGMs are in the same order, and serialise
 		// each UGM object to a simplified array
-		$oldUGMs = array_map( static function ( $group ) use ( $oldUGMs ) {
+		$oldUGMs = array_map( function ( $group ) use ( $oldUGMs ) {
 			return isset( $oldUGMs[$group] ) ?
 				self::serialiseUgmForLog( $oldUGMs[$group] ) :
 				null;
 		}, $oldGroups );
-		$newUGMs = array_map( static function ( $group ) use ( $newUGMs ) {
+		$newUGMs = array_map( function ( $group ) use ( $newUGMs ) {
 			return isset( $newUGMs[$group] ) ?
 				self::serialiseUgmForLog( $newUGMs[$group] ) :
 				null;
@@ -573,8 +501,8 @@ class SpecialUserRights extends SpecialPage {
 
 		$logEntry = new ManualLogEntry( 'rights', 'rights' );
 		$logEntry->setPerformer( $this->getUser() );
-		$logEntry->setTarget( Title::makeTitle( NS_USER, $this->getDisplayUsername( $user ) ) );
-		$logEntry->setComment( $reason );
+		$logEntry->setTarget( $user->getUserPage() );
+		$logEntry->setComment( is_string( $reason ) ? $reason : "" );
 		$logEntry->setParameters( [
 			'4::oldgroups' => $oldGroups,
 			'5::newgroups' => $newGroups,
@@ -602,12 +530,12 @@ class SpecialUserRights extends SpecialPage {
 			return;
 		}
 
-		/** @var UserIdentity $user */
+		/** @var User $user */
 		$user = $status->value;
-		'@phan-var UserIdentity $user';
+		'@phan-var User $user';
 
-		$groups = $this->userGroupManager->getUserGroups( $user );
-		$groupMemberships = $this->userGroupManager->getUserGroupMemberships( $user );
+		$groups = $user->getGroups();
+		$groupMemberships = $user->getGroupMemberships();
 		$this->showEditUserGroupsForm( $user, $groups, $groupMemberships );
 
 		// This isn't really ideal logging behavior, but let's not hide the
@@ -617,7 +545,7 @@ class SpecialUserRights extends SpecialPage {
 
 	/**
 	 * Normalize the input username, which may be local or remote, and
-	 * return a user identity object, use it on other services for manipulating rights
+	 * return a user (or proxy) object for manipulating it.
 	 *
 	 * Side effects: error output for invalid access
 	 * @param string $username
@@ -629,21 +557,20 @@ class SpecialUserRights extends SpecialPage {
 			$username );
 		if ( count( $parts ) < 2 ) {
 			$name = trim( $username );
-			$wikiId = UserIdentity::LOCAL;
+			$dbDomain = '';
 		} else {
-			[ $name, $wikiId ] = array_map( 'trim', $parts );
+			list( $name, $dbDomain ) = array_map( 'trim', $parts );
 
-			if ( WikiMap::isCurrentWikiId( $wikiId ) ) {
-				$wikiId = UserIdentity::LOCAL;
+			if ( WikiMap::isCurrentWikiId( $dbDomain ) ) {
+				$dbDomain = '';
 			} else {
 				if ( $writing &&
 					!$this->getAuthority()->isAllowed( 'userrights-interwiki' )
 				) {
 					return Status::newFatal( 'userrights-no-interwiki' );
 				}
-				$localDatabases = $this->getConfig()->get( MainConfigNames::LocalDatabases );
-				if ( !in_array( $wikiId, $localDatabases ) ) {
-					return Status::newFatal( 'userrights-nodatabase', $wikiId );
+				if ( !UserRightsProxy::validDatabase( $dbDomain ) ) {
+					return Status::newFatal( 'userrights-nodatabase', $dbDomain );
 				}
 			}
 		}
@@ -652,46 +579,40 @@ class SpecialUserRights extends SpecialPage {
 			return Status::newFatal( 'nouserspecified' );
 		}
 
-		$userIdentityLookup = $this->actorStoreFactory->getUserIdentityLookup( $wikiId );
 		if ( $name[0] == '#' ) {
 			// Numeric ID can be specified...
+			// We'll do a lookup for the name internally.
 			$id = intval( substr( $name, 1 ) );
 
-			$user = $userIdentityLookup->getUserIdentityByUserId( $id );
-			if ( !$user ) {
-				// Different error message for compatibility
+			if ( $dbDomain == '' ) {
+				$name = User::whoIs( $id );
+			} else {
+				$name = UserRightsProxy::whoIs( $dbDomain, $id );
+			}
+
+			if ( !$name ) {
 				return Status::newFatal( 'noname' );
 			}
-			$name = $user->getName();
 		} else {
 			$name = $this->userNameUtils->getCanonical( $name );
 			if ( $name === false ) {
 				// invalid name
 				return Status::newFatal( 'nosuchusershort', $username );
 			}
-			$user = $userIdentityLookup->getUserIdentityByName( $name );
 		}
 
-		if ( $this->userNameUtils->isTemp( $name ) ) {
-			return Status::newFatal( 'userrights-no-group' );
+		if ( $dbDomain == '' ) {
+			$user = $this->userFactory->newFromName( $name );
+		} else {
+			$user = UserRightsProxy::newFromName( $dbDomain, $name );
 		}
 
-		if ( !$user || !$user->isRegistered() ) {
+		if ( !$user || $user->isAnon() ) {
 			return Status::newFatal( 'nosuchusershort', $username );
 		}
 
-		// Prevent cross-wiki assignment of groups to temporary accounts on wikis where the feature is not known.
-		// We have to check this here, as ApiUserrights uses this to validate before assigning user rights.
-		if (
-			$user->getWikiId() !== UserIdentity::LOCAL &&
-			!$this->tempUserConfig->isKnown() &&
-			$this->tempUserConfig->isReservedName( $name )
-		) {
-			return Status::newFatal( 'userrights-no-group' );
-		}
-
-		if ( $user->getWikiId() === UserIdentity::LOCAL &&
-			$this->userFactory->newFromUserIdentity( $user )->isHidden() &&
+		if ( $user instanceof User &&
+			$user->isHidden() &&
 			!$this->getAuthority()->isAllowed( 'hideuser' )
 		) {
 			// Cannot see hidden users, pretend they don't exist
@@ -709,7 +630,7 @@ class SpecialUserRights extends SpecialPage {
 	 * @return string
 	 */
 	public function makeGroupNameList( $ids ) {
-		if ( !$ids ) {
+		if ( empty( $ids ) ) {
 			return $this->msg( 'rightsnone' )->inContentLanguage()->text();
 		} else {
 			return implode( ', ', $ids );
@@ -717,39 +638,48 @@ class SpecialUserRights extends SpecialPage {
 	}
 
 	/**
-	 * Display a HTMLUserTextField form to allow searching for a named user only
+	 * Output a form to allow searching for a user
 	 */
 	protected function switchForm() {
-		$formDescriptor = [
-			'user' => [
-				'class' => HTMLUserTextField::class,
-				'label-message' => 'userrights-user-editname',
-				'name' => 'user',
-				'ipallowed' => true,
-				'iprange' => true,
-				'excludetemp' => true, // Do not show temp users: T341684
-				'autofocus' => $this->mFetchedUser === null,
-				'default' => $this->mTarget,
-			]
-		];
+		$this->getOutput()->addModules( 'mediawiki.userSuggest' );
 
-		$htmlForm = HTMLForm::factory( 'ooui', $formDescriptor, $this->getContext() );
-		$htmlForm
-			->setMethod( 'GET' )
-			->setAction( wfScript() )
-			->setName( 'uluser' )
-			->setTitle( SpecialPage::getTitleFor( 'Userrights' ) )
-			->setWrapperLegendMsg( 'userrights-lookup-user' )
-			->setId( 'mw-userrights-form1' )
-			->setSubmitTextMsg( 'editusergroup' )
-			->prepareForm()
-			->displayForm( true );
+		$this->getOutput()->addHTML(
+			Html::openElement(
+				'form',
+				[
+					'method' => 'get',
+					'action' => wfScript(),
+					'name' => 'uluser',
+					'id' => 'mw-userrights-form1'
+				]
+			) .
+			Html::hidden( 'title', $this->getPageTitle()->getPrefixedText() ) .
+			Xml::fieldset( $this->msg( 'userrights-lookup-user' )->text() ) .
+			Xml::inputLabel(
+				$this->msg( 'userrights-user-editname' )->text(),
+				'user',
+				'username',
+				30,
+				$this->mTarget ? str_replace( '_', ' ', $this->mTarget ) : '',
+				[
+					'class' => 'mw-autocomplete-user', // used by mediawiki.userSuggest
+				] + (
+					// Set autofocus on blank input and error input
+					$this->mFetchedUser === null ? [ 'autofocus' => '' ] : []
+				)
+			) . ' ' .
+			Xml::submitButton(
+				$this->msg( 'editusergroup' )->text()
+			) .
+			Html::closeElement( 'fieldset' ) .
+			Html::closeElement( 'form' ) . "\n"
+		);
 	}
 
 	/**
 	 * Show the form to edit group memberships.
 	 *
-	 * @param UserIdentity $user
+	 * @param User|UserRightsProxy $user User or UserRightsProxy you're editing
 	 * @param string[] $groups Array of groups the user is in. Not used by this implementation
 	 *   anymore, but kept for backward compatibility with subclasses
 	 * @param UserGroupMembership[] $groupMemberships Associative array of (group name => UserGroupMembership
@@ -758,8 +688,9 @@ class SpecialUserRights extends SpecialPage {
 	protected function showEditUserGroupsForm( $user, $groups, $groupMemberships ) {
 		$list = $membersList = $tempList = $tempMembersList = [];
 		foreach ( $groupMemberships as $ugm ) {
-			$linkG = UserGroupMembership::getLinkHTML( $ugm, $this->getContext() );
-			$linkM = UserGroupMembership::getLinkHTML( $ugm, $this->getContext(), $user->getName() );
+			$linkG = UserGroupMembership::getLink( $ugm, $this->getContext(), 'html' );
+			$linkM = UserGroupMembership::getLink( $ugm, $this->getContext(), 'html',
+				$user->getName() );
 			if ( $ugm->getExpiry() ) {
 				$tempList[] = $linkG;
 				$tempMembersList[] = $linkM;
@@ -773,11 +704,13 @@ class SpecialUserRights extends SpecialPage {
 		$autoList = [];
 		$autoMembersList = [];
 
-		if ( $user->getWikiId() === UserIdentity::LOCAL ) {
-			// Listing autopromote groups works only on the local wiki
+		$isUserInstance = $user instanceof User;
+
+		if ( $isUserInstance ) {
 			foreach ( $this->userGroupManager->getUserAutopromoteGroups( $user ) as $group ) {
-				$autoList[] = UserGroupMembership::getLinkHTML( $group, $this->getContext() );
-				$autoMembersList[] = UserGroupMembership::getLinkHTML( $group, $this->getContext(), $user->getName() );
+				$autoList[] = UserGroupMembership::getLink( $group, $this->getContext(), 'html' );
+				$autoMembersList[] = UserGroupMembership::getLink( $group, $this->getContext(),
+					'html', $user->getName() );
 			}
 		}
 
@@ -812,8 +745,7 @@ class SpecialUserRights extends SpecialPage {
 			$grouplist .= '<p>' . $autogrouplistintro . ' ' . $displayedAutolist . "</p>\n";
 		}
 
-		$systemUser = $user->getWikiId() === UserIdentity::LOCAL
-			&& $this->userFactory->newFromUserIdentity( $user )->isSystemUser();
+		$systemUser = $isUserInstance && $user->isSystemUser();
 		if ( $systemUser ) {
 			$systemusernote = $this->msg( 'userrights-systemuser' )
 				->params( $user->getName() )
@@ -824,16 +756,16 @@ class SpecialUserRights extends SpecialPage {
 		// Only add an email link if the user is not a system user
 		$flags = $systemUser ? 0 : Linker::TOOL_LINKS_EMAIL;
 		$userToolLinks = Linker::userToolLinks(
-			$user->getId( $user->getWikiId() ),
-			$this->getDisplayUsername( $user ),
+			$user->getId(),
+			$user->getName(),
 			false, /* default for redContribsWhenNoEdits */
 			$flags
 		);
 
-		[ $groupCheckboxes, $canChangeAny ] =
+		list( $groupCheckboxes, $canChangeAny ) =
 			$this->groupCheckboxes( $groupMemberships, $user );
 		$this->getOutput()->addHTML(
-			Html::openElement(
+			Xml::openElement(
 				'form',
 				[
 					'method' => 'post',
@@ -846,10 +778,10 @@ class SpecialUserRights extends SpecialPage {
 			Html::hidden( 'wpEditToken', $this->getUser()->getEditToken( $this->mTarget ) ) .
 			Html::hidden(
 				'conflictcheck-originalgroups',
-				implode( ',', $this->userGroupManager->getUserGroups( $user ) )
+				implode( ',', $user->getGroups() )
 			) . // Conflict detection
-			Html::openElement( 'fieldset' ) .
-			Html::element(
+			Xml::openElement( 'fieldset' ) .
+			Xml::element(
 				'legend',
 				[],
 				$this->msg(
@@ -859,7 +791,7 @@ class SpecialUserRights extends SpecialPage {
 			) .
 			$this->msg(
 				$canChangeAny ? 'editinguser' : 'viewinguserrights'
-			)->params( wfEscapeWikiText( $this->getDisplayUsername( $user ) ) )
+			)->params( wfEscapeWikiText( $user->getName() ) )
 				->rawParams( $userToolLinks )->parse()
 		);
 		if ( $canChangeAny ) {
@@ -867,10 +799,10 @@ class SpecialUserRights extends SpecialPage {
 				$this->msg( 'userrights-groups-help', $user->getName() )->parse() .
 				$grouplist .
 				$groupCheckboxes .
-				Html::openElement( 'table', [ 'id' => 'mw-userrights-table-outer' ] ) .
+				Xml::openElement( 'table', [ 'id' => 'mw-userrights-table-outer' ] ) .
 					"<tr>
 						<td class='mw-label'>" .
-							Html::label( $this->msg( 'userrights-reason' )->text(), 'wpReason' ) .
+							Xml::label( $this->msg( 'userrights-reason' )->text(), 'wpReason' ) .
 						"</td>
 						<td class='mw-input'>" .
 							Xml::input( 'user-reason', 60, $this->getRequest()->getVal( 'user-reason' ) ?? false, [
@@ -885,17 +817,10 @@ class SpecialUserRights extends SpecialPage {
 					<tr>
 						<td></td>
 						<td class='mw-submit'>" .
-							Html::submitButton( $this->msg( 'saveusergroups', $user->getName() )->text(),
+							Xml::submitButton( $this->msg( 'saveusergroups', $user->getName() )->text(),
 								[ 'name' => 'saveusergroups' ] +
 									Linker::tooltipAndAccesskeyAttribs( 'userrights-set' )
 							) .
-						"</td>
-					</tr>
-					<tr>
-						<td></td>
-						<td class='mw-input'>" .
-							Html::check( 'wpWatch', false, [ 'id' => 'wpWatch' ] ) .
-							'&nbsp;' . Html::label( $this->msg( 'userrights-watchuser' )->text(), 'wpWatch' ) .
 						"</td>
 					</tr>" .
 				Xml::closeElement( 'table' ) . "\n"
@@ -910,16 +835,27 @@ class SpecialUserRights extends SpecialPage {
 	}
 
 	/**
+	 * @return string[] Array of groups that may be edited
+	 */
+	protected static function getAllGroups() {
+		// TODO don't hard code false here (refers to local domain). See T14518
+		return MediaWikiServices::getInstance()
+			->getUserGroupManagerFactory()
+			->getUserGroupManager( false )
+			->listAllGroups();
+	}
+
+	/**
 	 * Adds a table with checkboxes where you can select what groups to add/remove
 	 *
 	 * @param UserGroupMembership[] $usergroups Associative array of (group name as string =>
 	 *   UserGroupMembership object) for groups the user belongs to
-	 * @param UserIdentity $user
+	 * @param User $user
 	 * @return array Array with 2 elements: the XHTML table element with checkxboes, and
 	 * whether any groups are changeable
 	 */
-	private function groupCheckboxes( $usergroups, UserIdentity $user ) {
-		$allgroups = $this->userGroupManager->listAllGroups();
+	private function groupCheckboxes( $usergroups, $user ) {
+		$allgroups = $this->getAllGroups();
 		$ret = '';
 
 		// Get the list of preset expiry times from the system message
@@ -988,6 +924,11 @@ class SpecialUserRights extends SpecialPage {
 			}
 			$ret .= "\t<td style='vertical-align:top;'>\n";
 			foreach ( $column as $group => $checkbox ) {
+				$attr = [ 'class' => 'mw-userrights-groupcheckbox' ];
+				if ( $checkbox['disabled'] ) {
+					$attr['disabled'] = 'disabled';
+				}
+
 				$member = $uiLanguage->getGroupMemberName( $group, $userName );
 				if ( $checkbox['irreversible'] ) {
 					$text = $this->msg( 'userrights-irreversible-marker', $member )->text();
@@ -996,12 +937,8 @@ class SpecialUserRights extends SpecialPage {
 				} else {
 					$text = $member;
 				}
-				$checkboxHtml = Html::element( 'input', [
-					'type' => 'checkbox', 'name' => "wpGroup-$group", 'value' => '1',
-					'id' => "wpGroup-$group", 'checked' => $checkbox['set'],
-					'class' => 'mw-userrights-groupcheckbox',
-					'disabled' => $checkbox['disabled'],
-				] ) . '&nbsp;' . Html::label( $text, "wpGroup-$group" );
+				$checkboxHtml = Xml::checkLabel( $text, "wpGroup-" . $group,
+					"wpGroup-" . $group, $checkbox['set'], $attr );
 
 				if ( $this->canProcessExpiries() ) {
 					$uiUser = $this->getUser();
@@ -1032,9 +969,9 @@ class SpecialUserRights extends SpecialPage {
 							$currentExpiry ? 'existing' : 'infinite' );
 						$expiryHtml .= "<br />\n";
 					} else {
-						$expiryHtml = Html::element( 'span', [],
+						$expiryHtml = Xml::element( 'span', null,
 							$this->msg( 'userrights-expiry' )->text() );
-						$expiryHtml .= Html::openElement( 'span' );
+						$expiryHtml .= Xml::openElement( 'span' );
 
 						// add a form element to set the expiry date
 						$expiryFormOptions = new XmlSelect(
@@ -1070,12 +1007,14 @@ class SpecialUserRights extends SpecialPage {
 						$expiryHtml .= $expiryFormOptions->getHTML() . '<br />';
 
 						// Add custom expiry field
-						$expiryHtml .= Html::element( 'input', [
-							'name' => "wpExpiry-$group-other", 'size' => 30, 'value' => '',
+						$attribs = [
 							'id' => "mw-input-wpExpiry-$group-other",
 							'class' => 'mw-userrights-expiryfield',
-							'disabled' => $checkbox['disabled-expiry'],
-						] );
+						];
+						if ( $checkbox['disabled-expiry'] ) {
+							$attribs['disabled'] = 'disabled';
+						}
+						$expiryHtml .= Xml::input( "wpExpiry-$group-other", 30, '', $attribs );
 
 						// If the user group is set but the checkbox is disabled, mimic a
 						// checked checkbox in the form submission
@@ -1083,23 +1022,23 @@ class SpecialUserRights extends SpecialPage {
 							$expiryHtml .= Html::hidden( "wpGroup-$group", 1 );
 						}
 
-						$expiryHtml .= Html::closeElement( 'span' );
+						$expiryHtml .= Xml::closeElement( 'span' );
 					}
 
 					$divAttribs = [
 						'id' => "mw-userrights-nested-wpGroup-$group",
 						'class' => 'mw-userrights-nested',
 					];
-					$checkboxHtml .= "\t\t\t" . Html::rawElement( 'div', $divAttribs, $expiryHtml ) . "\n";
+					$checkboxHtml .= "\t\t\t" . Xml::tags( 'div', $divAttribs, $expiryHtml ) . "\n";
 				}
 				$ret .= "\t\t" . ( ( $checkbox['disabled'] && $checkbox['disabled-expiry'] )
-					? Html::rawElement( 'div', [ 'class' => 'mw-userrights-disabled' ], $checkboxHtml )
-					: Html::rawElement( 'div', [], $checkboxHtml )
+					? Xml::tags( 'div', [ 'class' => 'mw-userrights-disabled' ], $checkboxHtml )
+					: Xml::tags( 'div', [], $checkboxHtml )
 				) . "\n";
 			}
 			$ret .= "\t</td>\n";
 		}
-		$ret .= Html::closeElement( 'tr' ) . Html::closeElement( 'table' );
+		$ret .= Xml::closeElement( 'tr' ) . Xml::closeElement( 'table' );
 
 		return [ $ret, (bool)$columns['changeable'] ];
 	}
@@ -1137,40 +1076,21 @@ class SpecialUserRights extends SpecialPage {
 	 *   'add-self' => [ addablegroups to self ],
 	 *   'remove-self' => [ removable groups from self ]
 	 *  ]
-	 * @phan-return array{add:list<string>,remove:list<string>,add-self:list<string>,remove-self:list<string>}
 	 */
 	protected function changeableGroups() {
 		return $this->userGroupManager->getGroupsChangeableBy( $this->getContext()->getAuthority() );
 	}
 
 	/**
-	 * Get a display user name. This includes the {@}domain part for interwiki users.
-	 * Use UserIdentity::getName for {{GENDER:}} in messages and
-	 * use the "display user name" for visible user names in logs or messages
-	 *
-	 * @param UserIdentity $user
-	 * @return string
-	 */
-	private function getDisplayUsername( UserIdentity $user ) {
-		$userName = $user->getName();
-		if ( $user->getWikiId() !== UserIdentity::LOCAL ) {
-			$userName .= $this->getConfig()->get( MainConfigNames::UserrightsInterwikiDelimiter )
-				. $user->getWikiId();
-		}
-		return $userName;
-	}
-
-	/**
 	 * Show a rights log fragment for the specified user
 	 *
-	 * @param UserIdentity $user User to show log for
+	 * @param User $user User to show log for
 	 * @param OutputPage $output OutputPage to use
 	 */
 	protected function showLogFragment( $user, $output ) {
 		$rightsLogPage = new LogPage( 'rights' );
-		$output->addHTML( Html::element( 'h2', [], $rightsLogPage->getName()->text() ) );
-		LogEventsList::showLogExtract( $output, 'rights',
-			Title::makeTitle( NS_USER, $this->getDisplayUsername( $user ) ) );
+		$output->addHTML( Xml::element( 'h2', null, $rightsLogPage->getName()->text() ) );
+		LogEventsList::showLogExtract( $output, 'rights', $user->getUserPage() );
 	}
 
 	/**
@@ -1196,9 +1116,3 @@ class SpecialUserRights extends SpecialPage {
 		return 'users';
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.40
- */
-class_alias( SpecialUserRights::class, 'UserrightsPage' );

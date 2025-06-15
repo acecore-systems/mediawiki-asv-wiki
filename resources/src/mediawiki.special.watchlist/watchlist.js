@@ -2,24 +2,14 @@
  * JavaScript for Special:Watchlist
  */
 ( function () {
-	function trimStart( s ) {
-		return s.replace( /^ /, '' );
-	}
-
-	function trimEnd( s ) {
-		return s.endsWith( ' ' ) ? s.slice( 0, s.length - 1 ) : s;
-	}
-
-	$( () => {
-		const api = new mw.Api();
-		const $resetForm = $( '#mw-watchlist-resetbutton' );
-		let $progressBar;
+	$( function () {
+		var api = new mw.Api(), $progressBar, $resetForm = $( '#mw-watchlist-resetbutton' );
 
 		// If the user wants to reset their watchlist, use an API call to do so (no reload required)
 		// Adapted from a user script by User:NQ of English Wikipedia
 		// (User:NQ/WatchlistResetConfirm.js)
-		$resetForm.on( 'submit', ( event ) => {
-			const $button = $resetForm.find( 'input[name=mw-watchlist-reset-submit]' );
+		$resetForm.on( 'submit', function ( event ) {
+			var $button = $resetForm.find( 'input[name=mw-watchlist-reset-submit]' );
 
 			event.preventDefault();
 
@@ -39,7 +29,7 @@
 			// then set all watchlist lines accordingly
 			api.postWithToken( 'csrf', {
 				formatversion: 2, action: 'setnotificationtimestamp', entirewatchlist: true
-			} ).done( () => {
+			} ).done( function () {
 				// Enable button again
 				$button.prop( 'disabled', false );
 				// Hide the button because further clicks can not generate any visual changes
@@ -48,7 +38,7 @@
 				$( '.mw-changeslist-line-watched' )
 					.removeClass( 'mw-changeslist-line-watched' )
 					.addClass( 'mw-changeslist-line-not-watched' );
-			} ).fail( () => {
+			} ).fail( function () {
 				// On error, fall back to server-side reset
 				// First remove this submit listener and then re-submit the form
 				$resetForm.off( 'submit' ).trigger( 'submit' );
@@ -58,7 +48,7 @@
 		// if the user wishes to reload the watchlist whenever a filter changes
 		if ( mw.user.options.get( 'watchlistreloadautomatically' ) ) {
 			// add a listener on all form elements in the header form
-			$( '#mw-watchlist-form input, #mw-watchlist-form select' ).on( 'change', () => {
+			$( '#mw-watchlist-form input, #mw-watchlist-form select' ).on( 'change', function () {
 				// submit the form when one of the input fields is modified
 				$( '#mw-watchlist-form' ).trigger( 'submit' );
 			} );
@@ -70,7 +60,7 @@
 			// After unwatching a page, the '×' becomes a '+', which if clicked re-watches the page.
 			// Unwatched page entries are struck through and have lowered opacity.
 			$( '.mw-changeslist' ).on( 'click', '.mw-unwatch-link, .mw-watch-link', function ( event ) {
-				const $unwatchLink = $( this ), // EnhancedChangesList uses <table> for each row, while OldChangesList uses <li> for each row
+				var $unwatchLink = $( this ), // EnhancedChangesList uses <table> for each row, while OldChangesList uses <li> for each row
 					$watchlistLine = $unwatchLink.closest( 'li, table' )
 						.find( '[data-target-page]' ),
 					pageTitle = String( $watchlistLine.data( 'targetPage' ) ),
@@ -80,24 +70,24 @@
 				// a certain page or its associated page (e.g. Talk)
 				function forEachMatchingTitle( title, callback ) {
 
-					const titleObj = mw.Title.newFromText( title ),
+					var titleObj = mw.Title.newFromText( title ),
 						associatedTitleObj = titleObj.isTalkPage() ? titleObj.getSubjectPage() : titleObj.getTalkPage(),
 						associatedTitle = associatedTitleObj.getPrefixedText();
 					$( '.mw-changeslist-line' ).each( function () {
-						const $line = $( this );
+						var $line = $( this ), $row, $link;
 
 						$line.find( '[data-target-page]' ).each( function () {
-							const $this = $( this ), rowTitle = String( $this.data( 'targetPage' ) );
+							var $this = $( this ), rowTitle = String( $this.data( 'targetPage' ) );
 							if ( rowTitle === title || rowTitle === associatedTitle ) {
 
 								// EnhancedChangesList groups log entries by performer rather than target page. Therefore...
 								// * If using OldChangesList, use the <li>
 								// * If using EnhancedChangesList and $this is part of a grouped log entry, use the <td> sub-entry
 								// * If using EnhancedChangesList and $this is not part of a grouped log entry, use the <table> grouped entry
-								const $row =
+								$row =
 									$this.closest(
-										'li, .mw-enhancedchanges-checkbox + table.mw-changeslist-log td[data-target-page], table' );
-								const $link = $row.find( '.mw-unwatch-link, .mw-watch-link' );
+										'li, table.mw-collapsible.mw-changeslist-log td[data-target-page], table' );
+								$link = $row.find( '.mw-unwatch-link, .mw-watch-link' );
 
 								callback( rowTitle, $row, $link );
 							}
@@ -113,9 +103,9 @@
 				// eslint-disable-next-line no-jquery/no-class-state
 				if ( $unwatchLink.hasClass( 'mw-unwatch-link' ) ) {
 					api.unwatch( pageTitle )
-						.done( () => {
+						.done( function () {
 							forEachMatchingTitle( pageTitle,
-								( rowPageTitle, $row, $rowUnwatchLink ) => {
+								function ( rowPageTitle, $row, $rowUnwatchLink ) {
 									$rowUnwatchLink
 										.text( mw.msg( 'watchlist-unwatch-undo' ) )
 										.attr( 'title', mw.msg( 'tooltip-ca-watch' ) )
@@ -135,9 +125,9 @@
 						} );
 				} else {
 					api.watch( pageTitle )
-						.then( () => {
+						.then( function () {
 							forEachMatchingTitle( pageTitle,
-								( rowPageTitle, $row, $rowUnwatchLink ) => {
+								function ( rowPageTitle, $row, $rowUnwatchLink ) {
 									$rowUnwatchLink
 										.text( mw.msg( 'watchlist-unwatch' ) )
 										.attr( 'title', mw.msg( 'tooltip-ca-unwatch' ) )
@@ -148,18 +138,7 @@
 									$row.find( '.mw-changelist-line-inner-unwatched' )
 										.addBack( '.mw-enhanced-rc-nested' )
 										.removeClass( 'mw-changelist-line-inner-unwatched' );
-									$row.find( '.mw-changesList-watchlistExpiry' ).each( function () {
-										// Add the missing semicolon (T266747)
-										const $expiry = $( this );
-										$expiry.next( '.mw-changeslist-separator' )
-											.addClass( 'mw-changeslist-separator--semicolon' )
-											.removeClass( 'mw-changeslist-separator' );
-										// Remove the spaces before and after the expiry icon
-										this.nextSibling.nodeValue = trimStart( this.nextSibling.nodeValue );
-										this.previousSibling.nodeValue = trimEnd( this.previousSibling.nodeValue );
-										// Remove the icon
-										$expiry.remove();
-									} );
+									$row.find( '.mw-changesList-watchlistExpiry' ).remove();
 								} );
 
 							mw.notify(

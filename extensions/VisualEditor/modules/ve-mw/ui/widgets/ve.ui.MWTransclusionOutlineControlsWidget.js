@@ -8,7 +8,7 @@
  *
  * @class
  * @extends OO.ui.Widget
- * @mixes OO.ui.mixin.GroupElement
+ * @mixins OO.ui.mixin.GroupElement
  *
  * @constructor
  */
@@ -23,7 +23,7 @@ ve.ui.MWTransclusionOutlineControlsWidget = function OoUiOutlineControlsWidget()
 	this.addTemplateButton = new OO.ui.ButtonWidget( {
 		framed: false,
 		icon: 'puzzle',
-		title: ve.msg( 'visualeditor-dialog-transclusion-add-template-button' )
+		title: ve.msg( 'visualeditor-dialog-transclusion-add-template' )
 	} );
 	this.addWikitextButton = new OO.ui.ButtonWidget( {
 		framed: false,
@@ -73,7 +73,7 @@ ve.ui.MWTransclusionOutlineControlsWidget = function OoUiOutlineControlsWidget()
 			this.addTemplateButton.$element,
 			this.addWikitextButton.$element
 		);
-	const $movers = $( '<div>' )
+	var $movers = $( '<div>' )
 		.addClass( 've-ui-mwTransclusionOutlineControlsWidget-movers' )
 		.append(
 			this.upButton.$element,
@@ -93,26 +93,26 @@ OO.mixinClass( ve.ui.MWTransclusionOutlineControlsWidget, OO.ui.mixin.GroupEleme
 /**
  * Emitted when the "Add template" button in the toolbar is clicked
  *
- * @event ve.ui.MWTransclusionOutlineControlsWidget#addTemplate
+ * @event addTemplate
  */
 
 /**
  * Emitted when the "Add wikitext" button in the toolbar is clicked
  *
- * @event ve.ui.MWTransclusionOutlineControlsWidget#addWikitext
+ * @event addWikitext
  */
 
 /**
  * Emitted when one of the two "Move item up/down" buttons in the toolbar is clicked
  *
- * @event ve.ui.MWTransclusionOutlineControlsWidget#move
+ * @event move
  * @param {number} places Number of places to move, typically -1 or 1
  */
 
 /**
  * Emitted when the "Remove item" button in the toolbar is clicked
  *
- * @event ve.ui.MWTransclusionOutlineControlsWidget#remove
+ * @event remove
  */
 
 /* Methods */

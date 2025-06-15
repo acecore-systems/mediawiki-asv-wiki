@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Content\Hook;
 
-use MediaWiki\Content\JsonContent;
+use JsonContent;
 use MediaWiki\Page\PageIdentity;
 use StatusValue;
 

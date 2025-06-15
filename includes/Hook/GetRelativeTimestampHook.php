@@ -3,9 +3,9 @@
 namespace MediaWiki\Hook;
 
 use DateInterval;
-use MediaWiki\Language\Language;
-use MediaWiki\User\User;
-use MediaWiki\Utils\MWTimestamp;
+use Language;
+use MWTimestamp;
+use User;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

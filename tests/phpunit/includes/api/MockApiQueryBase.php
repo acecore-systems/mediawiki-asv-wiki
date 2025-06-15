@@ -1,11 +1,6 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
-use MediaWiki\Api\ApiQueryBase;
-
 class MockApiQueryBase extends ApiQueryBase {
-	/** @var string */
 	private $name;
 
 	public function execute() {

@@ -10,19 +10,11 @@ namespace MediaWiki\Widget;
  */
 class NamespacesMultiselectWidget extends TagMultiselectWidget {
 
-	/** @var bool|null */
-	protected $allowEditTags = null;
-
 	/**
 	 * @param array $config Configuration options
-	 *   - bool $config['allowEditTags'] Allow editing of the tags by clicking them
 	 */
 	public function __construct( array $config = [] ) {
 		parent::__construct( $config );
-
-		if ( isset( $config['allowEditTags'] ) ) {
-			$this->allowEditTags = $config['allowEditTags'];
-		}
 
 		$this->addClasses( [ 'mw-widgets-namespacesMultiselectWidget' ] );
 	}
@@ -32,10 +24,6 @@ class NamespacesMultiselectWidget extends TagMultiselectWidget {
 	}
 
 	public function getConfig( &$config ) {
-		if ( $this->allowEditTags !== null ) {
-			$config['allowEditTags'] = $this->allowEditTags;
-		}
-
 		return parent::getConfig( $config );
 	}
 

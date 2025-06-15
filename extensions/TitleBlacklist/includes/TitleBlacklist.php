@@ -9,11 +9,12 @@
 
 namespace MediaWiki\Extension\TitleBlacklist;
 
-use BadMethodCallException;
-use MediaWiki\Content\TextContent;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
+use MWException;
+use ObjectCache;
+use TextContent;
+use Title;
+use User;
 use Wikimedia\AtEase\AtEase;
 
 /**
@@ -33,14 +34,18 @@ class TitleBlacklist {
 	/** @var TitleBlacklist|null */
 	protected static $instance = null;
 
-	/** Increase this to invalidate the cached copies of both blacklist and whitelist */
+	/** Blacklist format */
 	public const VERSION = 4;
 
 	/**
 	 * Get an instance of this class
+	 *
+	 * @return TitleBlacklist
 	 */
-	public static function singleton(): self {
-		self::$instance ??= new self();
+	public static function singleton() {
+		if ( self::$instance === null ) {
+			self::$instance = new self;
+		}
 		return self::$instance;
 	}
 
@@ -52,7 +57,7 @@ class TitleBlacklist {
 	 */
 	public static function destroySingleton() {
 		if ( !defined( 'MW_PHPUNIT_TEST' ) ) {
-			throw new BadMethodCallException(
+			throw new MWException(
 				'Can not invoke ' . __METHOD__ . '() ' .
 				'out of tests (MW_PHPUNIT_TEST not set).'
 			);
@@ -69,11 +74,9 @@ class TitleBlacklist {
 
 		$cache = MediaWikiServices::getInstance()->getMainWANObjectCache();
 		// Try to find something in the cache
-		/** @var TitleBlacklistEntry[]|false $cachedBlacklist */
 		$cachedBlacklist = $cache->get( $cache->makeKey( 'title_blacklist_entries' ) );
-		if ( $cachedBlacklist &&
-			is_array( $cachedBlacklist ) &&
-			$cachedBlacklist[0]->getFormatVersion() == self::VERSION
+		if ( is_array( $cachedBlacklist ) && count( $cachedBlacklist ) > 0
+			&& ( $cachedBlacklist[0]->getFormatVersion() == self::VERSION )
 		) {
 			$this->mBlacklist = $cachedBlacklist;
 			return;
@@ -101,11 +104,9 @@ class TitleBlacklist {
 		global $wgTitleBlacklistCaching;
 
 		$cache = MediaWikiServices::getInstance()->getMainWANObjectCache();
-		/** @var TitleBlacklistEntry[]|false $cachedWhitelist */
 		$cachedWhitelist = $cache->get( $cache->makeKey( 'title_whitelist_entries' ) );
-		if ( $cachedWhitelist &&
-			is_array( $cachedWhitelist ) &&
-			$cachedWhitelist[0]->getFormatVersion() == self::VERSION
+		if ( is_array( $cachedWhitelist ) && count( $cachedWhitelist ) > 0
+			&& ( $cachedWhitelist[0]->getFormatVersion() != self::VERSION )
 		) {
 			$this->mWhitelist = $cachedWhitelist;
 			return;
@@ -119,33 +120,29 @@ class TitleBlacklist {
 	/**
 	 * Get the text of a blacklist from a specified source
 	 *
-	 * @param array{type: string, src: ?string} $source A blacklist source from $wgTitleBlacklistSources
+	 * @param array $source A blacklist source from $wgTitleBlacklistSources
 	 * @return string The content of the blacklist source as a string
 	 */
 	private static function getBlacklistText( $source ) {
-		if ( !is_array( $source ) || !isset( $source['type'] ) ) {
+		if ( !is_array( $source ) || count( $source ) <= 0 ) {
 			// Return empty string in error case
 			return '';
 		}
 
-		if ( $source['type'] === 'message' ) {
+		if ( $source['type'] == 'message' ) {
 			return wfMessage( 'titleblacklist' )->inContentLanguage()->text();
-		}
-
-		$src = $source['src'] ?? null;
-		// All following types require the "src" element in the array
-		if ( !$src ) {
-			return '';
-		}
-
-		if ( $source['type'] === 'localpage' ) {
-			$title = Title::newFromText( $src );
-			if ( !$title ) {
+		} elseif ( $source['type'] == 'localpage' && count( $source ) >= 2 ) {
+			$title = Title::newFromText( $source['src'] );
+			if ( $title === null ) {
 				return '';
 			}
-			if ( $title->inNamespace( NS_MEDIAWIKI ) ) {
+			if ( $title->getNamespace() == NS_MEDIAWIKI ) {
 				$msg = wfMessage( $title->getText() )->inContentLanguage();
-				return $msg->isDisabled() ? '' : $msg->text();
+				if ( !$msg->isDisabled() ) {
+					return $msg->text();
+				} else {
+					return '';
+				}
 			} else {
 				$page = MediaWikiServices::getInstance()->getWikiPageFactory()->newFromTitle( $title );
 				if ( $page->exists() ) {
@@ -153,10 +150,14 @@ class TitleBlacklist {
 					return ( $content instanceof TextContent ) ? $content->getText() : "";
 				}
 			}
-		} elseif ( $source['type'] === 'url' ) {
-			return self::getHttp( $src );
-		} elseif ( $source['type'] === 'file' ) {
-			return file_exists( $src ) ? file_get_contents( $src ) : '';
+		} elseif ( $source['type'] == 'url' && count( $source ) >= 2 ) {
+			return self::getHttp( $source['src'] );
+		} elseif ( $source['type'] == 'file' && count( $source ) >= 2 ) {
+			if ( file_exists( $source['src'] ) ) {
+				return file_get_contents( $source['src'] );
+			} else {
+				return '';
+			}
 		}
 
 		return '';
@@ -220,26 +221,29 @@ class TitleBlacklist {
 	public function isBlacklisted( $title, $action = 'edit' ) {
 		if ( !( $title instanceof Title ) ) {
 			$title = Title::newFromText( $title );
-			if ( !$title ) {
+			if ( !( $title instanceof Title ) ) {
 				// The fact that the page name is invalid will stop whatever
 				// action is going through. No sense in doing more work here.
 				return false;
 			}
 		}
-
-		$autoconfirmedItem = null;
-		foreach ( $this->getBlacklist() as $item ) {
+		$blacklist = $this->getBlacklist();
+		$autoconfirmedItem = false;
+		foreach ( $blacklist as $item ) {
 			if ( $item->matches( $title->getFullText(), $action ) ) {
 				if ( $this->isWhitelisted( $title, $action ) ) {
 					return false;
 				}
-				if ( !isset( $item->getParams()['autoconfirmed'] ) ) {
+				$params = $item->getParams();
+				if ( !isset( $params['autoconfirmed'] ) ) {
 					return $item;
 				}
-				$autoconfirmedItem ??= $item;
+				if ( !$autoconfirmedItem ) {
+					$autoconfirmedItem = $item;
+				}
 			}
 		}
-		return $autoconfirmedItem ?? false;
+		return $autoconfirmedItem;
 	}
 
 	/**
@@ -253,9 +257,6 @@ class TitleBlacklist {
 	public function isWhitelisted( $title, $action = 'edit' ) {
 		if ( !( $title instanceof Title ) ) {
 			$title = Title::newFromText( $title );
-			if ( !$title ) {
-				return false;
-			}
 		}
 		$whitelist = $this->getWhitelist();
 		foreach ( $whitelist as $item ) {
@@ -301,8 +302,7 @@ class TitleBlacklist {
 		// FIXME: This is a hack to use Memcached where possible (incl. WMF),
 		// but have CACHE_DB as fallback (instead of no cache).
 		// This might be a good candidate for T248005.
-		$services = MediaWikiServices::getInstance();
-		$cache = $services->getObjectCacheFactory()->getInstance( $wgMessageCacheType );
+		$cache = ObjectCache::getInstance( $wgMessageCacheType );
 
 		// Globally shared
 		$key = $cache->makeGlobalKey( 'title_blacklist_source', md5( $url ) );
@@ -361,7 +361,7 @@ class TitleBlacklist {
 	 * Indicates whether user can override blacklist on certain action.
 	 *
 	 * @param User $user
-	 * @param string $action
+	 * @param string $action Action
 	 *
 	 * @return bool
 	 */
@@ -370,3 +370,5 @@ class TitleBlacklist {
 			( $action == 'new-account' && $user->isAllowed( 'tboverride-account' ) );
 	}
 }
+
+class_alias( TitleBlacklist::class, 'TitleBlacklist' );

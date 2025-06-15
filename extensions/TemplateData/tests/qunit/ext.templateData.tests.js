@@ -3,16 +3,19 @@
  */
 'use strict';
 
-const DataModule = require( 'ext.templateDataGenerator.data' ),
+var finalJsonParams, finalJson,
+	resultDescCurrLang, resultDescMockLang, resultDescBothLang, currLanguage, originalWikitext,
+	DataModule = require( 'ext.templateDataGenerator.data' ),
 	Model = DataModule.Model,
 	SourceHandler = DataModule.SourceHandler;
 
 QUnit.module( 'ext.templateData', QUnit.newMwEnvironment() );
 
-const resultDescCurrLang = {};
-const resultDescMockLang = {};
-const currLanguage = mw.config.get( 'wgContentLanguage' ) || 'en';
-const originalWikitext = 'Some text here that is not templatedata information.' +
+resultDescCurrLang = {};
+resultDescMockLang = {};
+resultDescBothLang = {};
+currLanguage = mw.config.get( 'wgContentLanguage' ) || 'en';
+originalWikitext = 'Some text here that is not templatedata information.' +
 	'<templatedata>' +
 	'{' +
 		'"description": {\n' +
@@ -65,8 +68,8 @@ const originalWikitext = 'Some text here that is not templatedata information.' 
 // Prepare description language objects
 resultDescCurrLang[ currLanguage ] = 'Some string here in ' + currLanguage + ' language.';
 resultDescMockLang.blah = 'Some string here in blah language.';
-const resultDescBothLang = Object.assign( {}, resultDescCurrLang, resultDescMockLang );
-const finalJsonParams = {
+resultDescBothLang = $.extend( {}, resultDescCurrLang, resultDescMockLang );
+finalJsonParams = {
 	user: {
 		label: 'Username',
 		type: 'wiki-user-name',
@@ -128,7 +131,7 @@ finalJsonParams.date.description[ currLanguage ] = 'Timestamp of when the commen
 finalJsonParams.newParam1.description[ currLanguage ] = 'Some string here in ' + currLanguage + ' language.';
 finalJsonParams.newParam4.description[ currLanguage ] = resultDescBothLang[ currLanguage ];
 
-const finalJson = {
+finalJson = {
 	description: {
 		blah: 'Template description in some blah language.'
 	},
@@ -148,200 +151,200 @@ const finalJson = {
 finalJson.description[ currLanguage ] = 'Label unsigned comments in a conversation.';
 
 // Test validation tools
-QUnit.test( 'Validation tools', ( assert ) => {
-	const tests = {
-		compare: [
-			{
-				obj1: null,
-				obj2: undefined,
-				result: false,
-				msg: 'Compare: null vs undefined'
-			},
-			{
-				obj1: 'string',
-				obj2: undefined,
-				result: false,
-				msg: 'Compare: string vs undefined'
-			},
-			{
-				obj1: undefined,
-				obj2: undefined,
-				result: true,
-				msg: 'Compare: undefined vs undefined'
-			},
-			{
-				obj1: null,
-				obj2: null,
-				result: true,
-				msg: 'Compare: null vs null'
-			},
-			{
-				obj1: 'A proper string.',
-				obj2: 'A proper string.',
-				result: true,
-				msg: 'Compare: strings'
-			},
-			{
-				obj1: true,
-				obj2: true,
-				result: true,
-				msg: 'Compare: booleans'
-			},
-			{
-				obj1: { 1: 'string', 2: 'another', 4: 'and another' },
-				obj2: { 1: 'string', 2: 'another', 4: 'and another' },
-				result: true,
-				allowSubset: true,
-				msg: 'Compare: plain object full equality'
-			},
-			{
-				obj1: { 1: 'string', 2: 'another', 4: 'and another' },
-				obj2: { 1: 'another', 2: 'and another', 4: 'string' },
-				result: false,
-				allowSubset: true,
-				msg: 'Compare: plain object full inequality'
-			},
-			{
-				obj1: { 1: 'string', 2: 'another', 4: 'and another' },
-				obj2: { 4: 'and another' },
-				result: true,
-				allowSubset: true,
-				msg: 'Compare: plain object subset equality'
-			},
-			{
-				obj1: [ 'val1', 'val2', 'val3' ],
-				obj2: [ 'val1', 'val2', 'val3' ],
-				result: true,
-				msg: 'Compare: arrays'
-			},
-			{
-				obj1: [ 'val1', 'val2', 'val3' ],
-				obj2: [ 'val1' ],
-				result: true,
-				allowSubset: true,
-				msg: 'Compare: array subset: true'
-			},
-			{
-				obj1: [ 'val1', 'val2', 'val3' ],
-				obj2: [ 'val1' ],
-				result: false,
-				allowSubset: false,
-				msg: 'Compare: array subset: false'
-			},
-			{
-				obj1: {
-					param1: {
-						type: 'unknown',
-						aliases: [ 'alias2', 'alias1', 'alias3' ],
-						description: 'Some description',
-						required: true,
-						suggested: false
+QUnit.test( 'Validation tools', function ( assert ) {
+	var i, testVars,
+		tests = {
+			compare: [
+				{
+					obj1: null,
+					obj2: undefined,
+					result: false,
+					msg: 'Compare: null vs undefined'
+				},
+				{
+					obj1: 'string',
+					obj2: undefined,
+					result: false,
+					msg: 'Compare: string vs undefined'
+				},
+				{
+					obj1: undefined,
+					obj2: undefined,
+					result: true,
+					msg: 'Compare: undefined vs undefined'
+				},
+				{
+					obj1: null,
+					obj2: null,
+					result: true,
+					msg: 'Compare: null vs null'
+				},
+				{
+					obj1: 'A proper string.',
+					obj2: 'A proper string.',
+					result: true,
+					msg: 'Compare: strings'
+				},
+				{
+					obj1: true,
+					obj2: true,
+					result: true,
+					msg: 'Compare: booleans'
+				},
+				{
+					obj1: { 1: 'string', 2: 'another', 4: 'and another' },
+					obj2: { 1: 'string', 2: 'another', 4: 'and another' },
+					result: true,
+					allowSubset: true,
+					msg: 'Compare: plain object full equality'
+				},
+				{
+					obj1: { 1: 'string', 2: 'another', 4: 'and another' },
+					obj2: { 1: 'another', 2: 'and another', 4: 'string' },
+					result: false,
+					allowSubset: true,
+					msg: 'Compare: plain object full inequality'
+				},
+				{
+					obj1: { 1: 'string', 2: 'another', 4: 'and another' },
+					obj2: { 4: 'and another' },
+					result: true,
+					allowSubset: true,
+					msg: 'Compare: plain object subset equality'
+				},
+				{
+					obj1: [ 'val1', 'val2', 'val3' ],
+					obj2: [ 'val1', 'val2', 'val3' ],
+					result: true,
+					msg: 'Compare: arrays'
+				},
+				{
+					obj1: [ 'val1', 'val2', 'val3' ],
+					obj2: [ 'val1' ],
+					result: true,
+					allowSubset: true,
+					msg: 'Compare: array subset: true'
+				},
+				{
+					obj1: [ 'val1', 'val2', 'val3' ],
+					obj2: [ 'val1' ],
+					result: false,
+					allowSubset: false,
+					msg: 'Compare: array subset: false'
+				},
+				{
+					obj1: {
+						param1: {
+							type: 'unknown',
+							aliases: [ 'alias2', 'alias1', 'alias3' ],
+							description: 'Some description',
+							required: true,
+							suggested: false
+						},
+						param2: {
+							required: true
+						}
 					},
-					param2: {
-						required: true
-					}
-				},
-				obj2: {
-					param1: {
-						type: 'unknown',
-						aliases: [ 'alias2', 'alias1', 'alias3' ],
-						description: 'Some description',
-						required: true,
-						suggested: false
+					obj2: {
+						param1: {
+							type: 'unknown',
+							aliases: [ 'alias2', 'alias1', 'alias3' ],
+							description: 'Some description',
+							required: true,
+							suggested: false
+						},
+						param2: {
+							required: true
+						}
 					},
-					param2: {
-						required: true
-					}
+					result: true,
+					allowSubset: true,
+					msg: 'Compare: complex objects'
 				},
-				result: true,
-				allowSubset: true,
-				msg: 'Compare: complex objects'
-			},
-			{
-				obj1: {
-					param1: {
-						type: 'unknown',
-						aliases: [ 'alias1', 'alias2', 'alias3' ],
-						description: 'Some description',
-						required: true,
-						suggested: false
+				{
+					obj1: {
+						param1: {
+							type: 'unknown',
+							aliases: [ 'alias1', 'alias2', 'alias3' ],
+							description: 'Some description',
+							required: true,
+							suggested: false
+						},
+						param2: {
+							required: true
+						}
 					},
-					param2: {
-						required: true
-					}
-				},
-				obj2: {
-					param1: {
-						aliases: [ 'alias1', 'alias2', 'alias3' ],
-						suggested: false
-					}
-				},
-				result: true,
-				allowSubset: true,
-				msg: 'Compare: complex objects subset'
-			}
-		],
-		splitAndTrimArray: [
-			{
-				string: 'str1 , str2 ',
-				delim: ',',
-				result: [ 'str1', 'str2' ],
-				msg: 'splitAndTrimArray: split and trim'
-			},
-			{
-				string: 'str1, str2, , , , str3',
-				delim: ',',
-				result: [ 'str1', 'str2', 'str3' ],
-				msg: 'splitAndTrimArray: remove empty values'
-			},
-			{
-				string: 'str1|str2|str3',
-				delim: '|',
-				result: [ 'str1', 'str2', 'str3' ],
-				msg: 'splitAndTrimArray: different delimeter'
-			}
-		],
-		arrayUnionWithoutEmpty: [
-			{
-				arrays: [ [ 'en', 'he', '' ], [ 'he', 'de', '' ], [ 'en', 'de' ] ],
-				result: [ 'en', 'he', 'de' ],
-				msg: 'arrayUnionWithoutEmpty: Remove duplications'
-			},
-			{
-				arrays: [ [ 'en', '', '' ], [ 'he', '', '' ], [ 'de', '' ] ],
-				result: [ 'en', 'he', 'de' ],
-				msg: 'arrayUnionWithoutEmpty: Remove empty values'
-			}
-		],
-		props: {
-			all: [
-				'name',
-				'aliases',
-				'label',
-				'description',
-				'example',
-				'type',
-				'suggestedvalues',
-				'default',
-				'autovalue',
-				'status',
-				'deprecated',
-				'deprecatedValue',
-				'required',
-				'suggested'
+					obj2: {
+						param1: {
+							aliases: [ 'alias1', 'alias2', 'alias3' ],
+							suggested: false
+						}
+					},
+					result: true,
+					allowSubset: true,
+					msg: 'Compare: complex objects subset'
+				}
 			],
-			language: [
-				'label',
-				'description',
-				'example',
-				'default'
-			]
-		}
-	};
+			splitAndTrimArray: [
+				{
+					string: 'str1 , str2 ',
+					delim: ',',
+					result: [ 'str1', 'str2' ],
+					msg: 'splitAndTrimArray: split and trim'
+				},
+				{
+					string: 'str1, str2, , , , str3',
+					delim: ',',
+					result: [ 'str1', 'str2', 'str3' ],
+					msg: 'splitAndTrimArray: remove empty values'
+				},
+				{
+					string: 'str1|str2|str3',
+					delim: '|',
+					result: [ 'str1', 'str2', 'str3' ],
+					msg: 'splitAndTrimArray: different delimeter'
+				}
+			],
+			arrayUnionWithoutEmpty: [
+				{
+					arrays: [ [ 'en', 'he', '' ], [ 'he', 'de', '' ], [ 'en', 'de' ] ],
+					result: [ 'en', 'he', 'de' ],
+					msg: 'arrayUnionWithoutEmpty: Remove duplications'
+				},
+				{
+					arrays: [ [ 'en', '', '' ], [ 'he', '', '' ], [ 'de', '' ] ],
+					result: [ 'en', 'he', 'de' ],
+					msg: 'arrayUnionWithoutEmpty: Remove empty values'
+				}
+			],
+			props: {
+				all: [
+					'name',
+					'aliases',
+					'label',
+					'description',
+					'example',
+					'type',
+					'suggestedvalues',
+					'default',
+					'autovalue',
+					'deprecated',
+					'deprecatedValue',
+					'required',
+					'suggested'
+				],
+				language: [
+					'label',
+					'description',
+					'example',
+					'default'
+				]
+			}
+		};
 
 	// Compare
-	for ( let i = 0; i < tests.compare.length; i++ ) {
-		const testVars = tests.compare[ i ];
+	for ( i = 0; i < tests.compare.length; i++ ) {
+		testVars = tests.compare[ i ];
 		assert.strictEqual(
 			Model.static.compare( testVars.obj1, testVars.obj2, testVars.allowSubset ),
 			testVars.result,
@@ -350,8 +353,8 @@ QUnit.test( 'Validation tools', ( assert ) => {
 	}
 
 	// Split and trim
-	for ( let i = 0; i < tests.splitAndTrimArray.length; i++ ) {
-		const testVars = tests.splitAndTrimArray[ i ];
+	for ( i = 0; i < tests.splitAndTrimArray.length; i++ ) {
+		testVars = tests.splitAndTrimArray[ i ];
 		assert.deepEqual(
 			Model.static.splitAndTrimArray( testVars.string, testVars.delim ),
 			testVars.result,
@@ -360,8 +363,8 @@ QUnit.test( 'Validation tools', ( assert ) => {
 	}
 
 	// arrayUnionWithoutEmpty
-	for ( let i = 0; i < tests.arrayUnionWithoutEmpty.length; i++ ) {
-		const testVars = tests.arrayUnionWithoutEmpty[ i ];
+	for ( i = 0; i < tests.arrayUnionWithoutEmpty.length; i++ ) {
+		testVars = tests.arrayUnionWithoutEmpty[ i ];
 		assert.deepEqual(
 			Model.static.arrayUnionWithoutEmpty.apply( testVars, testVars.arrays ),
 			testVars.result,
@@ -383,8 +386,9 @@ QUnit.test( 'Validation tools', ( assert ) => {
 } );
 
 // Test model load
-QUnit.test( 'TemplateData model', ( assert ) => {
-	const sourceHandler = new SourceHandler(),
+QUnit.test( 'TemplateData model', function ( assert ) {
+	var i, testVars,
+		sourceHandler = new SourceHandler(),
 		paramAddTest = [
 			{
 				key: 'newParam1',
@@ -430,7 +434,7 @@ QUnit.test( 'TemplateData model', ( assert ) => {
 				property: 'description',
 				language: currLanguage,
 				value: resultDescCurrLang[ currLanguage ],
-				result: Object.assign( {}, paramAddTest[ 0 ].result, {
+				result: $.extend( {}, paramAddTest[ 0 ].result, {
 					description: resultDescCurrLang
 				} ),
 				msg: 'Adding description in current language.'
@@ -440,8 +444,8 @@ QUnit.test( 'TemplateData model', ( assert ) => {
 				property: 'description',
 				language: 'blah',
 				value: resultDescMockLang.blah,
-				result: Object.assign( {}, paramAddTest[ 0 ].result, {
-					description: Object.assign( {}, resultDescCurrLang, resultDescMockLang )
+				result: $.extend( {}, paramAddTest[ 0 ].result, {
+					description: $.extend( {}, resultDescCurrLang, resultDescMockLang )
 				} ),
 				msg: 'Adding description in mock language.'
 			},
@@ -461,7 +465,7 @@ QUnit.test( 'TemplateData model', ( assert ) => {
 				property: 'description',
 				language: 'blah',
 				value: '',
-				result: Object.assign( {}, paramAddTest[ 1 ].result, {
+				result: $.extend( {}, paramAddTest[ 1 ].result, {
 					description: { blah: '' }
 				} ),
 				msg: 'Adding empty description in mock language.'
@@ -470,7 +474,7 @@ QUnit.test( 'TemplateData model', ( assert ) => {
 				key: 'newParam3',
 				property: 'deprecated',
 				value: true,
-				result: Object.assign( {}, paramAddTest[ 2 ].result, {
+				result: $.extend( {}, paramAddTest[ 2 ].result, {
 					deprecated: true
 				} ),
 				msg: 'Adding deprecated property (boolean).'
@@ -479,7 +483,7 @@ QUnit.test( 'TemplateData model', ( assert ) => {
 				key: 'newParam3',
 				property: 'deprecatedValue',
 				value: 'This is deprecated.',
-				result: Object.assign( {}, paramAddTest[ 2 ].result, {
+				result: $.extend( {}, paramAddTest[ 2 ].result, {
 					deprecated: true,
 					deprecatedValue: 'This is deprecated.'
 				} ),
@@ -488,7 +492,7 @@ QUnit.test( 'TemplateData model', ( assert ) => {
 		];
 
 	return sourceHandler.buildModel( originalWikitext )
-		.done( ( model ) => {
+		.done( function ( model ) {
 			// Check description
 			assert.strictEqual(
 				model.getTemplateDescription(),
@@ -508,7 +512,7 @@ QUnit.test( 'TemplateData model', ( assert ) => {
 				'Parameters retention.'
 			);
 
-			for ( let i = 0; i < paramAddTest.length; i++ ) {
+			for ( i = 0; i < paramAddTest.length; i++ ) {
 				// Add parameter
 				model.addParam( paramAddTest[ i ].key, paramAddTest[ i ].data );
 
@@ -528,8 +532,8 @@ QUnit.test( 'TemplateData model', ( assert ) => {
 			}
 
 			// Change parameter properties
-			for ( let i = 0; i < paramChangeTest.length; i++ ) {
-				const testVars = paramChangeTest[ i ];
+			for ( i = 0; i < paramChangeTest.length; i++ ) {
+				testVars = paramChangeTest[ i ];
 				model.setParamProperty( testVars.key, testVars.property, testVars.value, testVars.language );
 				assert.deepEqual(
 					model.getParamData( testVars.key ),
@@ -555,7 +559,7 @@ QUnit.test( 'TemplateData model', ( assert ) => {
 				null,
 				'block',
 				'inline'
-			].forEach( ( f ) => {
+			].forEach( function ( f ) {
 				model.setTemplateFormat( f );
 				assert.deepEqual(
 					model.getTemplateFormat(),
@@ -590,8 +594,8 @@ QUnit.test( 'TemplateData model', ( assert ) => {
 } );
 
 // Test model with maps in wikitext
-QUnit.test( 'TemplateData sourceHandler with maps', ( assert ) => {
-	const sourceHandler = new SourceHandler(),
+QUnit.test( 'TemplateData sourceHandler with maps', function ( assert ) {
+	var sourceHandler = new SourceHandler(),
 		wikitextWithMaps = 'Some text here that is not templatedata information.' +
 		'<templatedata>' +
 		'{' +
@@ -703,7 +707,7 @@ QUnit.test( 'TemplateData sourceHandler with maps', ( assert ) => {
 		};
 
 	return sourceHandler.buildModel( wikitextWithMaps )
-		.done( ( model ) => {
+		.done( function ( model ) {
 			assert.deepEqual(
 				model.outputTemplateData(),
 				jsonWithMaps,
@@ -713,8 +717,8 @@ QUnit.test( 'TemplateData sourceHandler with maps', ( assert ) => {
 } );
 
 // Test model fail
-QUnit.test( 'TemplateData sourceHandler failure', ( assert ) => {
-	const sourceHandler = new SourceHandler(),
+QUnit.test( 'TemplateData sourceHandler failure', function ( assert ) {
+	var sourceHandler = new SourceHandler(),
 		erronousString = '<templatedata>{\n' +
 			'"params": {\n' +
 				// Open quote
@@ -737,18 +741,19 @@ QUnit.test( 'TemplateData sourceHandler failure', ( assert ) => {
 				'}\n' +
 			'}\n' +
 		'}</templatedata>',
-		done = assert.async();
+		done = assert.async(),
+		promise;
 
-	const promise = sourceHandler.buildModel( erronousString );
-	promise.always( () => {
+	promise = sourceHandler.buildModel( erronousString );
+	promise.always( function () {
 		assert.strictEqual( promise.state(), 'rejected', 'Promise rejected on erronous json string.' );
 		done();
 	} );
 } );
 
 // Test model gets default format
-QUnit.test( 'TemplateData sourceHandler adding default format', ( assert ) => {
-	const sourceHandler = new SourceHandler(),
+QUnit.test( 'TemplateData sourceHandler adding default format', function ( assert ) {
+	var sourceHandler = new SourceHandler(),
 		simpleTemplateDataNoFormat = '<templatedata>{\n' +
 				'"params": {}\n' +
 			'}</templatedata>',
@@ -757,7 +762,7 @@ QUnit.test( 'TemplateData sourceHandler adding default format', ( assert ) => {
 		};
 
 	return sourceHandler.buildModel( simpleTemplateDataNoFormat )
-		.done( ( model ) => {
+		.done( function ( model ) {
 			assert.deepEqual(
 				model.outputTemplateData(),
 				simpleTemplateDataDefaultFormat,
@@ -766,8 +771,8 @@ QUnit.test( 'TemplateData sourceHandler adding default format', ( assert ) => {
 		} );
 } );
 
-QUnit.test( 'Duplicate parameter names', ( assert ) => {
-	const model = new Model();
+QUnit.test( 'Duplicate parameter names', function ( assert ) {
+	var model = new Model();
 	model.addParam( 'color' );
 	assert.deepEqual( model.getParams(), {
 		color: { name: 'color' }
@@ -797,8 +802,8 @@ QUnit.test( 'Duplicate parameter names', ( assert ) => {
 	assert.deepEqual( model.getTemplateParamOrder(), [ '1-3', '1' ] );
 } );
 
-QUnit.test( 'safesubst: hack with an unnamed parameter', ( assert ) => {
-	const handler = new SourceHandler(),
+QUnit.test( 'safesubst: hack with an unnamed parameter', function ( assert ) {
+	var handler = new SourceHandler(),
 		wikitext = '{{ {{{|safesubst:}}}#invoke:…|{{{1}}}|{{{ 1 }}}}}';
 
 	assert.deepEqual(

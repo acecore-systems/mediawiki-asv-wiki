@@ -20,15 +20,7 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
-use Exception;
-use MediaWiki\Feed\FeedItem;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Parser\ParserFactory;
-use MediaWiki\Request\FauxRequest;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Title\Title;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\TypeDef\IntegerDef;
 
@@ -41,20 +33,24 @@ use Wikimedia\ParamValidator\TypeDef\IntegerDef;
  */
 class ApiFeedWatchlist extends ApiBase {
 
-	/** @var ApiBase|null */
 	private $watchlistModule = null;
-	/** @var bool */
 	private $linkToSections = false;
 
-	private ParserFactory $parserFactory;
+	/** @var Parser */
+	private $parser;
 
+	/**
+	 * @param ApiMain $main
+	 * @param string $action
+	 * @param Parser $parser
+	 */
 	public function __construct(
 		ApiMain $main,
-		string $action,
-		ParserFactory $parserFactory
+		$action,
+		Parser $parser
 	) {
 		parent::__construct( $main, $action );
-		$this->parserFactory = $parserFactory;
+		$this->parser = $parser;
 	}
 
 	/**
@@ -172,9 +168,9 @@ class ApiFeedWatchlist extends ApiBase {
 			$feed = new $feedClasses[$feedFormat] ( $feedTitle, $msg, $feedUrl );
 
 			if ( $e instanceof ApiUsageException ) {
-				foreach ( $e->getStatusValue()->getMessages() as $msg ) {
+				foreach ( $e->getStatusValue()->getErrors() as $error ) {
 					// @phan-suppress-next-line PhanUndeclaredMethod
-					$msg = ApiMessage::create( $msg )
+					$msg = ApiMessage::create( $error )
 						->inLanguage( $this->getLanguage() );
 					$errorTitle = $this->msg( 'api-feed-error-title', $msg->getApiCode() );
 					$errorText = $msg->text();
@@ -231,11 +227,11 @@ class ApiFeedWatchlist extends ApiBase {
 		// Create an anchor to section.
 		// The anchor won't work for sections that have dupes on page
 		// as there's no way to strip that info from ApiWatchlist (apparently?).
-		// RegExp in the line below is equal to MediaWiki\CommentFormatter\CommentParser::doSectionLinks().
+		// RegExp in the line below is equal to Linker::formatAutocomments().
 		if ( $this->linkToSections && $comment !== null &&
 			preg_match( '!(.*)/\*\s*(.*?)\s*\*/(.*)!', $comment, $matches )
 		) {
-			$titleUrl .= $this->parserFactory->getMainInstance()->guessSectionNameFromWikiText( $matches[ 2 ] );
+			$titleUrl .= $this->parser->guessSectionNameFromWikiText( $matches[ 2 ] );
 		}
 
 		$timestamp = $info['timestamp'];
@@ -252,8 +248,10 @@ class ApiFeedWatchlist extends ApiBase {
 	}
 
 	private function getWatchlistModule() {
-		$this->watchlistModule ??= $this->getMain()->getModuleManager()->getModule( 'query' )
-			->getModuleManager()->getModule( 'watchlist' );
+		if ( $this->watchlistModule === null ) {
+			$this->watchlistModule = $this->getMain()->getModuleManager()->getModule( 'query' )
+				->getModuleManager()->getModule( 'watchlist' );
+		}
 
 		return $this->watchlistModule;
 	}
@@ -282,26 +280,32 @@ class ApiFeedWatchlist extends ApiBase {
 			'type' => 'wltype',
 			'excludeuser' => 'wlexcludeuser',
 		];
-		// @phan-suppress-next-line PhanParamTooMany
-		$wlparams = $this->getWatchlistModule()->getAllowedParams( $flags );
-		foreach ( $copyParams as $from => $to ) {
-			$p = $wlparams[$from];
-			if ( !is_array( $p ) ) {
-				$p = [ ParamValidator::PARAM_DEFAULT => $p ];
-			}
-			if ( !isset( $p[ApiBase::PARAM_HELP_MSG] ) ) {
-				$p[ApiBase::PARAM_HELP_MSG] = "apihelp-query+watchlist-param-$from";
-			}
-			if ( isset( $p[ParamValidator::PARAM_TYPE] ) && is_array( $p[ParamValidator::PARAM_TYPE] ) &&
-				isset( $p[ApiBase::PARAM_HELP_MSG_PER_VALUE] )
-			) {
-				foreach ( $p[ParamValidator::PARAM_TYPE] as $v ) {
-					if ( !isset( $p[ApiBase::PARAM_HELP_MSG_PER_VALUE][$v] ) ) {
-						$p[ApiBase::PARAM_HELP_MSG_PER_VALUE][$v] = "apihelp-query+watchlist-paramvalue-$from-$v";
+		if ( $flags ) {
+			// @phan-suppress-next-line PhanParamTooMany
+			$wlparams = $this->getWatchlistModule()->getAllowedParams( $flags );
+			foreach ( $copyParams as $from => $to ) {
+				$p = $wlparams[$from];
+				if ( !is_array( $p ) ) {
+					$p = [ ParamValidator::PARAM_DEFAULT => $p ];
+				}
+				if ( !isset( $p[ApiBase::PARAM_HELP_MSG] ) ) {
+					$p[ApiBase::PARAM_HELP_MSG] = "apihelp-query+watchlist-param-$from";
+				}
+				if ( isset( $p[ParamValidator::PARAM_TYPE] ) && is_array( $p[ParamValidator::PARAM_TYPE] ) &&
+					isset( $p[ApiBase::PARAM_HELP_MSG_PER_VALUE] )
+				) {
+					foreach ( $p[ParamValidator::PARAM_TYPE] as $v ) {
+						if ( !isset( $p[ApiBase::PARAM_HELP_MSG_PER_VALUE][$v] ) ) {
+							$p[ApiBase::PARAM_HELP_MSG_PER_VALUE][$v] = "apihelp-query+watchlist-paramvalue-$from-$v";
+						}
 					}
 				}
+				$ret[$to] = $p;
 			}
-			$ret[$to] = $p;
+		} else {
+			foreach ( $copyParams as $to ) {
+				$ret[$to] = null;
+			}
 		}
 
 		return $ret;
@@ -320,6 +324,3 @@ class ApiFeedWatchlist extends ApiBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Watchlist_feed';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiFeedWatchlist::class, 'ApiFeedWatchlist' );

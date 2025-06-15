@@ -1,5 +1,5 @@
 ( function () {
-	const
+	var
 		checkboxHack = require( ( 'mediawiki.page.ready' ) ).checkboxHack,
 		CHECKBOX_HACK_CONTAINER_SELECTOR = '.toggle-list',
 		CHECKBOX_HACK_CHECKBOX_SELECTOR = '.toggle-list__checkbox',
@@ -12,14 +12,15 @@
 	 *
 	 * @param {Window} window
 	 * @param {HTMLElement} component
+	 * @return {void}
 	 */
 	function bind( window, component ) {
-		const
+		var
 			checkbox = /** @type {HTMLInputElement} */ (
 				component.querySelector( CHECKBOX_HACK_CHECKBOX_SELECTOR )
 			),
 			button = component.querySelector( CHECKBOX_HACK_BUTTON_SELECTOR ),
-			target = component.querySelector( CHECKBOX_HACK_TARGET_SELECTOR ).parentNode;
+			target = component.querySelector( CHECKBOX_HACK_TARGET_SELECTOR );
 
 		if ( !( checkbox && button && target ) ) {
 			return;
@@ -29,6 +30,6 @@
 
 	module.exports = Object.freeze( {
 		selector: CHECKBOX_HACK_CONTAINER_SELECTOR,
-		bind
+		bind: bind
 	} );
 }() );

@@ -198,12 +198,12 @@ $magicWords['ru'] = [
 ];
 
 /** Serbian (Cyrillic script) (српски (ћирилица)) */
-$magicWords['sr-cyrl'] = [
+$magicWords['sr-ec'] = [
 	'categorytree' => [ 0, 'стаблокатегорије', 'стабло_категорије' ],
 ];
 
 /** Serbian (Latin script) (srpski (latinica)) */
-$magicWords['sr-latn'] = [
+$magicWords['sr-el'] = [
 	'categorytree' => [ 0, 'stablokategorije', 'stablo_kategorije' ],
 ];
 

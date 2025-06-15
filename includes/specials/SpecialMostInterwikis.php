@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Mostinterwikis
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -19,42 +21,34 @@
  * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
 use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Html\Html;
-use MediaWiki\Linker\Linker;
-use MediaWiki\SpecialPage\QueryPage;
-use MediaWiki\Title\NamespaceInfo;
-use MediaWiki\Title\Title;
-use Skin;
-use stdClass;
-use Wikimedia\Rdbms\IConnectionProvider;
 use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\ILoadBalancer;
 use Wikimedia\Rdbms\IResultWrapper;
 
 /**
- * List of pages that have the highest interwiki count.
+ * A special page that listed pages that have highest interwiki count
  *
  * @ingroup SpecialPage
  */
 class SpecialMostInterwikis extends QueryPage {
 
-	private NamespaceInfo $namespaceInfo;
+	/** @var NamespaceInfo */
+	private $namespaceInfo;
 
 	/**
 	 * @param NamespaceInfo $namespaceInfo
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param LinkBatchFactory $linkBatchFactory
 	 */
 	public function __construct(
 		NamespaceInfo $namespaceInfo,
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		LinkBatchFactory $linkBatchFactory
 	) {
 		parent::__construct( 'Mostinterwikis' );
 		$this->namespaceInfo = $namespaceInfo;
-		$this->setDatabaseProvider( $dbProvider );
+		$this->setDBLoadBalancer( $loadBalancer );
 		$this->setLinkBatchFactory( $linkBatchFactory );
 	}
 
@@ -137,9 +131,3 @@ class SpecialMostInterwikis extends QueryPage {
 		return 'highuse';
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialMostInterwikis::class, 'SpecialMostInterwikis' );

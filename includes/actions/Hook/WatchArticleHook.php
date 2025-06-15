@@ -2,8 +2,8 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\Status\Status;
-use MediaWiki\User\User;
+use Status;
+use User;
 use WikiPage;
 
 /**

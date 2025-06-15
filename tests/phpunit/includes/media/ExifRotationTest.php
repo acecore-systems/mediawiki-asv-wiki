@@ -8,8 +8,7 @@ use MediaWiki\MainConfigNames;
  * @group Media
  * @group medium
  *
- * @covers \BitmapHandler
- * @requires extension exif
+ * @covers BitmapHandler
  */
 class ExifRotationTest extends MediaWikiMediaTestCase {
 
@@ -18,6 +17,7 @@ class ExifRotationTest extends MediaWikiMediaTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
+		$this->checkPHPExtension( 'exif' );
 
 		$this->handler = new BitmapHandler();
 
@@ -84,7 +84,7 @@ class ExifRotationTest extends MediaWikiMediaTestCase {
 					'height' => $matches[2]
 				];
 			} else {
-				throw new InvalidArgumentException( 'bogus test data format ' . $size );
+				throw new MWException( 'bogus test data format ' . $size );
 			}
 
 			$file = $this->dataFile( $name, $type );
@@ -119,28 +119,28 @@ class ExifRotationTest extends MediaWikiMediaTestCase {
 				'landscape-plain.jpg',
 				'image/jpeg',
 				[
-					'width' => 160,
-					'height' => 120,
+					'width' => 1024,
+					'height' => 768,
 				],
 				[
-					'80x60px' => [ 80, 60 ],
-					'9999x80px' => [ 107, 80 ],
-					'80px' => [ 80, 60 ],
-					'60px' => [ 60, 45 ],
+					'800x600px' => [ 800, 600 ],
+					'9999x800px' => [ 1067, 800 ],
+					'800px' => [ 800, 600 ],
+					'600px' => [ 600, 450 ],
 				]
 			],
 			[
 				'portrait-rotated.jpg',
 				'image/jpeg',
 				[
-					'width' => 120, // as rotated
-					'height' => 160, // as rotated
+					'width' => 768, // as rotated
+					'height' => 1024, // as rotated
 				],
 				[
-					'80x60px' => [ 45, 60 ],
-					'9999x80px' => [ 60, 80 ],
-					'80px' => [ 80, 107 ],
-					'60px' => [ 60, 80 ],
+					'800x600px' => [ 450, 600 ],
+					'9999x800px' => [ 600, 800 ],
+					'800px' => [ 800, 1067 ],
+					'600px' => [ 600, 800 ],
 				]
 			]
 		];
@@ -190,7 +190,7 @@ class ExifRotationTest extends MediaWikiMediaTestCase {
 					'height' => $matches[2]
 				];
 			} else {
-				throw new InvalidArgumentException( 'bogus test data format ' . $size );
+				throw new MWException( 'bogus test data format ' . $size );
 			}
 
 			$file = $this->dataFile( $name, $type );
@@ -230,28 +230,28 @@ class ExifRotationTest extends MediaWikiMediaTestCase {
 				'landscape-plain.jpg',
 				'image/jpeg',
 				[
-					'width' => 160,
-					'height' => 120,
+					'width' => 1024,
+					'height' => 768,
 				],
 				[
-					'80x60px' => [ 80, 60 ],
-					'9999x80px' => [ 107, 80 ],
-					'80px' => [ 80, 60 ],
-					'60px' => [ 60, 45 ],
+					'800x600px' => [ 800, 600 ],
+					'9999x800px' => [ 1067, 800 ],
+					'800px' => [ 800, 600 ],
+					'600px' => [ 600, 450 ],
 				]
 			],
 			[
 				'portrait-rotated.jpg',
 				'image/jpeg',
 				[
-					'width' => 160, // since not rotated
-					'height' => 120, // since not rotated
+					'width' => 1024, // since not rotated
+					'height' => 768, // since not rotated
 				],
 				[
-					'80x60px' => [ 80, 60 ],
-					'9999x80px' => [ 107, 80 ],
-					'80px' => [ 80, 60 ],
-					'60px' => [ 60, 45 ],
+					'800x600px' => [ 800, 600 ],
+					'9999x800px' => [ 1067, 800 ],
+					'800px' => [ 800, 600 ],
+					'600px' => [ 600, 450 ],
 				]
 			]
 		];

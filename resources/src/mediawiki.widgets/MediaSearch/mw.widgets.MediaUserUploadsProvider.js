@@ -7,20 +7,19 @@
 ( function () {
 
 	/**
-	 * @classdesc User uploads provider.
+	 * MediaWiki media search provider.
 	 *
 	 * @class
 	 * @extends mw.widgets.MediaResourceProvider
 	 *
 	 * @constructor
-	 * @description Create an instance of `mw.widgets.MediaUserUploadsProvider`.
 	 * @param {string} apiurl The API url
 	 * @param {Object} [config] Configuration options
 	 */
 	mw.widgets.MediaUserUploadsProvider = function MwWidgetsMediaUserUploadsProvider( apiurl, config ) {
 		config = config || {};
 
-		config.staticParams = Object.assign( {
+		config.staticParams = $.extend( {
 			generator: 'allimages',
 			gaisort: 'timestamp',
 			gaidir: 'descending'
@@ -57,10 +56,11 @@
 	 * @inheritdoc
 	 */
 	mw.widgets.MediaUserUploadsProvider.prototype.sort = function ( results ) {
-		return results.sort(
+		return results.sort( function ( a, b ) {
 			// timestamps are strings
-			( a, b ) => a.timestamp < b.timestamp ? 1 : ( a.timestamp === b.timestamp ? 0 : -1 )
-		);
+			return a.timestamp < b.timestamp ? 1 :
+				( a.timestamp === b.timestamp ? 0 : -1 );
+		} );
 	};
 
 	/**

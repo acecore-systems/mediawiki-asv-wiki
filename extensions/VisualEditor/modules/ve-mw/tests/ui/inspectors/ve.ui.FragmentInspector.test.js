@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface FragmentInspector tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ui.FragmentInspector (MW)', ve.test.utils.newMwEnvironment( {
@@ -14,7 +14,7 @@ QUnit.module( 've.ui.FragmentInspector (MW)', ve.test.utils.newMwEnvironment( {
 
 /* Tests */
 
-QUnit.test( 'Wikitext link inspector', ( assert ) => {
+QUnit.test( 'Wikitext link inspector', function ( assert ) {
 	const done = assert.async(),
 		surface = ve.init.target.createSurface(
 			ve.dm.converter.getModelFromDom(
@@ -34,7 +34,7 @@ QUnit.test( 'Wikitext link inspector', ( assert ) => {
 				expectedData: ( data ) => {
 					data.splice(
 						1, 3,
-						...'[[Foo]]'
+						'[', '[', 'F', 'o', 'o', ']', ']'
 					);
 				}
 			},
@@ -90,7 +90,7 @@ QUnit.test( 'Wikitext link inspector', ( assert ) => {
 				},
 				expectedRange: new ve.Range( 34 ),
 				expectedData: ( data ) => {
-					data.splice( 26, 0, ...[ ...'[[quux]]' ] );
+					data.splice.apply( data, [ 26, 0 ].concat( '[[quux]]'.split( '' ) ) );
 				}
 			},
 			{
@@ -102,7 +102,7 @@ QUnit.test( 'Wikitext link inspector', ( assert ) => {
 				},
 				expectedRange: new ve.Range( 43 ),
 				expectedData: ( data ) => {
-					data.splice( 26, 0, ...[ ...'[[:File:foo.jpg]]' ] );
+					data.splice.apply( data, [ 26, 0 ].concat( '[[:File:foo.jpg]]'.split( '' ) ) );
 				}
 			},
 			{
@@ -121,7 +121,7 @@ QUnit.test( 'Wikitext link inspector', ( assert ) => {
 				},
 				expectedRange: new ve.Range( 5, 17 ),
 				expectedData: ( data ) => {
-					data.splice( 7, 3, ...[ ...'Quux|bar' ] );
+					data.splice.apply( data, [ 7, 3 ].concat( 'Quux|bar'.split( '' ) ) );
 				}
 			},
 			{
@@ -133,7 +133,7 @@ QUnit.test( 'Wikitext link inspector', ( assert ) => {
 				},
 				expectedRange: new ve.Range( 5, 17 ),
 				expectedData: ( data ) => {
-					data.splice( 7, 3, ...[ ...'Quux|bar' ] );
+					data.splice.apply( data, [ 7, 3 ].concat( 'Quux|bar'.split( '' ) ) );
 				}
 			},
 			{
@@ -145,7 +145,7 @@ QUnit.test( 'Wikitext link inspector', ( assert ) => {
 				},
 				expectedRange: new ve.Range( 13, 25 ),
 				expectedData: ( data ) => {
-					data.splice( 15, 4, ...[ ...'Whee' ] );
+					data.splice.apply( data, [ 15, 4 ].concat( 'Whee'.split( '' ) ) );
 				}
 			},
 			{
@@ -157,7 +157,7 @@ QUnit.test( 'Wikitext link inspector', ( assert ) => {
 				},
 				expectedRange: new ve.Range( 30, 61 ),
 				expectedData: ( data ) => {
-					data.splice( 30, 6, ...[ ...'[[Foo|wh<nowiki>]]</nowiki>ee]]' ] );
+					data.splice.apply( data, [ 30, 6 ].concat( '[[Foo|wh<nowiki>]]</nowiki>ee]]'.split( '' ) ) );
 				}
 			}
 			// Skips clear annotation test, not implement yet

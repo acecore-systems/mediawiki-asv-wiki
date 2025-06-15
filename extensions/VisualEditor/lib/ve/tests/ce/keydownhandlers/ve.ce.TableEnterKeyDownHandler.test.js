@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable table enter key down handler tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 // TODO: Move this to a ve.ui.Trigger test
@@ -10,13 +10,14 @@ QUnit.module( 've.ce.TableEnterKeyDownHandler', {
 	// See https://github.com/platinumazure/eslint-plugin-qunit/issues/68
 	// eslint-disable-next-line qunit/resolve-async
 	beforeEach: function ( assert ) {
-		const done = assert.async();
+		var done = assert.async();
 		return ve.init.platform.getInitializedPromise().then( done );
 	}
 } );
 
-QUnit.test( 'special key down: table enter', ( assert ) => {
-	const done = assert.async(),
+QUnit.test( 'special key down: table enter', function ( assert ) {
+	var done = assert.async(),
+		promise = Promise.resolve(),
 		mergedCellsDoc = ve.dm.example.createExampleDocument( 'mergedCells' ),
 		cases = [
 			{
@@ -50,9 +51,10 @@ QUnit.test( 'special key down: table enter', ( assert ) => {
 			}
 		];
 
-	let promise = Promise.resolve();
-	cases.forEach( ( caseItem ) => {
-		promise = promise.then( () => ve.test.utils.runSurfaceHandleSpecialKeyTest( assert, caseItem ) );
+	cases.forEach( function ( caseItem ) {
+		promise = promise.then( function () {
+			return ve.test.utils.runSurfaceHandleSpecialKeyTest( assert, caseItem );
+		} );
 	} );
 
 	promise.finally( () => done() );

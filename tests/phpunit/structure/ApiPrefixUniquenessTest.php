@@ -1,15 +1,9 @@
 <?php
 
-use MediaWiki\Api\ApiMain;
-use MediaWiki\Api\ApiQueryGeneratorBase;
-use MediaWiki\Request\FauxRequest;
-
 /**
  * Checks that all API query modules, core and extensions, have unique prefixes.
  *
  * @group API
- * @group Database
- * @coversNothing
  */
 class ApiPrefixUniquenessTest extends MediaWikiIntegrationTestCase {
 
@@ -26,7 +20,7 @@ class ApiPrefixUniquenessTest extends MediaWikiIntegrationTestCase {
 			$class = get_class( $module );
 
 			$prefix = $module->getModulePrefix();
-			if ( $prefix === '' ) {
+			if ( $prefix === '' /* HACK: T196962 */ || $prefix === 'wbeu' ) {
 				continue;
 			}
 

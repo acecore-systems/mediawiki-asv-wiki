@@ -2,9 +2,6 @@
 
 namespace MediaWiki\Rest;
 
-use InvalidArgumentException;
-use Stringable;
-
 /**
  * A stream class which uses a string as the underlying storage. Surprisingly,
  * Guzzle does not appear to have one of these. BufferStream does not do what
@@ -16,7 +13,7 @@ use Stringable;
  * Seeking is supported, however seeking past the end of the string does not
  * fill with null bytes as in a real file, it throws an exception instead.
  */
-class StringStream implements Stringable, CopyableStreamInterface {
+class StringStream implements CopyableStreamInterface {
 
 	/** @var string */
 	private $contents;
@@ -81,13 +78,13 @@ class StringStream implements Stringable, CopyableStreamInterface {
 				break;
 
 			default:
-				throw new InvalidArgumentException( "Invalid value for \$whence" );
+				throw new \InvalidArgumentException( "Invalid value for \$whence" );
 		}
 		if ( $this->offset > strlen( $this->contents ) ) {
-			throw new InvalidArgumentException( "Cannot seek beyond the end of a StringStream" );
+			throw new \InvalidArgumentException( "Cannot seek beyond the end of a StringStream" );
 		}
 		if ( $this->offset < 0 ) {
-			throw new InvalidArgumentException( "Cannot seek before the start of a StringStream" );
+			throw new \InvalidArgumentException( "Cannot seek before the start of a StringStream" );
 		}
 	}
 

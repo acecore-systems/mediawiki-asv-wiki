@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable InlineImageNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -9,8 +9,8 @@
  *
  * @class
  * @extends ve.ce.LeafNode
- * @mixes ve.ce.ImageNode
- * @mixes ve.ce.ResizableNode
+ * @mixins ve.ce.ImageNode
+ * @mixins ve.ce.ResizableNode
  *
  * @constructor
  * @param {ve.dm.InlineImageNode} model Model to observe

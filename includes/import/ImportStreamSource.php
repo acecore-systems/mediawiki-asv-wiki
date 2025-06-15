@@ -2,7 +2,7 @@
 /**
  * MediaWiki page data importer.
  *
- * Copyright © 2003,2005 Brooke Vibber <bvibber@wikimedia.org>
+ * Copyright © 2003,2005 Brion Vibber <brion@pobox.com>
  * https://www.mediawiki.org/
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,7 +26,6 @@
 
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Status\Status;
 use Wikimedia\AtEase\AtEase;
 
 /**
@@ -59,21 +58,6 @@ class ImportStreamSource implements ImportSource {
 	}
 
 	/**
-	 * @return bool
-	 */
-	public function isSeekable() {
-		return stream_get_meta_data( $this->mHandle )['seekable'] ?? false;
-	}
-
-	/**
-	 * @param int $offset
-	 * @return int
-	 */
-	public function seek( int $offset ) {
-		return fseek( $this->mHandle, $offset );
-	}
-
-	/**
 	 * @param string $filename
 	 * @return Status
 	 */
@@ -92,7 +76,6 @@ class ImportStreamSource implements ImportSource {
 	 * @return Status
 	 */
 	public static function newFromUpload( $fieldname = "xmlimport" ) {
-		// phpcs:ignore MediaWiki.Usage.SuperGlobalsUsage.SuperGlobals
 		$upload =& $_FILES[$fieldname];
 
 		if ( $upload === null || !$upload['name'] ) {

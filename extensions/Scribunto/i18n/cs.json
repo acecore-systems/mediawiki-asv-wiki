@@ -7,7 +7,6 @@
 			"Mormegil"
 		]
 	},
-	"content-model-scribunto": "Modul Scribunto",
 	"scribunto-desc": "Framework pro vkládání skriptovacích jazyků do stránek MediaWiki",
 	"scribunto-line": "na řádku $1",
 	"scribunto-module-line": "v modulu $1 na řádku $2",
@@ -65,7 +64,5 @@
 	"scribunto-limitreport-profile-percent": "$1 %",
 	"scribunto-limitreport-logs": "Protokoly Lua",
 	"nstab-module": "Modul",
-	"tooltip-ca-nstab-module": "Zobrazit stránku modulu",
-	"namespaceinfo-description-ns828": "Jmenný prostor pro moduly kódu Lua, které lze vyvolávat z wiki stránek, a jejich dokumentaci",
-	"namespaceinfo-description-ns829": "Diskusní stránky pro moduly a dokumentaci"
+	"tooltip-ca-nstab-module": "Zobrazit stránku modulu"
 }

@@ -2,8 +2,7 @@
 
 namespace MediaWiki\Tests\Maintenance;
 
-use MediaWiki\Maintenance\Maintenance;
-use MediaWiki\Maintenance\MaintenanceFatalError;
+use Maintenance;
 use MediaWikiIntegrationTestCase;
 use Wikimedia\TestingAccessWrapper;
 
@@ -89,23 +88,6 @@ abstract class MaintenanceBaseTestCase extends MediaWikiIntegrationTestCase {
 
 		$postShutdownOutput = $preShutdownOutput . ( $expectNLAppending ? "\n" : "" );
 		$this->expectOutputString( $postShutdownOutput );
-	}
-
-	/**
-	 * Expects that a call to Maintenance::fatalError occurs. When Maintenance::fatalError
-	 * is called, an exception is thrown which is marked as expected through this method.
-	 *
-	 * If you wish to assert on the error message provided to Maintenance::fatalError,
-	 * then use ::expectOutputString or ::expectOutputRegex.
-	 *
-	 * @param ?int $expectedCode The expected error code provided to Maintenance::fatalError
-	 * @since 1.43
-	 */
-	protected function expectCallToFatalError( ?int $expectedCode = null ) {
-		$this->expectException( MaintenanceFatalError::class );
-		if ( $expectedCode !== null ) {
-			$this->expectExceptionCode( $expectedCode );
-		}
 	}
 
 }

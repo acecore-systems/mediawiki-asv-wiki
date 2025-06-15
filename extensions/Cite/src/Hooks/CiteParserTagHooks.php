@@ -3,29 +3,22 @@
 namespace Cite\Hooks;
 
 use Cite\Cite;
-use MediaWiki\Config\Config;
-use MediaWiki\Parser\Parser;
-use MediaWiki\Parser\PPFrame;
+use Parser;
+use PPFrame;
 
 /**
  * @license GPL-2.0-or-later
  */
 class CiteParserTagHooks {
 
-	private Config $config;
-
-	public function __construct(
-		Config $config
-	) {
-		$this->config = $config;
-	}
-
 	/**
 	 * Enables the two <ref> and <references> tags.
+	 *
+	 * @param Parser $parser
 	 */
-	public function register( Parser $parser ): void {
-		$parser->setHook( 'ref', [ $this, 'ref' ] );
-		$parser->setHook( 'references', [ $this, 'references' ] );
+	public static function register( Parser $parser ) {
+		$parser->setHook( 'ref', [ __CLASS__, 'ref' ] );
+		$parser->setHook( 'references', [ __CLASS__, 'references' ] );
 	}
 
 	/**
@@ -38,16 +31,16 @@ class CiteParserTagHooks {
 	 *
 	 * @return string HTML
 	 */
-	public function ref(
+	public static function ref(
 		?string $text,
 		array $argv,
 		Parser $parser,
 		PPFrame $frame
 	): string {
-		$cite = $this->citeForParser( $parser );
+		$cite = self::citeForParser( $parser );
 		$result = $cite->ref( $parser, $text, $argv );
 
-		if ( $result === null ) {
+		if ( $result === false ) {
 			return htmlspecialchars( "<ref>$text</ref>" );
 		}
 
@@ -69,16 +62,16 @@ class CiteParserTagHooks {
 	 *
 	 * @return string HTML
 	 */
-	public function references(
+	public static function references(
 		?string $text,
 		array $argv,
 		Parser $parser,
 		PPFrame $frame
 	): string {
-		$cite = $this->citeForParser( $parser );
+		$cite = self::citeForParser( $parser );
 		$result = $cite->references( $parser, $text, $argv );
 
-		if ( $result === null ) {
+		if ( $result === false ) {
 			return htmlspecialchars( $text === null
 				? "<references/>"
 				: "<references>$text</references>"
@@ -91,9 +84,15 @@ class CiteParserTagHooks {
 
 	/**
 	 * Get or create Cite state for this parser.
+	 *
+	 * @param Parser $parser
+	 *
+	 * @return Cite
 	 */
-	private function citeForParser( Parser $parser ): Cite {
-		$parser->extCite ??= new Cite( $parser, $this->config );
+	private static function citeForParser( Parser $parser ): Cite {
+		if ( !isset( $parser->extCite ) ) {
+			$parser->extCite = new Cite( $parser );
+		}
 		return $parser->extCite;
 	}
 

@@ -1,8 +1,8 @@
 {
 	"@metadata": {
 		"authors": [
-			"Attah Mohammed",
-			"Dnshitobu"
+			"Dnshitobu",
+			"Attah Mohammed"
 		]
 	},
 	"citethispage": "Bolimi peeji ŋɔ",
@@ -10,6 +10,5 @@
 	"citethispage-link": "Zaŋ sirli ŋɔ lebi shɛhira",
 	"tooltip-citethispage": "Lahabali zaŋ chaŋ yaɣili ŋɔ Kundivihirili lebbu",
 	"citethispage-change-submit": "Boli",
-	"citethispage-change-target": "Peeji:",
-	"citethispage-content": "</div> <!--closing div for \"plainlinks\"-->"
+	"citethispage-change-target": "Peeji:"
 }

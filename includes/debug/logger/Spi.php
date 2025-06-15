@@ -21,44 +21,18 @@
 namespace MediaWiki\Logger;
 
 /**
- * @defgroup Debug Debug logging
+ * Service provider interface for \Psr\Log\LoggerInterface implementation
+ * libraries.
  *
- * To primary APIs for this feature, and the classes where their documentation
- * starts, are:
+ * MediaWiki can be configured to use a class implementing this interface to
+ * create new \Psr\Log\LoggerInterface instances via either the
+ * $wgMWLoggerDefaultSpi global variable or code that constructs an instance
+ * and registers it via the LoggerFactory::registerProvider() static method.
  *
- * - MediaWiki\Logger\LoggerFactory, this creates all logger objects at
- *   run time.
- *
- * - MediaWiki\Logger\Spi, to develop or configure the service classes
- *   that internally create logger objects. For example, MediaWiki\Logger\LegacyLogger
- *   is the default Spi that backs features like $wgDebugLogFile.
- *   MediaWiki\Logger\MonologSpi is an Spi you can opt-in to via $wgMWLoggerDefaultSpi
- *   to enable structured logging with destinations like Syslog and Logstash,
- *   and "processor" and "formatter" features to augment messages with metadata,
- *   as powered by the Monolog library.
- *
- * - MWDebug, the logic behind $wgDebugToolbar.
- *
- * @see [Logger documentation](@ref debuglogger) in docs/Logger.md
- */
-
-/**
- * Service provider interface to create \Psr\Log\LoggerInterface objects.
- *
- * MediaWiki can be configured to use a class implementing this interface
- * via the $wgMWLoggerDefaultSpi configuration variable.
- *
- * This configuration is consumed by MediaWiki\Logger\LoggerFactory, which is
- * where we create logger objects.
- *
- * While not recommended in production code, you can construct and install
- * an Spi class at runtime via MediaWiki\Logger\LoggerFactory::registerProvider
- * (e.g. to power debug features in PHPUnit bootstrapping, or Maintenance
- * scripts).
- *
+ * @see \MediaWiki\Logger\LoggerFactory
  * @stable to implement
+ *
  * @since 1.25
- * @ingroup Debug
  * @copyright © 2014 Wikimedia Foundation and contributors
  */
 interface Spi {

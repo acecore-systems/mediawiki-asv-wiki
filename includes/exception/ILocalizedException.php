@@ -18,8 +18,6 @@
  * @file
  */
 
-use MediaWiki\Message\Message;
-
 /**
  * Interface for MediaWiki-localized exceptions
  *

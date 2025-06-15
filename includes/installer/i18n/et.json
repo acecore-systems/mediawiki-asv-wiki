@@ -67,6 +67,7 @@
 	"config-license-cc-by-nc-sa": "Creative Commonsi litsents \"Autorile viitamine + mitteäriline eesmärk + jagamine samadel tingimustel\"",
 	"config-email-settings": "E-posti sätted",
 	"config-email-sender": "Saatja e-posti aadress:",
+	"config-cc-again": "Vali uuesti...",
 	"config-extensions": "Lisad",
 	"config-install-step-done": "valmis",
 	"config-install-step-failed": "ebaõnnestus",

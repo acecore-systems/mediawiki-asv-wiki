@@ -4,8 +4,7 @@ use MediaWiki\MainConfigNames;
 
 /**
  * @group Media
- * @covers \ExifBitmapHandler
- * @requires extension exif
+ * @covers ExifBitmapHandler
  */
 class ExifBitmapTest extends MediaWikiMediaTestCase {
 
@@ -16,13 +15,14 @@ class ExifBitmapTest extends MediaWikiMediaTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
+		$this->checkPHPExtension( 'exif' );
 
 		$this->overrideConfigValue( MainConfigNames::ShowEXIF, true );
 
 		$this->handler = new ExifBitmapHandler;
 	}
 
-	public static function provideIsFileMetadataValid() {
+	public function provideIsFileMetadataValid() {
 		return [
 			'old broken' => [
 				ExifBitmapHandler::OLD_BROKEN_FILE,

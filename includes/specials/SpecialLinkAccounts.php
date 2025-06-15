@@ -1,27 +1,16 @@
 <?php
 
-namespace MediaWiki\Specials;
-
-use ErrorPageError;
-use LogicException;
 use MediaWiki\Auth\AuthenticationRequest;
 use MediaWiki\Auth\AuthenticationResponse;
 use MediaWiki\Auth\AuthManager;
-use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\MainConfigNames;
-use MediaWiki\SpecialPage\AuthManagerSpecialPage;
-use StatusValue;
 
 /**
- * Link/unlink external accounts to the current user.
+ * Links/unlinks external accounts to the current user.
  *
  * To interact with this page, account providers need to register themselves with AuthManager.
- *
- * @ingroup SpecialPage
- * @ingroup Auth
  */
 class SpecialLinkAccounts extends AuthManagerSpecialPage {
-	/** @inheritDoc */
 	protected static $allowedActions = [
 		AuthManager::ACTION_LINK, AuthManager::ACTION_LINK_CONTINUE,
 	];
@@ -35,7 +24,7 @@ class SpecialLinkAccounts extends AuthManagerSpecialPage {
 	}
 
 	protected function getGroupName() {
-		return 'login';
+		return 'users';
 	}
 
 	public function isListed() {
@@ -49,6 +38,7 @@ class SpecialLinkAccounts extends AuthManagerSpecialPage {
 	/**
 	 * @param null|string $subPage
 	 * @throws ErrorPageError
+	 * @throws LogicException
 	 */
 	public function execute( $subPage ) {
 		$this->setHeaders();
@@ -124,6 +114,3 @@ class SpecialLinkAccounts extends AuthManagerSpecialPage {
 		$this->displayForm( StatusValue::newFatal( $this->msg( 'linkaccounts-success-text' ) ) );
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialLinkAccounts::class, 'SpecialLinkAccounts' );

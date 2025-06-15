@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataTransferHandlerFactory class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -90,18 +90,19 @@ ve.ui.DataTransferHandlerFactory.prototype.updateIndexes = function ( constructo
 	}
 
 	function remove( arr, item ) {
-		let index;
+		var index;
 		if ( ( index = arr.indexOf( item ) ) !== -1 ) {
 			arr.splice( index, 1 );
 		}
 	}
 
-	const kinds = constructor.static.kinds,
+	var i, j, ilen, jlen,
+		kinds = constructor.static.kinds,
 		types = constructor.static.types,
 		extensions = constructor.static.extensions;
 
 	if ( !kinds ) {
-		for ( let j = 0, jlen = types.length; j < jlen; j++ ) {
+		for ( j = 0, jlen = types.length; j < jlen; j++ ) {
 			if ( insert ) {
 				ensureArray( this.handlerNamesByType, types[ j ] ).unshift( constructor.static.name );
 			} else {
@@ -109,8 +110,8 @@ ve.ui.DataTransferHandlerFactory.prototype.updateIndexes = function ( constructo
 			}
 		}
 	} else {
-		for ( let i = 0, ilen = kinds.length; i < ilen; i++ ) {
-			for ( let j = 0, jlen = types.length; j < jlen; j++ ) {
+		for ( i = 0, ilen = kinds.length; i < ilen; i++ ) {
+			for ( j = 0, jlen = types.length; j < jlen; j++ ) {
 				if ( insert ) {
 					ensureArray(
 						ensureMap( this.handlerNamesByKindAndType, kinds[ i ] ),
@@ -123,7 +124,7 @@ ve.ui.DataTransferHandlerFactory.prototype.updateIndexes = function ( constructo
 		}
 	}
 	if ( constructor.prototype instanceof ve.ui.FileTransferHandler ) {
-		for ( let i = 0, ilen = extensions.length; i < ilen; i++ ) {
+		for ( i = 0, ilen = extensions.length; i < ilen; i++ ) {
 			if ( insert ) {
 				ensureArray( this.handlerNamesByExtension, extensions[ i ] ).unshift( constructor.static.name );
 			} else {
@@ -146,33 +147,31 @@ ve.ui.DataTransferHandlerFactory.prototype.getHandlerNameForItem = function ( it
 	// any component of the path is not present.
 	// This is similar to ve.getProp, except with a `hasOwnProperty`
 	// test to ensure we aren't fooled by __proto__ and friends.
-	function fetch( obj, ...props ) {
-		props.every( ( prop ) => {
+	function fetch( obj /* , args… */ ) {
+		for ( var j = 1; j < arguments.length; j++ ) {
 			if (
-				typeof prop !== 'string' ||
-				!Object.prototype.hasOwnProperty.call( obj, prop )
+				typeof arguments[ j ] !== 'string' ||
+				!Object.prototype.hasOwnProperty.call( obj, arguments[ j ] )
 			) {
-				obj = [];
-				return false;
+				return [];
 			}
-			obj = obj[ prop ];
-			return true;
-		} );
+			obj = obj[ arguments[ j ] ];
+		}
 		return obj;
 	}
 
-	const names = [
+	var names = [].concat(
 		// 1. Match by kind + type (e.g. 'file' + 'text/html')
-		...fetch( this.handlerNamesByKindAndType, item.kind, item.type ),
+		fetch( this.handlerNamesByKindAndType, item.kind, item.type ),
 		// 2. Match by just type (e.g. 'image/jpeg')
-		...fetch( this.handlerNamesByType, item.type ),
+		fetch( this.handlerNamesByType, item.type ),
 		// 3. Match by file extension (e.g. 'csv')
-		...fetch( this.handlerNamesByExtension, item.getExtension() )
-	];
+		fetch( this.handlerNamesByExtension, item.getExtension() )
+	);
 
-	for ( let i = 0; i < names.length; i++ ) {
-		const name = names[ i ];
-		const constructor = this.registry[ name ];
+	for ( var i = 0; i < names.length; i++ ) {
+		var name = names[ i ];
+		var constructor = this.registry[ name ];
 
 		if ( isPasteSpecial && !constructor.static.handlesPasteSpecial ) {
 			continue;

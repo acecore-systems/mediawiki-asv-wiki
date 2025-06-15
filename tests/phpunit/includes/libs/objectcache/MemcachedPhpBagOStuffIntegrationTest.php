@@ -1,16 +1,14 @@
 <?php
 
-use MediaWiki\MainConfigNames;
-
 /**
  * @group BagOStuff
- * @covers \Wikimedia\ObjectCache\MemcachedPhpBagOStuff
+ * @covers MemcachedPhpBagOStuff
  */
 class MemcachedPhpBagOStuffIntegrationTest extends BagOStuffTestBase {
 	protected function newCacheInstance() {
-		if ( !$this->getConfVar( MainConfigNames::EnableRemoteBagOStuffTests ) ) {
+		if ( !$this->getConfVar( 'EnableRemoteBagOStuffTests' ) ) {
 			$this->markTestSkipped( '$wgEnableRemoteBagOStuffTests is false' );
 		}
-		return $this->getServiceContainer()->getObjectCacheFactory()->getInstance( 'memcached-php' );
+		return ObjectCache::getInstance( 'memcached-php' );
 	}
 }

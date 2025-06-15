@@ -19,10 +19,8 @@
  * @ingroup RevisionDelete
  */
 
-use MediaWiki\Api\ApiResult;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\RevisionList\RevisionListBase;
-use MediaWiki\SpecialPage\SpecialPage;
+use MediaWiki\Revision\RevisionRecord;
 
 /**
  * Item class for a filearchive table row
@@ -69,15 +67,15 @@ class RevDelArchivedFileItem extends RevDelFileItem {
 	}
 
 	public function setBits( $bits ) {
-		$dbw = $this->dbProvider->getPrimaryDatabase();
-		$dbw->newUpdateQueryBuilder()
-			->update( 'filearchive' )
-			->set( [ 'fa_deleted' => $bits ] )
-			->where( [
+		$dbw = wfGetDB( DB_PRIMARY );
+		$dbw->update( 'filearchive',
+			[ 'fa_deleted' => $bits ],
+			[
 				'fa_id' => $this->row->fa_id,
 				'fa_deleted' => $this->getBits(),
-			] )
-			->caller( __METHOD__ )->execute();
+			],
+			__METHOD__
+		);
 
 		return (bool)$dbw->affectedRows();
 	}
@@ -116,8 +114,8 @@ class RevDelArchivedFileItem extends RevDelFileItem {
 			'width' => $file->getWidth(),
 			'height' => $file->getHeight(),
 			'size' => $file->getSize(),
-			'userhidden' => (bool)$file->isDeleted( File::DELETED_USER ),
-			'commenthidden' => (bool)$file->isDeleted( File::DELETED_COMMENT ),
+			'userhidden' => (bool)$file->isDeleted( RevisionRecord::DELETED_USER ),
+			'commenthidden' => (bool)$file->isDeleted( RevisionRecord::DELETED_COMMENT ),
 			'contenthidden' => (bool)$this->isDeleted(),
 		];
 		if ( $this->canViewContent() ) {

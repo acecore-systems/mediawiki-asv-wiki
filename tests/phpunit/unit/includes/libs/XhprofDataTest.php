@@ -18,28 +18,22 @@
  * @file
  */
 
-namespace Wikimedia\Tests;
-
-use LogicException;
-use MediaWikiCoversValidator;
-use Monolog\Test\TestCase;
-use XhprofData;
-
 /**
  * @copyright © 2014 Wikimedia Foundation and contributors
- * @covers \XhprofData
+ * @since 1.25
  */
-class XhprofDataTest extends TestCase {
+class XhprofDataTest extends PHPUnit\Framework\TestCase {
 	use MediaWikiCoversValidator;
 
 	/**
+	 * @covers XhprofData::splitKey
 	 * @dataProvider provideSplitKey
 	 */
 	public function testSplitKey( $key, $expect ) {
 		$this->assertSame( $expect, XhprofData::splitKey( $key ) );
 	}
 
-	public static function provideSplitKey() {
+	public function provideSplitKey() {
 		return [
 			[ 'main()', [ null, 'main()' ] ],
 			[ 'foo==>bar', [ 'foo', 'bar' ] ],
@@ -50,6 +44,9 @@ class XhprofDataTest extends TestCase {
 		];
 	}
 
+	/**
+	 * @covers XhprofData::pruneData
+	 */
 	public function testInclude() {
 		$xhprofData = $this->getXhprofDataFixture( [
 			'include' => [ 'main()' ],
@@ -66,6 +63,8 @@ class XhprofDataTest extends TestCase {
 	 * Xhprof::getInclusiveMetrics(). This acts as a guard against unexpected
 	 * structural changes to the returned data in lieu of using a more heavy
 	 * weight typed response object.
+	 *
+	 * @covers XhprofData::getInclusiveMetrics
 	 */
 	public function testInclusiveMetricsStructure() {
 		$metricStruct = [
@@ -106,6 +105,8 @@ class XhprofDataTest extends TestCase {
 	 * Xhprof::getCompleteMetrics(). This acts as a guard against unexpected
 	 * structural changes to the returned data in lieu of using a more heavy
 	 * weight typed response object.
+	 *
+	 * @covers XhprofData::getCompleteMetrics
 	 */
 	public function testCompleteMetricsStructure() {
 		$metricStruct = [
@@ -147,6 +148,10 @@ class XhprofDataTest extends TestCase {
 		}
 	}
 
+	/**
+	 * @covers XhprofData::getCallers
+	 * @covers XhprofData::getCallees
+	 */
 	public function testEdges() {
 		$xhprofData = $this->getXhprofDataFixture();
 		$this->assertSame( [], $xhprofData->getCallers( 'main()' ) );
@@ -159,13 +164,16 @@ class XhprofDataTest extends TestCase {
 		$this->assertSame( [], $xhprofData->getCallees( 'strlen' ) );
 	}
 
+	/**
+	 * @covers XhprofData::getCriticalPath
+	 */
 	public function testCriticalPath() {
 		$xhprofData = $this->getXhprofDataFixture();
 		$path = $xhprofData->getCriticalPath();
 
 		$last = null;
 		foreach ( $path as $key => $value ) {
-			[ $func, $call ] = XhprofData::splitKey( $key );
+			list( $func, $call ) = XhprofData::splitKey( $key );
 			$this->assertSame( $last, $func );
 			$last = $call;
 		}
@@ -257,7 +265,7 @@ class XhprofDataTest extends TestCase {
 	 */
 	protected function assertArrayStructure( $struct, $actual, $label = '' ) {
 		$this->assertIsArray( $actual, $label );
-		$this->assertSameSize( $struct, $actual, $label );
+		$this->assertCount( count( $struct ), $actual, $label );
 		foreach ( $struct as $key => $type ) {
 			$this->assertArrayHasKey( $key, $actual );
 			switch ( $type ) {

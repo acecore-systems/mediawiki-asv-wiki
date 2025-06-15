@@ -3,17 +3,15 @@
 namespace MediaWiki\Tests\Maintenance;
 
 use Exception;
-use MediaWiki\Content\WikitextContent;
-use MediaWiki\Context\DerivativeContext;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\MainConfigNames;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Revision\RevisionRecord;
-use MediaWiki\Revision\SlotRecord;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
+use MWException;
+use RequestContext;
 use RevisionDeleter;
-use RuntimeException;
+use Title;
 use Wikimedia\Rdbms\IDatabase;
+use WikiPage;
+use WikitextContent;
 
 /**
  * Trait for creating a know set of test pages in the database,
@@ -25,40 +23,38 @@ trait PageDumpTestDataTrait {
 	// We'll add several pages, revision and texts. The following variables hold the
 	// corresponding ids.
 
-	// phpcs:ignore MediaWiki.Commenting.PropertyDocumentation.WrongStyle
-	private int $pageId1;
-	private int $pageId2;
-	private int $pageId3;
-	private int $pageId4;
-	private int $pageId5;
-
-	private Title $pageTitle1;
-	private Title $pageTitle2;
-	private Title $pageTitle3;
-	private Title $pageTitle4;
-	private Title $pageTitle5;
-
 	/** @var int */
+	private $pageId1, $pageId2, $pageId3, $pageId4, $pageId5;
+
+	/** @var Title */
+	private $pageTitle1, $pageTitle2, $pageTitle3, $pageTitle4, $pageTitle5;
+
 	private static $numOfPages = 4;
-	/** @var int */
 	private static $numOfRevs = 8;
 
-	private RevisionRecord $rev1_1;
-	private RevisionRecord $rev2_1;
-	private RevisionRecord $rev2_2;
-	private RevisionRecord $rev2_3;
-	private RevisionRecord $rev2_4;
-	private RevisionRecord $rev3_1;
-	private RevisionRecord $rev3_2;
-	private RevisionRecord $rev4_1;
-	private RevisionRecord $rev5_1;
+	/** @var RevisionRecord */
+	private $rev1_1;
+	/** @var RevisionRecord */
+	private $rev2_1, $rev2_2;
+	/** @var RevisionRecord */
+	private $rev2_3, $rev2_4;
+	/** @var RevisionRecord */
+	private $rev3_1, $rev3_2;
+	/** @var RevisionRecord */
+	private $rev4_1;
+	/** @var RevisionRecord */
+	private $rev5_1;
 
-	private int $namespace;
-	private int $talk_namespace;
+	private $namespace, $talk_namespace;
 
-	protected function addTestPages( User $sysopUser ) {
+	protected function addTestPages() {
 		// be sure, titles created here using english namespace names
 		$this->setContentLang( 'en' );
+
+		$this->tablesUsed[] = 'page';
+		$this->tablesUsed[] = 'revision';
+		$this->tablesUsed[] = 'ip_changes';
+		$this->tablesUsed[] = 'text';
 
 		try {
 			$this->namespace = $this->getDefaultWikitextNS();
@@ -66,25 +62,24 @@ trait PageDumpTestDataTrait {
 
 			if ( $this->namespace === $this->talk_namespace ) {
 				// @todo work around this.
-				throw new RuntimeException( "The default wikitext namespace is the talk namespace. "
+				throw new MWException( "The default wikitext namespace is the talk namespace. "
 					. " We can't currently deal with that." );
 			}
 
-			$wikiPageFactory = $this->getServiceContainer()->getWikiPageFactory();
-			$this->pageTitle1 = Title::makeTitle( $this->namespace, 'BackupDumperTestP1' );
-			$page = $wikiPageFactory->newFromTitle( $this->pageTitle1 );
+			$this->pageTitle1 = Title::newFromText( 'BackupDumperTestP1', $this->namespace );
+			$page = WikiPage::factory( $this->pageTitle1 );
 			$this->rev1_1 = $this->addMultiSlotRevision(
 				$page,
 				[
-					SlotRecord::MAIN => new WikitextContent( 'BackupDumperTestP1Text1' ),
+					'main' => new WikitextContent( 'BackupDumperTestP1Text1' ),
 					'aux' => new WikitextContent( 'BackupDumperTestP1Text1/aux' ),
 				],
 				"BackupDumperTestP1Summary1"
 			);
 			$this->pageId1 = $page->getId();
 
-			$this->pageTitle2 = Title::makeTitle( $this->namespace, 'BackupDumperTestP2' );
-			$page = $wikiPageFactory->newFromTitle( $this->pageTitle2 );
+			$this->pageTitle2 = Title::newFromText( 'BackupDumperTestP2', $this->namespace );
+			$page = WikiPage::factory( $this->pageTitle2 );
 			[ , , $this->rev2_1 ] = $this->addRevision( $page,
 				"BackupDumperTestP2Text1", "BackupDumperTestP2Summary1" );
 			[ , , $this->rev2_2 ] = $this->addRevision( $page,
@@ -96,9 +91,7 @@ trait PageDumpTestDataTrait {
 				"BackupDumperTestP2Summary4 extra " );
 			$this->pageId2 = $page->getId();
 
-			$context = new DerivativeContext( RequestContext::getMain() );
-			$context->setUser( $sysopUser );
-
+			$context = RequestContext::getMain();
 			$revDel = RevisionDeleter::createList(
 				'revision',
 				$context,
@@ -111,36 +104,36 @@ trait PageDumpTestDataTrait {
 			] );
 
 			// re-load from database, with correct deletion status
-			$this->rev2_2 = $this->getServiceContainer()->getRevisionLookup()->getRevisionById(
+			$this->rev2_2 = MediaWikiServices::getInstance()->getRevisionLookup()->getRevisionById(
 				$this->rev2_2->getId()
 			);
 
-			$this->pageTitle3 = Title::makeTitle( $this->namespace, 'BackupDumperTestP3' );
-			$page = $wikiPageFactory->newFromTitle( $this->pageTitle3 );
+			$this->pageTitle3 = Title::newFromText( 'BackupDumperTestP3', $this->namespace );
+			$page = WikiPage::factory( $this->pageTitle3 );
 			[ , , $this->rev3_1 ] = $this->addRevision( $page,
 				"BackupDumperTestP3Text1", "BackupDumperTestP2Summary1" );
 			[ , , $this->rev3_2 ] = $this->addRevision( $page,
 				"BackupDumperTestP3Text2", "BackupDumperTestP2Summary2" );
 			$this->pageId3 = $page->getId();
-			$this->getServiceContainer()->getDeletePageFactory()
+			MediaWikiServices::getInstance()->getDeletePageFactory()
 				->newDeletePage( $page, $context->getAuthority() )
 				->deleteUnsafe( "Testing" );
 
-			$this->pageTitle4 = Title::makeTitle( $this->talk_namespace, 'BackupDumperTestP1' );
-			$page = $wikiPageFactory->newFromTitle( $this->pageTitle4 );
+			$this->pageTitle4 = Title::newFromText( 'BackupDumperTestP1', $this->talk_namespace );
+			$page = WikiPage::factory( $this->pageTitle4 );
 			[ , , $this->rev4_1 ] = $this->addRevision( $page,
 				"Talk about BackupDumperTestP1 Text1",
 				"Talk BackupDumperTestP1 Summary1" );
 			$this->pageId4 = $page->getId();
 
-			$this->pageTitle5 = Title::makeTitle( NS_MAIN, 'BackupDumperTestP5' );
-			$page = $wikiPageFactory->newFromTitle( $this->pageTitle5 );
+			$this->pageTitle5 = Title::newFromText( 'BackupDumperTestP5' );
+			$page = WikiPage::factory( $this->pageTitle5 );
 			[ , , $this->rev5_1 ] = $this->addRevision( $page,
 				"BackupDumperTestP5 Text1",
 				"BackupDumperTestP5 Summary1" );
 			$this->pageId5 = $page->getId();
 
-			$this->rev5_1 = $this->corruptRevisionData( $this->getDb(), $this->rev5_1 );
+			$this->rev5_1 = $this->corruptRevisionData( $this->db, $this->rev5_1 );
 		} catch ( Exception $e ) {
 			// We'd love to pass $e directly. However, ... see
 			// documentation of exceptionFromAddDBData in
@@ -153,8 +146,8 @@ trait PageDumpTestDataTrait {
 		// class), we have to assert, that the page id are consecutively
 		// increasing
 		$this->assertEquals(
-			[ $this->pageId1 + 1, $this->pageId1 + 2, $this->pageId1 + 3 ],
 			[ $this->pageId2, $this->pageId3, $this->pageId4 ],
+			[ $this->pageId1 + 1, $this->pageId1 + 2, $this->pageId1 + 3 ],
 			"Page ids increasing without holes" );
 	}
 
@@ -177,13 +170,13 @@ trait PageDumpTestDataTrait {
 	 * @return RevisionRecord
 	 */
 	protected function corruptRevisionData( IDatabase $db, RevisionRecord $revision ) {
-		$db->newUpdateQueryBuilder()
-			->update( 'content' )
-			->set( [ 'content_address' => 'tt:0' ] )
-			->where( [ 'content_id' => $revision->getSlot( SlotRecord::MAIN )->getContentId() ] )
-			->execute();
+		$db->update(
+			'content',
+			[ 'content_address' => 'tt:0' ],
+			[ 'content_id' => $revision->getSlot( \MediaWiki\Revision\SlotRecord::MAIN )->getContentId() ]
+		);
 
-		$revision = $this->getServiceContainer()->getRevisionLookup()->getRevisionById(
+		$revision = MediaWikiServices::getInstance()->getRevisionLookup()->getRevisionById(
 			$revision->getId()
 		);
 		return $revision;
@@ -198,7 +191,7 @@ trait PageDumpTestDataTrait {
 	 */
 	protected function setRevisionVarMappings( $prefix, RevisionRecord $rev, DumpAsserter $asserter ) {
 		$ts = wfTimestamp( TS_ISO_8601, $rev->getTimestamp() );
-		$title = $this->getServiceContainer()->getTitleFormatter()->getPrefixedText(
+		$title = MediaWikiServices::getInstance()->getTitleFormatter()->getPrefixedText(
 			$rev->getPageAsLinkTarget()
 		);
 
@@ -259,23 +252,23 @@ trait PageDumpTestDataTrait {
 	}
 
 	private function setSiteVarMappings( DumpAsserter $asserter ) {
-		$config = $this->getServiceContainer()->getMainConfig();
+		global $wgSitename, $wgDBname, $wgVersion, $wgCapitalLinks;
 
-		$asserter->setVarMapping( 'mw_version', MW_VERSION );
+		$asserter->setVarMapping( 'mw_version', $wgVersion );
 		$asserter->setVarMapping( 'schema_version', $asserter->getSchemaVersion() );
 
-		$asserter->setVarMapping( 'site_name', $config->get( MainConfigNames::Sitename ) );
+		$asserter->setVarMapping( 'site_name', $wgSitename );
 		$asserter->setVarMapping(
 			'project_namespace',
-			$this->getServiceContainer()->getTitleFormatter()->getNamespaceName(
+			MediaWikiServices::getInstance()->getTitleFormatter()->getNamespaceName(
 				NS_PROJECT,
 				'Dummy'
 			)
 		);
-		$asserter->setVarMapping( 'site_db', $config->get( MainConfigNames::DBname ) );
+		$asserter->setVarMapping( 'site_db', $wgDBname );
 		$asserter->setVarMapping(
 			'site_case',
-			$config->get( MainConfigNames::CapitalLinks ) ? 'first-letter' : 'case-sensitive'
+			$wgCapitalLinks ? 'first-letter' : 'case-sensitive'
 		);
 		$asserter->setVarMapping(
 			'site_base',
@@ -283,7 +276,7 @@ trait PageDumpTestDataTrait {
 		);
 		$asserter->setVarMapping(
 			'site_language',
-			$this->getServiceContainer()->getContentLanguage()->getHtmlCode()
+			MediaWikiServices::getInstance()->getContentLanguage()->getHtmlCode()
 		);
 	}
 }

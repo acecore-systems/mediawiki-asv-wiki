@@ -1,13 +1,8 @@
 <?php
 
-use MediaWiki\Context\RequestContext;
-use MediaWiki\EditPage\EditPage;
 use MediaWiki\Extension\SpamBlacklist\BaseBlacklist;
 use MediaWiki\Extension\SpamBlacklist\SpamBlacklist;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Request\FauxRequest;
-use MediaWiki\Tests\User\TempUser\TempUserTestTrait;
-use MediaWiki\Title\Title;
 
 /**
  * @group SpamBlacklist
@@ -15,9 +10,6 @@ use MediaWiki\Title\Title;
  * @covers \MediaWiki\Extension\SpamBlacklist\SpamBlacklist
  */
 class SpamBlacklistTest extends MediaWikiIntegrationTestCase {
-
-	use TempUserTestTrait;
-
 	/**
 	 * @var SpamBlacklist
 	 */
@@ -46,7 +38,7 @@ class SpamBlacklistTest extends MediaWikiIntegrationTestCase {
 	 */
 	protected $whitelist = [ 'a5b\.sytes\.net' ];
 
-	public static function spamProvider() {
+	public function spamProvider() {
 		return [
 			'no spam' => [
 				[ 'https://example.com' ],
@@ -72,40 +64,16 @@ class SpamBlacklistTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider spamProvider
 	 */
-	public function testSpamTempAccounts( $links, $expected ) {
-		$this->enableAutoCreateTempUser();
-		$this->prepareGlobals();
-		$tempUserCreator = MediaWikiServices::getInstance()->getTempUserCreator();
-		$user = $tempUserCreator->create(
-			null,
-			new FauxRequest()
-		)->getUser();
+	public function testSpam( $links, $expected ) {
 		$returnValue = $this->spamFilter->filter(
 			$links,
 			Title::newMainPage(),
-			$user
+			$this->createMock( User::class )
 		);
 		$this->assertEquals( $expected, $returnValue );
 	}
 
-	/**
-	 * @dataProvider spamProvider
-	 */
-	public function testSpamAnonEditing( $links, $expected ) {
-		$this->disableAutoCreateTempUser();
-		$this->prepareGlobals();
-
-		$userFactory = $this->getServiceContainer()->getUserFactory();
-		$user = $userFactory->newAnonymous();
-		$returnValue = $this->spamFilter->filter(
-			$links,
-			Title::newMainPage(),
-			$user
-		);
-		$this->assertEquals( $expected, $returnValue );
-	}
-
-	public static function spamEditProvider() {
+	public function spamEditProvider() {
 		return [
 			'no spam' => [
 				'https://example.com',
@@ -127,7 +95,6 @@ class SpamBlacklistTest extends MediaWikiIntegrationTestCase {
 	 * @dataProvider spamEditProvider
 	 */
 	public function testSpamEdit( $text, $ok ) {
-		$this->prepareGlobals();
 		$fields = [
 			'wpTextbox1' => $text,
 			'wpUnicodeCheck' => EditPage::UNICODE_CHECK,
@@ -147,21 +114,22 @@ class SpamBlacklistTest extends MediaWikiIntegrationTestCase {
 		$article = new Article( $title );
 		$ep = new EditPage( $article );
 		$ep->setContextTitle( $title );
-		$ep->getContext()->setUser( $articleContext->getUser() );
 
 		$ep->importFormData( $req );
 
 		$status = $ep->attemptSave( $result );
 
-		if ( $ok ) {
-			$this->assertStatusOK( $status );
-		} else {
-			$this->assertStatusError( 'spam-blacklisted-link', $status );
+		$this->assertSame( $ok, $status->isOK() );
+
+		if ( !$ok ) {
+			$this->assertTrue( $status->hasMessage( 'spam-blacklisted-link' ) );
 		}
 	}
 
-	private function prepareGlobals(): void {
-		$this->overrideConfigValue( 'BlacklistSettings', [
+	protected function setUp(): void {
+		parent::setUp();
+
+		$this->setMwGlobals( 'wgBlacklistSettings', [
 			'files' => [],
 		] );
 

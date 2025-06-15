@@ -1,8 +1,9 @@
-QUnit.module( 'mediawiki.base/track', () => {
+( function () {
+	QUnit.module( 'mediawiki.track' );
 
-	QUnit.test( 'track', ( assert ) => {
-		const sequence = [];
-		mw.trackSubscribe( 'simple', ( topic, data ) => {
+	QUnit.test( 'track', function ( assert ) {
+		var sequence = [];
+		mw.trackSubscribe( 'simple', function ( topic, data ) {
 			sequence.push( [ topic, data ] );
 		} );
 		mw.track( 'simple', { key: 1 } );
@@ -14,11 +15,11 @@ QUnit.module( 'mediawiki.base/track', () => {
 		], 'Events after subscribing' );
 	} );
 
-	QUnit.test( 'trackSubscribe', ( assert ) => {
-		const sequence = [];
+	QUnit.test( 'trackSubscribe', function ( assert ) {
+		var sequence = [];
 		mw.track( 'before', { key: 1 } );
 		mw.track( 'before', { key: 2 } );
-		mw.trackSubscribe( 'before', ( topic, data ) => {
+		mw.trackSubscribe( 'before', function ( topic, data ) {
 			sequence.push( [ topic, data ] );
 		} );
 		mw.track( 'before', { key: 3 } );
@@ -36,8 +37,8 @@ QUnit.module( 'mediawiki.base/track', () => {
 		} );
 	} );
 
-	QUnit.test( 'trackUnsubscribe', ( assert ) => {
-		const sequence = [];
+	QUnit.test( 'trackUnsubscribe', function ( assert ) {
+		var sequence = [];
 		function unsubber( topic, data ) {
 			sequence.push( [ topic, data ] );
 		}
@@ -53,38 +54,4 @@ QUnit.module( 'mediawiki.base/track', () => {
 			[ 'unsub', { key: 2 } ]
 		], 'Stop when unsubscribing' );
 	} );
-
-	QUnit.test( 'trackError', function ( assert ) {
-		const fn = mw.track;
-		function logError( topic, data ) {
-			assert.step( typeof data === 'string' ? data : JSON.stringify( data ) );
-		}
-		this.sandbox.stub( console, 'log' );
-
-		// Simulate startup time
-		mw.track = undefined;
-
-		assert.step( 'emit1' );
-		mw.trackError( 'foo' );
-
-		// Simulate mediawiki.base arriving
-		mw.track = fn;
-
-		assert.step( 'sub' );
-		mw.trackSubscribe( 'resourceloader.exception', logError );
-
-		assert.step( 'emit2' );
-		mw.trackError( 'bar' );
-
-		assert.verifySteps( [
-			'emit1',
-			'sub',
-			'foo',
-			'emit2',
-			'bar'
-		] );
-
-		// Teardown
-		mw.trackUnsubscribe( logError );
-	} );
-} );
+}() );

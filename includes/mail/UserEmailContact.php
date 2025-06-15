@@ -6,7 +6,7 @@ use MediaWiki\User\UserIdentity;
 
 /**
  * @since 1.36
- * @ingroup Mail
+ * @package MediaWiki\Mail
  */
 interface UserEmailContact {
 

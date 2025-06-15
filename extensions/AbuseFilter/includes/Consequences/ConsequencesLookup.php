@@ -5,8 +5,8 @@ namespace MediaWiki\Extension\AbuseFilter\Consequences;
 use MediaWiki\Extension\AbuseFilter\CentralDBManager;
 use MediaWiki\Extension\AbuseFilter\GlobalNameUtils;
 use Psr\Log\LoggerInterface;
-use Wikimedia\Rdbms\IReadableDatabase;
-use Wikimedia\Rdbms\LBFactory;
+use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * Class for retrieving actions and parameters from the database
@@ -15,8 +15,8 @@ use Wikimedia\Rdbms\LBFactory;
 class ConsequencesLookup {
 	public const SERVICE_NAME = 'AbuseFilterConsequencesLookup';
 
-	/** @var LBFactory */
-	private $lbFactory;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
 	/** @var CentralDBManager */
 	private $centralDBManager;
 	/** @var ConsequencesRegistry */
@@ -25,18 +25,18 @@ class ConsequencesLookup {
 	private $logger;
 
 	/**
-	 * @param LBFactory $lbFactory
+	 * @param ILoadBalancer $loadBalancer
 	 * @param CentralDBManager $centralDBManager
 	 * @param ConsequencesRegistry $consequencesRegistry
 	 * @param LoggerInterface $logger
 	 */
 	public function __construct(
-		LBFactory $lbFactory,
+		ILoadBalancer $loadBalancer,
 		CentralDBManager $centralDBManager,
 		ConsequencesRegistry $consequencesRegistry,
 		LoggerInterface $logger
 	) {
-		$this->lbFactory = $lbFactory;
+		$this->loadBalancer = $loadBalancer;
 		$this->centralDBManager = $centralDBManager;
 		$this->consequencesRegistry = $consequencesRegistry;
 		$this->logger = $logger;
@@ -51,7 +51,7 @@ class ConsequencesLookup {
 		$localFilters = [];
 
 		foreach ( $filters as $filter ) {
-			[ $filterID, $global ] = GlobalNameUtils::splitGlobalName( $filter );
+			list( $filterID, $global ) = GlobalNameUtils::splitGlobalName( $filter );
 
 			if ( $global ) {
 				$globalFilters[] = $filterID;
@@ -61,7 +61,7 @@ class ConsequencesLookup {
 		}
 
 		// Load local filter info
-		$dbr = $this->lbFactory->getReplicaDatabase();
+		$dbr = $this->loadBalancer->getConnectionRef( DB_REPLICA );
 		// Retrieve the consequences.
 		$consequences = [];
 
@@ -81,24 +81,25 @@ class ConsequencesLookup {
 	}
 
 	/**
-	 * @param IReadableDatabase $dbr
+	 * @param IDatabase $dbr
 	 * @param int[] $filters
 	 * @param string $prefix
 	 * @return array[][]
 	 */
-	private function loadConsequencesFromDB( IReadableDatabase $dbr, array $filters, string $prefix = '' ): array {
+	private function loadConsequencesFromDB( IDatabase $dbr, array $filters, string $prefix = '' ): array {
 		$actionsByFilter = [];
 		foreach ( $filters as $filter ) {
 			$actionsByFilter[$prefix . $filter] = [];
 		}
 
-		$res = $dbr->newSelectQueryBuilder()
-			->select( '*' )
-			->from( 'abuse_filter_action' )
-			->leftJoin( 'abuse_filter', null, 'afa_filter=af_id' )
-			->where( [ 'af_id' => $filters ] )
-			->caller( __METHOD__ )
-			->fetchResultSet();
+		$res = $dbr->select(
+			[ 'abuse_filter_action', 'abuse_filter' ],
+			'*',
+			[ 'af_id' => $filters ],
+			__METHOD__,
+			[],
+			[ 'abuse_filter_action' => [ 'LEFT JOIN', 'afa_filter=af_id' ] ]
+		);
 
 		$dangerousActions = $this->consequencesRegistry->getDangerousActionNames();
 		// Categorise consequences by filter.

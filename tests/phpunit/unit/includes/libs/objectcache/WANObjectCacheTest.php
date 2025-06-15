@@ -1,34 +1,32 @@
-<?php
+<?php /** @noinspection PhpStaticAsDynamicMethodCallInspection */
 
-/** @noinspection PhpStaticAsDynamicMethodCallInspection */
-
-namespace Wikimedia\Tests\ObjectCache;
-
-use ArrayIterator;
-use MediaWikiUnitTestCase;
-use Psr\Log\NullLogger;
-use UnexpectedValueException;
-use Wikimedia\ObjectCache\BagOStuff;
-use Wikimedia\ObjectCache\EmptyBagOStuff;
-use Wikimedia\ObjectCache\HashBagOStuff;
-use Wikimedia\ObjectCache\WANObjectCache;
 use Wikimedia\TestingAccessWrapper;
 
 /**
- * @covers \Wikimedia\ObjectCache\WANObjectCache
+ * @covers WANObjectCache::wrap
+ * @covers WANObjectCache::unwrap
+ * @covers WANObjectCache::worthRefreshExpiring
+ * @covers WANObjectCache::worthRefreshPopular
+ * @covers WANObjectCache::isValid
+ * @covers WANObjectCache::getWarmupKeyMisses
+ * @covers WANObjectCache::makeSisterKey
+ * @covers WANObjectCache::makeSisterKeys
+ * @covers WANObjectCache::getProcessCache
+ * @covers WANObjectCache::getNonProcessCachedMultiKeys
+ * @covers WANObjectCache::fetchWrappedValuesForWarmupCache
+ * @covers WANObjectCache::getInterimValue
+ * @covers WANObjectCache::setInterimValue
  */
 class WANObjectCacheTest extends MediaWikiUnitTestCase {
 
 	/**
 	 * @param array $params
-	 * @return array{WANObjectCache,HashBagOStuff}
+	 * @return array [ WANObjectCache, HashBagOStuff ]
 	 */
 	private function newWanCache( array $params = [] ) {
 		if ( isset( $params['broadcastRoutingPrefix'] ) ) {
 			// Convert mcrouter broadcast keys to regular keys in HashBagOStuff::delete() calls
 			$bag = new McrouterHashBagOStuff();
-		} elseif ( isset( $params['serialize'] ) ) {
-			$bag = new SerialHashBagOStuff();
 		} else {
 			$bag = new HashBagOStuff();
 		}
@@ -40,9 +38,12 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 
 	/**
 	 * @dataProvider provideSetAndGet
+	 * @covers WANObjectCache::set()
+	 * @covers WANObjectCache::get()
+	 * @covers WANObjectCache::makeKey()
 	 */
 	public function testSetAndGet( $value, $ttl ) {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 
 		$curTTL = null;
 		$asOf = null;
@@ -99,8 +100,12 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 		];
 	}
 
+	/**
+	 * @covers WANObjectCache::get()
+	 * @covers WANObjectCache::makeGlobalKey()
+	 */
 	public function testGetNotExists() {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 
 		$key = $cache->makeGlobalKey( 'y', wfRandomString(), 'p' );
 		$curTTL = null;
@@ -110,8 +115,11 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 		$this->assertSame( null, $curTTL, "current TTL" );
 	}
 
+	/**
+	 * @covers WANObjectCache::set()
+	 */
 	public function testSetOver() {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 
 		$key = wfRandomString();
 		for ( $i = 0; $i < 3; ++$i ) {
@@ -141,13 +149,14 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::set()
 	 * @dataProvider provideStaleSetParams
 	 * @param int $ago
 	 * @param float|null $walltime
 	 * @param bool $cacheable
 	 */
 	public function testStaleSet( $ago, $walltime, $cacheable ) {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 		$mockWallClock = 1549343530.0;
 		$cache->setMockTime( $mockWallClock );
 
@@ -168,8 +177,11 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 		);
 	}
 
+	/**
+	 * @covers WANObjectCache::getWithSetCallback
+	 */
 	public function testProcessCacheTTL() {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 		$mockWallClock = 1549343530.0;
 		$cache->setMockTime( $mockWallClock );
 
@@ -191,8 +203,12 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 		$this->assertSame( 2, $hits, "Value expired in process cache" );
 	}
 
+	/**
+	 * @covers WANObjectCache::getWithSetCallback
+	 * @covers WANObjectCache::makeTombstonePurgeValue
+	 */
 	public function testProcessCacheLruAndDelete() {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 		$mockWallClock = 1549343530.0;
 		$cache->setMockTime( $mockWallClock );
 
@@ -233,8 +249,11 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 		$this->assertSame( 9, $hit, "Prior values evicted by new values" );
 	}
 
+	/**
+	 * @covers WANObjectCache::getWithSetCallback
+	 */
 	public function testProcessCacheInterimKeys() {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 		$mockWallClock = 1549343530.0;
 		$cache->setMockTime( $mockWallClock );
 
@@ -272,9 +291,10 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::getWithSetCallback
 	 */
 	public function testProcessCacheNesting() {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 		$mockWallClock = 1549343530.0;
 		$cache->setMockTime( $mockWallClock );
 
@@ -333,10 +353,12 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 
 	/**
 	 * @dataProvider getWithSetCallback_provider
+	 * @covers WANObjectCache::getWithSetCallback()
+	 * @covers WANObjectCache::fetchOrRegenerate()
 	 * @param array $extOpts
 	 */
 	public function testGetWithSetCallback( array $extOpts ) {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 
 		$key = wfRandomString();
 		$value = wfRandomString();
@@ -408,7 +430,7 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 		$curTTL = null;
 		$v = $cache->get( $key, $curTTL, [ $cKey1, $cKey2 ] );
 		$this->assertSame( $value, $v, "Value returned" );
-		$this->assertGreaterThan( 0, $curTTL, "Value has current TTL > 0 due to T344191" );
+		$this->assertLessThanOrEqual( 0, $curTTL, "Value has current TTL < 0 due to check keys" );
 
 		$wasSet = 0;
 		$key = wfRandomString();
@@ -520,10 +542,12 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 
 	/**
 	 * @dataProvider getWithSetCallback_provider
+	 * @covers WANObjectCache::getWithSetCallback()
+	 * @covers WANObjectCache::fetchOrRegenerate()
 	 * @param array $extOpts
 	 */
 	public function testGetWithSetCallback_touched( array $extOpts ) {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 
 		$mockWallClock = 1549343530.0;
 		$cache->setMockTime( $mockWallClock );
@@ -581,10 +605,7 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 		];
 	}
 
-	public function testPreemptiveRefresh() {
-		// (T353180) Flaky test, to fix and re-enable
-		$this->markTestSkippedIfPhp( '>=', '8.2' );
-
+	public function testPreemtiveRefresh() {
 		$value = 'KatCafe';
 		$wasSet = 0;
 		$func = static function ( $old, &$ttl, &$opts, $asOf ) use ( &$wasSet, &$value )
@@ -688,11 +709,14 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @dataProvider getWithSetCallback_provider
+	 * @dataProvider getMultiWithSetCallback_provider
+	 * @covers WANObjectCache::getMultiWithSetCallback
+	 * @covers WANObjectCache::makeMultiKeys
+	 * @covers WANObjectCache::getMulti
 	 * @param array $extOpts
 	 */
 	public function testGetMultiWithSetCallback( array $extOpts ) {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 
 		$keyA = wfRandomString();
 		$keyB = wfRandomString();
@@ -748,9 +772,6 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 		$this->assertSame( 0, $cache->getWarmupKeyMisses(), "Keys warmed in warmup cache" );
 
 		$mockWallClock += 1;
-
-		$cache->touchCheckKey( $cKey1 );
-		$cache->touchCheckKey( $cKey2 );
 
 		$wasSet = 0;
 		$keyedIds = new ArrayIterator( [ $keyB => 'efef' ] );
@@ -849,6 +870,13 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 		);
 	}
 
+	public static function getMultiWithSetCallback_provider() {
+		return [
+			[ [], false ],
+			[ [ 'version' => 1 ], true ]
+		];
+	}
+
 	/**
 	 * @dataProvider getMultiWithSetCallbackRefresh_provider
 	 * @param bool $expiring
@@ -943,10 +971,12 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 
 	/**
 	 * @dataProvider getMultiWithUnionSetCallback_provider
+	 * @covers WANObjectCache::getMultiWithUnionSetCallback()
+	 * @covers WANObjectCache::makeMultiKeys()
 	 * @param array $extOpts
 	 */
 	public function testGetMultiWithUnionSetCallback( array $extOpts ) {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 
 		$wasSet = 0;
 		$genFunc = static function ( array $ids, array &$ttls, array &$setOpts ) use (
@@ -1040,26 +1070,7 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 		$curTTL = null;
 		$v = $cache->get( 'keyC', $curTTL, [ 'check1', 'check2' ] );
 		$this->assertSame( '@cat$', $v, 'Value returned' );
-		$this->assertGreaterThan( 0, $curTTL, 'No hold-off for new check key (T344191)' );
-
-		// Touch one of the check keys so that we have a hold-off period
-		$mockWallClock += 1;
-		$cache->touchCheckKey( 'check1' );
-		$mockWallClock += 1;
-		$wasSet = 0;
-		$v = $cache->getMultiWithUnionSetCallback(
-			new ArrayIterator( [ 'keyC' => 'cat' ] ),
-			30,
-			$genFunc,
-			[ 'checkKeys' => [ 'check1', 'check2' ] ] + $extOpts
-		);
-		$this->assertSame( '@cat$', $v['keyC'], 'Value returned' );
-		$this->assertSame( 1, $wasSet, 'Value regenerated due to cache miss' );
-		$curTTL = null;
-		$v = $cache->get( 'keyC', $curTTL, [ 'check1', 'check2' ] );
-		$this->assertSame( '@cat$', $v, 'Value returned' );
 		$this->assertLessThanOrEqual( 0, $curTTL, 'Value is expired during hold-off from new check key' );
-
 		// While the newly-generated value is considered expired on arrival during the
 		// hold-off from the check key, it may still be used as valid for a second, until
 		// the hold-off period is over.
@@ -1135,7 +1146,7 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @dataProvider getMultiWithSetCallbackRefresh_provider
+	 * @dataProvider getMultiWithUnionSetCallbackRefresh_provider
 	 * @param bool $expiring
 	 * @param bool $popular
 	 * @param array $idsByKey
@@ -1215,11 +1226,22 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 		}
 	}
 
+	public static function getMultiWithUnionSetCallbackRefresh_provider() {
+		return [
+			[ true, true, [ 'a' => 1, 'b' => 2, 'c' => 3, 'd' => 4 ] ],
+			[ true, false, [ 'a' => 'x', 'b' => 'y', 'c' => 'z', 'd' => 'w' ] ],
+			[ false, true, [ 'a' => 'p', 'b' => 'q', 'c' => 'r', 'd' => 's' ] ],
+			[ false, false, [ 'a' => '%', 'b' => '^', 'c' => '&', 'd' => 'ç' ] ]
+		];
+	}
+
 	/**
+	 * @covers WANObjectCache::getWithSetCallback()
+	 * @covers WANObjectCache::fetchOrRegenerate()
 	 * @dataProvider provideCoalesceAndMcrouterSettings
 	 */
 	public function testLockTSE( array $params ) {
-		[ $cache, $bag ] = $this->newWanCache( $params );
+		list( $cache, $bag ) = $this->newWanCache( $params );
 		$key = wfRandomString();
 		$value = wfRandomString();
 
@@ -1278,10 +1300,13 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::getWithSetCallback()
+	 * @covers WANObjectCache::fetchOrRegenerate()
+	 * @covers WANObjectCache::set()
 	 * @dataProvider provideCoalesceAndMcrouterSettings
 	 */
 	public function testLockTSESlow( array $params ) {
-		[ $cache, $bag ] = $this->newWanCache( $params );
+		list( $cache, $bag ) = $this->newWanCache( $params );
 		$key = 'myfirstkey';
 		$key2 = 'mysecondkey';
 		$value = 'some_slow_value';
@@ -1366,10 +1391,12 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::getWithSetCallback()
+	 * @covers WANObjectCache::fetchOrRegenerate()
 	 * @dataProvider provideCoalesceAndMcrouterSettings
 	 */
 	public function testBusyValueBasic( array $params ) {
-		[ $cache, $bag ] = $this->newWanCache( $params );
+		list( $cache, $bag ) = $this->newWanCache( $params );
 		$key = wfRandomString();
 		$value = wfRandomString();
 		$busyValue = wfRandomString();
@@ -1424,7 +1451,7 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 		$this->assertSame( 3, $calls, 'Callback was not used; used interim' );
 	}
 
-	public static function getBusyValues_Provider() {
+	public function getBusyValues_Provider() {
 		$hash = new HashBagOStuff( [] );
 
 		return [
@@ -1443,10 +1470,12 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::getWithSetCallback()
+	 * @covers WANObjectCache::fetchOrRegenerate()
 	 * @dataProvider getBusyValues_Provider
 	 */
 	public function testBusyValueTypes( $busyValue, $expected ) {
-		[ $cache, $bag ] = $this->newWanCache();
+		list( $cache, $bag ) = $this->newWanCache();
 		$key = wfRandomString();
 
 		$mockWallClock = 1549343530.0;
@@ -1467,9 +1496,10 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::getMulti()
 	 */
 	public function testGetMulti() {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 
 		$value1 = [ 'this' => 'is', 'a' => 'test' ];
 		$value2 = [ 'this' => 'is', 'another' => 'test' ];
@@ -1501,19 +1531,16 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 
 		$mockWallClock += 1;
 
-		$cache->touchCheckKey( $cKey1 );
-		$cache->touchCheckKey( $cKey2 );
-		$t1 = $cache->getCheckKeyTime( $cKey1 );
-		$this->assertSame( $mockWallClock, $t1, 'Check key 1 generated' );
-		$t2 = $cache->getCheckKeyTime( $cKey2 );
-		$this->assertSame( $mockWallClock, $t2, 'Check key 2 generated' );
-
 		$curTTLs = [];
 		$this->assertSame(
 			[ $key1 => $value1, $key2 => $value2 ],
 			$cache->getMulti( [ $key1, $key2, $key3 ], $curTTLs, [ $cKey1, $cKey2 ] ),
 			"Result array populated even with new check keys"
 		);
+		$t1 = $cache->getCheckKeyTime( $cKey1 );
+		$this->assertGreaterThanOrEqual( $priorTime, $t1, 'Check key 1 generated on miss' );
+		$t2 = $cache->getCheckKeyTime( $cKey2 );
+		$this->assertGreaterThanOrEqual( $priorTime, $t2, 'Check key 2 generated on miss' );
 		$this->assertCount( 2, $curTTLs, "Current TTLs array set" );
 		$this->assertLessThanOrEqual( 0, $curTTLs[$key1], 'Key 1 has current TTL <= 0' );
 		$this->assertLessThanOrEqual( 0, $curTTLs[$key2], 'Key 2 has current TTL <= 0' );
@@ -1532,11 +1559,13 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::getMulti()
+	 * @covers WANObjectCache::processCheckKeys()
 	 * @param array $params
 	 * @dataProvider provideCoalesceAndMcrouterSettings
 	 */
 	public function testGetMultiCheckKeys( array $params ) {
-		[ $cache ] = $this->newWanCache( $params );
+		list( $cache ) = $this->newWanCache( $params );
 
 		$checkAll = wfRandomString();
 		$check1 = wfRandomString();
@@ -1613,9 +1642,44 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::get()
+	 * @covers WANObjectCache::processCheckKeys()
+	 */
+	public function testCheckKeyInitHoldoff() {
+		list( $cache ) = $this->newWanCache();
+
+		for ( $i = 0; $i < 500; ++$i ) {
+			$key = wfRandomString();
+			$checkKey = wfRandomString();
+			// miss, set, hit
+			$cache->get( $key, $curTTL, [ $checkKey ] );
+			$cache->set( $key, 'val', 10 );
+			$curTTL = null;
+			$v = $cache->get( $key, $curTTL, [ $checkKey ] );
+
+			$this->assertSame( 'val', $v );
+			$this->assertLessThan( 0, $curTTL, "Step $i: CTL < 0 (miss/set/hit)" );
+		}
+
+		for ( $i = 0; $i < 500; ++$i ) {
+			$key = wfRandomString();
+			$checkKey = wfRandomString();
+			// set, hit
+			$cache->set( $key, 'val', 10 );
+			$curTTL = null;
+			$v = $cache->get( $key, $curTTL, [ $checkKey ] );
+
+			$this->assertSame( 'val', $v );
+			$this->assertLessThan( 0, $curTTL, "Step $i: CTL < 0 (set/hit)" );
+		}
+	}
+
+	/**
+	 * @covers WANObjectCache::get()
+	 * @covers WANObjectCache::processCheckKeys()
 	 */
 	public function testCheckKeyHoldoff() {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 		$key = wfRandomString();
 		$checkKey = wfRandomString();
 
@@ -1639,8 +1703,14 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 		$this->assertGreaterThan( 0, $curTTL, "Key not in hold-off due to check key" );
 	}
 
+	/**
+	 * @covers WANObjectCache::delete
+	 * @covers WANObjectCache::relayNonVolatilePurge
+	 * @covers WANObjectCache::relayVolatilePurges
+	 * @covers WANObjectCache::makeTombstonePurgeValue
+	 */
 	public function testDelete() {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 		$key = wfRandomString();
 		$value = wfRandomString();
 		$cache->set( $key, $value );
@@ -1677,12 +1747,14 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @dataProvider getWithSetCallback_provider
+	 * @dataProvider getWithSetCallback_versions_provider
+	 * @covers WANObjectCache::getWithSetCallback()
+	 * @covers WANObjectCache::fetchOrRegenerate()
 	 * @param array $extOpts
 	 * @param bool $versioned
 	 */
 	public function testGetWithSetCallback_versions( array $extOpts, $versioned ) {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 
 		$key = wfRandomString();
 		$valueV1 = wfRandomString();
@@ -1750,11 +1822,20 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 		$this->assertSame( 1, $wasSet, "Value not regenerated (main key)" );
 	}
 
+	public static function getWithSetCallback_versions_provider() {
+		return [
+			[ [], false ],
+			[ [ 'version' => 1 ], true ]
+		];
+	}
+
 	/**
+	 * @covers WANObjectCache::useInterimHoldOffCaching
+	 * @covers WANObjectCache::getInterimValue
 	 * @dataProvider provideCoalesceAndMcrouterSettings
 	 */
 	public function testInterimHoldOffCaching( array $params ) {
-		[ $cache, $bag ] = $this->newWanCache( $params );
+		list( $cache, $bag ) = $this->newWanCache( $params );
 
 		$mockWallClock = 1549343530.0;
 		$cache->setMockTime( $mockWallClock );
@@ -1813,8 +1894,16 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 		$this->assertSame( 5, $wasCalled, 'Value still regenerated (failed mutex)' );
 	}
 
+	/**
+	 * @covers WANObjectCache::touchCheckKey
+	 * @covers WANObjectCache::resetCheckKey
+	 * @covers WANObjectCache::getCheckKeyTime
+	 * @covers WANObjectCache::getMultiCheckKeyTime
+	 * @covers WANObjectCache::makeCheckPurgeValue
+	 * @covers WANObjectCache::parsePurgeValue
+	 */
 	public function testTouchKeys() {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 		$key = wfRandomString();
 
 		$mockWallClock = 1549343530.0;
@@ -1854,11 +1943,12 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::getMulti()
 	 * @param array $params
 	 * @dataProvider provideCoalesceAndMcrouterSettings
 	 */
 	public function testGetWithSeveralCheckKeys( array $params ) {
-		[ $cache, $bag ] = $this->newWanCache( $params );
+		list( $cache, $bag ) = $this->newWanCache( $params );
 		$key = wfRandomString();
 		$tKey1 = wfRandomString();
 		$tKey2 = wfRandomString();
@@ -1882,9 +1972,100 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::reap()
+	 * @covers WANObjectCache::reapCheckKey()
+	 */
+	public function testReap() {
+		$this->hideDeprecated( 'WANObjectCache::reap' );
+		$this->hideDeprecated( 'WANObjectCache::reapCheckKey' );
+
+		list( $cache, $bag ) = $this->newWanCache();
+		$vKey1 = wfRandomString();
+		$vKey2 = wfRandomString();
+		$tKey1 = wfRandomString();
+		$tKey2 = wfRandomString();
+		$value = 'moo';
+
+		$mockWallClock = 1549343530.0;
+		$cache->setMockTime( $mockWallClock );
+		$knownPurge = $mockWallClock - 60;
+		$goodTime = $mockWallClock - 5;
+		$badTime = $mockWallClock - 300;
+
+		$bag->set(
+			'WANCache:' . $vKey1 . '|#|v',
+			[
+				0 => 1,
+				1 => $value,
+				2 => 3600,
+				3 => $goodTime
+			]
+		);
+		$bag->set(
+			'WANCache:' . $vKey2 . '|#|v',
+			[
+				0 => 1,
+				1 => $value,
+				2 => 3600,
+				3 => $badTime
+			]
+		);
+		$bag->set(
+			'WANCache:' . $tKey1 . '|#|t',
+			'PURGED:' . $goodTime
+		);
+		$bag->set(
+			'WANCache:' . $tKey2 . '|#|t',
+			'PURGED:' . $badTime
+		);
+
+		$this->assertSame( $value, $cache->get( $vKey1 ) );
+		$this->assertSame( $value, $cache->get( $vKey2 ) );
+		$cache->reap( $vKey1, $knownPurge, $bad1 );
+		$cache->reap( $vKey2, $knownPurge, $bad2 );
+
+		$this->assertSame( false, $bad1 );
+		$this->assertTrue( $bad2 );
+
+		$cache->reapCheckKey( $tKey1, $knownPurge, $tBad1 );
+		$cache->reapCheckKey( $tKey2, $knownPurge, $tBad2 );
+		$this->assertSame( false, $tBad1 );
+		$this->assertTrue( $tBad2 );
+	}
+
+	/**
+	 * @covers WANObjectCache::reap()
+	 */
+	public function testReap_fail() {
+		$this->hideDeprecated( 'WANObjectCache::reap' );
+
+		$backend = $this->getMockBuilder( EmptyBagOStuff::class )
+			->onlyMethods( [ 'get', 'changeTTL' ] )->getMock();
+		$backend->expects( $this->once() )->method( 'get' )
+			->willReturn( [
+				0 => 1,
+				1 => 'value',
+				2 => 3600,
+				3 => 300,
+			] );
+		$backend->expects( $this->once() )->method( 'changeTTL' )
+			->willReturn( false );
+
+		$wanCache = new WANObjectCache( [
+			'cache' => $backend
+		] );
+
+		$isStale = null;
+		$ret = $wanCache->reap( 'key', 360, $isStale );
+		$this->assertTrue( $isStale, 'value was stale' );
+		$this->assertSame( false, $ret, 'changeTTL failed' );
+	}
+
+	/**
+	 * @covers WANObjectCache::set()
 	 */
 	public function testSetWithLag() {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 
 		$mockWallClock = 1549343530.0;
 		$cache->setMockTime( $mockWallClock );
@@ -1937,9 +2118,10 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::set()
 	 */
 	public function testWritePending() {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 		$value = 1;
 
 		$key = wfRandomString();
@@ -2065,6 +2247,7 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 
 	/**
 	 * @dataProvider provideAdaptiveTTL
+	 * @covers WANObjectCache::adaptiveTTL()
 	 * @param float|int $ago
 	 * @param int $maxTTL
 	 * @param int $minTTL
@@ -2072,7 +2255,7 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	 * @param int $adaptiveTTL
 	 */
 	public function testAdaptiveTTL( $ago, $maxTTL, $minTTL, $factor, $adaptiveTTL ) {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 		$mtime = $ago ? time() - $ago : $ago;
 		$margin = 5;
 		$ttl = $cache->adaptiveTTL( $mtime, $maxTTL, $minTTL, $factor );
@@ -2097,6 +2280,8 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::__construct
+	 * @covers WANObjectCache::newEmpty
 	 */
 	public function testNewEmpty() {
 		$this->assertInstanceOf(
@@ -2106,13 +2291,15 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::setLogger
 	 */
 	public function testSetLogger() {
-		[ $cache ] = $this->newWanCache();
-		$this->assertSame( null, $cache->setLogger( new NullLogger ) );
+		list( $cache ) = $this->newWanCache();
+		$this->assertSame( null, $cache->setLogger( new Psr\Log\NullLogger ) );
 	}
 
 	/**
+	 * @covers WANObjectCache::getQoS
 	 */
 	public function testGetQoS() {
 		$backend = $this->getMockBuilder( HashBagOStuff::class )
@@ -2123,11 +2310,12 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 
 		$this->assertSame(
 			$wanCache::QOS_UNKNOWN,
-			$wanCache->getQoS( $wanCache::ATTR_DURABILITY )
+			$wanCache->getQoS( $wanCache::ATTR_EMULATION )
 		);
 	}
 
 	/**
+	 * @covers WANObjectCache::makeKey
 	 */
 	public function testMakeKey() {
 		$backend = $this->getMockBuilder( HashBagOStuff::class )
@@ -2143,6 +2331,7 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::makeGlobalKey
 	 */
 	public function testMakeGlobalKey() {
 		$backend = $this->getMockBuilder( HashBagOStuff::class )
@@ -2170,6 +2359,7 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 
 	/**
 	 * @dataProvider statsKeyProvider
+	 * @covers WANObjectCache::determineKeyClassForStats
 	 * @param string $key
 	 * @param string $class
 	 */
@@ -2179,13 +2369,14 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 			'cache' => new HashBagOStuff
 		] ) );
 
-		$this->assertSame( $class, $wanCache->determineKeyGroupForStats( $key ) );
+		$this->assertSame( $class, $wanCache->determineKeyClassForStats( $key ) );
 	}
 
 	/**
+	 * @covers WANObjectCache::makeMultiKeys
 	 */
 	public function testMakeMultiKeys() {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 
 		$ids = [ 1, 2, 3, 4, 4, 5, 6, 6, 7, 7 ];
 		$keyCallback = static function ( $id, WANObjectCache $cache ) {
@@ -2223,9 +2414,10 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::makeMultiKeys
 	 */
 	public function testMakeMultiKeysIntString() {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 		$ids = [ 1, 2, 3, 4, '4', 5, 6, 6, 7, '7' ];
 		$keyCallback = static function ( $id, WANObjectCache $cache ) {
 			return $cache->makeGlobalKey( 'key', $id, 'a', $id, 'b' );
@@ -2246,9 +2438,10 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::makeMultiKeys
 	 */
 	public function testMakeMultiKeysCollision() {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 		$ids = [ 1, 2, 3, 4, '4', 5, 6, 6, 7 ];
 
 		$this->expectException( UnexpectedValueException::class );
@@ -2261,9 +2454,10 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::multiRemap
 	 */
 	public function testMultiRemap() {
-		[ $cache ] = $this->newWanCache();
+		list( $cache ) = $this->newWanCache();
 
 		$ids = [ 'a', 'b', 'c' ];
 		$res = [ 'keyA' => 1, 'keyB' => 2, 'keyC' => 3 ];
@@ -2281,27 +2475,28 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
+	 * @covers WANObjectCache::hash256
 	 */
 	public function testHash256() {
-		[ $cache ] = $this->newWanCache( [ 'epoch' => 5 ] );
+		list( $cache ) = $this->newWanCache( [ 'epoch' => 5 ] );
 		$this->assertEquals(
 			'f402bce76bfa1136adc705d8d5719911ce1fe61f0ad82ddf79a15f3c4de6ec4c',
 			$cache->hash256( 'x' )
 		);
 
-		[ $cache ] = $this->newWanCache( [ 'epoch' => 50 ] );
+		list( $cache ) = $this->newWanCache( [ 'epoch' => 50 ] );
 		$this->assertSame(
 			'f79a126722f0a682c4c500509f1b61e836e56c4803f92edc89fc281da5caa54e',
 			$cache->hash256( 'x' )
 		);
 
-		[ $cache ] = $this->newWanCache( [ 'secret' => 'garden' ] );
+		list( $cache ) = $this->newWanCache( [ 'secret' => 'garden' ] );
 		$this->assertSame(
 			'48cd57016ffe29981a1114c45e5daef327d30fc6206cb73edc3cb94b4d8fe093',
 			$cache->hash256( 'x' )
 		);
 
-		[ $cache ] = $this->newWanCache( [ 'secret' => 'garden', 'epoch' => 3 ] );
+		list( $cache ) = $this->newWanCache( [ 'secret' => 'garden', 'epoch' => 3 ] );
 		$this->assertSame(
 			'48cd57016ffe29981a1114c45e5daef327d30fc6206cb73edc3cb94b4d8fe093',
 			$cache->hash256( 'x' )
@@ -2309,13 +2504,16 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 *
+	 * @covers WANObjectCache::getWithSetCallback()
+	 * @covers WANObjectCache::fetchOrRegenerate()
+	 * @covers WANObjectCache::get()
+	 * @covers WANObjectCache::set()
 	 * @dataProvider provideCoalesceAndMcrouterSettings
 	 * @param array $params
 	 * @param string|null $keyNeedle
 	 */
 	public function testCoalesceKeys( array $params, $keyNeedle ) {
-		[ $cache, $bag ] = $this->newWanCache( $params );
+		list( $cache, $bag ) = $this->newWanCache( $params );
 		$key = wfRandomString();
 		$callback = static function () {
 			return 2020;
@@ -2323,9 +2521,9 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 
 		$cache->getWithSetCallback( $key, 60, $callback );
 		$wrapper = TestingAccessWrapper::newFromObject( $bag );
-		foreach ( $wrapper->bag as $bagKey => $_ ) {
+		foreach ( array_keys( $wrapper->bag ) as $bagKey ) {
 			if ( $keyNeedle === null ) {
-				$this->assertDoesNotMatchRegularExpression( '/[#{}]/', $bagKey, 'Respects "coalesceKeys"' );
+				$this->assertNotRegExp( '/[#{}]/', $bagKey, 'Respects "coalesceKeys"' );
 			} else {
 				$this->assertStringContainsString(
 					$keyNeedle,
@@ -2337,52 +2535,27 @@ class WANObjectCacheTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @dataProvider provideCoalesceAndMcrouterSettings
-	 * @param array $params
-	 * @param string|null $keyNeedle
+	 * @param string $key
+	 * @param string $expectedCollection
+	 * @covers WANObjectCache::getCollectionFromSisterKey()
+	 * @dataProvider provideCollectionKeys
 	 */
-	public function testSegmentableValues( array $params, $keyNeedle ) {
-		[ $cache, $bag ] = $this->newWanCache( $params );
-		$mockWallClock = 1549343530.0;
-		$cache->setMockTime( $mockWallClock );
-		$key = $cache->makeGlobalKey( 'z', wfRandomString() );
+	public function testgetCollectionFromSisterKey( $key, $expectedCollection ) {
+		$this->assertSame(
+			$expectedCollection,
+			WANObjectCache::getCollectionFromSisterKey( $key ),
+			'Correct key collection name'
+		);
+	}
 
-		$tiny = 418;
-		$small = wfRandomString( 32 );
-		// 64 * 8 * 32768 = 16 MiB, which will trigger segmentation
-		// assuming segmentationSize at default of 8 MiB.
-		$big = str_repeat( wfRandomString( 32 ) . '-' . wfRandomString( 32 ), 32768 );
-
-		$cases = [ 'tiny' => $tiny, 'small' => $small, 'big' => $big ];
-		foreach ( $cases as $case => $value ) {
-			$cache->set( $key, $value, 10, [ 'segmentable' => 1 ] );
-			$this->assertEquals( $value, $cache->get( $key ), "get $case" );
-			$this->assertEquals( [ $key => $value ], $cache->getMulti( [ $key ] ), "get $case" );
-
-			$this->assertTrue( $cache->delete( $key ), "delete $case" );
-			$this->assertFalse( $cache->get( $key ), "deleted $case" );
-			$this->assertEquals( [], $cache->getMulti( [ $key ] ), "deleted $case" );
-			$mockWallClock += 40;
-
-			$v = $cache->getWithSetCallback(
-				$key,
-				10,
-				static function ( $cache, $key, $oldValue ) use ( $value ) {
-					return "@$value";
-				},
-				[ 'segmentable' => 1 ]
-			);
-			$this->assertEquals( "@$value", $v, "get $case" );
-			$this->assertEquals( "@$value", $cache->get( $key ), "get $case" );
-
-			$this->assertTrue(
-				$cache->delete( $key ),
-				"prune $case"
-			);
-			$this->assertFalse( $cache->get( $key ), "pruned $case" );
-			$this->assertEquals( [], $cache->getMulti( [ $key ] ), "pruned $case" );
-			$mockWallClock += 40;
-		}
+	public static function provideCollectionKeys() {
+		return [
+			[ 'WANCache:collection:a:b|#|v', 'collection' ],
+			[ 'WANCache:{collection:a:b}:v', 'collection' ],
+			[ 'WANCache:collection:a:b|#|t', 'internal' ],
+			[ 'WANCache:{collection:a:b}:t', 'internal' ],
+			[ 'WANCache:improper-key', 'internal' ],
+		];
 	}
 }
 
@@ -2419,19 +2592,5 @@ class NearExpiringWANObjectCache extends WANObjectCache {
 class PopularityRefreshingWANObjectCache extends WANObjectCache {
 	protected function worthRefreshPopular( $asOf, $ageNew, $timeTillRefresh, $now ) {
 		return ( ( $now - $asOf ) > $timeTillRefresh );
-	}
-}
-
-class SerialHashBagOStuff extends HashBagOStuff {
-	protected function doGet( $key, $flags = 0, &$casToken = null ) {
-		$serialized = parent::doGet( $key, $flags, $casToken );
-
-		return ( $serialized !== false ) ? $this->unserialize( $serialized ) : false;
-	}
-
-	protected function doSet( $key, $value, $exptime = 0, $flags = 0 ) {
-		$serialized = $this->getSerialized( $value, $key );
-
-		return parent::doSet( $key, $serialized, $exptime, $flags );
 	}
 }

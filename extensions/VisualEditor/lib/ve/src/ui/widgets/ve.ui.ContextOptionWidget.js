@@ -1,7 +1,7 @@
 /*!
  * VisualEditor Context Item widget class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -47,7 +47,7 @@ OO.inheritClass( ve.ui.ContextOptionWidget, OO.ui.DecoratedOptionWidget );
  * @return {string} Description of model
  */
 ve.ui.ContextOptionWidget.prototype.getDescription = function () {
-	let description;
+	var description;
 
 	if ( this.model instanceof ve.dm.Annotation ) {
 		description = ve.ce.annotationFactory.getDescription( this.model );

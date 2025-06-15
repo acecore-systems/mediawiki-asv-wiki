@@ -17,15 +17,25 @@
 
 namespace MediaWiki\Minerva\Menu\Entries;
 
-use MediaWiki\Message\Message;
+use MediaWiki\Minerva\MinervaUI;
+use Message;
 
 /**
  * Model for a simple menu entries with label and icon
  */
 class SingleMenuEntry implements IMenuEntry {
-	private string $name;
-	private array $attributes;
-	private bool $isJSOnly = false;
+	/**
+	 * @var string
+	 */
+	private $name;
+	/**
+	 * @var array
+	 */
+	private $attributes;
+	/**
+	 * @var bool
+	 */
+	private $isJSOnly;
 
 	/**
 	 * Create a simple menu element with one component
@@ -34,35 +44,19 @@ class SingleMenuEntry implements IMenuEntry {
 	 * @param string $text Text to show on menu element
 	 * @param string $url URL menu element points to
 	 * @param string|array $className Additional CSS class names.
-	 * @param bool $isInterface If true, the menu element is provided with data-mw='interface'
-	 * and is treated as a standard part of the interface (ie. MediaWiki Core might bind to
-	 * the menu element)
 	 */
-	public function __construct( string $name, string $text, string $url, $className = '', bool $isInterface = true ) {
+	public function __construct( $name, $text, $url, $className = '' ) {
 		$this->name = $name;
 		$menuClass = 'menu__item--' . $name;
 
 		$this->attributes = [
-			'data-icon' => [
-				'icon' => null,
-			],
-			'data-event-name' => null,
-			'title' => null,
-			'id' => null,
+			'icon' => null,
 			'text' => $text,
 			'href' => $url,
-			'role' => '',
 			'class' => is_array( $className ) ?
 				implode( ' ', $className + [ $menuClass ] ) :
 					ltrim( $className . ' ' . $menuClass ),
 		];
-		if ( $isInterface ) {
-			// This is needed when Minerva uses a standard MediaWiki button (such as the
-			// watchstar) for a different purpose than MediaWiki usually uses it for. Not setting
-			// data-mw interface will prevent MediaWiki Core from binding to the element and
-			// potentially triggering its own actions. See T344925 for an example bug report.
-			$this->attributes['data-mw'] = 'interface';
-		}
 	}
 
 	/**
@@ -71,8 +65,8 @@ class SingleMenuEntry implements IMenuEntry {
 	 * @param string $icon
 	 * @return $this
 	 */
-	public function overrideIcon( string $icon ): self {
-		$this->setIcon( $icon );
+	public function overrideIcon( $icon ) {
+		$this->setIcon( str_replace( 'minerva-', '', $icon ) );
 		return $this;
 	}
 
@@ -82,7 +76,7 @@ class SingleMenuEntry implements IMenuEntry {
 	 * @param string $text
 	 * @return $this
 	 */
-	public function overrideText( string $text ): self {
+	public function overrideText( $text ) {
 		$this->attributes['text'] = $text;
 		return $this;
 	}
@@ -113,7 +107,7 @@ class SingleMenuEntry implements IMenuEntry {
 	/**
 	 * @inheritDoc
 	 */
-	public function getName(): string {
+	public function getName() {
 		return $this->name;
 	}
 
@@ -121,33 +115,14 @@ class SingleMenuEntry implements IMenuEntry {
 	 * @inheritDoc
 	 */
 	public function getCSSClasses(): array {
-		return $this->isJSOnly ? [ 'skin-minerva-list-item-jsonly' ] : [];
+		return $this->isJSOnly ? [ 'jsonly' ] : [];
 	}
 
 	/**
 	 * @inheritDoc
 	 */
 	public function getComponents(): array {
-		$attrs = [];
-		foreach ( [ 'id', 'href', 'data-event-name', 'data-mw', 'role' ] as $key ) {
-			$value = $this->attributes[$key] ?? null;
-			if ( $value ) {
-				$attrs[] = [
-					'key' => $key,
-					'value' => $value,
-				];
-			}
-		}
-
-		$btn = [
-			'tag-name' => 'a',
-			'label' => $this->attributes['text'],
-			'array-attributes' => $attrs,
-			'classes' => $this->attributes['class'],
-			'data-icon' => $this->attributes['data-icon'],
-		];
-
-		return [ $btn ];
+		return [ $this->attributes ];
 	}
 
 	/**
@@ -155,7 +130,7 @@ class SingleMenuEntry implements IMenuEntry {
 	 * pass the tracking code as string
 	 * @return $this
 	 */
-	public function trackClicks( $eventName ): self {
+	public function trackClicks( $eventName ) {
 		$this->attributes['data-event-name'] = 'menu.' . $eventName;
 		return $this;
 	}
@@ -163,13 +138,25 @@ class SingleMenuEntry implements IMenuEntry {
 	/**
 	 * Set the Menu entry icon
 	 * @param string|null $iconName
+	 * @param string $iconType
+	 * @param string $additionalClassNames Additional classes
+	 * @param string $iconPrefix either `wikimedia` or `minerva`
 	 * @return $this
 	 */
-	public function setIcon( $iconName ): self {
-		if ( $iconName !== null ) {
-			$this->attributes['data-icon']['icon'] = $iconName;
+	public function setIcon( $iconName,
+		$iconType = 'before',
+		$additionalClassNames = '',
+		$iconPrefix = 'minerva'
+	) {
+		if ( $iconType === 'before' ) {
+			$this->attributes['icon'] = $iconPrefix . '-' . $iconName;
 		} else {
-			$this->attributes['data-icon'] = null;
+			$this->attributes['class'] .= ' ' . MinervaUI::iconClass(
+				$iconName,
+				$iconType,
+				$additionalClassNames,
+				$iconPrefix
+			);
 		}
 		return $this;
 	}

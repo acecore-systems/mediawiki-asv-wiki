@@ -21,18 +21,11 @@
  * @ingroup Maintenance
  */
 
-namespace MediaWiki\Maintenance;
-
-use MediaWiki\Password\InvalidPassword;
-use MediaWiki\Password\PasswordFactory;
+use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\IExpression;
-use Wikimedia\Rdbms\LikeValue;
-use Wikimedia\Rdbms\RawSQLValue;
+use Wikimedia\Rdbms\IMaintainableDatabase;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/../Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Delete unused local passwords.
@@ -76,7 +69,7 @@ class DeleteLocalPasswords extends Maintenance {
 			$this->fatalError( "Exactly one of the 'delete', 'prefix', 'unprefix' options must be used\n" );
 		}
 		if ( $this->hasOption( 'prefix' ) || $this->hasOption( 'unprefix' ) ) {
-			$passwordHashTypes = $this->getServiceContainer()->getPasswordFactory()->getTypes();
+			$passwordHashTypes = MediaWikiServices::getInstance()->getPasswordFactory()->getTypes();
 			if (
 				!isset( $passwordHashTypes['null'] )
 				|| $passwordHashTypes['null']['class'] !== InvalidPassword::class
@@ -93,7 +86,7 @@ ERROR
 
 		$user = $this->getOption( 'user', false );
 		if ( $user !== false ) {
-			$userNameUtils = $this->getServiceContainer()->getUserNameUtils();
+			$userNameUtils = MediaWikiServices::getInstance()->getUserNameUtils();
 			$this->user = $userNameUtils->getCanonical( $user );
 			if ( $this->user === false ) {
 				$this->fatalError( "Invalid user name\n" );
@@ -114,10 +107,10 @@ ERROR
 	/**
 	 * Get the primary DB handle for the current user batch. This is provided for the benefit
 	 * of authentication extensions which subclass this and work with wiki farms.
-	 * @return IDatabase
+	 * @return IMaintainableDatabase
 	 */
 	protected function getUserDB() {
-		return $this->getPrimaryDB();
+		return $this->getDB( DB_PRIMARY );
 	}
 
 	protected function processUsers( array $userBatch, IDatabase $dbw ) {
@@ -125,42 +118,35 @@ ERROR
 			return;
 		}
 		if ( $this->getOption( 'delete' ) ) {
-			$dbw->newUpdateQueryBuilder()
-				->update( 'user' )
-				->set( [ 'user_password' => PasswordFactory::newInvalidPassword()->toString() ] )
-				->where( [ 'user_name' => $userBatch ] )
-				->caller( __METHOD__ )->execute();
+			$dbw->update( 'user',
+				[ 'user_password' => PasswordFactory::newInvalidPassword()->toString() ],
+				[ 'user_name' => $userBatch ],
+				__METHOD__
+			);
 		} elseif ( $this->getOption( 'prefix' ) ) {
-			$dbw->newUpdateQueryBuilder()
-				->update( 'user' )
-				->set( [
-					'user_password' => new RawSQLValue(
-						$dbw->buildConcat( [ $dbw->addQuotes( ':null:' ), 'user_password' ] )
-					)
-				] )
-				->where( [
-					$dbw->expr( 'user_password', IExpression::NOT_LIKE, new LikeValue( ':null:', $dbw->anyString() ) ),
-					$dbw->expr( 'user_password', '!=', PasswordFactory::newInvalidPassword()->toString() ),
-					$dbw->expr( 'user_password', '!=', null ),
+			$dbw->update( 'user',
+				[ 'user_password = ' . $dbw->buildConcat( [ $dbw->addQuotes( ':null:' ),
+						'user_password' ] ) ],
+				[
+					'NOT (user_password ' . $dbw->buildLike( ':null:', $dbw->anyString() ) . ')',
+					"user_password != " . $dbw->addQuotes( PasswordFactory::newInvalidPassword()->toString() ),
+					'user_password IS NOT NULL',
 					'user_name' => $userBatch,
-				] )
-				->caller( __METHOD__ )->execute();
+				],
+				__METHOD__
+			);
 		} elseif ( $this->getOption( 'unprefix' ) ) {
-			$dbw->newUpdateQueryBuilder()
-				->update( 'user' )
-				->set( [
-					'user_password' => new RawSQLValue(
-						$dbw->buildSubString( 'user_password', strlen( ':null:' ) + 1 )
-					)
-				] )
-				->where( [
-					$dbw->expr( 'user_password', IExpression::LIKE, new LikeValue( ':null:', $dbw->anyString() ) ),
+			$dbw->update( 'user',
+				[ 'user_password = ' . $dbw->buildSubString( 'user_password', strlen( ':null:' ) + 1 ) ],
+				[
+					'user_password ' . $dbw->buildLike( ':null:', $dbw->anyString() ),
 					'user_name' => $userBatch,
-				] )
-				->caller( __METHOD__ )->execute();
+				],
+				__METHOD__
+			);
 		}
 		$this->total += $dbw->affectedRows();
-		$this->waitForReplication();
+		MediaWikiServices::getInstance()->getDBLoadBalancerFactory()->waitForReplication();
 	}
 
 	/**
@@ -170,7 +156,7 @@ ERROR
 	 * Subclasses should reimplement this and locate users who use the specific authentication
 	 * method. The default implementation just iterates through all users. Extensions that work
 	 * with wikifarm should also update self::getUserDB() as necessary.
-	 * @return \Generator
+	 * @return Generator
 	 */
 	protected function getUserBatches() {
 		if ( $this->user !== null ) {
@@ -180,16 +166,21 @@ ERROR
 		}
 
 		$lastUsername = '';
-		$dbw = $this->getPrimaryDB();
+		$dbw = $this->getDB( DB_PRIMARY );
 		do {
 			$this->output( "\t ... querying from '$lastUsername'\n" );
-			$users = $dbw->newSelectQueryBuilder()
-				->select( 'user_name' )
-				->from( 'user' )
-				->where( $dbw->expr( 'user_name', '>', $lastUsername ) )
-				->orderBy( 'user_name ASC' )
-				->limit( $this->getBatchSize() )
-				->caller( __METHOD__ )->fetchFieldValues();
+			$users = $dbw->selectFieldValues(
+				'user',
+				'user_name',
+				[
+					'user_name > ' . $dbw->addQuotes( $lastUsername ),
+				],
+				__METHOD__,
+				[
+					'LIMIT' => $this->getBatchSize(),
+					'ORDER BY' => 'user_name ASC',
+				]
+			);
 			if ( $users ) {
 				yield $users;
 				$lastUsername = end( $users );
@@ -197,6 +188,3 @@ ERROR
 		} while ( count( $users ) === $this->getBatchSize() );
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( DeleteLocalPasswords::class, 'DeleteLocalPasswords' );

@@ -20,8 +20,6 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
 /**
  * @stable to extend
  *
@@ -29,7 +27,6 @@ namespace MediaWiki\Api;
  */
 abstract class ApiQueryGeneratorBase extends ApiQueryBase {
 
-	/** @var ApiPageSet|null */
 	private $mGeneratorPageSet = null;
 
 	/**
@@ -101,6 +98,3 @@ abstract class ApiQueryGeneratorBase extends ApiQueryBase {
 	 */
 	abstract public function executeGenerator( $resultPageSet );
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiQueryGeneratorBase::class, 'ApiQueryGeneratorBase' );

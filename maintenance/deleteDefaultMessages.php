@@ -22,14 +22,9 @@
  * @ingroup Maintenance
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
-use MediaWiki\StubObject\StubGlobalUser;
-use MediaWiki\Title\Title;
-use MediaWiki\User\ActorMigration;
-use MediaWiki\User\User;
+use MediaWiki\MediaWikiServices;
 
 /**
  * Maintenance script that deletes all pages in the MediaWiki namespace
@@ -46,10 +41,10 @@ class DeleteDefaultMessages extends Maintenance {
 	}
 
 	public function execute() {
-		$services = $this->getServiceContainer();
+		$services = MediaWikiServices::getInstance();
 
 		$this->output( "Checking existence of old default messages..." );
-		$dbr = $this->getReplicaDB();
+		$dbr = $this->getDB( DB_REPLICA );
 
 		$userFactory = $services->getUserFactory();
 		$actorQuery = ActorMigration::newMigration()
@@ -57,14 +52,12 @@ class DeleteDefaultMessages extends Maintenance {
 
 		$res = $dbr->newSelectQueryBuilder()
 			->select( [ 'page_namespace', 'page_title' ] )
-			->from( 'page' )
-			->join( 'revision', null, 'page_latest=rev_id' )
-			->tables( $actorQuery['tables'] )
+			->tables( [ 'page', 'revision' ] + $actorQuery['tables'] )
 			->where( [
 				'page_namespace' => NS_MEDIAWIKI,
 				$actorQuery['conds'],
 			] )
-			->joinConds( $actorQuery['joins'] )
+			->joinConds( [ 'revision' => [ 'JOIN', 'page_latest=rev_id' ] ] + $actorQuery['joins'] )
 			->caller( __METHOD__ )
 			->fetchResultSet();
 
@@ -96,25 +89,23 @@ class DeleteDefaultMessages extends Maintenance {
 
 		// Handle deletion
 		$this->output( "\n...deleting old default messages (this may take a long time!)...", 'msg' );
-		$dbw = $this->getPrimaryDB();
+		$dbw = $this->getDB( DB_PRIMARY );
 
+		$lbFactory = $services->getDBLoadBalancerFactory();
 		$wikiPageFactory = $services->getWikiPageFactory();
-		$delPageFactory = $services->getDeletePageFactory();
 
 		foreach ( $res as $row ) {
-			$this->waitForReplication();
+			$lbFactory->waitForReplication();
 			$dbw->ping();
 			$title = Title::makeTitle( $row->page_namespace, $row->page_title );
 			$page = $wikiPageFactory->newFromTitle( $title );
 			// FIXME: Deletion failures should be reported, not silently ignored.
-			$delPageFactory->newDeletePage( $page, $user )->deleteUnsafe( 'No longer required' );
+			$page->doDeleteArticleReal( 'No longer required', $user );
 		}
 
 		$this->output( "done!\n", 'msg' );
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = DeleteDefaultMessages::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

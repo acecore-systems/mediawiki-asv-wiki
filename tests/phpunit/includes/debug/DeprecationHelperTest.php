@@ -4,7 +4,7 @@ use MediaWiki\MainConfigNames;
 use Wikimedia\TestingAccessWrapper;
 
 /**
- * @covers \MediaWiki\Debug\DeprecationHelper
+ * @covers DeprecationHelper
  */
 class DeprecationHelperTest extends MediaWikiIntegrationTestCase {
 
@@ -31,13 +31,12 @@ class DeprecationHelperTest extends MediaWikiIntegrationTestCase {
 			}, $expectedLevel, $expectedMessage );
 		} else {
 			$this->assertDeprecationWarningIssued( function () use ( $propName ) {
-				$expectedValue = $propName === 'fallbackDeprecatedMethodName' ? 'FOO' : 1;
-				$this->assertSame( $expectedValue, $this->testClass->$propName );
+				$this->assertSame( 1, $this->testClass->$propName );
 			}, $expectedMessage );
 		}
 	}
 
-	public static function provideGet() {
+	public function provideGet() {
 		return [
 			[ 'protectedDeprecated', null,
 				'Use of TestDeprecatedClass::$protectedDeprecated was deprecated in MediaWiki 1.23. ' .
@@ -131,7 +130,7 @@ class DeprecationHelperTest extends MediaWikiIntegrationTestCase {
 		$this->assertPropertySame( $expectedValue, $this->testClass, $propName );
 	}
 
-	public static function provideSet() {
+	public function provideSet() {
 		return [
 			[ 'protectedDeprecated', null,
 				'Use of TestDeprecatedClass::$protectedDeprecated was deprecated in MediaWiki 1.23. ' .
@@ -226,7 +225,8 @@ class DeprecationHelperTest extends MediaWikiIntegrationTestCase {
 	}
 
 	protected function assertDeprecationWarningIssued( callable $callback, string $expectedMessage ) {
-		$this->expectDeprecationAndContinue( '/' . preg_quote( $expectedMessage, '/' ) . '/' );
+		$this->expectDeprecation();
+		$this->expectDeprecationMessage( $expectedMessage );
 		$callback();
 	}
 
@@ -241,7 +241,7 @@ class DeprecationHelperTest extends MediaWikiIntegrationTestCase {
 		wfDeprecated( __METHOD__, $version );
 	}
 
-	public static function provideBadMWVersion() {
+	public function provideBadMWVersion() {
 		return [
 			[ 1, Exception::class ],
 			[ 1.33, Exception::class ],

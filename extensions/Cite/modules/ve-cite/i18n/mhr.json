@@ -2,8 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"Lifeway",
-			"Mxalexandrov86",
-			"Валентина Семёнова"
+			"Валентина Семёнова",
+			"Mxalexandrov86"
 		]
 	},
 	"visualeditor-cite-tool-name-book": "Книга",
@@ -21,9 +21,9 @@
 	"cite-ve-citationneeded-button": "Цитатым ешараш",
 	"cite-ve-citationneeded-reason": "Ончыктымо амал:",
 	"cite-ve-citationneeded-title": "Важыш кылвер кӱлеш",
-	"cite-ve-dialog-reference-editing-extends": "Тиде вес кылверым шуйымаш.",
 	"cite-ve-dialog-reference-options-group-label": "Тиде тӱшкам кучылташ",
 	"cite-ve-dialog-reference-options-group-placeholder": "Тӱҥ кылвер-влак",
+	"cite-ve-dialog-reference-options-name-label": "Тиде лӱм дене угыч кучылтмаш",
 	"cite-ve-dialog-reference-options-responsive-label": "Келыштарыме столбец макетым кучылташ",
 	"cite-ve-dialog-reference-options-section": "Параметр-влак",
 	"cite-ve-dialog-reference-title": "Палемдымаш",
@@ -42,7 +42,7 @@
 	"cite-ve-referenceslist-isempty-default": "Тиде велыжыште спискыш пурташ кылвер уке.",
 	"cite-ve-referenceslist-missingref": "Тиде сноско шаблонышто але вес ыштыме блокышто палемдыме, кызыт тудым тӱҥалтыш текст тӧрлымӧ режимыште гына тӧрлаташ лиеш.",
 	"cite-ve-referenceslist-missingref-in-list": "Тиде палемдымаш шаблонышто але вес ышталтше блокышто рашемдыме, кызыт тудым вики-код тӧрлымӧ режимыште гына ончылгоч ужаш лиеш.",
-	"cite-ve-referenceslist-missingreflist": "Тиде палемдымаш списке шаблон дене ышталтеш",
 	"cite-ve-toolbar-group-label": "Важ",
-	"cite-ve-othergroup-item": "$1 палемдымаш"
+	"cite-ve-othergroup-item": "$1 палемдымаш",
+	"visualeditor-internal-list-diff-default-group-name-mwreference": "Палемдымаш"
 }

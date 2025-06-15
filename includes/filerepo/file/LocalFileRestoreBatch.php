@@ -18,13 +18,7 @@
  * @file
  */
 
-use MediaWiki\Deferred\DeferredUpdates;
-use MediaWiki\Deferred\SiteStatsUpdate;
-use MediaWiki\FileRepo\File\FileSelectQueryBuilder;
-use MediaWiki\Language\Language;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Status\Status;
-use Wikimedia\Rdbms\SelectQueryBuilder;
 use Wikimedia\ScopedCallback;
 
 /**
@@ -92,7 +86,7 @@ class LocalFileRestoreBatch {
 	 * @return Status
 	 */
 	public function execute() {
-		/** @var Language $wgLang */
+		/** @var Language */
 		global $wgLang;
 
 		$repo = $this->file->getRepo();
@@ -121,29 +115,32 @@ class LocalFileRestoreBatch {
 
 		$status = $this->file->repo->newGood();
 
-		$queryBuilder = $dbw->newSelectQueryBuilder()
-			->select( '1' )
-			->from( 'image' )
-			->where( [ 'img_name' => $this->file->getName() ] );
-		// The acquireFileLock() should already prevent changes, but this still may need
-		// to bypass any transaction snapshot. However, if we started the
-		// trx (which we probably did) then snapshot is post-lock and up-to-date.
-		if ( !$ownTrx ) {
-			$queryBuilder->lockInShareMode();
-		}
-		$exists = (bool)$queryBuilder->caller( __METHOD__ )->fetchField();
+		$exists = (bool)$dbw->selectField( 'image', '1',
+			[ 'img_name' => $this->file->getName() ],
+			__METHOD__,
+			// The acquireFileLock() should already prevent changes, but this still may need
+			// to bypass any transaction snapshot. However, if we started the
+			// trx (which we probably did) then snapshot is post-lock and up-to-date.
+			$ownTrx ? [] : [ 'LOCK IN SHARE MODE' ]
+		);
 
 		// Fetch all or selected archived revisions for the file,
 		// sorted from the most recent to the oldest.
-		$arQueryBuilder = FileSelectQueryBuilder::newForArchivedFile( $dbw );
-		$arQueryBuilder->where( [ 'fa_name' => $this->file->getName() ] )
-			->orderBy( 'fa_timestamp', SelectQueryBuilder::SORT_DESC );
+		$conditions = [ 'fa_name' => $this->file->getName() ];
 
 		if ( !$this->all ) {
-			$arQueryBuilder->andWhere( [ 'fa_id' => $this->ids ] );
+			$conditions['fa_id'] = $this->ids;
 		}
 
-		$result = $arQueryBuilder->caller( __METHOD__ )->fetchResultSet();
+		$arFileQuery = ArchivedFile::getQueryInfo();
+		$result = $dbw->select(
+			$arFileQuery['tables'],
+			$arFileQuery['fields'],
+			$conditions,
+			__METHOD__,
+			[ 'ORDER BY' => 'fa_timestamp DESC' ],
+			$arFileQuery['joins']
+		);
 
 		$idsPresent = [];
 		$storeBatch = [];
@@ -194,7 +191,7 @@ class LocalFileRestoreBatch {
 				// Required for a new current revision; nice for older ones too. :)
 				$this->file->loadFromFile( $deletedUrl );
 				$mime = $this->file->getMimeType();
-				[ $majorMime, $minorMime ] = File::splitMime( $mime );
+				list( $majorMime, $minorMime ) = File::splitMime( $mime );
 				$mediaInfo = [
 					'minor_mime' => $minorMime,
 					'major_mime' => $majorMime,
@@ -238,7 +235,7 @@ class LocalFileRestoreBatch {
 			} else {
 				$archiveName = $row->fa_archive_name;
 
-				if ( $archiveName === null ) {
+				if ( $archiveName == '' ) {
 					// This was originally a current version; we
 					// have to devise a new archive name for it.
 					// Format is <timestamp of archiving>!<name>
@@ -322,24 +319,17 @@ class LocalFileRestoreBatch {
 		// public zone.
 		// This is not ideal, which is why it's important to lock the image row.
 		if ( $insertCurrent ) {
-			$dbw->newInsertQueryBuilder()
-				->insertInto( 'image' )
-				->row( $insertCurrent )
-				->caller( __METHOD__ )->execute();
+			$dbw->insert( 'image', $insertCurrent, __METHOD__ );
 		}
 
 		if ( $insertBatch ) {
-			$dbw->newInsertQueryBuilder()
-				->insertInto( 'oldimage' )
-				->rows( $insertBatch )
-				->caller( __METHOD__ )->execute();
+			$dbw->insert( 'oldimage', $insertBatch, __METHOD__ );
 		}
 
 		if ( $deleteIds ) {
-			$dbw->newDeleteQueryBuilder()
-				->deleteFrom( 'filearchive' )
-				->where( [ 'fa_id' => $deleteIds ] )
-				->caller( __METHOD__ )->execute();
+			$dbw->delete( 'filearchive',
+				[ 'fa_id' => $deleteIds ],
+				__METHOD__ );
 		}
 
 		// If store batch is empty (all files are missing), deletion is to be considered successful

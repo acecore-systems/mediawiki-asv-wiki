@@ -38,7 +38,6 @@ use Throwable;
  * will be used to redact the trace information.
  *
  * @since 1.26
- * @ingroup Debug
  * @copyright © 2015 Wikimedia Foundation and contributors
  */
 class LineFormatter extends MonologLineFormatter {
@@ -72,7 +71,7 @@ class LineFormatter extends MonologLineFormatter {
 		// Will be output for a '%exception%' placeholder in format
 		$prettyException = '';
 		if ( isset( $record['context']['exception'] ) &&
-			str_contains( $this->format, '%exception%' )
+			strpos( $this->format, '%exception%' ) !== false
 		) {
 			$e = $record['context']['exception'];
 			unset( $record['context']['exception'] );
@@ -88,7 +87,7 @@ class LineFormatter extends MonologLineFormatter {
 
 		$output = parent::format( $record );
 
-		if ( str_contains( $output, '%exception%' ) ) {
+		if ( strpos( $output, '%exception%' ) !== false ) {
 			$output = str_replace( '%exception%', $prettyException, $output );
 		}
 		return $output;

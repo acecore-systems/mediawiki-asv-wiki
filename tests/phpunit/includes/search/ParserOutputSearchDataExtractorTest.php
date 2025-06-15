@@ -1,13 +1,10 @@
 <?php
 
-use MediaWiki\Parser\ParserOutput;
 use MediaWiki\Search\ParserOutputSearchDataExtractor;
-use MediaWiki\Title\Title;
 
 /**
  * @group Search
- * @covers \MediaWiki\Search\ParserOutputSearchDataExtractor
- * @group Database
+ * @covers MediaWiki\Search\ParserOutputSearchDataExtractor
  */
 class ParserOutputSearchDataExtractorTest extends MediaWikiLangTestCase {
 

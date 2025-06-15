@@ -2,11 +2,9 @@
 
 namespace MediaWiki\Extension\AbuseFilter\Tests\Unit;
 
+use Content;
 use DummyNonTextContent;
 use Generator;
-use MediaWiki\Content\Content;
-use MediaWiki\Content\TextContent;
-use MediaWiki\Content\WikitextContent;
 use MediaWiki\Extension\AbuseFilter\Hooks\AbuseFilterHookRunner;
 use MediaWiki\Extension\AbuseFilter\TextExtractor;
 use MediaWiki\Page\PageIdentityValue;
@@ -16,11 +14,14 @@ use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\SlotRecord;
 use MediaWiki\User\UserIdentity;
 use MediaWikiUnitTestCase;
+use TextContent;
+use WikitextContent;
 
 /**
  * @group Test
  * @group AbuseFilter
- * @covers \MediaWiki\Extension\AbuseFilter\TextExtractor
+ * @coversDefaultClass \MediaWiki\Extension\AbuseFilter\TextExtractor
+ * @covers ::__construct
  */
 class TextExtractorTest extends MediaWikiUnitTestCase {
 
@@ -28,6 +29,7 @@ class TextExtractorTest extends MediaWikiUnitTestCase {
 	 * @param RevisionRecord|null $rev The revision being converted
 	 * @param bool $sysop Whether the user should be a sysop (i.e. able to see deleted stuff)
 	 * @param string $expected The expected textual representation of the Revision
+	 * @covers ::revisionToString
 	 * @dataProvider provideRevisionToString
 	 */
 	public function testRevisionToString( ?RevisionRecord $rev, bool $sysop, string $expected ) {
@@ -38,7 +40,12 @@ class TextExtractorTest extends MediaWikiUnitTestCase {
 		$this->assertSame( $expected, $actual );
 	}
 
-	public static function provideRevisionToString() {
+	/**
+	 * Data provider for testRevisionToString
+	 *
+	 * @return Generator|array
+	 */
+	public function provideRevisionToString() {
 		yield 'no revision' => [ null, false, '' ];
 
 		$page = new PageIdentityValue( 1, NS_MAIN, 'Foo', PageIdentityValue::LOCAL );
@@ -79,6 +86,7 @@ class TextExtractorTest extends MediaWikiUnitTestCase {
 	/**
 	 * @param Content $content
 	 * @param string $expected
+	 * @covers ::contentToString
 	 * @dataProvider provideContentToString
 	 */
 	public function testContentToString( Content $content, string $expected ) {
@@ -90,13 +98,16 @@ class TextExtractorTest extends MediaWikiUnitTestCase {
 	/**
 	 * @return Generator
 	 */
-	public static function provideContentToString(): Generator {
+	public function provideContentToString(): Generator {
 		$text = 'Some dummy text';
 		yield 'text' => [ new TextContent( $text ), $text ];
 		yield 'wikitext' => [ new WikitextContent( $text ), $text ];
 		yield 'non-text' => [ new DummyNonTextContent( $text ), '' ];
 	}
 
+	/**
+	 * @covers ::contentToString
+	 */
 	public function testContentToString__hook() {
 		$expected = 'Text changed by hook';
 		$hookCb = static function ( Content $content, ?string &$text ) use ( $expected ) {

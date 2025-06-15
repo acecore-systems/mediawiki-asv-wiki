@@ -1,5 +1,7 @@
 <?php
 /**
+ * Job queue code for federated queues.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -19,7 +21,7 @@
  */
 
 /**
- * Enqueue and run background jobs via a federated queue, for wiki farms.
+ * Class to handle enqueueing and running of background jobs for federated queues
  *
  * This class allows for queues to be partitioned into smaller queues.
  * A partition is defined by the configuration for a JobQueue instance.
@@ -40,8 +42,8 @@
  * One can still use "timestamp" instead, as in "roughly timestamp ordered". Also,
  * queue classes used by this should ignore down servers (with TTL) to avoid slowness.
  *
- * @since 1.22
  * @ingroup JobQueue
+ * @since 1.22
  */
 class JobQueueFederated extends JobQueue {
 	/** @var HashRing */
@@ -67,12 +69,13 @@ class JobQueueFederated extends JobQueue {
 	 *                          different partition queues. This improves availability
 	 *                          during failure, at the cost of added latency and somewhat
 	 *                          less reliable job de-duplication mechanisms.
+	 * @throws MWException
 	 */
 	protected function __construct( array $params ) {
 		parent::__construct( $params );
 		$section = $params['sectionsByWiki'][$this->domain] ?? 'default';
 		if ( !isset( $params['partitionsBySection'][$section] ) ) {
-			throw new InvalidArgumentException( "No configuration for section '$section'." );
+			throw new MWException( "No configuration for section '$section'." );
 		}
 		$this->maxPartitionsTry = $params['maxPartitionsTry'] ?? 2;
 		// Get the full partition map
@@ -88,7 +91,7 @@ class JobQueueFederated extends JobQueue {
 		// Get the partition queue objects
 		foreach ( $partitionMap as $partition => $w ) {
 			if ( !isset( $params['configByPartition'][$partition] ) ) {
-				throw new InvalidArgumentException( "No configuration for partition '$partition'." );
+				throw new MWException( "No configuration for partition '$partition'." );
 			}
 			$this->partitionQueues[$partition] = JobQueue::factory(
 				$baseConfig + $params['configByPartition'][$partition] );
@@ -297,7 +300,7 @@ class JobQueueFederated extends JobQueue {
 	protected function doAck( RunnableJob $job ) {
 		$partition = $job->getMetadata( 'QueuePartition' );
 		if ( $partition === null ) {
-			throw new UnexpectedValueException( "The given job has no defined partition name." );
+			throw new MWException( "The given job has no defined partition name." );
 		}
 
 		$this->partitionQueues[$partition]->ack( $job );
@@ -469,7 +472,7 @@ class JobQueueFederated extends JobQueue {
 	}
 
 	protected function logException( Exception $e ) {
-		wfDebugLog( 'JobQueue', $e->getMessage() . "\n" . $e->getTraceAsString() );
+		wfDebugLog( 'JobQueueFederated', $e->getMessage() . "\n" . $e->getTraceAsString() );
 	}
 
 	/**

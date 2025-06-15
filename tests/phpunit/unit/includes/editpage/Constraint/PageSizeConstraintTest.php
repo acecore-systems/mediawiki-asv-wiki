@@ -57,7 +57,7 @@ class PageSizeConstraintTest extends MediaWikiUnitTestCase {
 		$this->assertConstraintFailed( $constraint, $errorCode );
 	}
 
-	public static function provideCodes() {
+	public function provideCodes() {
 		return [
 			'Before merge - CONTENT_TOO_BIG' => [
 				PageSizeConstraint::BEFORE_MERGE,

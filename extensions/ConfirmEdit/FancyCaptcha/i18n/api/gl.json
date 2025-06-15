@@ -5,6 +5,7 @@
 			"Elisardojm"
 		]
 	},
+	"apihelp-fancycaptchareload-description": "Novo FancyCaptcha.",
 	"apihelp-fancycaptchareload-summary": "Obter un novo FancyCaptcha.",
 	"apihelp-fancycaptchareload-example-1": "Novo FancyCaptcha"
 }

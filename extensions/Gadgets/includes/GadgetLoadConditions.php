@@ -1,4 +1,7 @@
 <?php
+
+namespace MediaWiki\Extension\Gadgets;
+
 /**
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,31 +18,23 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
  *
+ * @author Siddharth VP
  * @file
  */
 
-namespace MediaWiki\Extension\Gadgets;
-
-use MediaWiki\Output\OutputPage;
-use MediaWiki\User\User;
+use OutputPage;
 use Skin;
+use User;
 
-/**
- * @author Siddharth VP
- */
 class GadgetLoadConditions {
 	/** @var User */
 	private $user;
+	/** @var string */
+	private $target;
 	/** @var Skin */
 	private $skin;
 	/** @var string */
 	private $action;
-	/** @var int */
-	private $namespace;
-	/** @var string[] */
-	private $categories;
-	/** @var string */
-	private $contentModel;
 	/** @var string|null */
 	private $withGadgetParam;
 
@@ -48,23 +43,23 @@ class GadgetLoadConditions {
 	 */
 	public function __construct( OutputPage $out ) {
 		$this->user = $out->getUser();
+		$this->target = $out->getTarget() ?? 'desktop';
 		$this->skin = $out->getSkin();
 		$this->action = $out->getContext()->getActionName();
-		$this->namespace = $out->getTitle()->getNamespace();
-		$this->categories = $out->getCategories();
-		$this->contentModel = $out->getTitle()->getContentModel();
 		$this->withGadgetParam = $out->getRequest()->getRawVal( 'withgadget' );
 	}
 
-	public function check( Gadget $gadget ): bool {
+	/**
+	 * @param Gadget $gadget
+	 * @return bool
+	 */
+	public function check( Gadget $gadget ) {
 		$urlLoad = $this->withGadgetParam === $gadget->getName() && $gadget->supportsUrlLoad();
 
 		return ( $gadget->isEnabled( $this->user ) || $urlLoad )
 			&& $gadget->isAllowed( $this->user )
 			&& $gadget->isActionSupported( $this->action )
 			&& $gadget->isSkinSupported( $this->skin )
-			&& $gadget->isNamespaceSupported( $this->namespace )
-			&& $gadget->isCategorySupported( $this->categories )
-			&& $gadget->isContentModelSupported( $this->contentModel );
+			&& ( in_array( $this->target, $gadget->getTargets() ) );
 	}
 }

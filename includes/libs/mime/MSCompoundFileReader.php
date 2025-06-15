@@ -14,9 +14,7 @@
  * specific language governing permissions and limitations under the License.
  */
 
-namespace Wikimedia\Mime;
-
-use RuntimeException;
+use Wikimedia\AtEase\AtEase;
 
 /**
  * Read the directory of a Microsoft Compound File Binary file, a.k.a. an OLE
@@ -32,29 +30,18 @@ use RuntimeException;
  *    File Format https://www.openoffice.org/sc/compdocfileformat.pdf
  *
  * @since 1.33
- * @ingroup Mime
  */
 class MSCompoundFileReader {
-	/** @var resource */
 	private $file;
-	/** @var array */
 	private $header;
-	/** @var string */
 	private $mime;
-	/** @var string */
 	private $mimeFromClsid;
-	/** @var string|null */
 	private $error;
-	/** @var int|null */
 	private $errorCode;
-	/** @var bool */
 	private $valid = false;
 
-	/** @var int */
 	private $sectorLength;
-	/** @var int[] */
 	private $difat;
-	/** @var int[][] */
 	private $fat = [];
 
 	private const TYPE_UNALLOCATED = 0;
@@ -69,7 +56,7 @@ class MSCompoundFileReader {
 	public const ERROR_READ_PAST_END = 5;
 	public const ERROR_INVALID_FORMAT = 6;
 
-	private const MIMES_BY_CLSID = [
+	private static $mimesByClsid = [
 		// From http://justsolve.archiveteam.org/wiki/Microsoft_Compound_File
 		'00020810-0000-0000-C000-000000000046' => 'application/vnd.ms-excel',
 		'00020820-0000-0000-C000-000000000046' => 'application/vnd.ms-excel',
@@ -231,8 +218,9 @@ class MSCompoundFileReader {
 
 	private function readOffset( $offset, $length ) {
 		$this->fseek( $offset );
-		// phpcs:ignore Generic.PHP.NoSilencedErrors.Discouraged
-		$block = @fread( $this->file, $length );
+		AtEase::suppressWarnings();
+		$block = fread( $this->file, $length );
+		AtEase::restoreWarnings();
 		if ( $block === false ) {
 			$this->error( 'error reading from file', self::ERROR_READ );
 		}
@@ -257,8 +245,9 @@ class MSCompoundFileReader {
 	}
 
 	private function fseek( $offset ) {
-		// phpcs:ignore Generic.PHP.NoSilencedErrors.Discouraged
-		$result = @fseek( $this->file, $offset );
+		AtEase::suppressWarnings();
+		$result = fseek( $this->file, $offset );
+		AtEase::restoreWarnings();
 		if ( $result !== 0 ) {
 			$this->error( "unable to seek to offset $offset", self::ERROR_SEEK );
 		}
@@ -359,8 +348,8 @@ class MSCompoundFileReader {
 			$name = iconv( 'UTF-16LE', 'UTF-8', substr( $entry['name_raw'], 0, $entry['name_length'] - 2 ) );
 
 			$clsid = $this->decodeClsid( $entry['clsid'] );
-			if ( $type == self::TYPE_ROOT && isset( self::MIMES_BY_CLSID[$clsid] ) ) {
-				$this->mimeFromClsid = self::MIMES_BY_CLSID[$clsid];
+			if ( $type == self::TYPE_ROOT && isset( self::$mimesByClsid[$clsid] ) ) {
+				$this->mimeFromClsid = self::$mimesByClsid[$clsid];
 			}
 
 			if ( $name === 'Workbook' ) {
@@ -373,6 +362,3 @@ class MSCompoundFileReader {
 		}
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( MSCompoundFileReader::class, 'MSCompoundFileReader' );

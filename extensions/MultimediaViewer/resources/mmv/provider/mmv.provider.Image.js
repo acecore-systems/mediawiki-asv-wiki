@@ -15,16 +15,16 @@
  * along with MultimediaViewer.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const config = require( '../config.json' );
+( function () {
 
-/**
- * Loads an image.
- */
-class ImageProvider {
 	/**
+	 * Loads an image.
+	 *
+	 * @class mw.mmv.provider.Image
+	 * @constructor
 	 * @param {string} imageQueryParameter When defined, is a query parameter to add to every image request
 	 */
-	constructor( imageQueryParameter = config.imageQueryParameter ) {
+	function Image( imageQueryParameter ) {
 		this.imageQueryParameter = imageQueryParameter;
 
 		/**
@@ -45,14 +45,17 @@ class ImageProvider {
 	 *  When loaded via AJAX, it has progress events, which return an array with the content loaded
 	 *  so far and with the progress as a floating-point number between 0 and 100.
 	 */
-	get( url ) {
-		const cacheKey = url;
+	Image.prototype.get = function ( url ) {
+		var provider = this,
+			cacheKey = url,
+			extraParam = {},
+			uri;
 
 		if ( this.imageQueryParameter ) {
 			try {
-				const uri = new URL( url, location );
-				uri.searchParams.set( this.imageQueryParameter, '' );
-				url = uri.toString();
+				uri = new mw.Uri( url );
+				extraParam[ this.imageQueryParameter ] = null;
+				url = uri.extend( extraParam ).toString();
 			} catch ( error ) {
 				return $.Deferred().reject( error.message );
 			}
@@ -60,13 +63,13 @@ class ImageProvider {
 
 		if ( !this.cache[ cacheKey ] ) {
 			this.cache[ cacheKey ] = this.rawGet( url, this.imagePreloadingSupported() );
-			this.cache[ cacheKey ].fail( ( error ) => {
-				mw.log( `${ this.constructor.name } provider failed to load: `, error );
+			this.cache[ cacheKey ].fail( function ( error ) {
+				mw.log( provider.constructor.name + ' provider failed to load: ', error );
 			} );
 		}
 
 		return this.cache[ cacheKey ];
-	}
+	};
 
 	/**
 	 * Internal version of get(): no caching, no performance metrics.
@@ -75,23 +78,31 @@ class ImageProvider {
 	 * @param {boolean} [cors] if true, use CORS for preloading
 	 * @return {jQuery.Promise.<HTMLImageElement>} a promise which resolves to the image object
 	 */
-	rawGet( url, cors ) {
-		const img = new window.Image();
-		const deferred = $.Deferred();
+	Image.prototype.rawGet = function ( url, cors ) {
+		var img = new window.Image(),
+			deferred = $.Deferred();
 
 		// This attribute is necessary in Firefox, which needs it for the image request after
-		// the XHR to hit the cache by being a proper CORS request.
-		if ( cors ) {
+		// the XHR to hit the cache by being a proper CORS request. In IE11, however,
+		// the presence of that attribute would cause the second image request to miss the cache,
+		// because IE11 adds a no-cache request header to image CORS requests. As a result,
+		// we call needsCrossOrigin to check if the current browser needs to set the attribute
+		// or not in order to avoid loading the image twice.
+		if ( cors && this.needsCrossOrigin() ) {
 			img.crossOrigin = 'anonymous';
 		}
 
-		img.onload = () => deferred.resolve( img );
-		img.onerror = () => deferred.reject( `could not load image from ${ url }` );
+		img.onload = function () {
+			deferred.resolve( img );
+		};
+		img.onerror = function () {
+			deferred.reject( 'could not load image from ' + url );
+		};
 
 		img.src = url;
 
 		return deferred;
-	}
+	};
 
 	/**
 	 * Checks whether the current browser supports AJAX preloading of images.
@@ -105,10 +116,25 @@ class ImageProvider {
 	 *
 	 * @return {boolean}
 	 */
-	imagePreloadingSupported() {
+	Image.prototype.imagePreloadingSupported = function () {
 		// This checks if the browser supports CORS requests in XHRs
 		return window.XMLHttpRequest !== undefined && 'withCredentials' in new XMLHttpRequest();
-	}
-}
+	};
 
-module.exports = ImageProvider;
+	/**
+	 * Checks whether the current browser needs to set crossOrigin on images to avoid
+	 * doing a double load
+	 *
+	 * @return {boolean} Browser needs to set crossOrigin
+	 */
+	Image.prototype.needsCrossOrigin = function () {
+		// Support: IE11
+		// This check is essentially "is this browser anything but IE > 10?".
+		// I couldn't find something more topical because IE11 does support the crossOrigin
+		// attribute, just in a counter-productive way compared to all the other browsers
+		// who also support it.
+		return window.MSInputMethodContext === undefined;
+	};
+
+	mw.mmv.provider.Image = Image;
+}() );

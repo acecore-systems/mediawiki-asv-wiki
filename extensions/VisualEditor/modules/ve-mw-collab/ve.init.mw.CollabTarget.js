@@ -1,7 +1,7 @@
 /*!
  * VisualEditor MediaWiki Initialization CollabTarget class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2016 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -15,7 +15,7 @@
  * @param {mw.Title} title Page sub-title
  * @param {string} rebaserUrl Rebaser server URL
  * @param {Object} [config] Configuration options
- * @param {mw.Title} [config.importTitle] Title to import
+ * @cfg {mw.Title} [importTitle] Title to import
  */
 ve.init.mw.CollabTarget = function VeInitMwCollabTarget( title, rebaserUrl, config ) {
 	config = config || {};
@@ -63,16 +63,20 @@ ve.init.mw.CollabTarget.static.toolbarGroups.splice( 4, 0, {
 	include: [ 'commentAnnotation' ]
 } );
 // HACK: Disable references until supported (T194838)
-ve.init.mw.CollabTarget.static.toolbarGroups = ve.init.mw.CollabTarget.static.toolbarGroups.filter( ( group ) => group.name !== 'reference' );
-ve.init.mw.CollabTarget.static.toolbarGroups.push(
+ve.init.mw.CollabTarget.static.toolbarGroups = ve.init.mw.CollabTarget.static.toolbarGroups.filter( function ( group ) {
+	return group.name !== 'reference';
+} );
+
+ve.init.mw.CollabTarget.static.importRules = ve.copy( ve.init.mw.CollabTarget.static.importRules );
+ve.init.mw.CollabTarget.static.importRules.external.blacklist[ 'link/mwExternal' ] = false;
+
+ve.init.mw.CollabTarget.static.actionGroups = [
 	{
 		name: 'help',
-		align: 'after',
 		include: [ 'help' ]
 	},
 	{
 		name: 'pageMenu',
-		align: 'after',
 		type: 'list',
 		icon: 'menu',
 		indicator: null,
@@ -83,18 +87,13 @@ ve.init.mw.CollabTarget.static.toolbarGroups.push(
 	},
 	{
 		name: 'authorList',
-		align: 'after',
 		include: [ 'authorList' ]
 	},
 	{
 		name: 'export',
-		align: 'after',
 		include: [ 'export' ]
 	}
-);
-
-ve.init.mw.CollabTarget.static.importRules = ve.copy( ve.init.mw.CollabTarget.static.importRules );
-ve.init.mw.CollabTarget.static.importRules.external.blacklist[ 'link/mwExternal' ] = false;
+];
 
 /* Methods */
 
@@ -111,7 +110,7 @@ ve.init.mw.CollabTarget.prototype.getSurfaceConfig = function ( config ) {
  * @inheritdoc
  */
 ve.init.mw.CollabTarget.prototype.getSurfaceClasses = function () {
-	const classes = ve.init.mw.CollabTarget.super.prototype.getSurfaceClasses.call( this );
+	var classes = ve.init.mw.CollabTarget.super.prototype.getSurfaceClasses.call( this );
 	return classes.concat( [ 'mw-body-content' ] );
 };
 
@@ -171,7 +170,6 @@ ve.ui.MWExportTool.static.name = 'export';
 ve.ui.MWExportTool.static.displayBothIconAndLabel = !OO.ui.isMobile();
 ve.ui.MWExportTool.static.group = 'export';
 ve.ui.MWExportTool.static.autoAddToCatchall = false;
-
 ve.ui.MWExportTool.static.flags = [ 'progressive', 'primary' ];
 ve.ui.MWExportTool.static.title =
 	OO.ui.deferMsg( 'visualeditor-rebase-client-export-start' );

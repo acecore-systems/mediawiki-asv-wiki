@@ -22,16 +22,13 @@
  */
 
 use MediaWiki\MainConfigSchema;
-use MediaWiki\Registration\ExtensionRegistry;
 use MediaWiki\Settings\Config\ArrayConfigBuilder;
 use MediaWiki\Settings\Config\NullIniSink;
 use MediaWiki\Settings\SettingsBuilder;
 use MediaWiki\Settings\Source\PhpSettingsSource;
 use MediaWiki\Settings\Source\ReflectionSchemaSource;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/../includes/Benchmarker.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script that benchmarks loading of settings files.
@@ -72,6 +69,23 @@ class BenchmarkSettings extends Benchmarker {
 			},
 			'function' => static function () {
 				include MW_INSTALL_PATH . '/includes/DefaultSettings.php';
+			}
+		];
+
+		$benches['DefaultSettings.php + config-merge-strategies.php'] = [
+			'setup' => static function () {
+				// do this once beforehand
+				include MW_INSTALL_PATH . '/includes/DefaultSettings.php';
+			},
+			'function' => function () {
+				include MW_INSTALL_PATH . '/includes/DefaultSettings.php';
+				$settingsBuilder = $this->newSettingsBuilder();
+				$settingsBuilder->load(
+					new PhpSettingsSource(
+						MW_INSTALL_PATH . '/includes/config-merge-strategies.php'
+					)
+				);
+				$settingsBuilder->apply();
 			}
 		];
 
@@ -123,7 +137,7 @@ class BenchmarkSettings extends Benchmarker {
 				$settingsBuilder->load(
 					new PhpSettingsSource( MW_INSTALL_PATH . '/includes/config-schema.php' )
 				);
-				$settingsBuilder->enterRegistrationStage(); // applies some dynamic defaults
+				$settingsBuilder->finalize(); // applies some dynamic defaults
 
 				// phpcs:ignore MediaWiki.Usage.ForbiddenFunctions.extract
 				extract( $GLOBALS );
@@ -138,7 +152,5 @@ class BenchmarkSettings extends Benchmarker {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = BenchmarkSettings::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

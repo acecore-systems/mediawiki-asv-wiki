@@ -32,18 +32,13 @@ class MissingCommentConstraintTest extends MediaWikiUnitTestCase {
 	use EditConstraintTestTrait;
 
 	public function testPass() {
-		$constraint = new MissingCommentConstraint( 'new', 'Comment' );
+		$constraint = new MissingCommentConstraint( 'Comment' );
 		$this->assertConstraintPassed( $constraint );
 	}
 
 	public function testFailure() {
-		$constraint = new MissingCommentConstraint( 'new', '' );
+		$constraint = new MissingCommentConstraint( '' );
 		$this->assertConstraintFailed( $constraint, IEditConstraint::AS_TEXTBOX_EMPTY );
-	}
-
-	public function testNonNew() {
-		$constraint = new MissingCommentConstraint( 'notnew', '' );
-		$this->assertConstraintPassed( $constraint );
 	}
 
 }

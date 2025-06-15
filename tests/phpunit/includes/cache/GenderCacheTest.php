@@ -1,7 +1,5 @@
 <?php
 
-use MediaWiki\Cache\GenderCache;
-
 /**
  * @group Database
  * @group Cache
@@ -40,7 +38,7 @@ class GenderCacheTest extends MediaWikiLangTestCase {
 	 * test usernames
 	 *
 	 * @dataProvider provideUserGenders
-	 * @covers \MediaWiki\Cache\GenderCache::getGenderOf
+	 * @covers GenderCache::getGenderOf
 	 */
 	public function testUserName( $userKey, $expectedGender ) {
 		$genderCache = $this->getServiceContainer()->getGenderCache();
@@ -53,7 +51,7 @@ class GenderCacheTest extends MediaWikiLangTestCase {
 	 * genderCache should work with user objects, too
 	 *
 	 * @dataProvider provideUserGenders
-	 * @covers \MediaWiki\Cache\GenderCache::getGenderOf
+	 * @covers GenderCache::getGenderOf
 	 */
 	public function testUserObjects( $userKey, $expectedGender ) {
 		$username = self::$nameMap[$userKey] ?? $userKey;
@@ -79,7 +77,7 @@ class GenderCacheTest extends MediaWikiLangTestCase {
 	 * against the never existing username
 	 *
 	 * @dataProvider provideUserGenders
-	 * @covers \MediaWiki\Cache\GenderCache::getGenderOf
+	 * @covers GenderCache::getGenderOf
 	 */
 	public function testStripSubpages( $userKey, $expectedGender ) {
 		$username = self::$nameMap[$userKey] ?? $userKey;

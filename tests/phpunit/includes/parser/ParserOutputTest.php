@@ -1,30 +1,14 @@
 <?php
 
-namespace MediaWiki\Tests\Parser;
-
-use LogicException;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\Debug\MWDebug;
 use MediaWiki\MainConfigNames;
-use MediaWiki\MediaWikiServices;
-use MediaWiki\Parser\ParserOptions;
-use MediaWiki\Parser\ParserOutput;
-use MediaWiki\Parser\ParserOutputFlags;
-use MediaWiki\Parser\ParserOutputLinkTypes;
-use MediaWiki\Parser\ParserOutputStringSets;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleValue;
-use MediaWiki\Utils\MWTimestamp;
-use MediaWikiLangTestCase;
-use Wikimedia\Bcp47Code\Bcp47CodeValue;
-use Wikimedia\Parsoid\Core\SectionMetadata;
-use Wikimedia\Parsoid\Core\TOCData;
+use MediaWiki\Page\PageReferenceValue;
+use MediaWiki\Tests\Parser\ParserCacheSerializationTestCases;
 use Wikimedia\TestingAccessWrapper;
 use Wikimedia\Tests\SerializationTestTrait;
 
 /**
- * @covers \MediaWiki\Parser\ParserOutput
- * @covers \Mediawiki\Parser\CacheTime
+ * @covers ParserOutput
+ * @covers CacheTime
  * @group Database
  *        ^--- trigger DB shadowing because we are using Title magic
  */
@@ -45,7 +29,7 @@ class ParserOutputTest extends MediaWikiLangTestCase {
 	 * Overrides SerializationTestTrait::getClassToTest
 	 * @return string
 	 */
-	public static function getClassToTest(): string {
+	protected function getClassToTest(): string {
 		return ParserOutput::class;
 	}
 
@@ -53,7 +37,7 @@ class ParserOutputTest extends MediaWikiLangTestCase {
 	 * Overrides SerializationTestTrait::getSerializedDataPath
 	 * @return string
 	 */
-	public static function getSerializedDataPath(): string {
+	protected function getSerializedDataPath(): string {
 		return __DIR__ . '/../../data/ParserCache';
 	}
 
@@ -61,7 +45,7 @@ class ParserOutputTest extends MediaWikiLangTestCase {
 	 * Overrides SerializationTestTrait::getTestInstancesAndAssertions
 	 * @return array
 	 */
-	public static function getTestInstancesAndAssertions(): array {
+	protected function getTestInstancesAndAssertions(): array {
 		return ParserCacheSerializationTestCases::getParserOutputTestCases();
 	}
 
@@ -69,9 +53,9 @@ class ParserOutputTest extends MediaWikiLangTestCase {
 	 * Overrides SerializationTestTrait::getSupportedSerializationFormats
 	 * @return array
 	 */
-	public static function getSupportedSerializationFormats(): array {
+	protected function getSupportedSerializationFormats(): array {
 		return ParserCacheSerializationTestCases::getSupportedSerializationFormats(
-			self::getClassToTest() );
+			$this->getClassToTest() );
 	}
 
 	public static function provideIsLinkInternal() {
@@ -102,16 +86,16 @@ class ParserOutputTest extends MediaWikiLangTestCase {
 	/**
 	 * Test to make sure ParserOutput::isLinkInternal behaves properly
 	 * @dataProvider provideIsLinkInternal
-	 * @covers \MediaWiki\Parser\ParserOutput::isLinkInternal
+	 * @covers ParserOutput::isLinkInternal
 	 */
 	public function testIsLinkInternal( $shouldMatch, $server, $url ) {
 		$this->assertEquals( $shouldMatch, ParserOutput::isLinkInternal( $server, $url ) );
 	}
 
 	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::appendJsConfigVar
-	 * @covers \MediaWiki\Parser\ParserOutput::setJsConfigVar
-	 * @covers \MediaWiki\Parser\ParserOutput::getJsConfigVars
+	 * @covers ParserOutput::appendJsConfigVar
+	 * @covers ParserOutput::setJsConfigVar
+	 * @covers ParserOutput::getJsConfigVars
 	 */
 	public function testJsConfigVars() {
 		$po = new ParserOutput();
@@ -137,9 +121,9 @@ class ParserOutputTest extends MediaWikiLangTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::appendExtensionData
-	 * @covers \MediaWiki\Parser\ParserOutput::setExtensionData
-	 * @covers \MediaWiki\Parser\ParserOutput::getExtensionData
+	 * @covers ParserOutput::appendExtensionData
+	 * @covers ParserOutput::setExtensionData
+	 * @covers ParserOutput::getExtensionData
 	 */
 	public function testExtensionData() {
 		$po = new ParserOutput();
@@ -174,31 +158,25 @@ class ParserOutputTest extends MediaWikiLangTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::setPageProperty
-	 * @covers \MediaWiki\Parser\ParserOutput::setNumericPageProperty
-	 * @covers \MediaWiki\Parser\ParserOutput::setUnsortedPageProperty
-	 * @covers \MediaWiki\Parser\ParserOutput::getPageProperty
-	 * @covers \MediaWiki\Parser\ParserOutput::unsetPageProperty
-	 * @covers \MediaWiki\Parser\ParserOutput::getPageProperties
-	 * @dataProvider providePageProperties
+	 * @covers ParserOutput::setPageProperty
+	 * @covers ParserOutput::getPageProperty
+	 * @covers ParserOutput::unsetPageProperty
+	 * @covers ParserOutput::getPageProperties
 	 */
-	public function testPageProperties( string $setPageProperty, $value1, $value2, bool $expectDeprecation = false ) {
+	public function testProperties() {
 		$po = new ParserOutput();
-		if ( $expectDeprecation ) {
-			MWDebug::filterDeprecationForTest( '/::setPageProperty with non-string value/' );
-		}
 
-		$po->$setPageProperty( 'foo', $value1 );
+		$po->setPageProperty( 'foo', 'val' );
 
 		$properties = $po->getPageProperties();
-		$this->assertSame( $value1, $po->getPageProperty( 'foo' ) );
-		$this->assertSame( $value1, $properties['foo'] );
+		$this->assertSame( 'val', $po->getPageProperty( 'foo' ) );
+		$this->assertSame( 'val', $properties['foo'] );
 
-		$po->$setPageProperty( 'foo', $value2 );
+		$po->setPageProperty( 'foo', 'second val' );
 
 		$properties = $po->getPageProperties();
-		$this->assertSame( $value2, $po->getPageProperty( 'foo' ) );
-		$this->assertSame( $value2, $properties['foo'] );
+		$this->assertSame( 'second val', $po->getPageProperty( 'foo' ) );
+		$this->assertSame( 'second val', $properties['foo'] );
 
 		$po->unsetPageProperty( 'foo' );
 
@@ -207,193 +185,327 @@ class ParserOutputTest extends MediaWikiLangTestCase {
 		$this->assertArrayNotHasKey( 'foo', $properties );
 	}
 
-	public static function providePageProperties() {
-		yield 'Unsorted' => [ 'setUnsortedPageProperty', 'val', 'second val' ];
-		yield 'Numeric' => [ 'setNumericPageProperty', 42, 3.14 ];
-		yield 'Unsorted (old style)' => [ 'setPageProperty', 'val', 'second val' ];
-		yield 'Numeric (old style)' => [ 'setPageProperty', 123, 456, true ];
-	}
-
 	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::setNumericPageProperty
-	 */
-	public function testNumericPageProperties() {
-		$po = new ParserOutput();
-
-		$po->setNumericPageProperty( 'foo', '123' );
-
-		$properties = $po->getPageProperties();
-		$this->assertSame( 123, $po->getPageProperty( 'foo' ) );
-		$this->assertSame( 123, $properties['foo'] );
-	}
-
-	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::setUnsortedPageProperty
-	 */
-	public function testUnsortedPageProperties() {
-		$po = new ParserOutput();
-
-		$po->setUnsortedPageProperty( 'foo', 123 );
-
-		$properties = $po->getPageProperties();
-		$this->assertSame( '123', $po->getPageProperty( 'foo' ) );
-		$this->assertSame( '123', $properties['foo'] );
-	}
-
-	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::setLanguage
-	 * @covers \MediaWiki\Parser\ParserOutput::getLanguage
-	 */
-	public function testLanguage() {
-		$po = new ParserOutput();
-
-		$langFr = new Bcp47CodeValue( 'fr' );
-		$langCrhCyrl = new Bcp47CodeValue( 'crh-cyrl' );
-
-		// Fallback to null
-		$this->assertSame( null, $po->getLanguage() );
-
-		// Simple case
-		$po->setLanguage( $langFr );
-		$this->assertSame( $langFr->toBcp47Code(), $po->getLanguage()->toBcp47Code() );
-
-		// Language with a variant
-		$po->setLanguage( $langCrhCyrl );
-		$this->assertSame( $langCrhCyrl->toBcp47Code(), $po->getLanguage()->toBcp47Code() );
-	}
-
-	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::getWrapperDivClass
-	 * @covers \MediaWiki\Parser\ParserOutput::addWrapperDivClass
-	 * @covers \MediaWiki\Parser\ParserOutput::clearWrapperDivClass
+	 * @covers ParserOutput::getWrapperDivClass
+	 * @covers ParserOutput::addWrapperDivClass
+	 * @covers ParserOutput::clearWrapperDivClass
+	 * @covers ParserOutput::getText
 	 */
 	public function testWrapperDivClass() {
 		$po = new ParserOutput();
-		$opts = ParserOptions::newFromAnon();
-		$pipeline = MediaWikiServices::getInstance()->getDefaultOutputPipeline();
 
-		$po->setRawText( 'Kittens' );
-		$text = $pipeline->run( $po, $opts, [] )->getContentHolderText();
-		$this->assertStringContainsString( 'Kittens', $text );
-		$this->assertStringNotContainsString( '<div', $text );
+		$po->setText( 'Kittens' );
+		$this->assertStringContainsString( 'Kittens', $po->getText() );
+		$this->assertStringNotContainsString( '<div', $po->getText() );
 		$this->assertSame( 'Kittens', $po->getRawText() );
 
 		$po->addWrapperDivClass( 'foo' );
-		$text = $pipeline->run( $po, $opts, [] )->getContentHolderText();
+		$text = $po->getText();
 		$this->assertStringContainsString( 'Kittens', $text );
 		$this->assertStringContainsString( '<div', $text );
-		$this->assertStringContainsString( 'class="mw-content-ltr foo"', $text );
+		$this->assertStringContainsString( 'class="foo"', $text );
 
 		$po->addWrapperDivClass( 'bar' );
-		$text = $pipeline->run( $po, $opts, [] )->getContentHolderText();
+		$text = $po->getText();
 		$this->assertStringContainsString( 'Kittens', $text );
 		$this->assertStringContainsString( '<div', $text );
-		$this->assertStringContainsString( 'class="mw-content-ltr foo bar"', $text );
+		$this->assertStringContainsString( 'class="foo bar"', $text );
 
 		$po->addWrapperDivClass( 'bar' ); // second time does nothing, no "foo bar bar".
-		$text = $pipeline->run( $po, $opts, [ 'unwrap' => true ] )->getContentHolderText();
+		$text = $po->getText( [ 'unwrap' => true ] );
 		$this->assertStringContainsString( 'Kittens', $text );
 		$this->assertStringNotContainsString( '<div', $text );
-		$this->assertStringNotContainsString( 'class="', $text );
+		$this->assertStringNotContainsString( 'class="foo bar"', $text );
 
-		$text = $pipeline->run( $po, $opts, [ 'wrapperDivClass' => '' ] )->getContentHolderText();
+		$text = $po->getText( [ 'wrapperDivClass' => '' ] );
 		$this->assertStringContainsString( 'Kittens', $text );
 		$this->assertStringNotContainsString( '<div', $text );
-		$this->assertStringNotContainsString( 'class="', $text );
+		$this->assertStringNotContainsString( 'class="foo bar"', $text );
 
-		$text = $pipeline->run( $po, $opts, [ 'wrapperDivClass' => 'xyzzy' ] )->getContentHolderText();
+		$text = $po->getText( [ 'wrapperDivClass' => 'xyzzy' ] );
 		$this->assertStringContainsString( 'Kittens', $text );
 		$this->assertStringContainsString( '<div', $text );
-		$this->assertStringContainsString( 'class="mw-content-ltr xyzzy"', $text );
-		$this->assertStringNotContainsString( 'foo bar', $text );
+		$this->assertStringContainsString( 'class="xyzzy"', $text );
+		$this->assertStringNotContainsString( 'class="foo bar"', $text );
 
 		$text = $po->getRawText();
 		$this->assertSame( 'Kittens', $text );
 
 		$po->clearWrapperDivClass();
-		$text = $pipeline->run( $po, $opts, [] )->getContentHolderText();
+		$text = $po->getText();
 		$this->assertStringContainsString( 'Kittens', $text );
 		$this->assertStringNotContainsString( '<div', $text );
-		$this->assertStringNotContainsString( 'class="', $text );
+		$this->assertStringNotContainsString( 'class="foo bar"', $text );
 	}
 
 	/**
-	 * This test aims at being replaced by its version in DefaultOutputPipelineFactoryTest when
-	 * ParserOutput::getText gets deprecated.
-	 * @covers \MediaWiki\Parser\ParserOutput::getText
+	 * @covers ParserOutput::getText
 	 * @dataProvider provideGetText
+	 * @dataProvider provideGetTextBackCompat
+	 * @dataProvider provideGetTextForwardCompat
 	 * @param array $options Options to getText()
 	 * @param string $text Parser text
 	 * @param string $expect Expected output
 	 */
 	public function testGetText( $options, $text, $expect ) {
-		// Avoid other skins affecting the section edit links
-		$this->overrideConfigValue( MainConfigNames::DefaultSkin, 'fallback' );
-		RequestContext::resetMain();
-
 		$this->overrideConfigValues( [
+			MainConfigNames::ArticlePath => '/wiki/$1',
 			MainConfigNames::ScriptPath => '/w',
 			MainConfigNames::Script => '/w/index.php',
 		] );
 
 		$po = new ParserOutput( $text );
-		self::initSections( $po );
+		$po->setTOCHTML( self::provideGetTextToC() );
 		$actual = $po->getText( $options );
 		$this->assertSame( $expect, $actual );
 	}
 
-	private static function initSections( ParserOutput $po ): void {
-		$po->setTOCData( new TOCData(
-			SectionMetadata::fromLegacy( [
-				'index' => "1",
-				'level' => 1,
-				'toclevel' => 1,
-				'number' => "1",
-				'line' => "Section 1",
-				'anchor' => "Section_1"
-			] ),
-			SectionMetadata::fromLegacy( [
-				'index' => "2",
-				'level' => 1,
-				'toclevel' => 1,
-				'number' => "2",
-				'line' => "Section 2",
-				'anchor' => "Section_2"
-			] ),
-			SectionMetadata::fromLegacy( [
-				'index' => "3",
-				'level' => 2,
-				'toclevel' => 2,
-				'number' => "2.1",
-				'line' => "Section 2.1",
-				'anchor' => "Section_2.1"
-			] ),
-			SectionMetadata::fromLegacy( [
-				'index' => "4",
-				'level' => 1,
-				'toclevel' => 1,
-				'number' => "3",
-				'line' => "Section 3",
-				'anchor' => "Section_3"
-			] ),
-		) );
+	public static function provideGetTextToC() {
+		$toc = <<<EOF
+<div id="toc" class="toc"><div class="toctitle"><h2>Contents</h2></div>
+<ul>
+<li class="toclevel-1 tocsection-1"><a href="#Section_1"><span class="tocnumber">1</span> <span class="toctext">Section 1</span></a></li>
+<li class="toclevel-1 tocsection-2"><a href="#Section_2"><span class="tocnumber">2</span> <span class="toctext">Section 2</span></a>
+<ul>
+<li class="toclevel-2 tocsection-3"><a href="#Section_2.1"><span class="tocnumber">2.1</span> <span class="toctext">Section 2.1</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-4"><a href="#Section_3"><span class="tocnumber">3</span> <span class="toctext">Section 3</span></a></li>
+</ul>
+</div>
+
+EOF;
+		return $toc;
 	}
 
-	public static function provideGetText() {
+	// REMOVE THIS ONCE Parser::TOC_START IS REMOVED
+	public static function provideGetTextBackCompat() {
+		$toc = self::provideGetTextToc();
+		$text = <<<EOF
+<p>Test document.
+</p>
+<mw:toc>$toc</mw:toc>
+<h2><span class="mw-headline" id="Section_1">Section 1</span><mw:editsection page="Test Page" section="1">Section 1</mw:editsection></h2>
+<p>One
+</p>
+<h2><span class="mw-headline" id="Section_2">Section 2</span><mw:editsection page="Test Page" section="2">Section 2</mw:editsection></h2>
+<p>Two
+</p>
+<h3><span class="mw-headline" id="Section_2.1">Section 2.1</span><mw:editsection page="Talk:User:Bug_T261347" section="3">Section 2.1</mw:editsection></h3>
+<p>Two point one
+</p>
+<h2><span class="mw-headline" id="Section_3">Section 3</span><mw:editsection page="Test Page" section="4">Section 3</mw:editsection></h2>
+<p>Three
+</p>
+EOF;
+
+		return [
+			'No options (mw:toc)' => [
+				[], $text, <<<EOF
+<p>Test document.
+</p>
+<div id="toc" class="toc"><div class="toctitle"><h2>Contents</h2></div>
+<ul>
+<li class="toclevel-1 tocsection-1"><a href="#Section_1"><span class="tocnumber">1</span> <span class="toctext">Section 1</span></a></li>
+<li class="toclevel-1 tocsection-2"><a href="#Section_2"><span class="tocnumber">2</span> <span class="toctext">Section 2</span></a>
+<ul>
+<li class="toclevel-2 tocsection-3"><a href="#Section_2.1"><span class="tocnumber">2.1</span> <span class="toctext">Section 2.1</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-4"><a href="#Section_3"><span class="tocnumber">3</span> <span class="toctext">Section 3</span></a></li>
+</ul>
+</div>
+
+<h2><span class="mw-headline" id="Section_1">Section 1</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=1" title="Edit section: Section 1">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<p>One
+</p>
+<h2><span class="mw-headline" id="Section_2">Section 2</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=2" title="Edit section: Section 2">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<p>Two
+</p>
+<h3><span class="mw-headline" id="Section_2.1">Section 2.1</span></h3>
+<p>Two point one
+</p>
+<h2><span class="mw-headline" id="Section_3">Section 3</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=4" title="Edit section: Section 3">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<p>Three
+</p>
+EOF
+			],
+			'Disable section edit links (mw:toc)' => [
+				[ 'enableSectionEditLinks' => false ], $text, <<<EOF
+<p>Test document.
+</p>
+<div id="toc" class="toc"><div class="toctitle"><h2>Contents</h2></div>
+<ul>
+<li class="toclevel-1 tocsection-1"><a href="#Section_1"><span class="tocnumber">1</span> <span class="toctext">Section 1</span></a></li>
+<li class="toclevel-1 tocsection-2"><a href="#Section_2"><span class="tocnumber">2</span> <span class="toctext">Section 2</span></a>
+<ul>
+<li class="toclevel-2 tocsection-3"><a href="#Section_2.1"><span class="tocnumber">2.1</span> <span class="toctext">Section 2.1</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-4"><a href="#Section_3"><span class="tocnumber">3</span> <span class="toctext">Section 3</span></a></li>
+</ul>
+</div>
+
+<h2><span class="mw-headline" id="Section_1">Section 1</span></h2>
+<p>One
+</p>
+<h2><span class="mw-headline" id="Section_2">Section 2</span></h2>
+<p>Two
+</p>
+<h3><span class="mw-headline" id="Section_2.1">Section 2.1</span></h3>
+<p>Two point one
+</p>
+<h2><span class="mw-headline" id="Section_3">Section 3</span></h2>
+<p>Three
+</p>
+EOF
+			],
+			'Disable TOC, but wrap (mw:toc)' => [
+				[ 'allowTOC' => false, 'wrapperDivClass' => 'mw-parser-output' ], $text, <<<EOF
+<div class="mw-parser-output"><p>Test document.
+</p>
+
+<h2><span class="mw-headline" id="Section_1">Section 1</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=1" title="Edit section: Section 1">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<p>One
+</p>
+<h2><span class="mw-headline" id="Section_2">Section 2</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=2" title="Edit section: Section 2">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<p>Two
+</p>
+<h3><span class="mw-headline" id="Section_2.1">Section 2.1</span></h3>
+<p>Two point one
+</p>
+<h2><span class="mw-headline" id="Section_3">Section 3</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=4" title="Edit section: Section 3">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<p>Three
+</p></div>
+EOF
+			],
+		];
+		// phpcs:enable
+	}
+
+		// Remove this once we've transitioned the cache to the new
+		// TOC_PLACEHOLDER
+	public static function provideGetTextForwardCompat() {
+		// phpcs:disable Generic.Files.LineLength
+		$toc = self::provideGetTextToc();
 		$text = <<<EOF
 <p>Test document.
 </p>
 <meta property="mw:PageProp/toc" />
-<div class="mw-heading mw-heading2"><h2 id="Section_1">Section 1</h2><mw:editsection page="Test Page" section="1">Section 1</mw:editsection></div>
+<h2><span class="mw-headline" id="Section_1">Section 1</span><mw:editsection page="Test Page" section="1">Section 1</mw:editsection></h2>
 <p>One
 </p>
-<div class="mw-heading mw-heading2"><h2 id="Section_2">Section 2</h2><mw:editsection page="Test Page" section="2">Section 2</mw:editsection></div>
+<h2><span class="mw-headline" id="Section_2">Section 2</span><mw:editsection page="Test Page" section="2">Section 2</mw:editsection></h2>
 <p>Two
 </p>
-<div class="mw-heading mw-heading3"><h3 id="Section_2.1">Section 2.1</h3></div>
+<h3><span class="mw-headline" id="Section_2.1">Section 2.1</span><mw:editsection page="Talk:User:Bug_T261347" section="3">Section 2.1</mw:editsection></h3>
 <p>Two point one
 </p>
-<div class="mw-heading mw-heading2"><h2 id="Section_3">Section 3</h2><mw:editsection page="Test Page" section="4">Section 3</mw:editsection></div>
+<h2><span class="mw-headline" id="Section_3">Section 3</span><mw:editsection page="Test Page" section="4">Section 3</mw:editsection></h2>
+<p>Three
+</p>
+EOF;
+
+		return [
+			'No options (meta tag)' => [
+				[], $text, <<<EOF
+<p>Test document.
+</p>
+<div id="toc" class="toc"><div class="toctitle"><h2>Contents</h2></div>
+<ul>
+<li class="toclevel-1 tocsection-1"><a href="#Section_1"><span class="tocnumber">1</span> <span class="toctext">Section 1</span></a></li>
+<li class="toclevel-1 tocsection-2"><a href="#Section_2"><span class="tocnumber">2</span> <span class="toctext">Section 2</span></a>
+<ul>
+<li class="toclevel-2 tocsection-3"><a href="#Section_2.1"><span class="tocnumber">2.1</span> <span class="toctext">Section 2.1</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-4"><a href="#Section_3"><span class="tocnumber">3</span> <span class="toctext">Section 3</span></a></li>
+</ul>
+</div>
+
+<h2><span class="mw-headline" id="Section_1">Section 1</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=1" title="Edit section: Section 1">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<p>One
+</p>
+<h2><span class="mw-headline" id="Section_2">Section 2</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=2" title="Edit section: Section 2">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<p>Two
+</p>
+<h3><span class="mw-headline" id="Section_2.1">Section 2.1</span></h3>
+<p>Two point one
+</p>
+<h2><span class="mw-headline" id="Section_3">Section 3</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=4" title="Edit section: Section 3">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<p>Three
+</p>
+EOF
+			],
+			'Disable section edit links (meta tag)' => [
+				[ 'enableSectionEditLinks' => false ], $text, <<<EOF
+<p>Test document.
+</p>
+<div id="toc" class="toc"><div class="toctitle"><h2>Contents</h2></div>
+<ul>
+<li class="toclevel-1 tocsection-1"><a href="#Section_1"><span class="tocnumber">1</span> <span class="toctext">Section 1</span></a></li>
+<li class="toclevel-1 tocsection-2"><a href="#Section_2"><span class="tocnumber">2</span> <span class="toctext">Section 2</span></a>
+<ul>
+<li class="toclevel-2 tocsection-3"><a href="#Section_2.1"><span class="tocnumber">2.1</span> <span class="toctext">Section 2.1</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-4"><a href="#Section_3"><span class="tocnumber">3</span> <span class="toctext">Section 3</span></a></li>
+</ul>
+</div>
+
+<h2><span class="mw-headline" id="Section_1">Section 1</span></h2>
+<p>One
+</p>
+<h2><span class="mw-headline" id="Section_2">Section 2</span></h2>
+<p>Two
+</p>
+<h3><span class="mw-headline" id="Section_2.1">Section 2.1</span></h3>
+<p>Two point one
+</p>
+<h2><span class="mw-headline" id="Section_3">Section 3</span></h2>
+<p>Three
+</p>
+EOF
+			],
+			'Disable TOC, but wrap (meta tag)' => [
+				[ 'allowTOC' => false, 'wrapperDivClass' => 'mw-parser-output' ], $text, <<<EOF
+<div class="mw-parser-output"><p>Test document.
+</p>
+
+<h2><span class="mw-headline" id="Section_1">Section 1</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=1" title="Edit section: Section 1">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<p>One
+</p>
+<h2><span class="mw-headline" id="Section_2">Section 2</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=2" title="Edit section: Section 2">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<p>Two
+</p>
+<h3><span class="mw-headline" id="Section_2.1">Section 2.1</span></h3>
+<p>Two point one
+</p>
+<h2><span class="mw-headline" id="Section_3">Section 3</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=4" title="Edit section: Section 3">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
+<p>Three
+</p></div>
+EOF
+			],
+		];
+		// phpcs:enable
+	}
+
+	public static function provideGetText() {
+		$toc = self::provideGetTextToc();
+		$text = <<<EOF
+<p>Test document.
+</p>
+<mw:tocplace></mw:tocplace>
+<h2><span class="mw-headline" id="Section_1">Section 1</span><mw:editsection page="Test Page" section="1">Section 1</mw:editsection></h2>
+<p>One
+</p>
+<h2><span class="mw-headline" id="Section_2">Section 2</span><mw:editsection page="Test Page" section="2">Section 2</mw:editsection></h2>
+<p>Two
+</p>
+<h3><span class="mw-headline" id="Section_2.1">Section 2.1</span><mw:editsection page="Talk:User:Bug_T261347" section="3">Section 2.1</mw:editsection></h3>
+<p>Two point one
+</p>
+<h2><span class="mw-headline" id="Section_3">Section 3</span><mw:editsection page="Test Page" section="4">Section 3</mw:editsection></h2>
 <p>Three
 </p>
 EOF;
@@ -416,7 +528,7 @@ EOF;
 				[], $text, <<<EOF
 <p>Test document.
 </p>
-<div id="toc" class="toc" role="navigation" aria-labelledby="mw-toc-heading"><input type="checkbox" role="button" id="toctogglecheckbox" class="toctogglecheckbox" style="display:none" /><div class="toctitle" lang="en" dir="ltr"><h2 id="mw-toc-heading">Contents</h2><span class="toctogglespan"><label class="toctogglelabel" for="toctogglecheckbox"></label></span></div>
+<div id="toc" class="toc"><div class="toctitle"><h2>Contents</h2></div>
 <ul>
 <li class="toclevel-1 tocsection-1"><a href="#Section_1"><span class="tocnumber">1</span> <span class="toctext">Section 1</span></a></li>
 <li class="toclevel-1 tocsection-2"><a href="#Section_2"><span class="tocnumber">2</span> <span class="toctext">Section 2</span></a>
@@ -428,16 +540,16 @@ EOF;
 </ul>
 </div>
 
-<div class="mw-heading mw-heading2"><h2 id="Section_1">Section 1</h2><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=1" title="Edit section: Section 1">edit</a><span class="mw-editsection-bracket">]</span></span></div>
+<h2><span class="mw-headline" id="Section_1">Section 1</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=1" title="Edit section: Section 1">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
 <p>One
 </p>
-<div class="mw-heading mw-heading2"><h2 id="Section_2">Section 2</h2><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=2" title="Edit section: Section 2">edit</a><span class="mw-editsection-bracket">]</span></span></div>
+<h2><span class="mw-headline" id="Section_2">Section 2</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=2" title="Edit section: Section 2">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
 <p>Two
 </p>
-<div class="mw-heading mw-heading3"><h3 id="Section_2.1">Section 2.1</h3></div>
+<h3><span class="mw-headline" id="Section_2.1">Section 2.1</span></h3>
 <p>Two point one
 </p>
-<div class="mw-heading mw-heading2"><h2 id="Section_3">Section 3</h2><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=4" title="Edit section: Section 3">edit</a><span class="mw-editsection-bracket">]</span></span></div>
+<h2><span class="mw-headline" id="Section_3">Section 3</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=4" title="Edit section: Section 3">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
 <p>Three
 </p>
 EOF
@@ -446,7 +558,7 @@ EOF
 				[ 'enableSectionEditLinks' => false ], $text, <<<EOF
 <p>Test document.
 </p>
-<div id="toc" class="toc" role="navigation" aria-labelledby="mw-toc-heading"><input type="checkbox" role="button" id="toctogglecheckbox" class="toctogglecheckbox" style="display:none" /><div class="toctitle" lang="en" dir="ltr"><h2 id="mw-toc-heading">Contents</h2><span class="toctogglespan"><label class="toctogglelabel" for="toctogglecheckbox"></label></span></div>
+<div id="toc" class="toc"><div class="toctitle"><h2>Contents</h2></div>
 <ul>
 <li class="toclevel-1 tocsection-1"><a href="#Section_1"><span class="tocnumber">1</span> <span class="toctext">Section 1</span></a></li>
 <li class="toclevel-1 tocsection-2"><a href="#Section_2"><span class="tocnumber">2</span> <span class="toctext">Section 2</span></a>
@@ -458,35 +570,35 @@ EOF
 </ul>
 </div>
 
-<div class="mw-heading mw-heading2"><h2 id="Section_1">Section 1</h2></div>
+<h2><span class="mw-headline" id="Section_1">Section 1</span></h2>
 <p>One
 </p>
-<div class="mw-heading mw-heading2"><h2 id="Section_2">Section 2</h2></div>
+<h2><span class="mw-headline" id="Section_2">Section 2</span></h2>
 <p>Two
 </p>
-<div class="mw-heading mw-heading3"><h3 id="Section_2.1">Section 2.1</h3></div>
+<h3><span class="mw-headline" id="Section_2.1">Section 2.1</span></h3>
 <p>Two point one
 </p>
-<div class="mw-heading mw-heading2"><h2 id="Section_3">Section 3</h2></div>
+<h2><span class="mw-headline" id="Section_3">Section 3</span></h2>
 <p>Three
 </p>
 EOF
 			],
 			'Disable TOC, but wrap' => [
 				[ 'allowTOC' => false, 'wrapperDivClass' => 'mw-parser-output' ], $text, <<<EOF
-<div class="mw-content-ltr mw-parser-output" lang="en" dir="ltr"><p>Test document.
+<div class="mw-parser-output"><p>Test document.
 </p>
 
-<div class="mw-heading mw-heading2"><h2 id="Section_1">Section 1</h2><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=1" title="Edit section: Section 1">edit</a><span class="mw-editsection-bracket">]</span></span></div>
+<h2><span class="mw-headline" id="Section_1">Section 1</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=1" title="Edit section: Section 1">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
 <p>One
 </p>
-<div class="mw-heading mw-heading2"><h2 id="Section_2">Section 2</h2><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=2" title="Edit section: Section 2">edit</a><span class="mw-editsection-bracket">]</span></span></div>
+<h2><span class="mw-headline" id="Section_2">Section 2</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=2" title="Edit section: Section 2">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
 <p>Two
 </p>
-<div class="mw-heading mw-heading3"><h3 id="Section_2.1">Section 2.1</h3></div>
+<h3><span class="mw-headline" id="Section_2.1">Section 2.1</span></h3>
 <p>Two point one
 </p>
-<div class="mw-heading mw-heading2"><h2 id="Section_3">Section 3</h2><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=4" title="Edit section: Section 3">edit</a><span class="mw-editsection-bracket">]</span></span></div>
+<h2><span class="mw-headline" id="Section_3">Section 3</span><span class="mw-editsection"><span class="mw-editsection-bracket">[</span><a href="/w/index.php?title=Test_Page&amp;action=edit&amp;section=4" title="Edit section: Section 3">edit</a><span class="mw-editsection-bracket">]</span></span></h2>
 <p>Three
 </p></div>
 EOF
@@ -495,12 +607,12 @@ EOF
 				[], $dedupText, <<<EOF
 <p>This is a test document.</p>
 <style data-mw-deduplicate="duplicate1">.Duplicate1 {}</style>
-<link rel="mw-deduplicated-inline-style" href="mw-data:duplicate1">
+<link rel="mw-deduplicated-inline-style" href="mw-data:duplicate1"/>
 <style data-mw-deduplicate="duplicate2">.Duplicate2 {}</style>
-<link rel="mw-deduplicated-inline-style" href="mw-data:duplicate1">
-<link rel="mw-deduplicated-inline-style" href="mw-data:duplicate2">
+<link rel="mw-deduplicated-inline-style" href="mw-data:duplicate1"/>
+<link rel="mw-deduplicated-inline-style" href="mw-data:duplicate2"/>
 <style data-mw-not-deduplicate="duplicate1">.Duplicate1 {}</style>
-<link rel="mw-deduplicated-inline-style" href="mw-data:duplicate1">
+<link rel="mw-deduplicated-inline-style" href="mw-data:duplicate1"/>
 <style data-mw-deduplicate="duplicate3">.Duplicate1 {}</style>
 <style>.Duplicate1 {}</style>
 EOF
@@ -513,7 +625,7 @@ EOF
 	}
 
 	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::hasText
+	 * @covers ParserOutput::hasText
 	 */
 	public function testHasText() {
 		$po = new ParserOutput( '' );
@@ -529,18 +641,16 @@ EOF
 		$this->assertTrue( $po->hasText() );
 
 		$po = new ParserOutput( null );
-		$po->setRawText( '' );
+		$po->setText( '' );
 		$this->assertTrue( $po->hasText() );
 
 		$po = new ParserOutput( 'foo' );
-		$po->setRawText( null );
+		$po->setText( null );
 		$this->assertFalse( $po->hasText() );
 	}
 
 	/**
-	 * This test aims at being replaced by its version in DefaultOutputPipelineFactoryTest when
-	 * ParserOutput::getText gets deprecated.
-	 * @covers \MediaWiki\Parser\ParserOutput::getText
+	 * @covers ParserOutput::getText
 	 */
 	public function testGetText_failsIfNoText() {
 		$po = new ParserOutput( null );
@@ -549,8 +659,44 @@ EOF
 		$po->getText();
 	}
 
+	public function provideGetText_absoluteURLs() {
+		yield 'empty' => [
+			'text' => '',
+			'expectedText' => '',
+		];
+		yield 'no-links' => [
+			'text' => '<p>test</p>',
+			'expectedText' => '<p>test</p>',
+		];
+		yield 'simple link' => [
+			'text' => '<a href="/wiki/Test">test</a>',
+			'expectedText' => '<a href="//TEST_SERVER/wiki/Test">test</a>',
+		];
+		yield 'already absolute, relative' => [
+			'text' => '<a href="//TEST_SERVER/wiki/Test">test</a>',
+			'expectedText' => '<a href="//TEST_SERVER/wiki/Test">test</a>',
+		];
+		yield 'already absolute, https' => [
+			'text' => '<a href="https://TEST_SERVER/wiki/Test">test</a>',
+			'expectedText' => '<a href="https://TEST_SERVER/wiki/Test">test</a>',
+		];
+		yield 'external' => [
+			'text' => '<a href="https://en.wikipedia.org/wiki/Test">test</a>',
+			'expectedText' => '<a href="https://en.wikipedia.org/wiki/Test">test</a>',
+		];
+	}
+
 	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::getRawText
+	 * @dataProvider provideGetText_absoluteURLs
+	 */
+	public function testGetText_absoluteURLs( string $text, string $expectedText ) {
+		$this->overrideConfigValue( MainConfigNames::Server, '//TEST_SERVER' );
+		$parserOutput = new ParserOutput( $text );
+		$this->assertSame( $expectedText, $parserOutput->getText( [ 'absoluteURLs' => true ] ) );
+	}
+
+	/**
+	 * @covers ParserOutput::getRawText
 	 */
 	public function testGetRawText_failsIfNoText() {
 		$po = new ParserOutput( null );
@@ -559,7 +705,7 @@ EOF
 		$po->getRawText();
 	}
 
-	public static function provideMergeHtmlMetaDataFrom() {
+	public function provideMergeHtmlMetaDataFrom() {
 		// title text ------------
 		$a = new ParserOutput();
 		$a->setTitleText( 'X' );
@@ -599,18 +745,6 @@ EOF
 		$b = new ParserOutput();
 		$b->setIndexPolicy( 'noindex' );
 		yield 'right noindex wins' => [ $a, $b, [ 'getIndexPolicy' => 'noindex' ] ];
-
-		$crhCyrl = new Bcp47CodeValue( 'crh-cyrl' );
-
-		$a = new ParserOutput();
-		$a->setLanguage( $crhCyrl );
-		$b = new ParserOutput();
-		yield 'only left language' => [ $a, $b, [ 'getLanguage' => $crhCyrl ] ];
-
-		$a = new ParserOutput();
-		$b = new ParserOutput();
-		$b->setLanguage( $crhCyrl );
-		yield 'only right language' => [ $a, $b, [ 'getLanguage' => $crhCyrl ] ];
 
 		// head items and friends ------------
 		$a = new ParserOutput();
@@ -683,18 +817,21 @@ EOF
 		] ];
 
 		// TOC ------------
-		$a = new ParserOutput( '' );
+		$a = new ParserOutput();
+		$a->setTOCHTML( '<p>TOC A</p>' );
 		$a->setSections( [ [ 'fromtitle' => 'A1' ], [ 'fromtitle' => 'A2' ] ] );
 
-		$b = new ParserOutput( '' );
+		$b = new ParserOutput();
+		$b->setTOCHTML( '<p>TOC B</p>' );
 		$b->setSections( [ [ 'fromtitle' => 'B1' ], [ 'fromtitle' => 'B2' ] ] );
 
 		yield 'concat TOC' => [ $a, $b, [
+			'getTOCHTML' => '<p>TOC A</p><p>TOC B</p>',
 			'getSections' => [
-				SectionMetadata::fromLegacy( [ 'fromtitle' => 'A1' ] )->toLegacy(),
-				SectionMetadata::fromLegacy( [ 'fromtitle' => 'A2' ] )->toLegacy(),
-				SectionMetadata::fromLegacy( [ 'fromtitle' => 'B1' ] )->toLegacy(),
-				SectionMetadata::fromLegacy( [ 'fromtitle' => 'B2' ] )->toLegacy()
+				[ 'fromtitle' => 'A1' ],
+				[ 'fromtitle' => 'A2' ],
+				[ 'fromtitle' => 'B1' ],
+				[ 'fromtitle' => 'B2' ]
 			],
 		] ];
 
@@ -754,7 +891,7 @@ EOF
 
 	/**
 	 * @dataProvider provideMergeHtmlMetaDataFrom
-	 * @covers \MediaWiki\Parser\ParserOutput::mergeHtmlMetaDataFrom
+	 * @covers ParserOutput::mergeHtmlMetaDataFrom
 	 *
 	 * @param ParserOutput $a
 	 * @param ParserOutput $b
@@ -769,6 +906,7 @@ EOF
 		$a->mergeHtmlMetaDataFrom( $b );
 
 		// XXX: TOC joining should get smarter. Can we make it idempotent as well?
+		unset( $expected['getTOCHTML'] );
 		unset( $expected['getSections'] );
 
 		$this->assertFieldValues( $a, $expected );
@@ -782,11 +920,6 @@ EOF
 			if ( $method[0] === '$' ) {
 				$field = substr( $method, 1 );
 				$actual = $po->__get( $field );
-			} elseif ( str_contains( $method, '!' ) ) {
-				[ $trimmedMethod, $ignore ] = explode( '!', $method, 2 );
-				$args = $value['_args_'] ?? [];
-				unset( $value['_args_'] );
-				$actual = $po->__call( $trimmedMethod, $args );
 			} else {
 				$actual = $po->__call( $method, [] );
 			}
@@ -804,70 +937,40 @@ EOF
 	}
 
 	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::addLink
-	 * @covers \MediaWiki\Parser\ParserOutput::getLinks
-	 * @covers \MediaWiki\Parser\ParserOutput::getLinkList
+	 * @covers ParserOutput::addLink
+	 * @covers ParserOutput::getLinks
 	 */
 	public function testAddLink() {
 		$a = new ParserOutput();
 		$a->addLink( Title::makeTitle( NS_MAIN, 'Kittens' ), 6 );
 		$a->addLink( new TitleValue( NS_TALK, 'Kittens' ), 16 );
 		$a->addLink( new TitleValue( NS_MAIN, 'Goats_786827346' ) );
-		# fragments are stripped for local links
-		$a->addLink( new TitleValue( NS_TALK, 'Puppies', 'Topic' ), 17 );
 
 		$expected = [
 			NS_MAIN => [ 'Kittens' => 6, 'Goats_786827346' => 0 ],
-			NS_TALK => [ 'Kittens' => 16, 'Puppies' => 17 ]
+			NS_TALK => [ 'Kittens' => 16 ]
 		];
 		$this->assertSame( $expected, $a->getLinks() );
-		$expected = [
-			[
-				'link' => new TitleValue( NS_MAIN, 'Kittens' ),
-				'pageid' => 6,
-			],
-			[
-				'link' => new TitleValue( NS_MAIN, 'Goats_786827346' ),
-				'pageid' => 0,
-			],
-			[
-				'link' => new TitleValue( NS_TALK, 'Kittens' ),
-				'pageid' => 16,
-			],
-			[
-				'link' => new TitleValue( NS_TALK, 'Puppies' ),
-				'pageid' => 17,
-			],
-		];
-		$this->assertEquals( $expected, $a->getLinkList( ParserOutputLinkTypes::LOCAL ) );
 	}
 
-	public static function provideMergeTrackingMetaDataFrom() {
+	public function provideMergeTrackingMetaDataFrom() {
 		// links ------------
 		$a = new ParserOutput();
 		$a->addLink( Title::makeTitle( NS_MAIN, 'Kittens' ), 6 );
 		$a->addLink( new TitleValue( NS_TALK, 'Kittens' ), 16 );
-		# fragments are stripped in local links
-		$a->addLink( new TitleValue( NS_MAIN, 'Goats', 'Kids' ), 7 );
+		$a->addLink( new TitleValue( NS_MAIN, 'Goats' ), 7 );
 
 		$a->addTemplate( Title::makeTitle( NS_TEMPLATE, 'Goats' ), 107, 1107 );
 
-		$a->addLanguageLink( new TitleValue( NS_MAIN, 'de', '', 'de' ) );
-		# fragments are preserved in language links
-		$a->addLanguageLink( new TitleValue( NS_MAIN, 'ru', 'ru', 'ru' ) );
+		$a->addLanguageLink( 'de' );
+		$a->addLanguageLink( 'ru' );
 		$a->addInterwikiLink( Title::makeTitle( NS_MAIN, 'Kittens DE', '', 'de' ) );
-		# fragments are stripped in interwiki links
-		$a->addInterwikiLink( new TitleValue( NS_MAIN, 'Kittens RU', 'ru', 'ru' ) );
+		$a->addInterwikiLink( new TitleValue( NS_MAIN, 'Kittens RU', '', 'ru' ) );
 		$a->addExternalLink( 'https://kittens.wikimedia.test' );
-		# fragments are preserved in external links
-		$a->addExternalLink( 'https://goats.wikimedia.test#kids' );
+		$a->addExternalLink( 'https://goats.wikimedia.test' );
 
-		# fragments are stripped for categories (syntax is overloaded for sort)
-		$a->addCategory( new TitleValue( NS_CATEGORY, 'Foo', 'bar' ), 'X' );
-		# fragments are stripped for images
-		$a->addImage( new TitleValue( NS_FILE, 'Billy.jpg', 'fragment' ), '20180101000013', 'DEAD' );
-		# fragments are stripped for links to special pages
-		$a->addLink( new TitleValue( NS_SPECIAL, 'Version', 'section' ) );
+		$a->addCategory( 'Foo', 'X' );
+		$a->addImage( 'Billy.jpg', '20180101000013', 'DEAD' );
 
 		$b = new ParserOutput();
 		$b->addLink( Title::makeTitle( NS_MAIN, 'Goats' ), 7 );
@@ -875,19 +978,18 @@ EOF
 		$b->addLink( new TitleValue( NS_MAIN, 'Dragons' ), 8 );
 		$b->addLink( new TitleValue( NS_FILE, 'Dragons.jpg' ), 28 );
 
-		# fragments are stripped from template links
-		$b->addTemplate( Title::makeTitle( NS_TEMPLATE, 'Dragons', 'red' ), 108, 1108 );
-		$a->addTemplate( new TitleValue( NS_MAIN, 'Dragons', 'platinum' ), 118, 1118 );
+		$b->addTemplate( Title::makeTitle( NS_TEMPLATE, 'Dragons' ), 108, 1108 );
+		$a->addTemplate( new TitleValue( NS_MAIN, 'Dragons' ), 118, 1118 );
 
-		$b->addLanguageLink( new TitleValue( NS_MAIN, 'fr', '', 'fr' ) );
-		$b->addLanguageLink( new TitleValue( NS_MAIN, 'ru', 'ru', 'ru' ) );
+		$b->addLanguageLink( 'fr' );
+		$b->addLanguageLink( 'ru' );
 		$b->addInterwikiLink( Title::makeTitle( NS_MAIN, 'Kittens FR', '', 'fr' ) );
 		$b->addInterwikiLink( new TitleValue( NS_MAIN, 'Dragons RU', '', 'ru' ) );
 		$b->addExternalLink( 'https://dragons.wikimedia.test' );
-		$b->addExternalLink( 'https://goats.wikimedia.test#kids' );
+		$b->addExternalLink( 'https://goats.wikimedia.test' );
 
 		$b->addCategory( 'Bar', 'Y' );
-		$b->addImage( new TitleValue( NS_FILE, 'Puff.jpg' ), '20180101000017', 'BEEF' );
+		$b->addImage( 'Puff.jpg', '20180101000017', 'BEEF' );
 
 		yield 'all kinds of links' => [ $a, $b, [
 			'getLinks' => [
@@ -902,33 +1004,6 @@ EOF
 				],
 				NS_FILE => [
 					'Dragons.jpg' => 28,
-				],
-			],
-			'getLinkList!LOCAL' => [
-				'_args_' => [ ParserOutputLinkTypes::LOCAL ],
-				[
-					'link' => new TitleValue( NS_MAIN, 'Kittens' ),
-					'pageid' => 6,
-				],
-				[
-					'link' => new TitleValue( NS_MAIN, 'Goats' ),
-					'pageid' => 7,
-				],
-				[
-					'link' => new TitleValue( NS_MAIN, 'Dragons' ),
-					'pageid' => 8,
-				],
-				[
-					'link' => new TitleValue( NS_TALK, 'Kittens' ),
-					'pageid' => 16,
-				],
-				[
-					'link' => new TitleValue( NS_TALK, 'Goats' ),
-					'pageid' => 17,
-				],
-				[
-					'link' => new TitleValue( NS_FILE, 'Dragons.jpg' ),
-					'pageid' => 28,
 				],
 			],
 			'getTemplates' => [
@@ -949,98 +1024,23 @@ EOF
 					'Goats' => 1107,
 				],
 			],
-			'getLinkList!TEMPLATE' => [
-				'_args_' => [ ParserOutputLinkTypes::TEMPLATE ],
-				[
-					'link' => new TitleValue( NS_TEMPLATE, 'Goats' ),
-					'pageid' => 107,
-					'revid' => 1107,
-				],
-				[
-					'link' => new TitleValue( NS_TEMPLATE, 'Dragons' ),
-					'pageid' => 108,
-					'revid' => 1108,
-				],
-				[
-					'link' => new TitleValue( NS_MAIN, 'Dragons' ),
-					'pageid' => 118,
-					'revid' => 1118,
-				],
-			],
-			'getLanguageLinks' => [ 'de:de', 'ru:ru#ru', 'fr:fr' ],
-			'getLinkList!LANGUAGE' => [
-				'_args_' => [ ParserOutputLinkTypes::LANGUAGE ],
-				[
-					'link' => new TitleValue( NS_MAIN, 'de', '', 'de' ),
-				],
-				[
-					'link' => new TitleValue( NS_MAIN, 'ru', 'ru', 'ru' ),
-				],
-				[
-					'link' => new TitleValue( NS_MAIN, 'fr', '', 'fr' ),
-				],
-			],
+			'getLanguageLinks' => [ 'de', 'ru', 'fr' ],
 			'getInterwikiLinks' => [
 				'de' => [ 'Kittens_DE' => 1 ],
 				'ru' => [ 'Kittens_RU' => 1, 'Dragons_RU' => 1, ],
 				'fr' => [ 'Kittens_FR' => 1 ],
 			],
-			'getLinkList!INTERWIKI' => [
-				'_args_' => [ ParserOutputLinkTypes::INTERWIKI ],
-				[
-					'link' => new TitleValue( NS_MAIN, 'Kittens_DE', '', 'de' ),
-				],
-				[
-					'link' => new TitleValue( NS_MAIN, 'Kittens_RU', '', 'ru' ),
-				],
-				[
-					'link' => new TitleValue( NS_MAIN, 'Dragons_RU', '', 'ru' ),
-				],
-				[
-					'link' => new TitleValue( NS_MAIN, 'Kittens_FR', '', 'fr' ),
-				],
-			],
-			'getCategoryMap' => [ 'Foo' => 'X', 'Bar' => 'Y' ],
-			'getLinkList!CATEGORY' => [
-				'_args_' => [ ParserOutputLinkTypes::CATEGORY ],
-				[
-					'link' => new TitleValue( NS_CATEGORY, 'Foo' ),
-					'sort' => 'X',
-				],
-				[
-					'link' => new TitleValue( NS_CATEGORY, 'Bar' ),
-					'sort' => 'Y',
-				],
-			],
+			'getCategories' => [ 'Foo' => 'X', 'Bar' => 'Y' ],
 			'getImages' => [ 'Billy.jpg' => 1, 'Puff.jpg' => 1 ],
 			'getFileSearchOptions' => [
 				'Billy.jpg' => [ 'time' => '20180101000013', 'sha1' => 'DEAD' ],
 				'Puff.jpg' => [ 'time' => '20180101000017', 'sha1' => 'BEEF' ],
 			],
-			'getLinkList!MEDIA' => [
-				'_args_' => [ ParserOutputLinkTypes::MEDIA ],
-				[
-					'link' => new TitleValue( NS_FILE, 'Billy.jpg' ),
-					'time' => '20180101000013',
-					'sha1' => 'DEAD',
-				],
-				[
-					'link' => new TitleValue( NS_FILE, 'Puff.jpg' ),
-					'time' => '20180101000017',
-					'sha1' => 'BEEF',
-				],
-			],
 			'getExternalLinks' => [
 				'https://dragons.wikimedia.test' => 1,
 				'https://kittens.wikimedia.test' => 1,
-				'https://goats.wikimedia.test#kids' => 1,
-			],
-			'getLinkList!SPECIAL' => [
-				'_args_' => [ ParserOutputLinkTypes::SPECIAL ],
-				[
-					'link' => new TitleValue( NS_SPECIAL, 'Version' ),
-				],
-			],
+				'https://goats.wikimedia.test' => 1,
+			]
 		] ];
 
 		// properties ------------
@@ -1085,7 +1085,7 @@ EOF
 
 	/**
 	 * @dataProvider provideMergeTrackingMetaDataFrom
-	 * @covers \MediaWiki\Parser\ParserOutput::mergeTrackingMetaDataFrom
+	 * @covers ParserOutput::mergeTrackingMetaDataFrom
 	 *
 	 * @param ParserOutput $a
 	 * @param ParserOutput $b
@@ -1102,22 +1102,28 @@ EOF
 		$this->assertFieldValues( $a, $expected );
 	}
 
-	/**
-	 * @dataProvider provideMergeTrackingMetaDataFrom
-	 * @covers \MediaWiki\Parser\ParserOutput::collectMetadata
-	 *
-	 * @param ParserOutput $a
-	 * @param ParserOutput $b
-	 * @param array $expected
-	 */
-	public function testCollectMetaData( ParserOutput $a, ParserOutput $b, $expected ) {
-		$b->collectMetadata( $a );
-
-		$this->assertFieldValues( $a, $expected );
-	}
-
 	public function provideMergeInternalMetaDataFrom() {
-		$this->filterDeprecated( '/^.*CacheTime::setCacheTime called with -1 as an argument/' );
+		// hooks
+		$a = new ParserOutput();
+
+		$this->hideDeprecated( 'ParserOutput::addOutputHook' );
+		$a->addOutputHook( 'foo', 'X' );
+		$a->addOutputHook( 'bar' );
+
+		$b = new ParserOutput();
+
+		$b->addOutputHook( 'foo', 'Y' );
+		$b->addOutputHook( 'bar' );
+		$b->addOutputHook( 'zoo' );
+
+		yield 'hooks' => [ $a, $b, [
+			'getOutputHooks' => [
+				[ 'foo', 'X' ],
+				[ 'bar', false ],
+				[ 'foo', 'Y' ],
+				[ 'zoo', false ],
+			],
+		] ];
 
 		// flags & co
 		$a = new ParserOutput();
@@ -1125,8 +1131,8 @@ EOF
 		$a->addWarningMsg( 'duplicate-args-warning', 'A', 'B', 'C' );
 		$a->addWarningMsg( 'template-loop-warning', 'D' );
 
-		$a->setOutputFlag( 'foo' );
-		$a->setOutputFlag( 'bar' );
+		$a->setFlag( 'foo' );
+		$a->setFlag( 'bar' );
 
 		$a->recordOption( 'Foo' );
 		$a->recordOption( 'Bar' );
@@ -1135,9 +1141,11 @@ EOF
 
 		$b->addWarningMsg( 'template-equals-warning' );
 		$b->addWarningMsg( 'template-loop-warning', 'D' );
+		$this->hideDeprecated( 'ParserOutput::addWarning' );
+		$b->addWarning( 'Old School' ); // test the deprecated ::addWarning()
 
-		$b->setOutputFlag( 'zoo' );
-		$b->setOutputFlag( 'bar' );
+		$b->setFlag( 'zoo' );
+		$b->setFlag( 'bar' );
 
 		$b->recordOption( 'Zoo' );
 		$b->recordOption( 'Bar' );
@@ -1147,69 +1155,33 @@ EOF
 				wfMessage( 'duplicate-args-warning', 'A', 'B', 'C' )->text(),
 				wfMessage( 'template-loop-warning', 'D' )->text(),
 				wfMessage( 'template-equals-warning' )->text(),
+				'Old School',
 			],
 			'$mFlags' => [ 'foo' => true, 'bar' => true, 'zoo' => true ],
 			'getUsedOptions' => [ 'Foo', 'Bar', 'Zoo' ],
 		] ];
 
-		// cache time
-		$someTime = "20240207202040";
-		$someLaterTime = "20240207202112";
-		$a = new ParserOutput();
-		$a->setCacheTime( $someTime );
-		$b = new ParserOutput();
-		yield 'only left cache time' => [ $a, $b, [ 'getCacheTime' => $someTime ] ];
-
-		$a = new ParserOutput();
-		$b = new ParserOutput();
-		$b->setCacheTime( $someTime );
-		yield 'only right cache time' => [ $a, $b, [ 'getCacheTime' => $someTime ] ];
-
-		$a = new ParserOutput();
-		$b = new ParserOutput();
-		$a->setCacheTime( $someLaterTime );
-		$b->setCacheTime( $someTime );
-		yield 'left has later cache time' => [ $a, $b, [ 'getCacheTime' => $someLaterTime ] ];
-
-		$a = new ParserOutput();
-		$b = new ParserOutput();
-		$a->setCacheTime( $someTime );
-		$b->setCacheTime( $someLaterTime );
-		yield 'right has later cache time' => [ $a, $b, [ 'getCacheTime' => $someLaterTime ] ];
-
-		$a = new ParserOutput();
-		$b = new ParserOutput();
-		$a->setCacheTime( -1 );
-		$b->setCacheTime( $someTime );
-		yield 'left is uncacheable' => [ $a, $b, [ 'getCacheTime' => "-1" ] ];
-
-		$a = new ParserOutput();
-		$b = new ParserOutput();
-		$a->setCacheTime( $someTime );
-		$b->setCacheTime( -1 );
-		yield 'right is uncacheable' => [ $a, $b, [ 'getCacheTime' => "-1" ] ];
-
 		// timestamp ------------
 		$a = new ParserOutput();
-		$a->setRevisionTimestamp( '20180101000011' );
+		$a->setTimestamp( '20180101000011' );
 		$b = new ParserOutput();
 		yield 'only left timestamp' => [ $a, $b, [ 'getTimestamp' => '20180101000011' ] ];
 
 		$a = new ParserOutput();
 		$b = new ParserOutput();
-		$b->setRevisionTimestamp( '20180101000011' );
+		$b->setTimestamp( '20180101000011' );
 		yield 'only right timestamp' => [ $a, $b, [ 'getTimestamp' => '20180101000011' ] ];
 
 		$a = new ParserOutput();
-		$a->setRevisionTimestamp( '20180101000011' );
+		$a->setTimestamp( '20180101000011' );
 		$b = new ParserOutput();
-		$b->setRevisionTimestamp( '20180101000001' );
+		$b->setTimestamp( '20180101000001' );
 		yield 'left timestamp wins' => [ $a, $b, [ 'getTimestamp' => '20180101000011' ] ];
 
 		$a = new ParserOutput();
-		$a->setRevisionTimestamp( '20180101000001' );
+		$a->setTimestamp( '20180101000001' );
 		$b = new ParserOutput();
-		$b->setRevisionTimestamp( '20180101000011' );
+		$b->setTimestamp( '20180101000011' );
 		yield 'right timestamp wins' => [ $a, $b, [ 'getTimestamp' => '20180101000011' ] ];
 
 		// speculative rev id ------------
@@ -1289,20 +1261,17 @@ EOF
 				],
 			],
 		] ];
-
-		MWDebug::clearDeprecationFilters();
 	}
 
 	/**
 	 * @dataProvider provideMergeInternalMetaDataFrom
-	 * @covers \MediaWiki\Parser\ParserOutput::mergeInternalMetaDataFrom
+	 * @covers ParserOutput::mergeInternalMetaDataFrom
 	 *
 	 * @param ParserOutput $a
 	 * @param ParserOutput $b
 	 * @param array $expected
 	 */
 	public function testMergeInternalMetaDataFrom( ParserOutput $a, ParserOutput $b, $expected ) {
-		$this->filterDeprecated( '/^.*CacheTime::setCacheTime called with -1 as an argument/' );
 		$a->mergeInternalMetaDataFrom( $b );
 
 		$this->assertFieldValues( $a, $expected );
@@ -1314,9 +1283,9 @@ EOF
 	}
 
 	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::mergeInternalMetaDataFrom
-	 * @covers \MediaWiki\Parser\ParserOutput::getTimes
-	 * @covers \MediaWiki\Parser\ParserOutput::resetParseStartTime
+	 * @covers ParserOutput::mergeInternalMetaDataFrom
+	 * @covers ParserOutput::getTimes
+	 * @covers ParserOutput::resetParseStartTime
 	 */
 	public function testMergeInternalMetaDataFrom_parseStartTime() {
 		/** @var object $a */
@@ -1380,62 +1349,8 @@ EOF
 	}
 
 	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::mergeInternalMetaDataFrom
-	 * @covers \MediaWiki\Parser\ParserOutput::getTimes
-	 * @covers \MediaWiki\Parser\ParserOutput::resetParseStartTime
-	 * @covers \MediaWiki\Parser\ParserOutput::recordTimeProfile
-	 * @covers \MediaWiki\Parser\ParserOutput::getTimeProfile
-	 */
-	public function testMergeInternalMetaDataFrom_timeProfile() {
-		/** @var object $a */
-		$a = new ParserOutput();
-		$a = TestingAccessWrapper::newFromObject( $a );
-
-		$a->resetParseStartTime();
-		usleep( 1234 );
-		$a->recordTimeProfile();
-
-		$aClocks = $a->mTimeProfile;
-
-		// make sure a second call to recordTimeProfile has no effect
-		usleep( 1234 );
-		$a->recordTimeProfile();
-
-		foreach ( $aClocks as $clock => $duration ) {
-			$this->assertNotNull( $duration );
-			$this->assertGreaterThan( 0, $duration );
-			$this->assertSame( $aClocks[$clock], $a->getTimeProfile( $clock ) );
-		}
-
-		$b = new ParserOutput();
-
-		$a->mergeInternalMetaDataFrom( $b );
-		$mergedClocks = $a->mTimeProfile;
-
-		foreach ( $mergedClocks as $clock => $duration ) {
-			$this->assertSame( $aClocks[$clock], $duration, $clock );
-		}
-
-		// try again, with times in $b also set, and later than $a's
-		$b->resetParseStartTime();
-		usleep( 1234 );
-		$b->recordTimeProfile();
-
-		$b = TestingAccessWrapper::newFromObject( $b );
-		$bClocks = $b->mTimeProfile;
-
-		$a->mergeInternalMetaDataFrom( $b->object );
-		$mergedClocks = $a->mTimeProfile;
-
-		foreach ( $mergedClocks as $clock => $duration ) {
-			$this->assertGreaterThanOrEqual( $aClocks[$clock], $duration, $clock );
-			$this->assertGreaterThanOrEqual( $bClocks[$clock], $duration, $clock );
-		}
-	}
-
-	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::getCacheTime
-	 * @covers \MediaWiki\Parser\ParserOutput::setCacheTime
+	 * @covers ParserOutput::getCacheTime
+	 * @covers ParserOutput::setCacheTime
 	 */
 	public function testGetCacheTime() {
 		$clock = MWTimestamp::convert( TS_UNIX, '20100101000000' );
@@ -1446,7 +1361,7 @@ EOF
 		$po = new ParserOutput();
 		$time = $po->getCacheTime();
 
-		// Use current (fake) time by default. Ignore the last digit.
+		// Use current (fake) time per default. Ignore the last digit.
 		// Subsequent calls must yield the exact same timestamp as the first.
 		$this->assertStringStartsWith( '2010010100000', $time );
 		$this->assertSame( $time, $po->getCacheTime() );
@@ -1458,19 +1373,19 @@ EOF
 	}
 
 	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::addExtraCSPScriptSrc
-	 * @covers \MediaWiki\Parser\ParserOutput::addExtraCSPDefaultSrc
-	 * @covers \MediaWiki\Parser\ParserOutput::addExtraCSPStyleSrc
-	 * @covers \MediaWiki\Parser\ParserOutput::getExtraCSPScriptSrcs
-	 * @covers \MediaWiki\Parser\ParserOutput::getExtraCSPDefaultSrcs
-	 * @covers \MediaWiki\Parser\ParserOutput::getExtraCSPStyleSrcs
+	 * @covers ParserOutput::addExtraCSPScriptSrc
+	 * @covers ParserOutput::addExtraCSPDefaultSrc
+	 * @covers ParserOutput::addExtraCSPStyleSrc
+	 * @covers ParserOutput::getExtraCSPScriptSrcs
+	 * @covers ParserOutput::getExtraCSPDefaultSrcs
+	 * @covers ParserOutput::getExtraCSPStyleSrcs
 	 */
 	public function testCSPSources() {
 		$po = new ParserOutput;
 
-		$this->assertEquals( [], $po->getExtraCSPScriptSrcs(), 'empty Script' );
-		$this->assertEquals( [], $po->getExtraCSPStyleSrcs(), 'empty Style' );
-		$this->assertEquals( [], $po->getExtraCSPDefaultSrcs(), 'empty Default' );
+		$this->assertEquals( $po->getExtraCSPScriptSrcs(), [], 'empty Script' );
+		$this->assertEquals( $po->getExtraCSPStyleSrcs(), [], 'empty Style' );
+		$this->assertEquals( $po->getExtraCSPDefaultSrcs(), [], 'empty Default' );
 
 		$po->addExtraCSPScriptSrc( 'foo.com' );
 		$po->addExtraCSPScriptSrc( 'bar.com' );
@@ -1478,114 +1393,33 @@ EOF
 		$po->addExtraCSPStyleSrc( 'fred.com' );
 		$po->addExtraCSPStyleSrc( 'xyzzy.com' );
 
-		$this->assertEquals( [ 'foo.com', 'bar.com' ], $po->getExtraCSPScriptSrcs(), 'Script' );
-		$this->assertEquals( [ 'baz.com' ], $po->getExtraCSPDefaultSrcs(), 'Default' );
-		$this->assertEquals( [ 'fred.com', 'xyzzy.com' ], $po->getExtraCSPStyleSrcs(), 'Style' );
+		$this->assertEquals( $po->getExtraCSPScriptSrcs(), [ 'foo.com', 'bar.com' ], 'Script' );
+		$this->assertEquals( $po->getExtraCSPDefaultSrcs(),  [ 'baz.com' ], 'Default' );
+		$this->assertEquals( $po->getExtraCSPStyleSrcs(), [ 'fred.com', 'xyzzy.com' ], 'Style' );
 	}
 
-	public function testOutputStrings() {
+	/**
+	 * @covers ParserOutput::addTrackingCategory
+	 */
+	public function testAddTrackingCategory() {
+		$this->hideDeprecated( 'ParserOutput::addTrackingCategory' );
+
 		$po = new ParserOutput;
+		$po->setPageProperty( 'defaultsort', 'foobar' );
 
-		$this->assertEquals( [], $po->getOutputStrings( ParserOutputStringSets::MODULE ) );
-		$this->assertEquals( [], $po->getOutputStrings( ParserOutputStringSets::MODULE_STYLE ) );
-		$this->assertEquals( [], $po->getOutputStrings( ParserOutputStringSets::EXTRA_CSP_SCRIPT_SRC ) );
-		$this->assertEquals( [], $po->getOutputStrings( ParserOutputStringSets::EXTRA_CSP_STYLE_SRC ) );
-		$this->assertEquals( [], $po->getOutputStrings( ParserOutputStringSets::EXTRA_CSP_DEFAULT_SRC ) );
+		$page = PageReferenceValue::localReference( NS_USER, 'Testing' );
 
-		$this->assertEquals( [], $po->getModules() );
-		$this->assertEquals( [], $po->getModuleStyles() );
-		$this->assertEquals( [], $po->getExtraCSPScriptSrcs() );
-		$this->assertEquals( [], $po->getExtraCSPStyleSrcs() );
-		$this->assertEquals( [], $po->getExtraCSPDefaultSrcs() );
+		$po->addTrackingCategory( 'index-category', $page ); // from CORE_TRACKING_CATEGORIES
+		$po->addTrackingCategory( 'sitenotice', $page ); // should be "-", which is ignored
+		$po->addTrackingCategory( 'brackets-start', $page ); // invalid text
+		// TODO: assert proper handling of non-existing messages
 
-		$po->appendOutputStrings( ParserOutputStringSets::MODULE, [ 'a' ] );
-		$po->appendOutputStrings( ParserOutputStringSets::MODULE_STYLE, [ 'b' ] );
-		$po->appendOutputStrings( ParserOutputStringSets::EXTRA_CSP_SCRIPT_SRC, [ 'foo.com', 'bar.com' ] );
-		$po->appendOutputStrings( ParserOutputStringSets::EXTRA_CSP_DEFAULT_SRC, [ 'baz.com' ] );
-		$po->appendOutputStrings( ParserOutputStringSets::EXTRA_CSP_STYLE_SRC, [ 'fred.com' ] );
-		$po->appendOutputStrings( ParserOutputStringSets::EXTRA_CSP_STYLE_SRC, [ 'xyzzy.com' ] );
+		$expected = wfMessage( 'index-category' )
+			->page( $page )
+			->inContentLanguage()
+			->text();
 
-		$this->assertEquals( [ 'a' ], $po->getOutputStrings( ParserOutputStringSets::MODULE ) );
-		$this->assertEquals( [ 'b' ], $po->getOutputStrings( ParserOutputStringSets::MODULE_STYLE ) );
-		$this->assertEquals( [ 'foo.com', 'bar.com' ],
-							 $po->getOutputStrings( ParserOutputStringSets::EXTRA_CSP_SCRIPT_SRC ) );
-		$this->assertEquals( [ 'baz.com' ],
-							 $po->getOutputStrings( ParserOutputStringSets::EXTRA_CSP_DEFAULT_SRC ) );
-		$this->assertEquals( [ 'fred.com', 'xyzzy.com' ],
-							 $po->getOutputStrings( ParserOutputStringSets::EXTRA_CSP_STYLE_SRC ) );
-
-		$this->assertEquals( [ 'a' ], $po->getModules() );
-		$this->assertEquals( [ 'b' ], $po->getModuleStyles() );
-		$this->assertEquals( [ 'foo.com', 'bar.com' ], $po->getExtraCSPScriptSrcs() );
-		$this->assertEquals( [ 'baz.com' ], $po->getExtraCSPDefaultSrcs() );
-		$this->assertEquals( [ 'fred.com', 'xyzzy.com' ], $po->getExtraCSPStyleSrcs() );
-	}
-
-	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::getCacheTime()
-	 * @covers \MediaWiki\Parser\ParserOutput::setCacheTime()
-	 */
-	public function testCacheTime() {
-		$po = new ParserOutput();
-
-		// Should not have a cache time yet
-		$this->assertFalse( $po->hasCacheTime() );
-		// But calling ::get assigns a cache time
-		$po->getCacheTime();
-		$this->assertTrue( $po->hasCacheTime() );
-		// Reset cache time
-		$po->setCacheTime( "20240207202040" );
-		$this->assertSame( "20240207202040", $po->getCacheTime() );
-	}
-
-	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::getRenderId()
-	 * @covers \MediaWiki\Parser\ParserOutput::setRenderId()
-	 */
-	public function testRenderId() {
-		$po = new ParserOutput();
-
-		// Should be null when unset
-		$this->assertNull( $po->getRenderId() );
-
-		// Sanity check for setter and getter
-		$po->setRenderId( "TestRenderId" );
-		$this->assertEquals( "TestRenderId", $po->getRenderId() );
-	}
-
-	/**
-	 * @covers \MediaWiki\Parser\ParserOutput::getRenderId()
-	 */
-	public function testRenderIdBackCompat() {
-		$po = new ParserOutput();
-
-		// Parser cache used to contain extension data under a different name
-		$po->setExtensionData( 'parsoid-render-id', "1234/LegacyRenderId" );
-		$this->assertEquals( "LegacyRenderId", $po->getRenderId() );
-	}
-
-	public function testSetFromParserOptions() {
-		// parser output set from canonical parser options
-		$pOptions = ParserOptions::newFromAnon();
-		$pOutput = new ParserOutput;
-		$pOutput->setFromParserOptions( $pOptions );
-		$this->assertSame( 'mw-parser-output', $pOutput->getWrapperDivClass() );
-		$this->assertFalse( $pOutput->getOutputFlag( ParserOutputFlags::IS_PREVIEW ) );
-		$this->assertTrue( $pOutput->isCacheable() );
-		$this->assertFalse( $pOutput->getOutputFlag( ParserOutputFlags::NO_SECTION_EDIT_LINKS ) );
-		$this->assertFalse( $pOutput->getOutputFlag( ParserOutputFlags::COLLAPSIBLE_SECTIONS ) );
-
-		// set the various parser options and verify in parser output
-		$pOptions->setWrapOutputClass( 'test-wrapper' );
-		$pOptions->setIsPreview( true );
-		$pOptions->setSuppressSectionEditLinks();
-		$pOptions->setCollapsibleSections();
-		$pOutput = new ParserOutput;
-		$pOutput->setFromParserOptions( $pOptions );
-		$this->assertEquals( 'test-wrapper', $pOutput->getWrapperDivClass() );
-		$this->assertTrue( $pOutput->getOutputFlag( ParserOutputFlags::IS_PREVIEW ) );
-		$this->assertFalse( $pOutput->isCacheable() );
-		$this->assertTrue( $pOutput->getOutputFlag( ParserOutputFlags::NO_SECTION_EDIT_LINKS ) );
-		$this->assertTrue( $pOutput->getOutputFlag( ParserOutputFlags::COLLAPSIBLE_SECTIONS ) );
+		$expected = strtr( $expected, ' ', '_' );
+		$this->assertSame( [ $expected => 'foobar' ], $po->getCategories() );
 	}
 }

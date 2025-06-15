@@ -1,29 +1,31 @@
 <?php
-
-namespace Wikimedia\Tests;
-
-use MediaWikiCoversValidator;
-use PHPUnit\Framework\TestCase;
-use Wikimedia\Mime\XmlTypeCheck;
-
 /**
+ * PHPUnit tests for XmlTypeCheck.
  * @author physikerwelt
  * @group Xml
- * @covers \Wikimedia\Mime\XmlTypeCheck
+ * @covers XmlTypeCheck
  */
-class XmlTypeCheckTest extends TestCase {
+class XmlTypeCheckTest extends PHPUnit\Framework\TestCase {
+
 	use MediaWikiCoversValidator;
 
 	private const WELL_FORMED_XML = "<root><child /></root>";
 	private const MAL_FORMED_XML = "<root><child /></error>";
 	private const XML_WITH_PIH = '<?xml version="1.0"?><?xml-stylesheet type="text/xsl" href="/w/index.php"?><svg><child /></svg>';
 
+	/**
+	 * @covers XmlTypeCheck::newFromString
+	 * @covers XmlTypeCheck::getRootElement
+	 */
 	public function testWellFormedXML() {
 		$testXML = XmlTypeCheck::newFromString( self::WELL_FORMED_XML );
 		$this->assertTrue( $testXML->wellFormed );
 		$this->assertEquals( 'root', $testXML->getRootElement() );
 	}
 
+	/**
+	 * @covers XmlTypeCheck::newFromString
+	 */
 	public function testMalFormedXML() {
 		$testXML = XmlTypeCheck::newFromString( self::MAL_FORMED_XML );
 		$this->assertFalse( $testXML->wellFormed );
@@ -55,6 +57,9 @@ XML;
 		$this->assertFalse( $check->wellFormed );
 	}
 
+	/**
+	 * @covers XmlTypeCheck::processingInstructionHandler
+	 */
 	public function testProcessingInstructionHandler() {
 		$called = false;
 		$testXML = new XmlTypeCheck(
@@ -69,4 +74,5 @@ XML;
 		);
 		$this->assertTrue( $called );
 	}
+
 }

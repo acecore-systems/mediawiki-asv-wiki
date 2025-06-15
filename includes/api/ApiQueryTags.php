@@ -20,10 +20,6 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
-use ChangeTags;
-use MediaWiki\ChangeTags\ChangeTagsStore;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\TypeDef\IntegerDef;
 
@@ -34,11 +30,8 @@ use Wikimedia\ParamValidator\TypeDef\IntegerDef;
  */
 class ApiQueryTags extends ApiQueryBase {
 
-	private ChangeTagsStore $changeTagsStore;
-
-	public function __construct( ApiQuery $query, string $moduleName, ChangeTagsStore $changeTagsStore ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'tg' );
-		$this->changeTagsStore = $changeTagsStore;
 	}
 
 	public function execute() {
@@ -56,15 +49,12 @@ class ApiQueryTags extends ApiQueryBase {
 		$limit = $params['limit'];
 		$result = $this->getResult();
 
-		$softwareDefinedTags = array_fill_keys( $this->changeTagsStore->listSoftwareDefinedTags(), 0 );
-		$explicitlyDefinedTags = array_fill_keys( $this->changeTagsStore->listExplicitlyDefinedTags(), 0 );
-		$softwareActivatedTags = array_fill_keys( $this->changeTagsStore->listSoftwareActivatedTags(), 0 );
+		$softwareDefinedTags = array_fill_keys( ChangeTags::listSoftwareDefinedTags(), 0 );
+		$explicitlyDefinedTags = array_fill_keys( ChangeTags::listExplicitlyDefinedTags(), 0 );
+		$softwareActivatedTags = array_fill_keys( ChangeTags::listSoftwareActivatedTags(), 0 );
+		$tagStats = ChangeTags::tagUsageStatistics();
 
-		$tagHitcounts = array_merge(
-			$softwareDefinedTags,
-			$explicitlyDefinedTags,
-			$this->changeTagsStore->tagUsageStatistics()
-		);
+		$tagHitcounts = array_merge( $softwareDefinedTags, $explicitlyDefinedTags, $tagStats );
 		$tags = array_keys( $tagHitcounts );
 
 		# Fetch defined tags that aren't past the continuation
@@ -111,8 +101,7 @@ class ApiQueryTags extends ApiQueryBase {
 			if ( $fld_source ) {
 				$tag['source'] = [];
 				if ( $isSoftware ) {
-					$tag['source'][] = 'software';
-					// @TODO: remove backwards compatibility entry (T247552)
+					// TODO: Can we change this to 'software'?
 					$tag['source'][] = 'extension';
 				}
 				if ( $isExplicit ) {
@@ -177,6 +166,3 @@ class ApiQueryTags extends ApiQueryBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Tags';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiQueryTags::class, 'ApiQueryTags' );

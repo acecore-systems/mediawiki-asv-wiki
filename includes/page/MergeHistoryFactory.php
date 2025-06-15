@@ -21,6 +21,8 @@
 
 namespace MediaWiki\Page;
 
+use MergeHistory;
+
 /**
  * Service for mergehistory actions.
  *
@@ -39,6 +41,6 @@ interface MergeHistoryFactory {
 	public function newMergeHistory(
 		PageIdentity $source,
 		PageIdentity $destination,
-		?string $timestamp = null
+		string $timestamp = null
 	): MergeHistory;
 }

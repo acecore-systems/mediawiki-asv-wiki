@@ -1,28 +1,29 @@
-const ItemModel = require( './ItemModel.js' );
+var ItemModel = require( './ItemModel.js' ),
+	FilterItem;
 
 /**
- * Filter item model.
+ * Filter item model
  *
  * @class mw.rcfilters.dm.FilterItem
- * @ignore
  * @extends mw.rcfilters.dm.ItemModel
  *
+ * @constructor
  * @param {string} param Filter param name
  * @param {mw.rcfilters.dm.FilterGroup} groupModel Filter group model
  * @param {Object} config Configuration object
- * @param {string[]} [config.excludes=[]] A list of filter names this filter, if
+ * @cfg {string[]} [excludes=[]] A list of filter names this filter, if
  *  selected, makes inactive.
- * @param {string[]} [config.subset] Defining the names of filters that are a subset of this filter
- * @param {Object} [config.conflicts] Defines the conflicts for this filter
- * @param {boolean} [config.visible=true] The visibility of the group
+ * @cfg {string[]} [subset] Defining the names of filters that are a subset of this filter
+ * @cfg {Object} [conflicts] Defines the conflicts for this filter
+ * @cfg {boolean} [visible=true] The visibility of the group
  */
-const FilterItem = function MwRcfiltersDmFilterItem( param, groupModel, config ) {
+FilterItem = function MwRcfiltersDmFilterItem( param, groupModel, config ) {
 	config = config || {};
 
 	this.groupModel = groupModel;
 
 	// Parent
-	FilterItem.super.call( this, param, Object.assign( {
+	FilterItem.parent.call( this, param, $.extend( {
 		namePrefix: this.groupModel.getNamePrefix()
 	}, config ) );
 	// Mixin constructor
@@ -66,7 +67,7 @@ FilterItem.prototype.getState = function () {
  * @return {string} Conflict result message key
  */
 FilterItem.prototype.getCurrentConflictResultMessage = function () {
-	let details;
+	var details;
 
 	// First look in filter's own conflicts
 	details = this.getConflictDetails( this.getOwnConflicts(), 'globalDescription' );
@@ -89,14 +90,14 @@ FilterItem.prototype.getCurrentConflictResultMessage = function () {
  * @return {string[]} return.names Conflicting item labels
  */
 FilterItem.prototype.getConflictDetails = function ( conflicts, key ) {
-	let group,
-		conflictMessage = '';
-	const itemLabels = [];
+	var group,
+		conflictMessage = '',
+		itemLabels = [];
 
 	key = key || 'contextDescription';
 
 	// eslint-disable-next-line no-jquery/no-each-util
-	$.each( conflicts, ( filterName, conflict ) => {
+	$.each( conflicts, function ( filterName, conflict ) {
 		if ( !conflict.item.isSelected() ) {
 			return;
 		}
@@ -122,7 +123,7 @@ FilterItem.prototype.getConflictDetails = function ( conflicts, key ) {
  * @inheritdoc
  */
 FilterItem.prototype.getStateMessage = function () {
-	let messageKey, details, superset,
+	var messageKey, details, superset,
 		affectingItems = [];
 
 	if ( this.isSelected() ) {
@@ -142,13 +143,19 @@ FilterItem.prototype.getStateMessage = function () {
 			superset = this.getSuperset();
 			// For this message we need to collect the affecting superset
 			affectingItems = this.getGroupModel().findSelectedItems( this )
-				.filter( ( item ) => superset.indexOf( item.getName() ) !== -1 )
-				.map( ( item ) => mw.msg( 'quotation-marks', item.getLabel() ) );
+				.filter( function ( item ) {
+					return superset.indexOf( item.getName() ) !== -1;
+				} )
+				.map( function ( item ) {
+					return mw.msg( 'quotation-marks', item.getLabel() );
+				} );
 
 			messageKey = 'rcfilters-state-message-subset';
 		} else if ( this.isFullyCovered() && !this.isHighlighted() ) {
 			affectingItems = this.getGroupModel().findSelectedItems( this )
-				.map( ( item ) => mw.msg( 'quotation-marks', item.getLabel() ) );
+				.map( function ( item ) {
+					return mw.msg( 'quotation-marks', item.getLabel() );
+				} );
 
 			messageKey = 'rcfilters-state-message-fullcoverage';
 		}
@@ -174,7 +181,6 @@ FilterItem.prototype.getStateMessage = function () {
 /**
  * Get the model of the group this filter belongs to
  *
- * @ignore
  * @return {mw.rcfilters.dm.FilterGroup} Filter group model
  */
 FilterItem.prototype.getGroupModel = function () {
@@ -263,7 +269,7 @@ FilterItem.prototype.isFullyCovered = function () {
  * @return {Object} Filter conflicts
  */
 FilterItem.prototype.getConflicts = function () {
-	return Object.assign( {}, this.conflicts, this.getGroupModel().getConflicts() );
+	return $.extend( {}, this.conflicts, this.getGroupModel().getConflicts() );
 };
 
 /**

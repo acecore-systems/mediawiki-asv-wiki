@@ -4,11 +4,8 @@
 /* eslint-disable no-console */
 
 /**
- * Log debug messages and developer warnings to the browser console.
- *
- * See [mw.log()]{@link mw.log(2)} for verbose debug logging.
- *
- * @namespace mw.log
+ * @class mw
+ * @singleton
  */
 
 /**
@@ -21,13 +18,14 @@
 function stackSet() {
 	// Optimisation: Don't create or compute anything for the common case
 	// where deprecations are not triggered.
-	let stacks;
+	var stacks;
 
 	return function isFirst() {
 		if ( !stacks ) {
+			/* global Set */
 			stacks = new Set();
 		}
-		const stack = new Error().stack;
+		var stack = new Error().stack;
 		if ( !stacks.has( stack ) ) {
 			stacks.add( stack );
 			return true;
@@ -41,27 +39,32 @@ function stackSet() {
  * Most browsers also print a stacktrace when calling this method if the
  * argument is an Error object.
  *
+ * This method is a no-op in browsers that don't implement the Console API.
+ *
  * @since 1.26
- * @method
  * @param {...Mixed} msg Messages to output to console
  */
-mw.log.error = Function.prototype.bind.call( console.error, console );
+mw.log.error = console.error ?
+	Function.prototype.bind.call( console.error, console ) :
+	function () {};
 
 /**
  * Create a function that logs a deprecation warning when called.
  *
- * @example
- * var deprecatedNoB = mw.log.makeDeprecated( 'hello_without_b', 'Use of hello without b is deprecated.' );
+ * Usage:
  *
- * function hello( a, b ) {
- *   if ( b === undefined ) {
- *     deprecatedNoB();
- *     b = 0;
- *   }
- *   return a + b;
- * }
+ *     var deprecatedNoB = mw.log.makeDeprecated( 'hello_without_b', 'Use of hello without b is deprecated.' );
  *
- * hello( 1 );
+ *     function hello( a, b ) {
+ *       if ( b === undefined ) {
+ *         deprecatedNoB();
+ *         b = 0;
+ *       }
+ *       return a + b;
+ *     }
+ *
+ *     hello( 1 );
+ *
  *
  * @since 1.38
  * @param {string|null} key Name of the feature for deprecation tracker,
@@ -70,7 +73,9 @@ mw.log.error = Function.prototype.bind.call( console.error, console );
  * @return {Function}
  */
 mw.log.makeDeprecated = function ( key, msg ) {
-	const isFirst = stackSet();
+	// Support IE 11, Safari 5: Use ES6 Set conditionally. Fallback to not logging.
+	var isFirst = window.Set ? stackSet() : function () {};
+
 	return function maybeLog() {
 		if ( isFirst() ) {
 			if ( key ) {
@@ -85,21 +90,32 @@ mw.log.makeDeprecated = function ( key, msg ) {
  * Create a property on a host object that, when accessed, will log
  * a deprecation warning to the console.
  *
- * @example
- * mw.log.deprecate( window, 'myGlobalFn', myGlobalFn );
+ * Usage:
  *
- * @example
- * mw.log.deprecate( Thing, 'old', old, 'Use Other.thing instead', 'Thing.old'  );
+ *    mw.log.deprecate( window, 'myGlobalFn', myGlobalFn );
+ *
+ *    mw.log.deprecate( Thing, 'old', old, 'Use Other.thing instead', 'Thing.old'  );
+ *
  *
  * @param {Object} obj Host object of deprecated property
  * @param {string} key Name of property to create in `obj`
- * @param {any} val The value this property should return when accessed
+ * @param {Mixed} val The value this property should return when accessed
  * @param {string} [msg] Optional extra text to add to the deprecation warning
  * @param {string} [logName] Name of the feature for deprecation tracker.
  *  Tracking is disabled by default, except for global variables on `window`.
  */
 mw.log.deprecate = function ( obj, key, val, msg, logName ) {
-	const maybeLog = mw.log.makeDeprecated(
+	// Support IE 11, ES5: Use ES6 Set conditionally. Fallback to not logging.
+	//
+	// Support Safari 5.0: Object.defineProperty throws  "not supported on DOM Objects" for
+	// Node or Element objects (incl. document)
+	// Safari 4.0 doesn't have this method, and it was fixed in Safari 5.1.
+	if ( !window.Set ) {
+		obj[ key ] = val;
+		return;
+	}
+
+	var maybeLog = mw.log.makeDeprecated(
 		logName || ( obj === window ? key : null ),
 		'Use of "' + ( logName || key ) + '" is deprecated.' + ( msg ? ' ' + msg : '' )
 	);

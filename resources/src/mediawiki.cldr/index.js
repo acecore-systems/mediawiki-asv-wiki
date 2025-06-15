@@ -3,9 +3,8 @@
 
 	/**
 	 * Namespace for CLDR-related utility methods.
-	 * Provided by the `mediawiki.cdlr` ResourceLoader module.
 	 *
-	 * @namespace mw.cldr
+	 * @class
 	 * @singleton
 	 */
 	mw.cldr = {
@@ -20,8 +19,7 @@
 		 * @return {number} plural form index
 		 */
 		getPluralForm: function ( number, pluralRules ) {
-			const pluralRuleParser = require( 'mediawiki.libs.pluralruleparser' );
-			let i;
+			var i, pluralRuleParser = require( 'mediawiki.libs.pluralruleparser' );
 			for ( i = 0; i < pluralRules.length; i++ ) {
 				if ( pluralRuleParser( pluralRules[ i ], number ) ) {
 					break;

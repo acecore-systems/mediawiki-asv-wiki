@@ -1,7 +1,7 @@
 <?php
 /**
  * Copyright © 2006 Yuri Astrakhan "<Firstname><Lastname>@gmail.com"
- * Copyright © 2008 Brooke Vibber <bvibber@wikimedia.org>
+ * Copyright © 2008 Brion Vibber <brion@wikimedia.org>
  * Copyright © 2014 Wikimedia Foundation and contributors
  *
  * This program is free software; you can redistribute it and/or modify
@@ -22,16 +22,13 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
 /**
  * @ingroup API
  */
 class ApiOpenSearchFormatJson extends ApiFormatJson {
-	/** @var bool */
 	private $warningsAsError;
 
-	public function __construct( ApiMain $main, string $fm, $warningsAsError ) {
+	public function __construct( ApiMain $main, $fm, $warningsAsError ) {
 		parent::__construct( $main, "json$fm" );
 		$this->warningsAsError = $warningsAsError;
 	}
@@ -62,6 +59,3 @@ class ApiOpenSearchFormatJson extends ApiFormatJson {
 		parent::execute();
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiOpenSearchFormatJson::class, 'ApiOpenSearchFormatJson' );

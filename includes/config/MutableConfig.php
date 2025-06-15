@@ -20,8 +20,6 @@
  * @file
  */
 
-namespace MediaWiki\Config;
-
 /**
  * Interface for mutable configuration instances
  *
@@ -40,6 +38,3 @@ interface MutableConfig {
 	 */
 	public function set( $name, $value );
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( MutableConfig::class, 'MutableConfig' );

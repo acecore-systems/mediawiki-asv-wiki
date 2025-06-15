@@ -3,7 +3,7 @@
 namespace Wikimedia\Message;
 
 /**
- * Converts MessageSpecifier objects to localized plain text in a certain language.
+ * Converts MessageValue message specifiers to localized plain text in a certain language.
  *
  * The caller cannot modify the details of message translation, such as which
  * of multiple sources the message is taken from. Any such flags may be injected
@@ -23,13 +23,12 @@ interface ITextFormatter {
 	public function getLangCode();
 
 	/**
-	 * Convert a MessageSpecifier to text.
+	 * Convert a MessageValue to text.
 	 *
 	 * The result is not safe for use as raw HTML.
 	 *
-	 * @param MessageSpecifier $message
+	 * @param MessageValue $message
 	 * @return string
-	 * @return-taint tainted
 	 */
-	public function format( MessageSpecifier $message ): string;
+	public function format( MessageValue $message );
 }

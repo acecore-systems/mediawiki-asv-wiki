@@ -4,6 +4,7 @@
 			"Red Winged Duck"
 		]
 	},
+	"apihelp-fancycaptchareload-description": "Атрымаць новую FancyCaptcha.",
 	"apihelp-fancycaptchareload-summary": "Атрымаць новую FancyCaptcha.",
 	"apihelp-fancycaptchareload-example-1": "Атрымаць новую FancyCaptcha"
 }

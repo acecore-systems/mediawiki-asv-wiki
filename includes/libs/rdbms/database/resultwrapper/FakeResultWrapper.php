@@ -50,3 +50,8 @@ class FakeResultWrapper extends ResultWrapper {
 		throw new RuntimeException( __METHOD__ . ' is unimplemented' );
 	}
 }
+
+/**
+ * @deprecated since 1.29
+ */
+class_alias( FakeResultWrapper::class, 'FakeResultWrapper' );

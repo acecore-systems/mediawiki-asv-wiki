@@ -3,18 +3,17 @@
 		"authors": [
 			"A2093064",
 			"Cwlin0416",
-			"Dream Star.cn",
 			"Kly",
 			"LNDDYL",
 			"Liuxinyu970226",
 			"Spring Roll Conan",
-			"Winston Sung",
 			"Xiplus",
 			"Yfdyh000",
-			"捍粵者"
+			"捍粵者",
+			"Winston Sung",
+			"Dream Star.cn"
 		]
 	},
-	"content-model-scribunto": "Scribunto模組",
 	"scribunto-desc": "用來內嵌腳本語言到 MediaWiki 頁面的框架",
 	"scribunto-line": "在第$1行",
 	"scribunto-module-line": "於第$2行的$1中",

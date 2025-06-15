@@ -7,28 +7,31 @@
 ( function () {
 
 	/**
-	 * @classdesc Accepts a stashed file and displays the information for purposes of
+	 * Accepts a stashed file and displays the information for purposes of
 	 * publishing the file at the behest of the user.
 	 *
-	 * Note that this widget will not finish an upload for you. Use {@link mw.Upload}
-	 * and {@link mw.Upload#setFilekey}, then {@link mw.Upload#finishStashUpload} to accomplish
+	 * Example use:
+	 *     var widget = new mw.widgets.StashedFileWidget( {
+	 *       filekey: '12r9e4rugeec.ddtmmp.1.jpg',
+	 *     } );
+	 *
+	 *     widget.getValue(); // '12r9e4rugeec.ddtmmp.1.jpg'
+	 *     widget.setValue( '12r9epfbnskk.knfiy7.1.jpg' );
+	 *     widget.getValue(); // '12r9epfbnskk.knfiy7.1.jpg'
+	 *
+	 * Note that this widget will not finish an upload for you. Use mw.Upload
+	 * and mw.Upload#setFilekey, then mw.Upload#finishStashUpload to accomplish
 	 * that.
-	 *
-	 * @example
-	 * const widget = new mw.widgets.StashedFileWidget( {
-	 *   filekey: '12r9e4rugeec.ddtmmp.1.jpg',
-	 * } );
-	 *
-	 * widget.getValue(); // '12r9e4rugeec.ddtmmp.1.jpg'
-	 * widget.setValue( '12r9epfbnskk.knfiy7.1.jpg' );
-	 * widget.getValue(); // '12r9epfbnskk.knfiy7.1.jpg'
 	 *
 	 * @class mw.widgets.StashedFileWidget
 	 * @extends OO.ui.Widget
+	 */
+
+	/**
 	 * @constructor
 	 * @param {Object} config Configuration options
-	 * @param {string} [config.filekey] The filekey of the stashed file.
-	 * @param {Object} [config.api] API to use for thumbnails.
+	 * @cfg {string} filekey The filekey of the stashed file.
+	 * @cfg {Object} [api] API to use for thumbnails.
 	 */
 	mw.widgets.StashedFileWidget = function MWWStashedFileWidget( config ) {
 		if ( !config.api ) {
@@ -36,7 +39,7 @@
 		}
 
 		// Parent constructor
-		mw.widgets.StashedFileWidget.super.call( this, config );
+		mw.widgets.StashedFileWidget.parent.call( this, config );
 
 		// Mixin constructors
 		OO.ui.mixin.IconElement.call( this, config );
@@ -94,7 +97,7 @@
 	};
 
 	mw.widgets.StashedFileWidget.prototype.updateUI = function () {
-		let $label, $filetype;
+		var $label, $filetype;
 
 		if ( this.filekey ) {
 			this.$element.removeClass( 'mw-widgets-stashedFileWidget-empty' );
@@ -111,22 +114,22 @@
 			this.setLabel( $label );
 
 			this.pushPending();
-			this.loadAndGetImageUrl().done( ( url, mime ) => {
+			this.loadAndGetImageUrl().done( function ( url, mime ) {
 				this.$thumbnail.css( 'background-image', 'url( ' + url + ' )' );
 				if ( mime ) {
 					$filetype.text( mime );
 					this.setLabel( $label );
 				}
-			} ).fail( () => {
+			}.bind( this ) ).fail( function () {
 				this.$thumbnail.append(
 					new OO.ui.IconWidget( {
 						icon: 'attachment',
 						classes: [ 'mw-widgets-stashedFileWidget-noThumbnail-icon' ]
 					} ).$element
 				);
-			} ).always( () => {
+			}.bind( this ) ).always( function () {
 				this.popPending();
-			} );
+			}.bind( this ) );
 		} else {
 			this.$element.addClass( 'mw-widgets-stashedFileWidget-empty' );
 			this.setLabel( '' );
@@ -134,7 +137,7 @@
 	};
 
 	mw.widgets.StashedFileWidget.prototype.loadAndGetImageUrl = function () {
-		const filekey = this.filekey;
+		var filekey = this.filekey;
 
 		if ( filekey ) {
 			return this.api.get( {
@@ -143,8 +146,8 @@
 				siifilekey: filekey,
 				siiprop: [ 'size', 'url', 'mime' ],
 				siiurlwidth: 220
-			} ).then( ( data ) => {
-				const sii = data.query.stashimageinfo[ 0 ];
+			} ).then( function ( data ) {
+				var sii = data.query.stashimageinfo[ 0 ];
 
 				return $.Deferred().resolve( sii.thumburl, sii.mime );
 			} );

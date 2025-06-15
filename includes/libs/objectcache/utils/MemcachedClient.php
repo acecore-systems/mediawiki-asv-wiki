@@ -72,6 +72,7 @@ use Wikimedia\AtEase\AtEase;
 use Wikimedia\IPUtils;
 use Wikimedia\LightweightObjectStore\StorageAwareness;
 
+// {{{ class MemcachedClient
 /**
  * memcached client class implemented using (p)fsockopen()
  *
@@ -275,7 +276,7 @@ class MemcachedClient implements StorageAwareness {
 		$this->_host_dead = array();
 
 		$this->_timeout_seconds = 0;
-		$this->_timeout_microseconds = $args['timeout'] ?? 500_000;
+		$this->_timeout_microseconds = $args['timeout'] ?? 500000;
 
 		$this->_connect_timeout = $args['connect_timeout'] ?? 0.1;
 		$this->_connect_attempts = 2;
@@ -1144,7 +1145,7 @@ class MemcachedClient implements StorageAwareness {
 			$val = $this->serialize( $val );
 			$flags |= self::SERIALIZED;
 			if ( $this->_debug ) {
-				$this->_debugprint( "client: serializing data as it is not scalar" );
+				$this->_debugprint( sprintf( "client: serializing data as it is not scalar" ) );
 			}
 		}
 
@@ -1388,3 +1389,5 @@ class MemcachedClient implements StorageAwareness {
 	// }}}
 	// }}}
 }
+
+// }}}

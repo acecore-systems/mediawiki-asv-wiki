@@ -21,9 +21,7 @@
  * @ingroup MaintenanceLanguage
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/../Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script that check digit transformation.
@@ -49,9 +47,8 @@ class Digit2Html extends Maintenance {
 	}
 
 	public function execute() {
-		$languageNameUtils = $this->getServiceContainer()->getLanguageNameUtils();
 		foreach ( $this->mLangs as $code ) {
-			$filename = $languageNameUtils->getMessagesFileName( $code );
+			$filename = Language::getMessagesFileName( $code );
 			$this->output( "Loading language [$code] ..." );
 			unset( $digitTransformTable );
 			require_once $filename;
@@ -70,7 +67,5 @@ class Digit2Html extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = Digit2Html::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

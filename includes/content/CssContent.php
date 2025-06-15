@@ -25,10 +25,6 @@
  * @author Daniel Kinzler
  */
 
-namespace MediaWiki\Content;
-
-use MediaWiki\Title\Title;
-
 /**
  * Content object for CSS pages.
  *
@@ -38,7 +34,7 @@ use MediaWiki\Title\Title;
 class CssContent extends TextContent {
 
 	/**
-	 * @var Title|null|false
+	 * @var bool|Title|null
 	 */
 	private $redirectTarget = false;
 
@@ -91,5 +87,3 @@ class CssContent extends TextContent {
 	}
 
 }
-/** @deprecated class alias since 1.43 */
-class_alias( CssContent::class, 'CssContent' );

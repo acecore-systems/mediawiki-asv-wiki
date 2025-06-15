@@ -21,8 +21,6 @@
 	"pfunc_expr_unrecognised_punctuation": "Дешнийн гӀалат: йевзина йоцу пунктуацин хьаьрк «$1»",
 	"pfunc_expr_unclosed_bracket": "Дешан гӀалаташ: дӀакъевлина йоцу къовларг",
 	"pfunc_expr_division_by_zero": "Нолан декъадалар",
-	"pfunc_expr_invalid_argument": "Нийса йоцу аргумент $1: -1 кӀезиг йа 1 сов",
-	"pfunc_expr_invalid_argument_ln": "Нийса йоцу аргумент ln: маьӀна 0-л кӀезиг йа цхьатерра ду",
 	"pfunc_expr_unknown_error": "Дешнийн гӀалат: ца хаа гӀалат ($1)",
 	"pfunc_expr_not_a_number": "$1 чохь: жамӀ терахь дац",
 	"pfunc_string_too_long": "ГӀалат: МогӀа совбаьлла $1 хьаьркийн дозанал"

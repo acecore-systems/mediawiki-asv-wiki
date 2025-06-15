@@ -1,26 +1,27 @@
+/**
+ * @class mw.Api.plugin.options
+ */
 ( function () {
 
-	const saveOptionsRequests = {};
+	var saveOptionsRequests = {};
 
-	Object.assign( mw.Api.prototype, /** @lends mw.Api.prototype */ {
+	$.extend( mw.Api.prototype, {
 
 		/**
-		 * Asynchronously save the value of a single user option using the API.
-		 * See [saveOptions()]{@link mw.Api#saveOptions}.
+		 * Asynchronously save the value of a single user option using the API. See #saveOptions.
 		 *
 		 * @param {string} name
 		 * @param {string|null} value
-		 * @param {Object} [params] additional parameters for API.
 		 * @return {jQuery.Promise}
 		 */
-		saveOption: function ( name, value, params ) {
-			const options = {};
-			options[ name ] = value;
-			return this.saveOptions( options, params );
+		saveOption: function ( name, value ) {
+			var param = {};
+			param[ name ] = value;
+			return this.saveOptions( param );
 		},
 
 		/**
-		 * Asynchronously save the values of user options using the [Options API](https://www.mediawiki.org/wiki/API:Options).
+		 * Asynchronously save the values of user options using the API.
 		 *
 		 * If a value of `null` is provided, the given option will be reset to the default value.
 		 *
@@ -30,42 +31,42 @@
 		 * If necessary, the options will be saved using several sequential API requests. Only one promise
 		 * is always returned that will be resolved when all requests complete.
 		 *
-		 * If a request from a previous `saveOptions()` call is still pending, this will wait for it to be
+		 * If a request from a previous #saveOptions call is still pending, this will wait for it to be
 		 * completed, otherwise MediaWiki gets sad. No requests are sent for anonymous users, as they
 		 * would fail anyway. See T214963.
 		 *
 		 * @param {Object} options Options as a `{ name: value, … }` object
-		 * @param {Object} [params] additional parameters for API.
 		 * @return {jQuery.Promise}
 		 */
-		saveOptions: function ( options, params ) {
-			const grouped = [];
+		saveOptions: function ( options ) {
+			var name, value, bundleable,
+				grouped = [],
+				promise;
 
 			// Logged-out users can't have user options; we can't depend on mw.user, that'd be circular
-			if ( mw.config.get( 'wgUserName' ) === null || mw.config.get( 'wgUserIsTemp' ) ) {
+			if ( mw.config.get( 'wgUserName' ) === null ) {
 				return $.Deferred().reject( 'notloggedin' ).promise();
 			}
 
-			let promise;
 			// If another options request to this API is pending, wait for it first
 			if (
 				saveOptionsRequests[ this.defaults.ajax.url ] &&
 				// Avoid long chains of promises, they may cause memory leaks
 				saveOptionsRequests[ this.defaults.ajax.url ].state() === 'pending'
 			) {
-				promise = saveOptionsRequests[ this.defaults.ajax.url ].then(
+				promise = saveOptionsRequests[ this.defaults.ajax.url ].then( function () {
 					// Don't expose the old promise's result, it would be confusing
-					() => $.Deferred().resolve(),
-					() => $.Deferred().resolve()
-				);
+					return $.Deferred().resolve();
+				}, function () {
+					return $.Deferred().resolve();
+				} );
 			} else {
 				promise = $.Deferred().resolve();
 			}
 
-			for ( const name in options ) {
-				const value = options[ name ] === null ? null : String( options[ name ] );
+			for ( name in options ) {
+				value = options[ name ] === null ? null : String( options[ name ] );
 
-				let bundleable;
 				// Can we bundle this option, or does it need a separate request?
 				if ( this.defaults.useUS ) {
 					bundleable = name.indexOf( '=' ) === -1;
@@ -85,32 +86,34 @@
 				} else {
 					if ( value !== null ) {
 						promise = promise.then( function ( n, v ) {
-							return this.postWithToken( 'csrf', Object.assign( {
+							return this.postWithToken( 'csrf', {
 								formatversion: 2,
 								action: 'options',
 								optionname: n,
 								optionvalue: v
-							}, params ) );
+							} );
 						}.bind( this, name, value ) );
 					} else {
 						// Omitting value resets the option
 						promise = promise.then( function ( n ) {
-							return this.postWithToken( 'csrf', Object.assign( {
+							return this.postWithToken( 'csrf', {
 								formatversion: 2,
 								action: 'options',
 								optionname: n
-							}, params ) );
+							} );
 						}.bind( this, name ) );
 					}
 				}
 			}
 
 			if ( grouped.length ) {
-				promise = promise.then( () => this.postWithToken( 'csrf', Object.assign( {
-					formatversion: 2,
-					action: 'options',
-					change: grouped
-				}, params ) ) );
+				promise = promise.then( function () {
+					return this.postWithToken( 'csrf', {
+						formatversion: 2,
+						action: 'options',
+						change: grouped
+					} );
+				}.bind( this ) );
 			}
 
 			saveOptionsRequests[ this.defaults.ajax.url ] = promise;
@@ -119,5 +122,10 @@
 		}
 
 	} );
+
+	/**
+	 * @class mw.Api
+	 * @mixins mw.Api.plugin.options
+	 */
 
 }() );

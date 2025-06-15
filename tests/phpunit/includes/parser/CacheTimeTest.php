@@ -2,15 +2,16 @@
 
 namespace MediaWiki\Tests\Parser;
 
+use CacheTime;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Parser\CacheTime;
-use MediaWiki\Parser\ParserOptions;
-use MediaWiki\Utils\MWTimestamp;
 use MediaWikiIntegrationTestCase;
+use MWTimestamp;
+use ParserOptions;
 use Wikimedia\Tests\SerializationTestTrait;
 
 /**
- * @covers \MediaWiki\Parser\CacheTime
+ * @covers CacheTime
+ * @package MediaWiki\Tests\Parser
  */
 class CacheTimeTest extends MediaWikiIntegrationTestCase {
 	use SerializationTestTrait;
@@ -29,7 +30,7 @@ class CacheTimeTest extends MediaWikiIntegrationTestCase {
 	 * Overrides SerializationTestTrait::getClassToTest
 	 * @return string
 	 */
-	public static function getClassToTest(): string {
+	protected function getClassToTest(): string {
 		return CacheTime::class;
 	}
 
@@ -37,7 +38,7 @@ class CacheTimeTest extends MediaWikiIntegrationTestCase {
 	 * Overrides SerializationTestTrait::getSerializedDataPath
 	 * @return string
 	 */
-	public static function getSerializedDataPath(): string {
+	protected function getSerializedDataPath(): string {
 		return __DIR__ . '/../../data/ParserCache';
 	}
 
@@ -45,7 +46,7 @@ class CacheTimeTest extends MediaWikiIntegrationTestCase {
 	 * Overrides SerializationTestTrait::getTestInstancesAndAssertions
 	 * @return array
 	 */
-	public static function getTestInstancesAndAssertions(): array {
+	protected function getTestInstancesAndAssertions(): array {
 		return ParserCacheSerializationTestCases::getCacheTimeTestCases();
 	}
 
@@ -53,9 +54,9 @@ class CacheTimeTest extends MediaWikiIntegrationTestCase {
 	 * Overrides SerializationTestTrait::getSupportedSerializationFormats
 	 * @return array
 	 */
-	public static function getSupportedSerializationFormats(): array {
+	protected function getSupportedSerializationFormats(): array {
 		return ParserCacheSerializationTestCases::getSupportedSerializationFormats(
-			self::getClassToTest()
+			$this->getClassToTest()
 		);
 	}
 

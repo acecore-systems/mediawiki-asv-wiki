@@ -11,12 +11,11 @@ use MediaWiki\Rest\Response;
 use MediaWiki\Rest\ResponseFactory;
 use MediaWiki\Rest\ResponseInterface;
 use MediaWiki\User\UserIdentityValue;
-use MediaWikiUnitTestCase;
 
 /**
  * @covers \MediaWiki\Rest\CorsUtils
  */
-class CorsUtilsTest extends MediaWikiUnitTestCase {
+class CorsUtilsTest extends \MediaWikiUnitTestCase {
 
 	private function createServiceOptions( array $options = [] ) {
 		$defaults = [
@@ -57,7 +56,7 @@ class CorsUtilsTest extends MediaWikiUnitTestCase {
 
 		$handler = $this->createMock( Handler::class );
 		$handler->method( 'needsWriteAccess' )
-			->willReturn( $needsWriteAccess );
+			->willReturn( false );
 
 		$result = $cors->authorize(
 			$request,
@@ -67,7 +66,7 @@ class CorsUtilsTest extends MediaWikiUnitTestCase {
 		$this->assertNull( $result );
 	}
 
-	public static function provideAuthorizeAllowOrigin() {
+	public function provideAuthorizeAllowOrigin() {
 		$origin = 'https://example.com';
 
 		return [
@@ -171,7 +170,7 @@ class CorsUtilsTest extends MediaWikiUnitTestCase {
 	/**
 	 * @dataProvider provideModifyResponseAllowTrustedOriginCookieAuth
 	 * @param string $requestMethod
-	 * @param bool $isRegistered
+	 * @param string $isRegistered
 	 */
 	public function testModifyResponseAllowTrustedOriginCookieAuth( string $requestMethod, bool $isRegistered ) {
 		$cors = new CorsUtils(
@@ -208,7 +207,7 @@ class CorsUtilsTest extends MediaWikiUnitTestCase {
 		$this->assertSame( [ 'https://example.com' ], $result->getHeader( 'Access-Control-Allow-Origin' ) );
 	}
 
-	public static function provideModifyResponseAllowTrustedOriginCookieAuth() {
+	public function provideModifyResponseAllowTrustedOriginCookieAuth() {
 		return [
 			'OPTIONS request' => [
 				'OPTIONS',
@@ -262,7 +261,7 @@ class CorsUtilsTest extends MediaWikiUnitTestCase {
 		$this->assertSame( [ '*' ], $result->getHeader( 'Access-Control-Allow-Origin' ) );
 	}
 
-	public static function provideModifyResponseDisallowUntrustedOriginCookieAuth() {
+	public function provideModifyResponseDisallowUntrustedOriginCookieAuth() {
 		return [
 			'Missing Origin' => [
 				'',
@@ -321,6 +320,6 @@ class CorsUtilsTest extends MediaWikiUnitTestCase {
 		$header = $response->getHeader( 'Access-Control-Allow-Headers' );
 		$this->assertContains( 'Authorization', $header );
 		$this->assertContains( 'Content-Type', $header );
-		$this->assertSameSize( $header, array_unique( $header ) );
+		$this->assertSame( count( $header ), count( array_unique( $header ) ) );
 	}
 }

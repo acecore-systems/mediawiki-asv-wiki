@@ -1,17 +1,7 @@
 <?php
 
-namespace MediaWiki\Tests\Session;
+namespace MediaWiki\Session;
 
-use BadMethodCallException;
-use InvalidArgumentException;
-use MediaWiki\Config\HashConfig;
-use MediaWiki\MainConfigNames;
-use MediaWiki\Request\FauxRequest;
-use MediaWiki\Session\MetadataMergeException;
-use MediaWiki\Session\SessionInfo;
-use MediaWiki\Session\SessionManager;
-use MediaWiki\Session\SessionProvider;
-use MediaWiki\User\User;
 use MediaWiki\User\UserNameUtils;
 use MediaWikiIntegrationTestCase;
 use TestLogger;
@@ -20,7 +10,7 @@ use Wikimedia\TestingAccessWrapper;
 /**
  * @group Session
  * @group Database
- * @covers \MediaWiki\Session\SessionProvider
+ * @covers MediaWiki\Session\SessionProvider
  */
 class SessionProviderTest extends MediaWikiIntegrationTestCase {
 	use SessionProviderTestTrait;
@@ -33,7 +23,7 @@ class SessionProviderTest extends MediaWikiIntegrationTestCase {
 
 		$manager = new SessionManager();
 		$logger = new TestLogger();
-		$config = new HashConfig();
+		$config = new \HashConfig();
 		$hookContainer = $this->createHookContainer();
 		$userNameUtils = $this->createNoOpMock( UserNameUtils::class );
 
@@ -57,11 +47,11 @@ class SessionProviderTest extends MediaWikiIntegrationTestCase {
 		$provider->setHookContainer( $hookContainer );
 		$this->assertSame( $hookContainer, $priv->getHookContainer() );
 
-		$provider->invalidateSessionsForUser( new User );
+		$provider->invalidateSessionsForUser( new \User );
 
 		$this->assertSame( [], $provider->getVaryHeaders() );
 		$this->assertSame( [], $provider->getVaryCookies() );
-		$this->assertSame( null, $provider->suggestLoginUsername( new FauxRequest ) );
+		$this->assertSame( null, $provider->suggestLoginUsername( new \FauxRequest ) );
 
 		$this->assertSame( get_class( $provider ), (string)$provider );
 
@@ -75,7 +65,7 @@ class SessionProviderTest extends MediaWikiIntegrationTestCase {
 			'provider' => $provider,
 		] );
 		$metadata = [ 'foo' ];
-		$this->assertTrue( $provider->refreshSessionInfo( $info, new FauxRequest, $metadata ) );
+		$this->assertTrue( $provider->refreshSessionInfo( $info, new \FauxRequest, $metadata ) );
 		$this->assertSame( [ 'foo' ], $metadata );
 	}
 
@@ -162,7 +152,7 @@ class SessionProviderTest extends MediaWikiIntegrationTestCase {
 		try {
 			$provider->preventSessionsForUser( 'Foo' );
 			$this->fail( 'Expected exception not thrown' );
-		} catch ( BadMethodCallException $ex ) {
+		} catch ( \BadMethodCallException $ex ) {
 			$this->assertSame(
 				'MediaWiki\\Session\\SessionProvider::preventSessionsForUser must be implemented ' .
 					'when canChangeUser() is false',
@@ -172,8 +162,8 @@ class SessionProviderTest extends MediaWikiIntegrationTestCase {
 	}
 
 	public function testHashToSessionId() {
-		$config = new HashConfig( [
-			MainConfigNames::SecretKey => 'Shhh!',
+		$config = new \HashConfig( [
+			'SecretKey' => 'Shhh!',
 		] );
 
 		$provider = $this->getMockForAbstractClass( SessionProvider::class,
@@ -188,7 +178,7 @@ class SessionProviderTest extends MediaWikiIntegrationTestCase {
 		try {
 			$priv->hashToSessionId( [] );
 			$this->fail( 'Expected exception not thrown' );
-		} catch ( InvalidArgumentException $ex ) {
+		} catch ( \InvalidArgumentException $ex ) {
 			$this->assertSame(
 				'$data must be a string, array was passed',
 				$ex->getMessage()
@@ -197,9 +187,9 @@ class SessionProviderTest extends MediaWikiIntegrationTestCase {
 		try {
 			$priv->hashToSessionId( '', false );
 			$this->fail( 'Expected exception not thrown' );
-		} catch ( InvalidArgumentException $ex ) {
+		} catch ( \InvalidArgumentException $ex ) {
 			$this->assertSame(
-				'$key must be a string or null, bool was passed',
+				'$key must be a string or null, boolean was passed',
 				$ex->getMessage()
 			);
 		}
@@ -223,7 +213,7 @@ class SessionProviderTest extends MediaWikiIntegrationTestCase {
 		try {
 			$provider->getAllowedUserRights( $backend );
 			$this->fail( 'Expected exception not thrown' );
-		} catch ( InvalidArgumentException $ex ) {
+		} catch ( \InvalidArgumentException $ex ) {
 			$this->assertSame(
 				'Backend\'s provider isn\'t $this',
 				$ex->getMessage()

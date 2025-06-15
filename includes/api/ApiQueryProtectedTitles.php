@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright © 2009 Roan Kattouw <roan.kattouw@gmail.com>
+ * Copyright © 2009 Roan Kattouw "<Firstname>.<Lastname>@gmail.com"
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,12 +20,8 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
 use MediaWiki\CommentFormatter\RowCommentFormatter;
-use MediaWiki\CommentStore\CommentStore;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Title\Title;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\TypeDef\IntegerDef;
 
@@ -36,12 +32,21 @@ use Wikimedia\ParamValidator\TypeDef\IntegerDef;
  */
 class ApiQueryProtectedTitles extends ApiQueryGeneratorBase {
 
-	private CommentStore $commentStore;
-	private RowCommentFormatter $commentFormatter;
+	/** @var CommentStore */
+	private $commentStore;
 
+	/** @var RowCommentFormatter */
+	private $commentFormatter;
+
+	/**
+	 * @param ApiQuery $query
+	 * @param string $moduleName
+	 * @param CommentStore $commentStore
+	 * @param RowCommentFormatter $commentFormatter
+	 */
 	public function __construct(
 		ApiQuery $query,
-		string $moduleName,
+		$moduleName,
 		CommentStore $commentStore,
 		RowCommentFormatter $commentFormatter
 	) {
@@ -89,14 +94,20 @@ class ApiQueryProtectedTitles extends ApiQueryGeneratorBase {
 		$this->addWhereRange( 'pt_title', $params['dir'], null, null );
 
 		if ( $params['continue'] !== null ) {
-			$cont = $this->parseContinueParamOrDie( $params['continue'], [ 'timestamp', 'int', 'string' ] );
-			$op = ( $params['dir'] === 'newer' ? '>=' : '<=' );
+			$cont = explode( '|', $params['continue'] );
+			$this->dieContinueUsageIf( count( $cont ) != 3 );
+			$op = ( $params['dir'] === 'newer' ? '>' : '<' );
 			$db = $this->getDB();
-			$this->addWhere( $db->buildComparison( $op, [
-				'pt_timestamp' => $db->timestamp( $cont[0] ),
-				'pt_namespace' => $cont[1],
-				'pt_title' => $cont[2],
-			] ) );
+			$continueTimestamp = $db->addQuotes( $db->timestamp( $cont[0] ) );
+			$continueNs = (int)$cont[1];
+			$this->dieContinueUsageIf( $continueNs != $cont[1] );
+			$continueTitle = $db->addQuotes( $cont[2] );
+			$this->addWhere( "pt_timestamp $op $continueTimestamp OR " .
+				"(pt_timestamp = $continueTimestamp AND " .
+				"(pt_namespace $op $continueNs OR " .
+				"(pt_namespace = $continueNs AND " .
+				"pt_title $op= $continueTitle)))"
+			);
 		}
 
 		if ( isset( $prop['user'] ) ) {
@@ -194,7 +205,7 @@ class ApiQueryProtectedTitles extends ApiQueryGeneratorBase {
 
 	public function getCacheMode( $params ) {
 		if ( $params['prop'] !== null && in_array( 'parsedcomment', $params['prop'] ) ) {
-			// MediaWiki\CommentFormatter\CommentFormatter::formatItems() calls wfMessage() among other things
+			// formatComment() calls wfMessage() among other things
 			return 'anon-public-user-private';
 		} else {
 			return 'public';
@@ -270,6 +281,3 @@ class ApiQueryProtectedTitles extends ApiQueryGeneratorBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Protectedtitles';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiQueryProtectedTitles::class, 'ApiQueryProtectedTitles' );

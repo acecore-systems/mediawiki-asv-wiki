@@ -44,7 +44,7 @@ class HSTSPreloadLookupTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expected, $lookup->isPreloaded( $host ) );
 	}
 
-	public static function provideIsPreloaded() {
+	public function provideIsPreloaded() {
 		return [
 			[ 'example.foobar', true ],
 			[ 'secure-example.org', true ],

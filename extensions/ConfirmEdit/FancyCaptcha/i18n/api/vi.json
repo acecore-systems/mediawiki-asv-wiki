@@ -4,5 +4,6 @@
 			"Minh Nguyen"
 		]
 	},
+	"apihelp-fancycaptchareload-description": "Lấy FancyCaptcha mới.",
 	"apihelp-fancycaptchareload-example-1": "Lấy FancyCaptcha mới."
 }

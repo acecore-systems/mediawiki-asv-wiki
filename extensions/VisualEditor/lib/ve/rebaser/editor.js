@@ -1,7 +1,7 @@
 /*!
  * VisualEditor rebaser demo
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 ( function () {
@@ -14,22 +14,22 @@
 
 	OO.inheritClass( RebaserTarget, ve.init.sa.Target );
 
-	const linkIndex = RebaserTarget.static.toolbarGroups.findIndex( ( group ) => group.name === 'link' );
 	RebaserTarget.static.toolbarGroups = ve.copy( RebaserTarget.static.toolbarGroups );
-	RebaserTarget.static.toolbarGroups.splice( linkIndex + 1, 0, {
+	RebaserTarget.static.toolbarGroups.splice( 4, 0, {
 		name: 'commentAnnotation',
 		include: [ 'commentAnnotation' ]
 	} );
-	RebaserTarget.static.toolbarGroups.push(
+
+	RebaserTarget.static.actionGroups = ve.copy( RebaserTarget.static.actionGroups );
+	RebaserTarget.static.actionGroups.push(
 		{
 			name: 'authorList',
-			align: 'after',
 			include: [ 'authorList' ]
 		}
 	);
 
 	new ve.init.sa.Platform( ve.messagePaths ).initialize().done( function () {
-		const progressDeferred = ve.createDeferred(),
+		var progressDeferred = ve.createDeferred(),
 			panel = new OO.ui.PanelLayout( {
 				// eslint-disable-next-line no-jquery/no-global-selector
 				$element: $( '.ve-demo-editor' ),
@@ -41,11 +41,11 @@
 		panel.$element.append( target.$element );
 
 		// Add a dummy surface while the doc is loading
-		const dummySurface = target.addSurface( ve.dm.converter.getModelFromDom( ve.createDocumentFromHtml( '' ) ) );
+		var dummySurface = target.addSurface( ve.dm.converter.getModelFromDom( ve.createDocumentFromHtml( '' ) ) );
 		dummySurface.setReadOnly( true );
 
 		// TODO: Create the correct model surface type (ve.ui.Surface#createModel)
-		const surfaceModel = new ve.dm.Surface( ve.dm.converter.getModelFromDom( ve.createDocumentFromHtml( '' ) ) );
+		var surfaceModel = new ve.dm.Surface( ve.dm.converter.getModelFromDom( ve.createDocumentFromHtml( '' ) ) );
 		surfaceModel.createSynchronizer(
 			ve.docName,
 			{ server: this.rebaserUrl }
@@ -53,7 +53,7 @@
 
 		dummySurface.createProgress( progressDeferred.promise(), ve.msg( 'visualeditor-rebase-client-connecting' ), true );
 
-		surfaceModel.synchronizer.once( 'initDoc', ( error ) => {
+		surfaceModel.synchronizer.once( 'initDoc', function ( error ) {
 			progressDeferred.resolve();
 			target.clearSurfaces();
 			if ( error ) {
@@ -62,7 +62,7 @@
 						ve.htmlMsg( 'visualeditor-rebase-corrupted-document-error', $( '<pre>' ).text( error.stack ) )
 					),
 					{ title: ve.msg( 'visualeditor-rebase-corrupted-document-title' ), size: 'large' }
-				).then( () => {
+				).then( function () {
 					// TODO: Go back to landing page?
 				} );
 				return;

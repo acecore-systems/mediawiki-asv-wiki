@@ -3,11 +3,7 @@
 namespace Wikimedia\WRStats;
 
 /**
- * One item in a LimitBatch.
- *
- * To perform a single operation, it is generally recommended to use
- * the simpler interface of WRStatsRateLimiter::peek(), ::incr(), and
- * ::tryIncr() instead of constructing LimitOperation objects.
+ * Class representing one item in a limit batch
  *
  * @newable
  * @since 1.39
@@ -27,7 +23,7 @@ class LimitOperation {
 	 */
 	public function __construct(
 		string $condName,
-		?EntityKey $entityKey = null,
+		EntityKey $entityKey = null,
 		$amount = 1
 	) {
 		$this->condName = $condName;

@@ -1,5 +1,7 @@
 <?php
 /**
+ * Redirect from Special:Edit/$1 to index.php?title=$1&action=edit.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,16 +18,6 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- */
-
-namespace MediaWiki\Specials;
-
-use MediaWiki\SpecialPage\SpecialRedirectWithAction;
-use SearchEngineFactory;
-
-/**
- * Redirect from Special:Edit/$1 to index.php?title=$1&action=edit.
- *
  * @ingroup SpecialPage
  * @author DannyS712
  */
@@ -44,6 +36,3 @@ class SpecialEditPage extends SpecialRedirectWithAction {
 	// specialeditpage-page
 	// specialeditpage-submit
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialEditPage::class, 'SpecialEditPage' );

@@ -1,14 +1,9 @@
 <?php
 
-namespace Wikimedia\Tests;
-
-use MediaWikiUnitTestCase;
-use MWCryptHash;
-
 /**
  * @group Hash
  *
- * @covers \MWCryptHash
+ * @covers MWCryptHash
  */
 class MWCryptHashTest extends MediaWikiUnitTestCase {
 

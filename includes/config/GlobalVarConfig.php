@@ -20,8 +20,6 @@
  * @file
  */
 
-namespace MediaWiki\Config;
-
 /**
  * Accesses configuration settings from $GLOBALS
  *
@@ -38,10 +36,10 @@ class GlobalVarConfig implements Config {
 
 	/**
 	 * Default builder function
-	 * @return self
+	 * @return GlobalVarConfig
 	 */
 	public static function newInstance() {
-		return new self();
+		return new GlobalVarConfig();
 	}
 
 	/**
@@ -60,14 +58,36 @@ class GlobalVarConfig implements Config {
 		if ( !$this->has( $name ) ) {
 			throw new ConfigException( __METHOD__ . ": undefined option: '$name'" );
 		}
-		return $GLOBALS[$this->prefix . $name];
+		return $this->getWithPrefix( $this->prefix, $name );
 	}
 
 	/**
 	 * @inheritDoc
 	 */
 	public function has( $name ) {
-		$var = $this->prefix . $name;
+		return $this->hasWithPrefix( $this->prefix, $name );
+	}
+
+	/**
+	 * Get a variable with a given prefix, if not the defaults.
+	 *
+	 * @param string $prefix Prefix to use on the variable, if one.
+	 * @param string $name Variable name without prefix
+	 * @return mixed
+	 */
+	protected function getWithPrefix( $prefix, $name ) {
+		return $GLOBALS[$prefix . $name];
+	}
+
+	/**
+	 * Check if a variable with a given prefix is set
+	 *
+	 * @param string $prefix Prefix to use on the variable
+	 * @param string $name Variable name without prefix
+	 * @return bool
+	 */
+	protected function hasWithPrefix( $prefix, $name ) {
+		$var = $prefix . $name;
 		// (T317951) Don't call array_key_exists unless we have to, as it's slow
 		// on PHP 8.1+ for $GLOBALS. When the key is set but is explicitly set
 		// to null, we still need to fall back to array_key_exists, but that's
@@ -75,6 +95,3 @@ class GlobalVarConfig implements Config {
 		return isset( $GLOBALS[$var] ) || array_key_exists( $var, $GLOBALS );
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( GlobalVarConfig::class, 'GlobalVarConfig' );

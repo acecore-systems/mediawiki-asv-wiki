@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:EmailInvalidation
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,26 +18,22 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
-use MediaWiki\SpecialPage\UnlistedSpecialPage;
 use MediaWiki\User\UserFactory;
-use Profiler;
-use Wikimedia\Rdbms\IDBAccessObject;
 use Wikimedia\ScopedCallback;
 
 /**
- * Cancel an email confirmation using the e-mail confirmation code.
+ * Special page allows users to cancel an email confirmation using the e-mail
+ * confirmation code
  *
- * @see SpecialConfirmEmail
  * @ingroup SpecialPage
- * @ingroup Auth
  */
 class SpecialEmailInvalidate extends UnlistedSpecialPage {
 
-	private UserFactory $userFactory;
+	/** @var UserFactory */
+	private $userFactory;
 
 	/**
 	 * @param UserFactory $userFactory
@@ -59,7 +57,7 @@ class SpecialEmailInvalidate extends UnlistedSpecialPage {
 		$this->checkReadOnly();
 		$this->checkPermissions();
 
-		$scope = $trxProfiler->silenceForScope( $trxProfiler::EXPECTATION_REPLICAS_ONLY );
+		$scope = $trxProfiler->silenceForScope();
 		$this->attemptInvalidate( $code );
 		ScopedCallback::consume( $scope );
 	}
@@ -73,7 +71,7 @@ class SpecialEmailInvalidate extends UnlistedSpecialPage {
 	private function attemptInvalidate( $code ) {
 		$user = $this->userFactory->newFromConfirmationCode(
 			(string)$code,
-			IDBAccessObject::READ_LATEST
+			UserFactory::READ_LATEST
 		);
 
 		if ( !is_object( $user ) ) {
@@ -91,6 +89,3 @@ class SpecialEmailInvalidate extends UnlistedSpecialPage {
 		}
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialEmailInvalidate::class, 'SpecialEmailInvalidate' );

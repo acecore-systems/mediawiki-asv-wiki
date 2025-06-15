@@ -3,139 +3,148 @@
 namespace Cite\Tests\Integration;
 
 use Cite\AnchorFormatter;
-use Cite\Cite;
 use Cite\ErrorReporter;
 use Cite\FootnoteMarkFormatter;
 use Cite\ReferenceMessageLocalizer;
-use Cite\Tests\TestUtils;
-use MediaWiki\Message\Message;
-use MediaWiki\Parser\Parser;
+use Message;
+use Parser;
 use Wikimedia\TestingAccessWrapper;
 
 /**
- * @covers \Cite\FootnoteMarkFormatter
- * @license GPL-2.0-or-later
+ * @coversDefaultClass \Cite\FootnoteMarkFormatter
  */
 class FootnoteMarkFormatterTest extends \MediaWikiIntegrationTestCase {
 
 	/**
+	 * @covers ::linkRef
+	 * @covers ::__construct
 	 * @dataProvider provideLinkRef
 	 */
-	public function testLinkRef( array $ref, string $expectedOutput ) {
+	public function testLinkRef( string $group, array $ref, string $expectedOutput ) {
+		$fooLabels = 'a b c';
+
 		$mockErrorReporter = $this->createMock( ErrorReporter::class );
 		$mockErrorReporter->method( 'plain' )->willReturnCallback(
-			static fn ( $parser, ...$args ) => implode( '|', $args )
+			static function ( $parser, ...$args ) {
+				return implode( '|', $args );
+			}
 		);
 		$anchorFormatter = $this->createMock( AnchorFormatter::class );
-		$anchorFormatter->method( 'jumpLink' )->willReturnArgument( 0 );
-		$anchorFormatter->method( 'backLinkTarget' )->willReturnCallback(
-			static fn ( ...$args ) => implode( '+', $args )
+		$anchorFormatter->method( 'getReferencesKey' )->willReturnArgument( 0 );
+		$anchorFormatter->method( 'refKey' )->willReturnCallback(
+			static function ( ...$args ) {
+				return implode( '+', $args );
+			}
 		);
-		$messageLocalizer = $this->createMock( ReferenceMessageLocalizer::class );
-		$messageLocalizer->method( 'localizeSeparators' )->willReturnArgument( 0 );
-		$messageLocalizer->method( 'localizeDigits' )->willReturnArgument( 0 );
-		$messageLocalizer->method( 'msg' )->willReturnCallback(
-			function ( $key, ...$params ) {
-				$customizedGroup = $key === 'cite_link_label_group-foo';
+		$mockMessageLocalizer = $this->createMock( ReferenceMessageLocalizer::class );
+		$mockMessageLocalizer->method( 'localizeSeparators' )->willReturnArgument( 0 );
+		$mockMessageLocalizer->method( 'localizeDigits' )->willReturnArgument( 0 );
+		$mockMessageLocalizer->method( 'msg' )->willReturnCallback(
+			function ( ...$args ) use ( $group, $fooLabels ) {
 				$msg = $this->createMock( Message::class );
-				$msg->method( 'isDisabled' )->willReturn( !$customizedGroup );
-				$msg->method( 'plain' )->willReturn( $customizedGroup
-					? 'a b c'
-					: "($key|" . implode( '|', $params ) . ')'
-				);
+				$msg->method( 'isDisabled' )->willReturn( $group !== 'foo' );
+				$msg->method( 'plain' )->willReturn( $args[0] === 'cite_reference_link'
+					? '(' . implode( '|', $args ) . ')'
+					: $fooLabels );
 				return $msg;
 			}
 		);
-		$mockParser = $this->createNoOpMock( Parser::class, [ 'recursiveTagParse' ] );
+		$mockParser = $this->createMock( Parser::class );
 		$mockParser->method( 'recursiveTagParse' )->willReturnArgument( 0 );
 		$formatter = new FootnoteMarkFormatter(
 			$mockErrorReporter,
 			$anchorFormatter,
-			$messageLocalizer
+			$mockMessageLocalizer
 		);
 
-		$ref = TestUtils::refFromArray( $ref );
-		$output = $formatter->linkRef( $mockParser, $ref );
+		$output = $formatter->linkRef( $mockParser, $group, $ref );
 		$this->assertSame( $expectedOutput, $output );
 	}
 
-	public static function provideLinkRef() {
+	public function provideLinkRef() {
 		return [
 			'Default label' => [
+				'',
 				[
 					'name' => null,
-					'group' => '',
-					'number' => 50003,
-					'key' => 50004,
-				],
-				'(cite_reference_link|50004+|50004|50003)'
-			],
-			'Default label, named group' => [
-				[
-					'name' => null,
-					'group' => 'bar',
 					'number' => 3,
 					'key' => 4,
+					'count' => -1,
+				],
+				'(cite_reference_link|4+|4|3)'
+			],
+			'Default label, named group' => [
+				'bar',
+				[
+					'name' => null,
+					'number' => 3,
+					'key' => 4,
+					'count' => -1,
 				],
 				'(cite_reference_link|4+|4|bar 3)'
 			],
 			'Custom label' => [
+				'foo',
 				[
 					'name' => null,
-					'group' => 'foo',
 					'number' => 3,
 					'key' => 4,
+					'count' => -1,
 				],
 				'(cite_reference_link|4+|4|c)'
 			],
 			'Custom label overrun' => [
+				'foo',
 				[
 					'name' => null,
-					'group' => 'foo',
 					'number' => 10,
 					'key' => 4,
+					'count' => -1,
 				],
 				'(cite_reference_link|4+|4|' .
 					'cite_error_no_link_label_group&#124;foo&#124;cite_link_label_group-foo)'
 			],
 			'Named ref' => [
+				'',
 				[
 					'name' => 'a',
-					'group' => '',
 					'number' => 3,
 					'key' => 4,
-					'count' => 1,
+					'count' => 0,
 				],
 				'(cite_reference_link|a+4-0|a-4|3)'
 			],
 			'Named ref reused' => [
+				'',
 				[
 					'name' => 'a',
-					'group' => '',
 					'number' => 3,
 					'key' => 4,
-					'count' => 50002,
+					'count' => 2,
 				],
-				'(cite_reference_link|a+4-50001|a-4|3)'
+				'(cite_reference_link|a+4-2|a-4|3)'
 			],
 			'Subreference' => [
+				'',
 				[
 					'name' => null,
-					'group' => '',
 					'number' => 3,
 					'key' => 4,
+					'count' => -1,
 					'extends' => 'b',
-					'extendsIndex' => 50002,
+					'extendsIndex' => 2,
 				],
-				'(cite_reference_link|4+|4|3.50002)'
+				'(cite_reference_link|4+|4|3.2)'
 			],
 		];
 	}
 
 	/**
-	 * @dataProvider provideCustomizedLinkLabels
+	 * @covers ::getLinkLabel
+	 *
+	 * @dataProvider provideGetLinkLabel
 	 */
-	public function testFetchCustomizedLinkLabel( $expectedLabel, $offset, $group, $labelList ) {
+	public function testGetLinkLabel( $expectedLabel, $offset, $group, $labelList ) {
 		$mockMessageLocalizer = $this->createMock( ReferenceMessageLocalizer::class );
 		$mockMessageLocalizer->method( 'msg' )->willReturnCallback(
 			function ( ...$args ) use ( $labelList ) {
@@ -147,7 +156,9 @@ class FootnoteMarkFormatterTest extends \MediaWikiIntegrationTestCase {
 		);
 		$mockErrorReporter = $this->createMock( ErrorReporter::class );
 		$mockErrorReporter->method( 'plain' )->willReturnCallback(
-			static fn ( $parser, ...$args ) => implode( '|', $args )
+			static function ( $parser, ...$args ) {
+				return implode( '|', $args );
+			}
 		);
 		/** @var FootnoteMarkFormatter $formatter */
 		$formatter = TestingAccessWrapper::newFromObject( new FootnoteMarkFormatter(
@@ -156,12 +167,12 @@ class FootnoteMarkFormatterTest extends \MediaWikiIntegrationTestCase {
 			$mockMessageLocalizer
 		) );
 
-		$parser = $this->createNoOpMock( Parser::class );
-		$output = $formatter->fetchCustomizedLinkLabel( $parser, $group, $offset );
+		$output = $formatter->getLinkLabel(
+			$this->createMock( Parser::class ), $group, $offset );
 		$this->assertSame( $expectedLabel, $output );
 	}
 
-	public static function provideCustomizedLinkLabels() {
+	public function provideGetLinkLabel() {
 		yield [ null, 1, '', null ];
 		yield [ null, 2, '', null ];
 		yield [ null, 1, 'foo', null ];
@@ -170,19 +181,6 @@ class FootnoteMarkFormatterTest extends \MediaWikiIntegrationTestCase {
 		yield [ 'b', 2, 'foo', 'a b c' ];
 		yield [ 'å', 1, 'foo', 'å β' ];
 		yield [ 'cite_error_no_link_label_group|foo|cite_link_label_group-foo', 4, 'foo', 'a b c' ];
-	}
-
-	public function testDefaultGroupCannotHaveCustomLinkLabels() {
-		/** @var FootnoteMarkFormatter $formatter */
-		$formatter = TestingAccessWrapper::newFromObject( new FootnoteMarkFormatter(
-			$this->createNoOpMock( ErrorReporter::class ),
-			$this->createNoOpMock( AnchorFormatter::class ),
-			// Assert that ReferenceMessageLocalizer::msg( 'cite_link_label_group-' ) isn't called
-			$this->createNoOpMock( ReferenceMessageLocalizer::class )
-		) );
-
-		$parser = $this->createNoOpMock( Parser::class );
-		$this->assertNull( $formatter->fetchCustomizedLinkLabel( $parser, Cite::DEFAULT_GROUP, 1 ) );
 	}
 
 }

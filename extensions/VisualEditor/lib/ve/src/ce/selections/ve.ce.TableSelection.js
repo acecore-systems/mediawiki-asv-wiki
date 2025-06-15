@@ -1,7 +1,7 @@
 /*!
  * VisualEditor Table Selection class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -38,33 +38,29 @@ ve.ce.TableSelection.prototype.getSelectionRects = function () {
  * @inheritdoc
  */
 ve.ce.TableSelection.prototype.getSelectionBoundingRect = function () {
-	const surface = this.getSurface(),
+	var surface = this.getSurface(),
 		tableNode = surface.getDocument().getBranchNodeFromOffset( this.model.tableRange.start + 1 ),
 		nodes = tableNode.getCellNodesFromSelection( this.getModel() ),
 		surfaceRect = surface.getSurface().getBoundingClientRect();
 
-	let top = Infinity;
-	let bottom = -Infinity;
-	let left = Infinity;
-	let right = -Infinity;
-
-	const cellElements = [];
-	nodes.forEach( ( node ) => {
-		cellElements.push( ...node.$element.toArray() );
-	} );
+	var top = Infinity;
+	var bottom = -Infinity;
+	var left = Infinity;
+	var right = -Infinity;
 
 	// Compute a bounding box for the given cell elements
-	cellElements.forEach( ( cellElement ) => {
-		if ( !cellElement ) {
+	for ( var i = 0, l = nodes.length; i < l; i++ ) {
+		var cellNode = nodes[ i ].$element[ 0 ];
+		if ( !cellNode ) {
 			return null;
 		}
-		const cellOffset = cellElement.getBoundingClientRect();
+		var cellOffset = cellNode.getBoundingClientRect();
 
 		top = Math.min( top, cellOffset.top );
 		bottom = Math.max( bottom, cellOffset.bottom );
 		left = Math.min( left, cellOffset.left );
 		right = Math.max( right, cellOffset.right );
-	} );
+	}
 
 	// Browser tweaks to adjust for border-collapse:collapse
 	if ( !ve.test ) {
@@ -80,7 +76,7 @@ ve.ce.TableSelection.prototype.getSelectionBoundingRect = function () {
 		}
 	}
 
-	const boundingRect = {
+	var boundingRect = {
 		top: top,
 		bottom: bottom,
 		left: left,
@@ -101,15 +97,15 @@ ve.ce.TableSelection.prototype.getSelectionBoundingRect = function () {
  * @return {Object|null} Selection rectangle, with keys top, bottom, left, right, width, height
  */
 ve.ce.TableSelection.prototype.getTableBoundingRect = function () {
-	const surface = this.getSurface(),
+	var surface = this.getSurface(),
 		tableNode = surface.getDocument().getBranchNodeFromOffset( this.model.tableRange.start + 1 );
 
 	if ( !tableNode ) {
 		return null;
 	}
 
-	const surfaceRect = surface.getSurface().getBoundingClientRect();
-	const boundingRect = tableNode.$element[ 0 ].getBoundingClientRect();
+	var surfaceRect = surface.getSurface().getBoundingClientRect();
+	var boundingRect = tableNode.$element[ 0 ].getBoundingClientRect();
 
 	if ( !boundingRect || !surfaceRect ) {
 		return null;

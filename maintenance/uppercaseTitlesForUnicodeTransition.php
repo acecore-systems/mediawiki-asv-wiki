@@ -22,18 +22,10 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\Maintenance\Maintenance;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
-use MediaWiki\WikiMap\WikiMap;
+use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\IExpression;
-use Wikimedia\Rdbms\IReadableDatabase;
-use Wikimedia\Rdbms\LikeValue;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script to rename titles affected by changes to Unicode (or
@@ -68,8 +60,8 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 	/** @var array|null */
 	private $namespaces = null;
 
-	private ?string $prefix = null;
-	private ?string $suffix = null;
+	/** @var string|null */
+	private $prefix = null, $suffix = null;
 
 	/** @var int|null */
 	private $prefixNs = null;
@@ -184,7 +176,7 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 			$this->fatalError( "Charmap file $charmapFile did not contain any usable character mappings." );
 		}
 
-		$db = $this->run ? $this->getPrimaryDB() : $this->getReplicaDB();
+		$db = $this->getDB( $this->run ? DB_PRIMARY : DB_REPLICA );
 
 		// Process inplace moves first, before actual moves, so mungeTitle() doesn't get confused
 		$this->processTable(
@@ -209,27 +201,23 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 
 	/**
 	 * Get batched LIKE conditions from the charmap
-	 * @param IReadableDatabase $db Database handle
+	 * @param IDatabase $db Database handle
 	 * @param string $field Field name
 	 * @param int $batchSize Size of the batches
 	 * @return array
 	 */
-	private function getLikeBatches( IReadableDatabase $db, $field, $batchSize = 100 ) {
+	private function getLikeBatches( IDatabase $db, $field, $batchSize = 100 ) {
 		$ret = [];
 		$likes = [];
 		foreach ( $this->charmap as $from => $to ) {
-			$likes[] = $db->expr(
-				$field,
-				IExpression::LIKE,
-				new LikeValue( $from, $db->anyString() )
-			);
+			$likes[] = $field . $db->buildLike( $from, $db->anyString() );
 			if ( count( $likes ) >= $batchSize ) {
-				$ret[] = $db->orExpr( $likes );
+				$ret[] = $db->makeList( $likes, $db::LIST_OR );
 				$likes = [];
 			}
 		}
 		if ( $likes ) {
-			$ret[] = $db->orExpr( $likes );
+			$ret[] = $db->makeList( $likes, $db::LIST_OR );
 		}
 		return $ret;
 	}
@@ -244,7 +232,7 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 	 */
 	private function getNamespaces() {
 		if ( $this->namespaces === null ) {
-			$nsinfo = $this->getServiceContainer()->getNamespaceInfo();
+			$nsinfo = MediaWikiServices::getInstance()->getNamespaceInfo();
 			$this->namespaces = array_filter(
 				array_keys( $nsinfo->getCanonicalNamespaces() ),
 				static function ( $ns ) use ( $nsinfo ) {
@@ -283,43 +271,44 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 
 	/**
 	 * Check if a ns+title is a registered user's page
-	 * @param IReadableDatabase $db Database handle
+	 * @param IDatabase $db Database handle
 	 * @param int $ns
 	 * @param string $title
 	 * @return bool
 	 */
-	private function isUserPage( IReadableDatabase $db, $ns, $title ) {
+	private function isUserPage( IDatabase $db, $ns, $title ) {
 		if ( $ns !== NS_USER && $ns !== NS_USER_TALK ) {
 			return false;
 		}
 
-		[ $base ] = explode( '/', $title, 2 );
+		list( $base ) = explode( '/', $title, 2 );
 		if ( !isset( $this->seenUsers[$base] ) ) {
 			// Can't use User directly because it might uppercase the name
-			$this->seenUsers[$base] = (bool)$db->newSelectQueryBuilder()
-				->select( 'user_id' )
-				->from( 'user' )
-				->where( [ 'user_name' => strtr( $base, '_', ' ' ) ] )
-				->caller( __METHOD__ )->fetchField();
+			$this->seenUsers[$base] = (bool)$db->selectField(
+				'user',
+				'user_id',
+				[ 'user_name' => strtr( $base, '_', ' ' ) ],
+				__METHOD__
+			);
 		}
 		return $this->seenUsers[$base];
 	}
 
 	/**
 	 * Munge a target title, if necessary
-	 * @param IReadableDatabase $db Database handle
+	 * @param IDatabase $db Database handle
 	 * @param Title $oldTitle
 	 * @param Title &$newTitle
 	 * @return bool If $newTitle is (now) ok
 	 */
-	private function mungeTitle( IReadableDatabase $db, Title $oldTitle, Title &$newTitle ) {
+	private function mungeTitle( IDatabase $db, Title $oldTitle, Title &$newTitle ) {
 		$nt = $newTitle->getPrefixedText();
 
 		$munge = false;
 		if ( $this->isUserPage( $db, $newTitle->getNamespace(), $newTitle->getText() ) ) {
 			$munge = 'Target title\'s user exists';
 		} else {
-			$mpFactory = $this->getServiceContainer()->getMovePageFactory();
+			$mpFactory = MediaWikiServices::getInstance()->getMovePageFactory();
 			$status = $mpFactory->newMovePage( $oldTitle, $newTitle )->isValidMove();
 			if ( !$status->isOK() && (
 				$status->hasMessage( 'articleexists' ) || $status->hasMessage( 'redirectexists' ) ) ) {
@@ -400,13 +389,15 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 			return false;
 		}
 
-		$services = $this->getServiceContainer();
+		$services = MediaWikiServices::getInstance();
 		$mpFactory = $services->getMovePageFactory();
 		$movePage = $mpFactory->newMovePage( $oldTitle, $newTitle );
 		$status = $movePage->isValidMove();
 		if ( !$status->isOK() ) {
-			$this->error( "Invalid move {$oldTitle->getPrefixedText()} → {$newTitle->getPrefixedText()}:" );
-			$this->error( $status );
+			$this->error(
+				"Invalid move {$oldTitle->getPrefixedText()} → {$newTitle->getPrefixedText()}: "
+				. $status->getMessage( false, false, 'en' )->useDatabase( false )->plain()
+			);
 			return false;
 		}
 
@@ -424,34 +415,46 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 
 		$status = $movePage->move( $this->user, $this->reason, false, $this->tags );
 		if ( !$status->isOK() ) {
-			$this->error( "Move {$oldTitle->getPrefixedText()} → {$newTitle->getPrefixedText()} failed:" );
-			$this->error( $status );
+			$this->error(
+				"Move {$oldTitle->getPrefixedText()} → {$newTitle->getPrefixedText()} failed: "
+				. $status->getMessage( false, false, 'en' )->useDatabase( false )->plain()
+			);
 		}
 		$this->output( "Renamed {$oldTitle->getPrefixedText()} → {$newTitle->getPrefixedText()}\n" );
 
 		// The move created a log entry under the old invalid title. Fix it.
-		$db->newUpdateQueryBuilder()
-			->update( 'logging' )
-			->set( [
+		$db->update(
+			'logging',
+			[
 				'log_title' => $this->charmap[$char] . mb_substr( $title, 1 ),
-			] )
-			->where( [
+			],
+			[
 				'log_namespace' => $oldTitle->getNamespace(),
 				'log_title' => $oldTitle->getDBkey(),
 				'log_page' => $newTitle->getArticleID(),
-			] )
-			->caller( __METHOD__ )
-			->execute();
+			],
+			__METHOD__
+		);
 
 		if ( $deletionReason !== null ) {
 			$page = $services->getWikiPageFactory()->newFromTitle( $newTitle );
-			$delPage = $services->getDeletePageFactory()->newDeletePage( $page, $this->user );
-			$status = $delPage
-				->forceImmediate( true )
-				->deleteUnsafe( $deletionReason );
+			$error = '';
+			$status = $page->doDeleteArticleReal(
+				$deletionReason,
+				$this->user,
+				false, // don't suppress
+				null, // unused
+				$error,
+				null, // unused
+				[], // tags
+				'delete',
+				true // immediate
+			);
 			if ( !$status->isOK() ) {
-				$this->error( "Deletion of {$newTitle->getPrefixedText()} failed:" );
-				$this->error( $status );
+				$this->error(
+					"Deletion of {$newTitle->getPrefixedText()} failed: "
+					. $status->getMessage( false, false, 'en' )->useDatabase( false )->plain()
+				);
 				return false;
 			}
 			$this->output( "Deleted {$newTitle->getPrefixedText()}\n" );
@@ -469,18 +472,20 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 	 * Note the caller will still rename it before deleting it, so the archive
 	 * and logging rows wind up in a sensible place.
 	 *
-	 * @param IReadableDatabase $db
+	 * @param IDatabase $db
 	 * @param Title $oldTitle
 	 * @param Title $newTitle
 	 * @return string|null Deletion reason, or null if it shouldn't be deleted
 	 */
-	private function shouldDelete( IReadableDatabase $db, Title $oldTitle, Title $newTitle ) {
-		$oldRow = $db->newSelectQueryBuilder()
-			->select( [ 'ns' => 'rd_namespace', 'title' => 'rd_title' ] )
-			->from( 'page' )
-			->join( 'redirect', null, 'rd_from = page_id' )
-			->where( [ 'page_namespace' => $oldTitle->getNamespace(), 'page_title' => $oldTitle->getDBkey() ] )
-			->caller( __METHOD__ )->fetchRow();
+	private function shouldDelete( IDatabase $db, Title $oldTitle, Title $newTitle ) {
+		$oldRow = $db->selectRow(
+			[ 'page', 'redirect' ],
+			[ 'ns' => 'rd_namespace', 'title' => 'rd_title' ],
+			[ 'page_namespace' => $oldTitle->getNamespace(), 'page_title' => $oldTitle->getDBkey() ],
+			__METHOD__,
+			[],
+			[ 'redirect' => [ 'JOIN', 'rd_from = page_id' ] ]
+		);
 		if ( !$oldRow ) {
 			// Not a redirect
 			return null;
@@ -492,12 +497,14 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 			return $this->reason . ", and found that [[{$oldTitle->getPrefixedText()}]] is "
 				. "already a redirect to [[{$newTitle->getPrefixedText()}]]";
 		} else {
-			$newRow = $db->newSelectQueryBuilder()
-				->select( [ 'ns' => 'rd_namespace', 'title' => 'rd_title' ] )
-				->from( 'page' )
-				->join( 'redirect', null, 'rd_from = page_id' )
-				->where( [ 'page_namespace' => $newTitle->getNamespace(), 'page_title' => $newTitle->getDBkey() ] )
-				->caller( __METHOD__ )->fetchRow();
+			$newRow = $db->selectRow(
+				[ 'page', 'redirect' ],
+				[ 'ns' => 'rd_namespace', 'title' => 'rd_title' ],
+				[ 'page_namespace' => $newTitle->getNamespace(), 'page_title' => $newTitle->getDBkey() ],
+				__METHOD__,
+				[],
+				[ 'redirect' => [ 'JOIN', 'rd_from = page_id' ] ]
+			);
 			if ( $newRow && $oldRow->ns === $newRow->ns && $oldRow->title === $newRow->title ) {
 				$nt = Title::makeTitle( $newRow->ns, $newRow->title );
 				return $this->reason . ", and found that [[{$oldTitle->getPrefixedText()}]] and "
@@ -540,15 +547,15 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 		}
 
 		if ( $this->run ) {
-			$db->newUpdateQueryBuilder()
-				->update( $table )
-				->set( array_merge(
+			$db->update(
+				$table,
+				array_merge(
 					is_int( $nsField ) ? [] : [ $nsField => $newTitle->getNamespace() ],
 					[ $titleField => $newTitle->getDBkey() ]
-				) )
-				->where( (array)$row )
-				->caller( __METHOD__ )
-				->execute();
+				),
+				(array)$row,
+				__METHOD__
+			);
 			$r = json_encode( $row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 			$this->output( "Set $r to {$newTitle->getPrefixedText()}\n" );
 		} else {
@@ -581,6 +588,7 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 		$batchSize = $this->getBatchSize();
 		$namespaces = $this->getNamespaces();
 		$likes = $this->getLikeBatches( $db, $titleField );
+		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
 
 		if ( is_int( $nsField ) ) {
 			$namespaces = array_intersect( $namespaces, [ $nsField ] );
@@ -598,7 +606,7 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 			[ $titleField ],
 			$pkFields
 		);
-		$contFields = array_merge( [ $titleField ], $pkFields );
+		$contFields = array_reverse( array_merge( [ $titleField ], $pkFields ) );
 
 		$lastReplicationWait = 0.0;
 		$count = 0;
@@ -607,19 +615,25 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 			foreach ( $likes as $like ) {
 				$cont = [];
 				do {
-					$res = $db->newSelectQueryBuilder()
-						->select( $selectFields )
-						->from( $table )
-						->where( [ "$nsField = $ns", $like, $cont ? $db->buildComparison( '>', $cont ) : '1=1' ] )
-						->orderBy( array_merge( [ $titleField ], $pkFields ) )
-						->limit( $batchSize )
-						->caller( __METHOD__ )->fetchResultSet();
+					$res = $db->select(
+						$table,
+						$selectFields,
+						array_merge( [ "$nsField = $ns", $like ], $cont ),
+						__METHOD__,
+						[ 'ORDER BY' => array_merge( [ $titleField ], $pkFields ), 'LIMIT' => $batchSize ]
+					);
 					$cont = [];
 					foreach ( $res as $row ) {
-						$cont = [];
+						$cont = '';
 						foreach ( $contFields as $field ) {
-							$cont[ $field ] = $row->$field;
+							$v = $db->addQuotes( $row->$field );
+							if ( $cont === '' ) {
+								$cont = "$field > $v";
+							} else {
+								$cont = "$field > $v OR $field = $v AND ($cont)";
+							}
 						}
+						$cont = [ $cont ];
 
 						if ( $op === self::MOVE ) {
 							$ns = is_int( $nsField ) ? $nsField : (int)$row->$nsField;
@@ -638,7 +652,10 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 						// @phan-suppress-next-line PhanPossiblyUndeclaredVariable rows contains at least one item
 						$r = $cont ? json_encode( $row, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) : '<end>';
 						$this->output( "... $table: $count renames, $errors errors at $r\n" );
-						$this->waitForReplication();
+						$lbFactory->waitForReplication(
+							[ 'timeout' => 30, 'ifWritesSince' => $lastReplicationWait ]
+						);
+						$lastReplicationWait = microtime( true );
 					}
 				} while ( $cont );
 			}
@@ -649,9 +666,9 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 
 	/**
 	 * List users needing renaming
-	 * @param IReadableDatabase $db Database handle
+	 * @param IDatabase $db Database handle
 	 */
-	private function processUsers( IReadableDatabase $db ) {
+	private function processUsers( IDatabase $db ) {
 		$userlistFile = $this->getOption( 'userlist' );
 		if ( $userlistFile === null ) {
 			$this->output( "Not generating user list, --userlist was not specified.\n" );
@@ -670,14 +687,13 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 		foreach ( $this->getLikeBatches( $db, 'user_name' ) as $like ) {
 			$cont = [];
 			while ( true ) {
-				$rows = $db->newSelectQueryBuilder()
-					->select( [ 'user_id', 'user_name' ] )
-					->from( 'user' )
-					->where( $like )
-					->andWhere( $cont )
-					->orderBy( 'user_name' )
-					->limit( $batchSize )
-					->caller( __METHOD__ )->fetchResultSet();
+				$rows = $db->select(
+					'user',
+					[ 'user_id', 'user_name' ],
+					array_merge( [ $like ], $cont ),
+					__METHOD__,
+					[ 'ORDER BY' => 'user_name', 'LIMIT' => $batchSize ]
+				);
 
 				if ( !$rows->numRows() ) {
 					break;
@@ -695,7 +711,7 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 					$newName = $this->charmap[$char] . mb_substr( $row->user_name, 1 );
 					fprintf( $fh, "%s\t%s\t%s\n", WikiMap::getCurrentWikiId(), $row->user_id, $newName );
 					$count++;
-					$cont = [ $db->expr( 'user_name', '>', $row->user_name ) ];
+					$cont = [ 'user_name > ' . $db->addQuotes( $row->user_name ) ];
 				}
 				// @phan-suppress-next-line PhanPossiblyUndeclaredVariable rows contains at least one item
 				$this->output( "... at $row->user_name, $count names so far\n" );
@@ -709,7 +725,5 @@ class UppercaseTitlesForUnicodeTransition extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = UppercaseTitlesForUnicodeTransition::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

@@ -19,10 +19,6 @@
  * @ingroup Parser
  */
 
-namespace MediaWiki\Parser;
-
-use MediaWiki\Title\Title;
-
 /**
  * @ingroup Parser
  *
@@ -44,8 +40,8 @@ interface PPFrame {
 	/**
 	 * Create a child frame
 	 *
-	 * @param PPNode[]|false $args
-	 * @param Title|false $title
+	 * @param array|bool $args
+	 * @param bool|Title $title
 	 * @param int $indexOffset A number subtracted from the index attributes of the arguments
 	 *
 	 * @return PPFrame
@@ -133,7 +129,7 @@ interface PPFrame {
 	/**
 	 * Get an argument to this frame by name
 	 * @param int|string $name
-	 * @return string|false
+	 * @return string|bool
 	 */
 	public function getArgument( $name );
 
@@ -207,6 +203,3 @@ interface PPFrame {
 	 */
 	public function getTitle();
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( PPFrame::class, 'PPFrame' );

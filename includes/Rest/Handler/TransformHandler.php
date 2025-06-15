@@ -20,11 +20,8 @@
 
 namespace MediaWiki\Rest\Handler;
 
-use MediaWiki\Rest\Handler\Helper\ParsoidFormatHelper;
 use MediaWiki\Rest\HttpException;
-use MediaWiki\Rest\LocalizedHttpException;
 use MediaWiki\Rest\Response;
-use Wikimedia\Message\MessageValue;
 use Wikimedia\ParamValidator\ParamValidator;
 
 /**
@@ -36,7 +33,6 @@ use Wikimedia\ParamValidator\ParamValidator;
  * @see https://www.mediawiki.org/wiki/Parsoid/API#POST
  */
 class TransformHandler extends ParsoidHandler {
-
 	/** @inheritDoc */
 	public function getParamSettings() {
 		return [
@@ -52,36 +48,6 @@ class TransformHandler extends ParsoidHandler {
 			'revision' => [ self::PARAM_SOURCE => 'path',
 				ParamValidator::PARAM_TYPE => 'string',
 				ParamValidator::PARAM_REQUIRED => false, ], ];
-	}
-
-	/**
-	 * @inheritDoc
-	 */
-	public function needsWriteAccess() {
-		return false;
-	}
-
-	public function checkPreconditions() {
-		// NOTE: disable all precondition checks.
-		// If-(not)-Modified-Since is not supported by the /transform/ handler.
-		// If-None-Match is not supported by the /transform/ handler.
-		// If-Match for wt2html is handled in getRequestAttributes.
-	}
-
-	protected function &getRequestAttributes(): array {
-		$attribs =& parent::getRequestAttributes();
-
-		$request = $this->getRequest();
-
-		// NOTE: If there is more than one ETag, this will break.
-		//       We don't have a good way to test multiple ETag to see if one of them is a working stash key.
-		$ifMatch = $request->getHeaderLine( 'If-Match' );
-
-		if ( $ifMatch ) {
-			$attribs['opts']['original']['etag'] = $ifMatch;
-		}
-
-		return $attribs;
 	}
 
 	/**
@@ -103,11 +69,13 @@ class TransformHandler extends ParsoidHandler {
 		if ( !isset( $validTransformations[$from] ) || !in_array( $format,
 				$validTransformations[$from],
 				true ) ) {
-			throw new LocalizedHttpException( new MessageValue( "rest-invalid-transform", [ $from, $format ] ), 404 );
+			throw new HttpException( "Invalid transform: {$from}/to/{$format}",
+				404 );
 		}
 		$attribs = &$this->getRequestAttributes();
 		if ( !$this->acceptable( $attribs ) ) { // mutates $attribs
-			throw new LocalizedHttpException( new MessageValue( "rest-unsupported-target-format" ), 406 );
+			throw new HttpException( 'Not acceptable',
+				406 );
 		}
 		if ( $from === ParsoidFormatHelper::FORMAT_WIKITEXT ) {
 			// Accept wikitext as a string or object{body,headers}
@@ -128,10 +96,12 @@ class TransformHandler extends ParsoidHandler {
 				}
 			}
 			// Abort if no wikitext or title.
-			if ( $wikitext === null && empty( $attribs['pageName'] ) ) {
-				throw new LocalizedHttpException( new MessageValue( "rest-transform-missing-title" ), 400 );
+			if ( $wikitext === null && $attribs['titleMissing'] ) {
+				throw new HttpException( 'No title or wikitext was provided.',
+					400 );
 			}
-			$pageConfig = $this->tryToCreatePageConfig( $attribs, $wikitext );
+			$pageConfig = $this->tryToCreatePageConfig( $attribs,
+				$wikitext );
 
 			return $this->wt2html( $pageConfig,
 				$attribs,
@@ -143,18 +113,17 @@ class TransformHandler extends ParsoidHandler {
 				$html = $html['body'];
 			}
 			if ( $html === null ) {
-				throw new LocalizedHttpException( new MessageValue( "rest-transform-missing-html" ), 400 );
+				throw new HttpException( 'No html was supplied.',
+					400 );
 			}
+			$wikitext = $attribs['opts']['original']['wikitext']['body'] ?? null;
+			$pageConfig = $this->tryToCreatePageConfig( $attribs,
+				$wikitext,
+				true );
 
-			// TODO: use ETag from If-Match header, for compat!
-
-			$page = $this->tryToCreatePageIdentity( $attribs );
-
-			return $this->html2wt(
-				$page,
+			return $this->html2wt( $pageConfig,
 				$attribs,
-				$html
-			);
+				$html );
 		} else {
 			return $this->pb2pb( $attribs );
 		}

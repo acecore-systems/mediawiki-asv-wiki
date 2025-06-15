@@ -19,13 +19,14 @@
  */
 namespace Wikimedia\Rdbms;
 
-use Wikimedia\Message\MessageSpecifier;
+use MessageSpecifier;
 
 /**
  * Base class for the more common types of database errors. These are known to occur
  * frequently, so we try to give friendly error messages for them.
  *
  * @newable
+ * @stable to extend
  * @ingroup Database
  * @since 1.23
  */
@@ -41,7 +42,7 @@ class DBExpectedError extends DBError implements MessageSpecifier {
 	 * @param \Throwable|null $prev
 	 */
 	public function __construct(
-		?IDatabase $db, $error, array $params = [], ?\Throwable $prev = null
+		?IDatabase $db, $error, array $params = [], \Throwable $prev = null
 	) {
 		parent::__construct( $db, $error, $prev );
 		$this->params = $params;
@@ -55,3 +56,8 @@ class DBExpectedError extends DBError implements MessageSpecifier {
 		return $this->params;
 	}
 }
+
+/**
+ * @deprecated since 1.29
+ */
+class_alias( DBExpectedError::class, 'DBExpectedError' );

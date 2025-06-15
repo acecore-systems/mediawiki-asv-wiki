@@ -1,18 +1,12 @@
 <?php
 
-namespace MediaWiki\Tests\Api\Format;
-
-use MediaWiki\Api\ApiResult;
-use MediaWiki\Title\Title;
-
 /**
  * @group API
  * @group Database
- * @covers MediaWiki\Api\ApiFormatXml
+ * @covers ApiFormatXml
  */
 class ApiFormatXmlTest extends ApiFormatTestBase {
 
-	/** @inheritDoc */
 	protected $printerName = 'xml';
 
 	protected function setUp(): void {
@@ -130,7 +124,7 @@ class ApiFormatXmlTest extends ApiFormatTestBase {
 				[ 'xslt' => 'MediaWiki:ApiFormatXmlTest' ] ],
 			[ [],
 				'<?xml version="1.0"?><?xml-stylesheet href="' .
-					htmlspecialchars( Title::makeTitle( NS_MEDIAWIKI, 'ApiFormatXmlTest.xsl' )->getLocalURL( 'action=raw' ) ) .
+					htmlspecialchars( Title::newFromText( 'MediaWiki:ApiFormatXmlTest.xsl' )->getLocalURL( 'action=raw' ) ) .
 					'" type="text/xsl" ?><api />',
 				[ 'xslt' => 'MediaWiki:ApiFormatXmlTest.xsl' ] ],
 		];

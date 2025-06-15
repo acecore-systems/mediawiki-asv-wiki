@@ -12,9 +12,12 @@ namespace MediaWiki\Extension\VisualEditor;
 
 use MediaWiki\ResourceLoader\Context as ResourceLoaderContext;
 use MediaWiki\ResourceLoader\Module as ResourceLoaderModule;
-use MediaWiki\Title\Title;
+use Title;
 
 class VisualEditorDataModule extends ResourceLoaderModule {
+
+	/** @inheritDoc */
+	protected $targets = [ 'desktop', 'mobile' ];
 
 	/**
 	 * @param ResourceLoaderContext $context Object containing information about the state of this
@@ -117,7 +120,7 @@ class VisualEditorDataModule extends ResourceLoaderModule {
 	/**
 	 * @inheritDoc
 	 */
-	public function getDependencies( ?ResourceLoaderContext $context = null ) {
+	public function getDependencies( ResourceLoaderContext $context = null ) {
 		return [
 			'ext.visualEditor.base',
 			'ext.visualEditor.mediawiki',

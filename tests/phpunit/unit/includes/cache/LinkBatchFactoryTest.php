@@ -1,17 +1,11 @@
 <?php
 
-use MediaWiki\Cache\GenderCache;
-use MediaWiki\Cache\LinkBatch;
 use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Cache\LinkCache;
-use MediaWiki\Language\Language;
 use MediaWiki\Linker\LinksMigration;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\Page\PageReference;
 use MediaWiki\Page\PageReferenceValue;
-use MediaWiki\Title\TitleFormatter;
-use MediaWiki\Title\TitleValue;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * @group Cache
@@ -46,7 +40,7 @@ class LinkBatchFactoryTest extends MediaWikiUnitTestCase {
 			$this->createMock( TitleFormatter::class ),
 			$this->createMock( Language::class ),
 			$this->createMock( GenderCache::class ),
-			$this->createMock( IConnectionProvider::class ),
+			$this->createMock( ILoadBalancer::class ),
 			$this->createMock( LinksMigration::class ),
 			LoggerFactory::getInstance( 'LinkBatch' )
 		);

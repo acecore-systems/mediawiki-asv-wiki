@@ -2,15 +2,15 @@
 
 namespace MediaWiki\Extension\SpamBlacklist;
 
+use ExtensionRegistry;
 use LogPage;
 use ManualLogEntry;
 use MediaWiki\CheckUser\Hooks as CUHooks;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\ExternalLinks\ExternalLinksLookup;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Registration\ExtensionRegistry;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
+use ObjectCache;
+use RequestContext;
+use Title;
+use User;
 use Wikimedia\AtEase\AtEase;
 use Wikimedia\Rdbms\Database;
 
@@ -61,9 +61,8 @@ class SpamBlacklist extends BaseBlacklist {
 		$preventLog = false,
 		$mode = 'check'
 	) {
-		$services = MediaWikiServices::getInstance();
-		$statsd = $services->getStatsdDataFactory();
-		$cache = $services->getObjectCacheFactory()->getLocalClusterInstance();
+		$statsd = MediaWikiServices::getInstance()->getStatsdDataFactory();
+		$cache = ObjectCache::getLocalClusterInstance();
 
 		if ( !$links ) {
 			return false;
@@ -191,11 +190,14 @@ class SpamBlacklist extends BaseBlacklist {
 			$cache->makeKey( 'external-link-list', $title->getLatestRevID() ),
 			$cache::TTL_MINUTE,
 			static function ( $oldValue, &$ttl, array &$setOpts ) use ( $title, $fname ) {
-				$dbr = MediaWikiServices::getInstance()->getConnectionProvider()->getReplicaDatabase();
+				$dbr = wfGetDB( DB_REPLICA );
 				$setOpts += Database::getCacheSetOptions( $dbr );
-				return ExternalLinksLookup::getExternalLinksForPage(
-					$title->getArticleID(),
-					$dbr,
+
+				return $dbr->selectFieldValues(
+					'externallinks',
+					'el_to',
+					// should be zero queries
+					[ 'el_from' => $title->getArticleID() ],
 					$fname
 				);
 			}

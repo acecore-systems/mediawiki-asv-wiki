@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable FocusableNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -23,9 +23,9 @@
  * @constructor
  * @param {jQuery} [$focusable=this.$element] Primary element user is focusing on
  * @param {Object} [config] Configuration options
- * @param {jQuery} [config.$bounding=$focusable] Element to consider for bounding box calculations (e.g.
+ * @cfg {jQuery} [$bounding=$focusable] Element to consider for bounding box calculations (e.g.
  *   attaching inspectors)
- * @param {string[]} [config.classes] CSS classes to be added to the highlight container
+ * @cfg {string[]} [classes] CSS classes to be added to the highlight container
  */
 ve.ce.FocusableNode = function VeCeFocusableNode( $focusable, config ) {
 	config = config || {};
@@ -34,10 +34,7 @@ ve.ce.FocusableNode = function VeCeFocusableNode( $focusable, config ) {
 	this.focused = false;
 	this.highlighted = false;
 	this.isFocusableSetup = false;
-	this.$highlights = $( '<div>' ).addClass( 've-ce-focusableNode-highlights' )
-		// Allow the highlight to take focus, so that focus is not removed from
-		// the surface when clicking on it (T341681)
-		.attr( 'tabIndex', 0 );
+	this.$highlights = $( '<div>' ).addClass( 've-ce-focusableNode-highlights' );
 	this.$focusable = $focusable || this.$element;
 	this.$bounding = config.$bounding || this.$focusable;
 	this.focusableSurface = null;
@@ -49,7 +46,7 @@ ve.ce.FocusableNode = function VeCeFocusableNode( $focusable, config ) {
 
 	if ( Array.isArray( config.classes ) ) {
 		// eslint-disable-next-line mediawiki/class-doc
-		this.$highlights.addClass( config.classes );
+		this.$highlights.addClass( config.classes.join( ' ' ) );
 	}
 
 	// Use a debounced handler as some actions can trigger redrawHighlights
@@ -78,11 +75,11 @@ OO.initClass( ve.ce.FocusableNode );
 /* Events */
 
 /**
- * @event ve.ce.FocusableNode#focus
+ * @event focus
  */
 
 /**
- * @event ve.ce.FocusableNode#blur
+ * @event blur
  */
 
 /* Static properties */
@@ -126,47 +123,75 @@ ve.ce.FocusableNode.static.deleteCommandName = null;
  * @return {Object} Object containing rects and boundingRect
  */
 ve.ce.FocusableNode.static.getRectsForElement = function ( $element, relativeRect ) {
-	let $set;
-	let rects = [];
+	var $set;
+	var rects = [];
+
+	function contains( rect1, rect2 ) {
+		return rect2.left >= rect1.left &&
+			rect2.top >= rect1.top &&
+			rect2.right <= rect1.right &&
+			rect2.bottom <= rect1.bottom;
+	}
 
 	function process( el ) {
 		if ( el.classList.contains( 've-ce-noHighlight' ) ) {
 			return;
 		}
 
-		const $el = $( el );
+		var $el = $( el );
 
 		// Don't descend if overflow is anything but visible as this prevents child
 		// elements appearing beyond the bounding box of the parent, *unless* display
 		// is inline, in which case the overflow setting will be ignored
-		const overflow = $el.css( 'overflow' );
+		var overflow = $el.css( 'overflow' );
 		if ( overflow && overflow !== 'visible' && $el.css( 'display' ) !== 'inline' ) {
 			$set = $set.not( $el.find( '*' ) );
 		}
 
-		ve.batchPush( rects, el.getClientRects() );
+		var clientRects = el.getClientRects();
+
+		for ( var j = 0, jl = clientRects.length; j < jl; j++ ) {
+			var contained = false;
+			for ( var k = 0, kl = rects.length; k < kl; k++ ) {
+				// This rect is contained by an existing rect, discard
+				if ( contains( rects[ k ], clientRects[ j ] ) ) {
+					contained = true;
+					break;
+				}
+				// An existing rect is contained by this rect, discard the existing rect
+				if ( contains( clientRects[ j ], rects[ k ] ) ) {
+					rects.splice( k, 1 );
+					k--;
+					kl--;
+				}
+			}
+			if ( !contained ) {
+				rects.push( clientRects[ j ] );
+			}
+		}
 	}
 
 	$set = $element.find( '*' ).addBack();
+	var i, l;
 	// Calling process() may change $set.length
-	for ( let i = 0; i < $set.length; i++ ) {
+	for ( i = 0; i < $set.length; i++ ) {
 		process( $set[ i ] );
 	}
-
-	rects = ve.minimizeRects( rects );
 
 	// Elements with a width/height of 0 return a clientRect with a width/height of 1
 	// As elements with an actual width/height of 1 aren't that useful anyway, just
 	// throw away anything that is <=1
-	const filteredRects = rects.filter( ( rect ) => rect.width > 1 && rect.height > 1 );
+	var filteredRects = rects.filter( function ( rect ) {
+		return rect.width > 1 && rect.height > 1;
+	} );
 	// But if this filtering doesn't leave any rects at all, then we do want to use the 1px rects
 	if ( filteredRects.length > 0 ) {
 		rects = filteredRects;
 	}
 
-	let boundingRect = null;
+	var boundingRect = null;
 
-	for ( let i = 0, l = rects.length; i < l; i++ ) {
+	for ( i = 0, l = rects.length; i < l; i++ ) {
 		// Translate to relative
 		if ( relativeRect ) {
 			rects[ i ] = ve.translateRect( rects[ i ], -relativeRect.left, -relativeRect.top );
@@ -199,9 +224,10 @@ ve.ce.FocusableNode.static.getRectsForElement = function ( $element, relativeRec
  * @return {jQuery} A highlight element
  */
 ve.ce.FocusableNode.prototype.createHighlight = function () {
+	var extraClasses = this.generatedContentsInvalid ? ' ve-ce-focusableNode-highlight-error' : '';
 	// eslint-disable-next-line mediawiki/class-doc
 	return $( '<div>' )
-		.addClass( [ 've-ce-focusableNode-highlight', ...this.getExtraHighlightClasses() ] )
+		.addClass( 've-ce-focusableNode-highlight' + extraClasses )
 		.prop( {
 			title: this.constructor.static.getDescription( this.model ),
 			draggable: true
@@ -210,15 +236,6 @@ ve.ce.FocusableNode.prototype.createHighlight = function () {
 			dragstart: this.onFocusableDragStart.bind( this ),
 			dragend: this.onFocusableDragEnd.bind( this )
 		} );
-};
-
-/**
- * Array of CSS classes to add to highlights
- *
- * @return {string[]}
- */
-ve.ce.FocusableNode.prototype.getExtraHighlightClasses = function () {
-	return this.generatedContentsInvalid ? [ 've-ce-focusableNode-highlight-error' ] : [];
 };
 
 /**
@@ -283,10 +300,6 @@ ve.ce.FocusableNode.prototype.onFocusableSetup = function () {
 		this.updateInvisibleIcon();
 	}
 
-	// A node may be re-setup when focused. redrawHighlights will only do
-	// something if the node is currently focused.
-	this.redrawHighlightsDebounced();
-
 	this.isFocusableSetup = true;
 };
 
@@ -306,12 +319,14 @@ ve.ce.FocusableNode.prototype.updateInvisibleIcon = function () {
 	if ( this.icon ) {
 		this.icon.$element.detach();
 	}
-	const showIcon = !this.hasRendering();
+	var showIcon = !this.hasRendering();
+	var rAF = window.requestAnimationFrame || setTimeout;
+	var node = this;
 
 	// Defer updating the DOM. If we don't do this, the hasRendering() call for the next
 	// FocusableNode will force a reflow, which is slow.
-	requestAnimationFrame( () => {
-		this.updateInvisibleIconSync( showIcon );
+	rAF( function () {
+		node.updateInvisibleIconSync( showIcon );
 	} );
 };
 
@@ -323,13 +338,13 @@ ve.ce.FocusableNode.prototype.updateInvisibleIcon = function () {
  */
 ve.ce.FocusableNode.prototype.updateInvisibleIconSync = function ( showIcon ) {
 	if ( !this.getModel() ) {
-		// Check the node hasn't been destroyed, as this method is called after a requestAnimationFrame
+		// Check the node hasn't been destroyed, as this method is called after an rAF
 		return;
 	}
 	if ( showIcon ) {
 		// Don't try to append to void tags, or unrendered tags
-		const voidAndHiddenTypes = [ 'style', 'script', ...ve.elementTypes.void ];
-		const $firstElement = this.$element.not( voidAndHiddenTypes.join( ',' ) ).first();
+		var voidAndHiddenTypes = ve.elementTypes.void.concat( 'style', 'script' );
+		var $firstElement = this.$element.not( voidAndHiddenTypes.join( ',' ) ).first();
 		this.createInvisibleIcon();
 		if (
 			// Not needed if node is not attached (e.g. if used in the converter)
@@ -427,7 +442,8 @@ ve.ce.FocusableNode.prototype.onFocusableMouseDown = function ( e ) {
 		return;
 	}
 
-	const surfaceModel = this.focusableSurface.getModel(),
+	var node = this,
+		surfaceModel = this.focusableSurface.getModel(),
 		selection = surfaceModel.getSelection(),
 		nodeRange = this.model.getOuterRange();
 
@@ -437,18 +453,18 @@ ve.ce.FocusableNode.prototype.onFocusableMouseDown = function ( e ) {
 		this.$highlights.prop( 'contentEditable', 'true' );
 		// Select the clicked element so we get a copy option in the context menu
 		ve.selectElement( this.$highlights[ 0 ] );
-		setTimeout( () => {
+		setTimeout( function () {
 			// Undo ce=true as soon as the context menu is shown
-			this.$highlights.prop( 'contentEditable', 'false' );
-			this.focusableSurface.preparePasteTargetForCopy();
+			node.$highlights.prop( 'contentEditable', 'false' );
+			node.focusableSurface.preparePasteTargetForCopy();
 		} );
 	}
 
 	// Wait for native selection to change before correcting
-	setTimeout( () => {
+	setTimeout( function () {
 		// Check surface still exists after timeout
-		if ( this.focusableSurface ) {
-			const range = selection instanceof ve.dm.LinearSelection && selection.getRange();
+		if ( node.focusableSurface ) {
+			var range = selection instanceof ve.dm.LinearSelection && selection.getRange();
 			surfaceModel.getLinearFragment(
 				e.shiftKey && range ?
 					ve.Range.static.newCoveringRange(
@@ -456,9 +472,9 @@ ve.ce.FocusableNode.prototype.onFocusableMouseDown = function ( e ) {
 					) :
 					nodeRange
 			).select();
-			this.focusableSurface.updateActiveAnnotations();
+			node.focusableSurface.updateActiveAnnotations();
 			// Ensure surface is active as native 'focus' event won't be fired
-			this.focusableSurface.activate();
+			node.focusableSurface.activate();
 		}
 	} );
 };
@@ -484,8 +500,8 @@ ve.ce.FocusableNode.prototype.executeCommand = function () {
 	if ( !this.model.isInspectable() ) {
 		return;
 	}
-	const surface = this.focusableSurface.getSurface();
-	const command = surface.commandRegistry.getCommandForNode( this );
+	var surface = this.focusableSurface.getSurface();
+	var command = surface.commandRegistry.getCommandForNode( this );
 	if ( command ) {
 		command.execute( surface );
 	}
@@ -553,7 +569,7 @@ ve.ce.FocusableNode.prototype.onFocusableTouchMove = function () {
  * @param {jQuery.Event} e Mouse move event
  */
 ve.ce.FocusableNode.prototype.onSurfaceMouseMove = function ( e ) {
-	const $target = $( e.target );
+	var $target = $( e.target );
 	if (
 		// eslint-disable-next-line no-jquery/no-class-state
 		!$target.hasClass( 've-ce-focusableNode-highlight' ) &&
@@ -612,8 +628,8 @@ ve.ce.FocusableNode.prototype.isFocused = function () {
  * Set the selected state of the node.
  *
  * @param {boolean} value Node is focused
- * @fires ve.ce.FocusableNode#focus
- * @fires ve.ce.FocusableNode#blur
+ * @fires focus
+ * @fires blur
  */
 ve.ce.FocusableNode.prototype.setFocused = function ( value ) {
 	value = !!value;
@@ -692,7 +708,7 @@ ve.ce.FocusableNode.prototype.clearHighlights = function () {
  * Redraws highlight.
  */
 ve.ce.FocusableNode.prototype.redrawHighlights = function () {
-	if ( this.focused && this.focusableSurface ) {
+	if ( this.focused ) {
 		// setFocused will call clearHighlights/createHighlights
 		// and also re-bind events.
 		this.setFocused( false );
@@ -712,9 +728,9 @@ ve.ce.FocusableNode.prototype.calculateHighlights = function () {
 		return;
 	}
 
-	const surfaceOffset = this.focusableSurface.getSurface().getBoundingClientRect();
+	var surfaceOffset = this.focusableSurface.getSurface().getBoundingClientRect();
 
-	const allRects = this.constructor.static.getRectsForElement( this.$focusable, surfaceOffset );
+	var allRects = this.constructor.static.getRectsForElement( this.$focusable, surfaceOffset );
 
 	this.rects = allRects.rects;
 	this.boundingRect = allRects.boundingRect;
@@ -735,8 +751,8 @@ ve.ce.FocusableNode.prototype.positionHighlights = function () {
 		// Append something selectable for right-click copy
 		.append( $( '<span>' ).addClass( 've-ce-focusableNode-highlight-selectable' ).text( '\u00a0' ) );
 
-	for ( let i = 0, l = this.rects.length; i < l; i++ ) {
-		const $highlight = this.createHighlight();
+	for ( var i = 0, l = this.rects.length; i < l; i++ ) {
+		var $highlight = this.createHighlight();
 		this.$highlights.append(
 			$highlight.css( {
 				top: this.rects[ i ].top,
@@ -767,8 +783,8 @@ ve.ce.FocusableNode.prototype.getRects = function () {
  */
 ve.ce.FocusableNode.prototype.getBoundingRect = function () {
 	if ( !this.$bounding.is( this.$focusable ) ) {
-		const surfaceOffset = this.focusableSurface.getSurface().getBoundingClientRect();
-		const allRects = this.constructor.static.getRectsForElement( this.$bounding, surfaceOffset );
+		var surfaceOffset = this.focusableSurface.getSurface().getBoundingClientRect();
+		var allRects = this.constructor.static.getRectsForElement( this.$bounding, surfaceOffset );
 		return allRects.boundingRect;
 	}
 	if ( !this.highlighted ) {
@@ -780,7 +796,7 @@ ve.ce.FocusableNode.prototype.getBoundingRect = function () {
 /**
  * Get start and end rectangles of an inline focusable node relative to the surface
  *
- * @return {Object.<string,Object>|null} Start and end rectangles
+ * @return {Object|null} Start and end rectangles
  */
 ve.ce.FocusableNode.prototype.getStartAndEndRects = function () {
 	if ( !this.highlighted ) {
@@ -801,18 +817,18 @@ ve.ce.FocusableNode.prototype.getStartAndEndRects = function () {
  * @return {boolean} The node has a visible rendering
  */
 ve.ce.FocusableNode.prototype.hasRendering = function () {
-	let visible = false;
+	var visible = false;
 
 	function checkSize( width, height ) {
 		return ( width >= 10 && height >= 4 ) ||
 			( height >= 10 && width >= 4 );
 	}
 
-	this.$element.each( ( i, element ) => {
+	this.$element.each( function () {
 		if (
-			checkSize( element.offsetWidth, element.offsetHeight ) ||
+			checkSize( this.offsetWidth, this.offsetHeight ) ||
 			// Check width/height attribute as well. (T125767)
-			checkSize( element.width, element.height )
+			checkSize( this.width, this.height )
 		) {
 			visible = true;
 			return false;
@@ -830,7 +846,9 @@ ve.ce.FocusableNode.prototype.hasRendering = function () {
  * @return {boolean} Editing disabled
  */
 ve.ce.FocusableNode.prototype.isInContentEditableDisabled = function () {
-	return !!this.traverseUpstream( ( node ) => !(
-		node.isContentEditable && !node.isContentEditable()
-	) );
+	return !!this.traverseUpstream( function ( node ) {
+		return !(
+			node.isContentEditable && !node.isContentEditable()
+		);
+	} );
 };

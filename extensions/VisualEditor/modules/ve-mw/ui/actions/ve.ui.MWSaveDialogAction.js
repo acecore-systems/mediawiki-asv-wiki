@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface MWSaveDialogAction class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 // TODO: Can perhaps extract a lot of the dialog lifecycle management code
@@ -106,7 +106,7 @@ ve.ui.commandRegistry.register(
 );
 if ( mw.libs.ve.isWikitextAvailable ) {
 	// Ensure wikitextCommandRegistry has finished loading
-	mw.loader.using( 'ext.visualEditor.mwwikitext' ).then( () => {
+	mw.loader.using( 'ext.visualEditor.mwwikitext' ).then( function () {
 		ve.ui.wikitextCommandRegistry.register(
 			new ve.ui.MWSaveCommand(
 				'showPreview', 'mwSaveDialog', 'preview'
@@ -130,14 +130,12 @@ ve.ui.commandRegistry.register(
 /* Triggers & command help */
 
 ( function () {
-	const accessKeyPrefix = $.fn.updateTooltipAccessKeys.getAccessKeyPrefix().replace( /-/g, '+' ),
+	var accessKeyPrefix = $.fn.updateTooltipAccessKeys.getAccessKeyPrefix().replace( /-/g, '+' ),
 		shortcuts = [
 			{
 				command: 'showSave',
 				accessKey: 'accesskey-save',
-				label: function () {
-					return ve.init.target.getSaveButtonLabel();
-				}
+				label: function () { return ve.init.target.getSaveButtonLabel(); }
 			},
 			{
 				command: 'showChanges',
@@ -161,14 +159,14 @@ ve.ui.commandRegistry.register(
 			}
 		];
 
-	shortcuts.forEach( ( shortcut ) => {
+	shortcuts.forEach( function ( shortcut ) {
 		// The following messages can be used here:
 		// * accesskey-save
 		// * accesskey-diff
 		// * accesskey-preview
 		// * accesskey-minoredit
 		// * accesskey-watch
-		const accessKey = ve.msg( shortcut.accessKey );
+		var accessKey = ve.msg( shortcut.accessKey );
 		if ( accessKey !== '-' && accessKey !== '' ) {
 			try {
 				ve.ui.triggerRegistry.register(

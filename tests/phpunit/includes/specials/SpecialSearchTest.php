@@ -1,15 +1,8 @@
 <?php
 
-use MediaWiki\Context\RequestContext;
-use MediaWiki\Language\ILanguageConverter;
 use MediaWiki\Languages\LanguageConverterFactory;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Request\FauxRequest;
-use MediaWiki\Search\TitleMatcher;
-use MediaWiki\Specials\SpecialSearch;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
 
 /**
  * Test class for SpecialSearch class
@@ -30,15 +23,12 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 			$services->getInterwikiLookup(),
 			$services->getReadOnlyMode(),
 			$services->getUserOptionsManager(),
-			$services->getLanguageConverterFactory(),
-			$services->getRepoGroup(),
-			$services->getSearchResultThumbnailProvider(),
-			$services->getTitleMatcher()
+			$services->getLanguageConverterFactory()
 		);
 	}
 
 	/**
-	 * @covers \MediaWiki\Specials\SpecialSearch::load
+	 * @covers SpecialSearch::load
 	 */
 	public function testAlternativeBackend() {
 		$this->overrideConfigValue( MainConfigNames::SearchTypeAlternatives, [ 'MockSearchEngine' ] );
@@ -58,8 +48,8 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Specials\SpecialSearch::load
-	 * @covers \MediaWiki\Specials\SpecialSearch::showResults
+	 * @covers SpecialSearch::load
+	 * @covers SpecialSearch::showResults
 	 */
 	public function testValidateSortOrder() {
 		$ctx = new RequestContext();
@@ -73,13 +63,13 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 			->getSpecialPageFactory()
 			->executePath( $sp, $ctx );
 		$html = $ctx->getOutput()->getHTML();
-		$this->assertStringContainsString( 'cdx-message--warning', $html, 'must contain warnings' );
-		$this->assertMatchesRegularExpression( '/Sort order of invalid is unrecognized/',
+		$this->assertRegExp( '/class="mw-message-box-warning/', $html, 'must contain warnings' );
+		$this->assertRegExp( '/Sort order of invalid is unrecognized/',
 			$html, 'must tell user sort order is invalid' );
 	}
 
 	/**
-	 * @covers \MediaWiki\Specials\SpecialSearch::load
+	 * @covers SpecialSearch::load
 	 * @dataProvider provideSearchOptionsTests
 	 * @param array $requested Request parameters. For example:
 	 *   [ 'ns5' => true, 'ns6' => true ]. Null to use default options.
@@ -97,7 +87,7 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 			$this->newUserWithSearchNS( $userOptions )
 		);
 		/*
-		$context->setRequest( new MediaWiki\Request\FauxRequest( [
+		$context->setRequest( new FauxRequest( [
 			'ns5'=>true,
 			'ns6'=>true,
 		] ));
@@ -150,11 +140,11 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 			],
 			[
 				$EMPTY_REQUEST, [
-					'searchNs2' => 1,
-					'searchNs14' => 1,
-				] + array_fill_keys( array_map( static function ( $ns ) {
-					return "searchNs$ns";
-				}, $defaultNS ), 0 ),
+				'searchNs2' => 1,
+				'searchNs14' => 1,
+			] + array_fill_keys( array_map( static function ( $ns ) {
+				return "searchNs$ns";
+			}, $defaultNS ), 0 ),
 				'advanced', [ 2, 14 ],
 				'T35583: search with no option should honor User search preferences'
 					. ' and have all other namespace disabled'
@@ -184,7 +174,7 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * Verify we do not expand search term in <title> on search result page
 	 * https://gerrit.wikimedia.org/r/4841
-	 * @covers \MediaWiki\Specials\SpecialSearch::setupPage
+	 * @covers SpecialSearch::setupPage
 	 */
 	public function testSearchTermIsNotExpanded() {
 		// T303046
@@ -195,7 +185,7 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 		$ctx = new RequestContext();
 		$term = '{{SITENAME}}';
 		$ctx->setRequest( new FauxRequest( [ 'search' => $term, 'fulltext' => 1 ] ) );
-		$ctx->setTitle( Title::makeTitle( NS_SPECIAL, 'Search' ) );
+		$ctx->setTitle( Title::newFromText( 'Special:Search' ) );
 		$search = $this->newSpecialPage();
 		$search->setContext( $ctx );
 
@@ -209,14 +199,14 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 			->getHTMLTitle();
 
 		# Compare :-]
-		$this->assertMatchesRegularExpression(
+		$this->assertRegExp(
 			'/' . preg_quote( $term, '/' ) . '/',
 			$pageTitle,
 			"Search term '{$term}' should not be expanded in Special:Search <title>"
 		);
 	}
 
-	public static function provideRewriteQueryWithSuggestion() {
+	public function provideRewriteQueryWithSuggestion() {
 		return [
 			[
 				'With suggestion and no rewritten query shows did you mean',
@@ -262,7 +252,7 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideRewriteQueryWithSuggestion
-	 * @covers \MediaWiki\Specials\SpecialSearch::showResults
+	 * @covers SpecialSearch::showResults
 	 */
 	public function testRewriteQueryWithSuggestion(
 		$message,
@@ -292,10 +282,7 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 				$services->getInterwikiLookup(),
 				$services->getReadOnlyMode(),
 				$services->getUserOptionsManager(),
-				$services->getLanguageConverterFactory(),
-				$services->getRepoGroup(),
-				$services->getSearchResultThumbnailProvider(),
-				$services->getTitleMatcher()
+				$services->getLanguageConverterFactory()
 			] )
 			->onlyMethods( [ 'getSearchEngine' ] )
 			->getMock();
@@ -309,11 +296,11 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 
 		$html = $search->getContext()->getOutput()->getHTML();
 		foreach ( (array)$expectRegex as $regex ) {
-			$this->assertMatchesRegularExpression( $regex, $html, $message );
+			$this->assertRegExp( $regex, $html, $message );
 		}
 	}
 
-	public static function provideLimitPreference() {
+	public function provideLimitPreference() {
 		return [
 			[ 20, 20 ],
 			[ 101, null ],
@@ -322,7 +309,7 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideLimitPreference
-	 * @covers \MediaWiki\Specials\SpecialSearch::showResults
+	 * @covers SpecialSearch::showResults
 	 */
 	public function testLimitPreference(
 		$optionValue,
@@ -338,7 +325,7 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 
 		$userOptionsManager = $this->getServiceContainer()->getUserOptionsManager();
 
-		$user = $this->getTestSysop()->getUser();
+		$user = User::newFromName( 'UTSysop' );
 		$userOptionsManager->setOption( $user, 'searchlimit', $optionValue );
 		$user->saveSettings();
 
@@ -353,10 +340,7 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 				$services->getInterwikiLookup(),
 				$services->getReadOnlyMode(),
 				$userOptionsManager,
-				$services->getLanguageConverterFactory(),
-				$services->getRepoGroup(),
-				$services->getSearchResultThumbnailProvider(),
-				$services->getTitleMatcher()
+				$services->getLanguageConverterFactory()
 			] )
 			->onlyMethods( [ 'getSearchEngine' ] )
 			->getMock();
@@ -371,19 +355,30 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 
 		$html = $search->getContext()->getOutput()->getHTML();
 		if ( $expectedLimit === null ) {
-			$this->assertDoesNotMatchRegularExpression( "/ title=\"Next \\d+ results\"/", $html );
+			$this->assertNotRegExp( "/ title=\"Next \\d+ results\"/", $html );
 		} else {
-			$this->assertMatchesRegularExpression( "/ title=\"Next $expectedLimit results\"/", $html );
+			$this->assertRegExp( "/ title=\"Next $expectedLimit results\"/", $html );
 		}
 	}
 
 	protected function mockSearchEngine( SpecialSearchTestMockResultSet $results ) {
 		$mock = $this->getMockBuilder( SearchEngine::class )
-			->onlyMethods( [ 'searchText' ] )
+			->onlyMethods( [ 'searchText', 'searchTitle', 'getNearMatcher' ] )
 			->getMock();
 
 		$mock->method( 'searchText' )
 			->willReturn( $results );
+
+		$nearMatcherMock = $this->getMockBuilder( SearchNearMatcher::class )
+			->disableOriginalConstructor()
+			->onlyMethods( [ 'getNearMatch' ] )
+			->getMock();
+
+		$nearMatcherMock->method( 'getNearMatch' )
+			->willReturn( $results->getFirstResult() );
+
+		$mock->method( 'getNearMatcher' )
+			->willReturn( $nearMatcherMock );
 
 		$mock->setHookContainer( $this->getServiceContainer()->getHookContainer() );
 
@@ -391,13 +386,13 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Specials\SpecialSearch::execute
+	 * @covers SpecialSearch::execute
 	 */
 	public function testSubPageRedirect() {
 		$this->overrideConfigValue( MainConfigNames::Script, '/w/index.php' );
 
 		$ctx = new RequestContext;
-		$sp = Title::makeTitle( NS_SPECIAL, 'Search/foo_bar' );
+		$sp = Title::newFromText( 'Special:Search/foo_bar' );
 		$this->getServiceContainer()->getSpecialPageFactory()->executePath( $sp, $ctx );
 		$url = $ctx->getOutput()->getRedirect();
 
@@ -412,7 +407,7 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 	 * If the 'search-match-redirect' user pref is false, then SpecialSearch::goResult() should
 	 * return null
 	 *
-	 * @covers \MediaWiki\Specials\SpecialSearch::goResult
+	 * @covers SpecialSearch::goResult
 	 */
 	public function testGoResult_userPrefRedirectOn() {
 		$context = new RequestContext;
@@ -433,7 +428,7 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 	 * If the 'search-match-redirect' user pref is true, then SpecialSearch::goResult() should
 	 * NOT return null if there is a near match found for the search term
 	 *
-	 * @covers \MediaWiki\Specials\SpecialSearch::goResult
+	 * @covers SpecialSearch::goResult
 	 */
 	public function testGoResult_userPrefRedirectOff() {
 		// mock the search engine so it returns a near match for an arbitrary search term
@@ -442,15 +437,6 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 			'',
 			[ SearchResult::newFromTitle( Title::newMainPage() ) ]
 		);
-
-		$nearMatcherMock = $this->getMockBuilder( TitleMatcher::class )
-			->disableOriginalConstructor()
-			->onlyMethods( [ 'getNearMatch' ] )
-			->getMock();
-
-		$nearMatcherMock->method( 'getNearMatch' )
-			->willReturn( $searchResults->getFirstResult() );
-
 		$mockSearchEngine = $this->mockSearchEngine( $searchResults );
 		$services = $this->getServiceContainer();
 		$search = $this->getMockBuilder( SpecialSearch::class )
@@ -462,10 +448,7 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 				$services->getInterwikiLookup(),
 				$services->getReadOnlyMode(),
 				$services->getUserOptionsManager(),
-				$services->getLanguageConverterFactory(),
-				$services->getRepoGroup(),
-				$services->getSearchResultThumbnailProvider(),
-				$nearMatcherMock
+				$services->getLanguageConverterFactory()
 			] )
 			->onlyMethods( [ 'getSearchEngine' ] )
 			->getMock();
@@ -487,7 +470,8 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Specials\SpecialSearch::showResults
+	 * @covers SpecialSearch::showResults
+	 * @throws MWException
 	 */
 	public function test_create_link_not_shown_if_variant_link_is_known() {
 		$searchTerm = "Test create link not shown if variant link is known";
@@ -531,10 +515,7 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 				$services->getInterwikiLookup(),
 				$services->getReadOnlyMode(),
 				$services->getUserOptionsManager(),
-				$languageConverterFactory,
-				$services->getRepoGroup(),
-				$services->getSearchResultThumbnailProvider(),
-				$services->getTitleMatcher()
+				$languageConverterFactory
 			);
 			$context = new RequestContext();
 			$context->setRequest( new FauxRequest() );
@@ -555,5 +536,63 @@ class SpecialSearchTest extends MediaWikiIntegrationTestCase {
 		$html = $specialSearch->getContext()->getOutput()->getHTML();
 		$this->assertStringContainsString( 'class="mw-search-createlink"', $html );
 		$this->assertStringNotContainsString( 'class="mw-search-exists"', $html );
+	}
+}
+
+class SpecialSearchTestMockResultSet extends SearchResultSet {
+	protected $results;
+	protected $suggestion;
+	protected $rewrittenQuery;
+	protected $containedSyntax;
+
+	public function __construct(
+		$suggestion = null,
+		$rewrittenQuery = null,
+		array $results = [],
+		$containedSyntax = false
+	) {
+		$this->suggestion = $suggestion;
+		$this->rewrittenQuery = $rewrittenQuery;
+		$this->results = $results;
+		$this->containedSyntax = $containedSyntax;
+	}
+
+	public function expandResults() {
+		return $this->results;
+	}
+
+	public function getTotalHits() {
+		return $this->numRows();
+	}
+
+	public function hasSuggestion() {
+		return $this->suggestion !== null;
+	}
+
+	public function getSuggestionQuery() {
+		return $this->suggestion;
+	}
+
+	public function getSuggestionSnippet() {
+		return $this->suggestion;
+	}
+
+	public function hasRewrittenQuery() {
+		return $this->rewrittenQuery !== null;
+	}
+
+	public function getQueryAfterRewrite() {
+		return $this->rewrittenQuery;
+	}
+
+	public function getQueryAfterRewriteSnippet() {
+		return htmlspecialchars( $this->rewrittenQuery );
+	}
+
+	public function getFirstResult() {
+		if ( count( $this->results ) === 0 ) {
+			return null;
+		}
+		return $this->results[0]->getTitle();
 	}
 }

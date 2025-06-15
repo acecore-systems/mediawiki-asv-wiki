@@ -1,13 +1,13 @@
-@import 'mediawiki.skin.variables.less';
+@import 'mediawiki.ui/variables';
 
 .ext-WikiEditor-ManualWidget {
-	background-color: @background-color-neutral;
+	background-color: @colorGray14;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	border-color: @border-color-subtle;
-	border-width: @border-width-base 0;
-	border-style: @border-style-base;
+	border-color: @colorGray12;
+	border-width: 1px 0;
+	border-style: solid;
 	padding: 14px 24px;
 	position: relative;
 	color: inherit;
@@ -23,12 +23,12 @@
 
 	.ext-WikiEditor-realtimepreview-manual-reload {
 		margin-left: auto;
-		font-weight: @font-weight-bold;
-		color: @color-progressive;
+		font-weight: bolder;
+		color: @color-primary;
 	}
 
 	&.oo-ui-widget-disabled .ext-WikiEditor-realtimepreview-manual-reload {
-		color: @color-disabled;
+		color: @colorDisabledText;
 	}
 
 	&.oo-ui-widget-disabled:active {

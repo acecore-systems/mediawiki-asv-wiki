@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable MWImageNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -11,8 +11,8 @@
  * @class
  * @abstract
  * @extends ve.ce.GeneratedContentNode
- * @mixes ve.ce.FocusableNode
- * @mixes ve.ce.MWResizableNode
+ * @mixins ve.ce.FocusableNode
+ * @mixins ve.ce.MWResizableNode
  *
  * @constructor
  * @param {jQuery} $focusable Focusable part of the node
@@ -66,7 +66,7 @@ ve.ce.MWImageNode.static.primaryCommandName = 'media';
  * @inheritdoc ve.ce.Node
  */
 ve.ce.MWImageNode.static.getDescription = function ( model ) {
-	const title = new mw.Title( model.getFilename() );
+	var title = new mw.Title( model.getFilename() );
 	return title.getMainText();
 };
 
@@ -96,18 +96,18 @@ ve.ce.MWImageNode.prototype.onGeneratedContentNodeUpdate = function () {
  * @inheritdoc ve.ce.GeneratedContentNode
  */
 ve.ce.MWImageNode.prototype.generateContents = function () {
-	const model = this.getModel(),
+	var model = this.getModel(),
+		width = model.getAttribute( 'width' ),
 		height = model.getAttribute( 'height' ),
 		mwData = model.getAttribute( 'mw' ) || {},
 		deferred = ve.createDeferred();
-	let width = model.getAttribute( 'width' );
 
 	// If the current rendering is larger don't fetch a new image, just let the browser resize
 	if ( this.renderedDimensions && this.renderedDimensions.width > width ) {
 		return deferred.reject().promise();
 	}
 
-	let params;
+	var params;
 	if ( mwData.thumbtime !== undefined ) {
 		params = 'seek=' + mwData.thumbtime;
 	} else if ( mwData.page !== undefined ) {
@@ -116,7 +116,7 @@ ve.ce.MWImageNode.prototype.generateContents = function () {
 		width = undefined;
 	}
 
-	const xhr = ve.init.target.getContentApi( this.getModel().getDocument() ).get( {
+	var xhr = ve.init.target.getContentApi( this.getModel().getDocument() ).get( {
 		action: 'query',
 		prop: 'imageinfo',
 		iiprop: 'url',
@@ -138,7 +138,7 @@ ve.ce.MWImageNode.prototype.generateContents = function () {
  * @param {Object} response Response data
  */
 ve.ce.MWImageNode.prototype.onParseSuccess = function ( deferred, response ) {
-	const thumburl = ve.getProp( response.query.pages[ 0 ], 'imageinfo', 0, 'thumburl' );
+	var thumburl = ve.getProp( response.query.pages[ 0 ], 'imageinfo', 0, 'thumburl' );
 	if ( thumburl ) {
 		deferred.resolve( thumburl );
 	} else {
@@ -173,5 +173,9 @@ ve.ce.MWImageNode.prototype.onParseError = function ( deferred ) {
  * Update rendering when media type changes
  */
 ve.ce.MWImageNode.prototype.updateMediaType = function () {
-	this.$image.toggleClass( 've-ce-mwImageNode-audioPlayer', this.model.getMediaType() === 'AUDIO' );
+	if ( this.model.getMediaType() === 'AUDIO' ) {
+		this.$image.addClass( 've-ce-mwImageNode-audioPlayer' );
+	} else {
+		this.$image.removeClass( 've-ce-mwImageNode-audioPlayer' );
+	}
 };

@@ -1,7 +1,5 @@
 <?php
 
-namespace MediaWiki\HTMLForm\Field;
-
 use MediaWiki\Widget\TitlesMultiselectWidget;
 
 /**
@@ -80,8 +78,6 @@ class HTMLTitlesMultiselectField extends HTMLTitleTextField {
 	}
 
 	public function getInputOOUI( $value ) {
-		$this->mParent->getOutput()->addModuleStyles( 'mediawiki.widgets.TagMultiselectWidget.styles' );
-
 		$params = [
 			'id' => $this->mID,
 			'name' => $this->mName,
@@ -109,9 +105,6 @@ class HTMLTitlesMultiselectField extends HTMLTitleTextField {
 		if ( isset( $this->mParams['excludeDynamicNamespaces'] ) ) {
 			$params['excludeDynamicNamespaces'] = $this->mParams['excludeDynamicNamespaces'];
 		}
-		if ( isset( $this->mParams['allowEditTags'] ) ) {
-			$params['allowEditTags'] = $this->mParams['allowEditTags'];
-		}
 
 		if ( isset( $this->mParams['input'] ) ) {
 			$params['input'] = $this->mParams['input'];
@@ -125,16 +118,9 @@ class HTMLTitlesMultiselectField extends HTMLTitleTextField {
 		// Make the field auto-infusable when it's used inside a legacy HTMLForm rather than OOUIHTMLForm
 		$params['infusable'] = true;
 		$params['classes'] = [ 'mw-htmlform-autoinfuse' ];
-
-		return $this->getInputWidget( $params );
-	}
-
-	/**
-	 * @inheritDoc
-	 */
-	protected function getInputWidget( $params ) {
 		$widget = new TitlesMultiselectWidget( $params );
 		$widget->setAttributes( [ 'data-mw-modules' => implode( ',', $this->getOOUIModules() ) ] );
+
 		return $widget;
 	}
 
@@ -146,14 +132,4 @@ class HTMLTitlesMultiselectField extends HTMLTitleTextField {
 		return [ 'mediawiki.widgets.TitlesMultiselectWidget' ];
 	}
 
-	public function getInputCodex( $value, $hasErrors ) {
-		// HTMLTextAreaField defaults to 'rows' => 25, which is too big for this field
-		// Use 10 instead (but allow $this->mParams to override that value)
-		$textAreaField = new HTMLTextAreaField( $this->mParams + [ 'rows' => 10 ] );
-		return $textAreaField->getInputCodex( $value, $hasErrors );
-	}
-
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( HTMLTitlesMultiselectField::class, 'HTMLTitlesMultiselectField' );

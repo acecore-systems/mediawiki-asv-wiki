@@ -4,7 +4,7 @@ use PHPUnit\Framework\AssertionFailedError;
 use Psr\Http\Message\ResponseInterface;
 
 /**
- * @covers \MockHttpTrait
+ * @covers MockHttpTrait
  * @group MediaWikiIntegrationTestCaseTest
  */
 class MockHttpTraitTest extends MediaWikiIntegrationTestCase {
@@ -95,7 +95,7 @@ class MockHttpTraitTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( 'Hello World', $client->getContent() );
 	}
 
-	public static function provideMultiRequestData() {
+	public function provideMultiRequestData() {
 		yield [
 			[
 				'a' => [ 'url' => 'http://a.example.com', ],
@@ -256,7 +256,7 @@ class MockHttpTraitTest extends MediaWikiIntegrationTestCase {
 		}
 	}
 
-	public static function provideGuzzleClientData() {
+	public function provideGuzzleClientData() {
 		yield [
 			'Hello Wörld',
 			new GuzzleHttp\Psr7\Response( 200, [], 'Hello Wörld' ),

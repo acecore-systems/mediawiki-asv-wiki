@@ -20,11 +20,11 @@
 
 namespace MediaWiki\Extension\CategoryTree\Tests;
 
-use MediaWiki\Category\Category;
+use Category;
 use MediaWiki\Extension\CategoryTree\CategoryCache;
-use MediaWiki\Title\TitleValue;
 use MediaWikiIntegrationTestCase;
-use Wikimedia\Rdbms\IConnectionProvider;
+use TitleValue;
+use Wikimedia\Rdbms\ILoadBalancer;
 use Wikimedia\TestingAccessWrapper;
 
 /**
@@ -35,7 +35,7 @@ class CategoryCacheTest extends MediaWikiIntegrationTestCase {
 
 	public function testConstruct() {
 		new CategoryCache(
-			$this->createMock( IConnectionProvider::class )
+			$this->createMock( ILoadBalancer::class )
 		);
 		$this->addToAssertionCount( 1 );
 	}

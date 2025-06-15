@@ -15,31 +15,41 @@
  * along with MultimediaViewer.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const UiElement = require( './mmv.ui.js' );
+( function () {
+	// Shortcut for prototype later
+	var DP;
 
-/**
- * Represents a dialog and the link to open it.
- */
-class Dialog extends UiElement {
 	/**
+	 * Represents a dialog and the link to open it.
+	 *
+	 * @class mw.mmv.ui.Dialog
+	 * @extends mw.mmv.ui.Element
 	 * @param {jQuery} $container the element to which the dialog will be appended
 	 * @param {jQuery} $openButton the button which opens the dialog. Only used for positioning.
+	 * @param {mw.mmv.Config} config
 	 */
-	constructor( $container, $openButton ) {
-		super( $container );
+	function Dialog( $container, $openButton, config ) {
+		mw.mmv.ui.Element.call( this, $container );
 
 		/** @property {boolean} isOpen Whether or not the dialog is open. */
 		this.isOpen = false;
 
 		/**
+		 * @property {string[]} loadDependencies Dependencies to load before showing the dialog.
+		 */
+		this.loadDependencies = [];
+
+		/**
 		 * @property {string} eventPrefix Prefix specific to the class to be applied to events.
 		 */
 		this.eventPrefix = '';
+		/** @property {mw.mmv.Config} config - */
+		this.config = config;
 
 		/** @property {jQuery} $openButton The click target which opens the dialog. */
 		this.$openButton = $openButton;
 
-		/** @property {jQuery} $dialog The main dialog container */
+		/** @type {jQuery} $dialog The main dialog container */
 		this.$dialog = $( '<div>' )
 			.addClass( 'mw-mmv-dialog' );
 
@@ -56,21 +66,24 @@ class Dialog extends UiElement {
 		this.$dialog.appendTo( this.$container );
 	}
 
+	OO.inheritClass( Dialog, mw.mmv.ui.Element );
+	DP = Dialog.prototype;
+
 	/**
 	 * Creates the DOM element that setWarning()/clearWarning() will operate on.
 	 *
 	 * @private
 	 */
-	initWarning() {
+	DP.initWarning = function () {
 		this.$warning = $( '<div>' )
 			.addClass( 'mw-mmv-dialog-warning' )
 			.hide()
-			.on( 'click', ( e ) => {
+			.on( 'click', function ( e ) {
 				// prevent other click handlers such as the download CTA from intercepting clicks at the warning
 				e.stopPropagation();
 			} )
 			.appendTo( this.$dialog );
-	}
+	};
 
 	/**
 	 * Handles click on link that opens/closes the dialog.
@@ -79,10 +92,18 @@ class Dialog extends UiElement {
 	 * @param {jQuery.Event} e Event object for the click event.
 	 * @return {boolean} False to cancel the default event
 	 */
-	handleOpenCloseClick( openEvent, e ) {
-		this.toggleDialog( e );
+	DP.handleOpenCloseClick = function ( openEvent, e ) {
+		var dialog = this;
+
+		mw.loader.using( this.loadDependencies, function () {
+			dialog.dependenciesLoaded = true;
+			dialog.toggleDialog( e );
+		}, function ( error ) {
+			mw.log.error( 'mw.loader.using error when trying to load dialog dependencies', error );
+		} );
+
 		return false;
-	}
+	};
 
 	/**
 	 * Toggles the open state on the dialog.
@@ -90,44 +111,46 @@ class Dialog extends UiElement {
 	 * @param {jQuery.Event} [e] Event object when the close action is caused by a user
 	 *   action, as opposed to closing the window or something.
 	 */
-	toggleDialog( e ) {
+	DP.toggleDialog = function ( e ) {
 		if ( this.isOpen ) {
 			this.closeDialog( e );
 		} else {
 			this.openDialog();
 		}
-	}
+	};
 
 	/**
 	 * Opens a dialog.
 	 */
-	openDialog() {
+	DP.openDialog = function () {
 		this.startListeningToOutsideClick();
 		this.$dialog.show();
 		this.isOpen = true;
 		this.$openButton.addClass( 'mw-mmv-dialog-open' );
-	}
+	};
 
 	/**
 	 * Closes a dialog.
 	 */
-	closeDialog() {
+	DP.closeDialog = function () {
 		this.stopListeningToOutsideClick();
 		this.$dialog.hide();
 		this.isOpen = false;
 		this.$openButton.removeClass( 'mw-mmv-dialog-open' );
-	}
+	};
 
 	/**
 	 * Sets up the event handler which closes the dialog when the user clicks outside.
 	 */
-	startListeningToOutsideClick() {
-		this.outsideClickHandler = this.outsideClickHandler || ( ( e ) => {
-			const $clickTarget = $( e.target );
+	DP.startListeningToOutsideClick = function () {
+		var dialog = this;
+
+		this.outsideClickHandler = this.outsideClickHandler || function ( e ) {
+			var $clickTarget = $( e.target );
 
 			// Don't close the dialog if the click inside a dialog or on an navigation arrow
 			if (
-				$clickTarget.closest( this.$dialog ).length ||
+				$clickTarget.closest( dialog.$dialog ).length ||
 				$clickTarget.closest( '.mw-mmv-next-image' ).length ||
 				$clickTarget.closest( '.mw-mmv-prev-image' ).length ||
 				e.which === 3
@@ -135,35 +158,35 @@ class Dialog extends UiElement {
 				return;
 			}
 
-			this.closeDialog();
+			dialog.closeDialog();
 			return false;
-		} );
-		$( document ).on( `click.mmv.${ this.eventPrefix }`, this.outsideClickHandler );
-	}
+		};
+		$( document ).on( 'click.mmv.' + this.eventPrefix, this.outsideClickHandler );
+	};
 
 	/**
 	 * Removes the event handler set up by startListeningToOutsideClick().
 	 */
-	stopListeningToOutsideClick() {
-		$( document ).off( `click.mmv.${ this.eventPrefix }`, this.outsideClickHandler );
-	}
+	DP.stopListeningToOutsideClick = function () {
+		$( document ).off( 'click.mmv.' + this.eventPrefix, this.outsideClickHandler );
+	};
 
 	/**
 	 * Clears listeners.
 	 */
-	unattach() {
-		super.unattach();
+	DP.unattach = function () {
+		mw.mmv.ui.Element.prototype.unattach.call( this );
 
 		this.stopListeningToOutsideClick();
-	}
+	};
 
 	/**
 	 * @inheritdoc
 	 */
-	empty() {
+	DP.empty = function () {
 		this.closeDialog();
 		this.clearWarning();
-	}
+	};
 
 	/**
 	 * Displays a warning ribbon.
@@ -171,28 +194,28 @@ class Dialog extends UiElement {
 	 * @param {string} content Content of the warning (can be HTML,
 	 *   setWarning does no escaping).
 	 */
-	setWarning( content ) {
+	DP.setWarning = function ( content ) {
 		this.$warning
 			.empty()
 			.append( content )
 			.show();
 		this.$dialog.addClass( 'mw-mmv-warning-visible' );
-	}
+	};
 
 	/**
 	 * Removes the warning ribbon.
 	 */
-	clearWarning() {
+	DP.clearWarning = function () {
 		this.$warning.hide();
 		this.$dialog.removeClass( 'mw-mmv-warning-visible' );
-	}
+	};
 
 	/**
-	 * @param {ImageModel} image
+	 * @param {mw.mmv.model.Image} image
 	 * @return {string[]}
 	 */
-	getImageWarnings( image ) {
-		const warnings = [];
+	DP.getImageWarnings = function ( image ) {
+		var warnings = [];
 
 		if ( image.deletionReason ) {
 			warnings.push( mw.message( 'multimediaviewer-reuse-warning-deletion' ).plain() );
@@ -209,13 +232,13 @@ class Dialog extends UiElement {
 		}
 
 		return warnings;
-	}
+	};
 
 	/**
-	 * @param {ImageModel} image
+	 * @param {mw.mmv.model.Image} image
 	 */
-	showImageWarnings( image ) {
-		const warnings = this.getImageWarnings( image );
+	DP.showImageWarnings = function ( image ) {
+		var warnings = this.getImageWarnings( image );
 
 		if ( warnings.length > 0 ) {
 			warnings.push( mw.message( 'multimediaviewer-reuse-warning-generic', image.descriptionUrl ).parse() );
@@ -223,7 +246,7 @@ class Dialog extends UiElement {
 		} else {
 			this.clearWarning();
 		}
-	}
-}
+	};
 
-module.exports = Dialog;
+	mw.mmv.ui.Dialog = Dialog;
+}() );

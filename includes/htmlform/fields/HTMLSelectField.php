@@ -1,10 +1,5 @@
 <?php
 
-namespace MediaWiki\HTMLForm\Field;
-
-use MediaWiki\HTMLForm\HTMLFormField;
-use MediaWiki\Xml\XmlSelect;
-
 /**
  * A select dropdown field.  Basically a wrapper for Xmlselect class
  *
@@ -65,7 +60,7 @@ class HTMLSelectField extends HTMLFormField {
 	public function getInputOOUI( $value ) {
 		$disabled = false;
 		$allowedParams = [ 'tabindex' ];
-		$attribs = \OOUI\Element::configFromHtmlAttributes(
+		$attribs = OOUI\Element::configFromHtmlAttributes(
 			$this->getAttributes( $allowedParams )
 		);
 
@@ -77,36 +72,13 @@ class HTMLSelectField extends HTMLFormField {
 			$disabled = true;
 		}
 
-		return new \OOUI\DropdownInputWidget( [
+		return new OOUI\DropdownInputWidget( [
 			'name' => $this->mName,
 			'id' => $this->mID,
 			'options' => $this->getOptionsOOUI(),
 			'value' => strval( $value ),
 			'disabled' => $disabled,
 		] + $attribs );
-	}
-
-	public function getInputCodex( $value, $hasErrors ) {
-		$select = new XmlSelect( $this->mName, $this->mID, strval( $value ) );
-
-		if ( !empty( $this->mParams['disabled'] ) ) {
-			$select->setAttribute( 'disabled', 'disabled' );
-		}
-
-		$allowedParams = [ 'tabindex', 'size' ];
-		$customParams = $this->getAttributes( $allowedParams );
-		foreach ( $customParams as $name => $value ) {
-			$select->setAttribute( $name, $value );
-		}
-
-		// TODO: Add support for error class once it's implemented in the Codex CSS-only Select.
-		$selectClass = 'cdx-select';
-		$selectClass .= $this->mClass !== '' ? ' ' . $this->mClass : '';
-		$select->setAttribute( 'class', $selectClass );
-
-		$select->addOptions( $this->getOptions() );
-
-		return $select->getHTML();
 	}
 
 	/**
@@ -117,6 +89,3 @@ class HTMLSelectField extends HTMLFormField {
 		return true;
 	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( HTMLSelectField::class, 'HTMLSelectField' );

@@ -22,8 +22,8 @@ namespace MediaWiki\EditPage\Constraint;
 
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\Permissions\PermissionManager;
-use MediaWiki\User\User;
 use StatusValue;
+use User;
 
 /**
  * Verify user permissions:
@@ -35,10 +35,17 @@ use StatusValue;
  */
 class UserBlockConstraint implements IEditConstraint {
 
-	private PermissionManager $permissionManager;
-	private LinkTarget $title;
-	private User $user;
-	private string $result;
+	/** @var PermissionManager */
+	private $permissionManager;
+
+	/** @var LinkTarget */
+	private $title;
+
+	/** @var User */
+	private $user;
+
+	/** @var string|null */
+	private $result;
 
 	/**
 	 * @param PermissionManager $permissionManager

@@ -18,7 +18,6 @@
  * @file
  */
 
-use MediaWiki\Config\Config;
 use MediaWiki\HookContainer\ProtectedHookAccessorTrait;
 use MediaWiki\MediaWikiServices;
 
@@ -75,7 +74,7 @@ abstract class QuickTemplate {
 	/**
 	 * @param Config|null $config
 	 */
-	public function __construct( ?Config $config = null ) {
+	public function __construct( Config $config = null ) {
 		$this->data = [];
 		if ( $config === null ) {
 			wfDebug( __METHOD__ . ' was called with no Config instance passed to it' );
@@ -198,7 +197,7 @@ abstract class QuickTemplate {
 	/**
 	 * Get the Skin object related to this object
 	 *
-	 * @return SkinTemplate
+	 * @return Skin
 	 */
 	public function getSkin() {
 		return $this->data['skin'];

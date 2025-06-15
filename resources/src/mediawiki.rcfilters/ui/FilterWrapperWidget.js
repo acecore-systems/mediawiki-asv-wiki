@@ -1,33 +1,35 @@
-const FilterTagMultiselectWidget = require( './FilterTagMultiselectWidget.js' ),
+var FilterTagMultiselectWidget = require( './FilterTagMultiselectWidget.js' ),
 	LiveUpdateButtonWidget = require( './LiveUpdateButtonWidget.js' ),
-	ChangesLimitAndDateButtonWidget = require( './ChangesLimitAndDateButtonWidget.js' );
+	ChangesLimitAndDateButtonWidget = require( './ChangesLimitAndDateButtonWidget.js' ),
+	FilterWrapperWidget;
 
 /**
- * List displaying all filter groups.
+ * List displaying all filter groups
  *
  * @class mw.rcfilters.ui.FilterWrapperWidget
- * @ignore
  * @extends OO.ui.Widget
- * @mixes OO.ui.mixin.PendingElement
+ * @mixins OO.ui.mixin.PendingElement
  *
+ * @constructor
  * @param {mw.rcfilters.Controller} controller Controller
  * @param {mw.rcfilters.dm.FiltersViewModel} model View model
  * @param {mw.rcfilters.dm.SavedQueriesModel} savedQueriesModel Saved queries model
  * @param {mw.rcfilters.dm.ChangesListViewModel} changesListModel
  * @param {Object} [config] Configuration object
- * @param {Object} [config.filters] A definition of the filter groups in this list
- * @param {jQuery} [config.$overlay] A jQuery object serving as overlay for popups
- * @param {jQuery} [config.$wrapper] A jQuery object for the wrapper of the general
+ * @cfg {Object} [filters] A definition of the filter groups in this list
+ * @cfg {jQuery} [$overlay] A jQuery object serving as overlay for popups
+ * @cfg {jQuery} [$wrapper] A jQuery object for the wrapper of the general
  *  system. If not given, falls back to this widget's $element
- * @param {boolean} [config.collapsed] Filter area is collapsed
+ * @cfg {boolean} [collapsed] Filter area is collapsed
  */
-const FilterWrapperWidget = function MwRcfiltersUiFilterWrapperWidget(
+FilterWrapperWidget = function MwRcfiltersUiFilterWrapperWidget(
 	controller, model, savedQueriesModel, changesListModel, config
 ) {
+	var $bottom;
 	config = config || {};
 
 	// Parent
-	FilterWrapperWidget.super.call( this, config );
+	FilterWrapperWidget.parent.call( this, config );
 	// Mixin constructors
 	OO.ui.mixin.PendingElement.call( this, config );
 
@@ -80,7 +82,7 @@ const FilterWrapperWidget = function MwRcfiltersUiFilterWrapperWidget(
 	this.$top = $( '<div>' )
 		.addClass( 'mw-rcfilters-ui-filterWrapperWidget-top' );
 
-	const $bottom = $( '<div>' )
+	$bottom = $( '<div>' )
 		.addClass( 'mw-rcfilters-ui-filterWrapperWidget-bottom' )
 		.addClass( OO.ui.isMobile() ? 'mw-rcfilters-ui-filterWrapperWidget-bottom-mobile' : '' )
 		.append(

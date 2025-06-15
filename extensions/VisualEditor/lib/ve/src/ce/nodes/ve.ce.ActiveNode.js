@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable ActiveNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -9,7 +9,7 @@
  * uneditable sections.
  *
  * @class
- * @mixes ve.ce.ContentEditableNode
+ * @mixins ve.ce.ContentEditableNode
  * @abstract
  *
  * @constructor
@@ -63,7 +63,7 @@ ve.ce.ActiveNode.prototype.onActiveNodeTeardown = function () {
 		return;
 	}
 
-	const surface = this.activeNodeSurface;
+	var surface = this.activeNodeSurface;
 
 	// Events
 	surface.getModel().disconnect( this );
@@ -81,15 +81,18 @@ ve.ce.ActiveNode.prototype.onActiveNodeTeardown = function () {
  * @param {ve.dm.Selection} selection
  */
 ve.ce.ActiveNode.prototype.onActiveNodeSurfaceModelSelect = function ( selection ) {
-	const coveringRange = selection.getCoveringRange(),
-		surface = this.activeNodeSurface;
+	var coveringRange = selection.getCoveringRange(),
+		surface = this.activeNodeSurface,
+		activeNode = this;
 
 	if ( coveringRange && this.model.getRange().containsRange( new ve.Range( coveringRange.from ) ) ) {
 		// Only set this as the active node if active node is empty, or not a
 		// descendant of this node.
 		if (
 			!surface.getActiveNode() ||
-			!surface.getActiveNode().traverseUpstream( ( node ) => node !== this )
+			!surface.getActiveNode().traverseUpstream( function ( node ) {
+				return node !== activeNode;
+			} )
 		) {
 			surface.setActiveNode( this );
 		}

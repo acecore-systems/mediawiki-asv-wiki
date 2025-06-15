@@ -1,26 +1,24 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
 use MediaWiki\Block\DatabaseBlock;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MainConfigSchema;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
-use TestUserRegistry;
 
 /**
  * @group API
  * @group Database
  * @group medium
  *
- * @covers MediaWiki\Api\ApiUserrights
+ * @covers ApiUserrights
  */
 class ApiUserrightsTest extends ApiTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
-
+		$this->tablesUsed = array_merge(
+			$this->tablesUsed,
+			[ 'change_tag', 'change_tag_def', 'logging' ]
+		);
 		$this->overrideConfigValues( [
 			MainConfigNames::AddGroups => [],
 			MainConfigNames::RemoveGroups => [],
@@ -67,7 +65,7 @@ class ApiUserrightsTest extends ApiTestCase {
 	 *   or 'userid' is specified in $params.
 	 */
 	protected function doSuccessfulRightsChange(
-		$expectedGroups = 'sysop', array $params = [], ?User $user = null
+		$expectedGroups = 'sysop', array $params = [], User $user = null
 	) {
 		$expectedGroups = (array)$expectedGroups;
 		$params['action'] = 'userrights';
@@ -100,19 +98,20 @@ class ApiUserrightsTest extends ApiTestCase {
 	/**
 	 * Perform an API userrights request that's expected to fail.
 	 *
-	 * @param string $expectedCode Expected API error code
+	 * @param string $expectedException Expected exception text
 	 * @param array $params As for doSuccessfulRightsChange()
 	 * @param User|null $user As for doSuccessfulRightsChange().  If there's no
 	 *   user who will possibly be affected (such as if an invalid username is
 	 *   provided in $params), pass null.
 	 */
-	private function doFailedRightsChange(
-		$expectedCode, array $params = [], ?User $user = null
+	protected function doFailedRightsChange(
+		$expectedException, array $params = [], User $user = null
 	) {
 		$params['action'] = 'userrights';
 		$userGroupManager = $this->getServiceContainer()->getUserGroupManager();
 
-		$this->expectApiErrorCode( $expectedCode );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage( $expectedException );
 
 		if ( !$user ) {
 			// If 'user' or 'userid' is specified and $user was not specified,
@@ -152,7 +151,12 @@ class ApiUserrightsTest extends ApiTestCase {
 		$blockStore = $this->getServiceContainer()->getDatabaseBlockStore();
 		$blockStore->insertBlock( $block );
 
-		$this->doSuccessfulRightsChange();
+		try {
+			$this->doSuccessfulRightsChange();
+		} finally {
+			$blockStore->deleteBlock( $block );
+			$user->clearInstanceCache();
+		}
 	}
 
 	public function testBlockedWithoutUserrights() {
@@ -164,7 +168,12 @@ class ApiUserrightsTest extends ApiTestCase {
 		$blockStore = $this->getServiceContainer()->getDatabaseBlockStore();
 		$blockStore->insertBlock( $block );
 
-		$this->doFailedRightsChange( 'blocked' );
+		try {
+			$this->doFailedRightsChange( 'You have been blocked from editing.' );
+		} finally {
+			$blockStore->deleteBlock( $block );
+			$user->clearInstanceCache();
+		}
 	}
 
 	public function testAddMultiple() {
@@ -176,61 +185,67 @@ class ApiUserrightsTest extends ApiTestCase {
 
 	public function testTooFewExpiries() {
 		$this->doFailedRightsChange(
-			'toofewexpiries',
+			'2 expiry timestamps were provided where 3 were needed.',
 			[ 'add' => 'sysop|bureaucrat|bot', 'expiry' => 'infinity|tomorrow' ]
 		);
 	}
 
 	public function testTooManyExpiries() {
 		$this->doFailedRightsChange(
-			'toofewexpiries',
+			'3 expiry timestamps were provided where 2 were needed.',
 			[ 'add' => 'sysop|bureaucrat', 'expiry' => 'infinity|tomorrow|never' ]
 		);
 	}
 
 	public function testInvalidExpiry() {
-		$this->doFailedRightsChange( 'invalidexpiry', [ 'expiry' => 'yummy lollipops!' ] );
+		$this->doFailedRightsChange( 'Invalid expiry time', [ 'expiry' => 'yummy lollipops!' ] );
 	}
 
 	public function testMultipleInvalidExpiries() {
 		$this->doFailedRightsChange(
-			'invalidexpiry',
+			'Invalid expiry time "foo".',
 			[ 'add' => 'sysop|bureaucrat', 'expiry' => 'foo|bar' ]
 		);
 	}
 
 	public function testWithTag() {
-		$this->getServiceContainer()->getChangeTagsStore()->defineTag( 'custom tag' );
+		ChangeTags::defineTag( 'custom tag' );
 
 		$user = $this->getMutableTestUser()->getUser();
 
 		$this->doSuccessfulRightsChange( 'sysop', [ 'tags' => 'custom tag' ], $user );
 
+		$dbr = wfGetDB( DB_REPLICA );
 		$this->assertSame(
 			'custom tag',
-			$this->getDb()->newSelectQueryBuilder()
-				->select( 'ctd_name' )
-				->from( 'logging' )
-				->join( 'change_tag', null, 'ct_log_id = log_id' )
-				->join( 'change_tag_def', null, 'ctd_id = ct_tag_id' )
-				->where( [ 'log_namespace' => NS_USER, 'log_title' => strtr( $user->getName(), ' ', '_' ) ] )
-				->caller( __METHOD__ )->fetchField() );
+			$dbr->selectField(
+				[ 'change_tag', 'logging', 'change_tag_def' ],
+				'ctd_name',
+				[
+					'ct_log_id = log_id',
+					'log_namespace' => NS_USER,
+					'log_title' => strtr( $user->getName(), ' ', '_' )
+				],
+				__METHOD__,
+				[ 'change_tag_def' => [ 'JOIN', 'ctd_id = ct_tag_id' ] ]
+			)
+		);
 	}
 
 	public function testWithoutTagPermission() {
-		$this->getServiceContainer()->getChangeTagsStore()->defineTag( 'custom tag' );
+		ChangeTags::defineTag( 'custom tag' );
 
 		$this->setGroupPermissions( 'user', 'applychangetags', false );
 
 		$this->doFailedRightsChange(
-			'tags-apply-no-permission',
+			'You do not have permission to apply change tags along with your changes.',
 			[ 'tags' => 'custom tag' ]
 		);
 	}
 
 	public function testNonexistentUser() {
 		$this->doFailedRightsChange(
-			'nosuchuser',
+			'There is no user by the name "Nonexistent user". Check your spelling.',
 			[ 'user' => 'Nonexistent user' ]
 		);
 	}
@@ -281,7 +296,7 @@ class ApiUserrightsTest extends ApiTestCase {
 		$this->doSuccessfulRightsChange( $expectedGroups, $params, $user );
 	}
 
-	public static function addAndRemoveGroupsProvider() {
+	public function addAndRemoveGroupsProvider() {
 		return [
 			'Simple add' => [
 				[ [ 'sysop' ], [] ],
@@ -320,13 +335,5 @@ class ApiUserrightsTest extends ApiTestCase {
 				[ 'bot' ],
 			],
 		];
-	}
-
-	public function testWatched() {
-		$user = $this->getMutableTestUser()->getUser();
-		$userPage = Title::makeTitle( NS_USER, $user->getName() );
-		$this->doSuccessfulRightsChange( 'sysop', [ 'watchuser' => true ], $user );
-		$this->assertTrue( $this->getServiceContainer()->getWatchlistManager()
-			->isWatched( $this->getTestSysop()->getUser(), $userPage ) );
 	}
 }

@@ -20,14 +20,12 @@
 use MediaWiki\MediaWikiServices;
 
 /**
- * Depend on a MediaWiki configuration variable from the global config.
+ * Depend on a MW configuration variable.
  *
  * @ingroup Language
  */
 class MainConfigDependency extends CacheDependency {
-	/** @var string */
 	private $name;
-	/** @var mixed */
 	private $value;
 
 	public function __construct( $name ) {
@@ -39,6 +37,9 @@ class MainConfigDependency extends CacheDependency {
 		return MediaWikiServices::getInstance()->getMainConfig();
 	}
 
+	/**
+	 * @return bool
+	 */
 	public function isExpired() {
 		if ( !$this->getConfig()->has( $this->name ) ) {
 			return true;

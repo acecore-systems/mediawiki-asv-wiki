@@ -1,17 +1,12 @@
 <?php
 
-use MediaWiki\Deferred\DataUpdate;
-use MediaWiki\Deferred\DeferredUpdates;
-use MediaWiki\Deferred\RefreshSecondaryDataUpdate;
 use MediaWiki\Revision\MutableRevisionRecord;
 use MediaWiki\Storage\DerivedPageDataUpdater;
-use MediaWiki\Title\Title;
 use Psr\Log\NullLogger;
 use Wikimedia\ScopedCallback;
 
 /**
- * @covers \MediaWiki\Deferred\RefreshSecondaryDataUpdate
- * @group Database
+ * @covers RefreshSecondaryDataUpdate
  */
 class RefreshSecondaryDataUpdateTest extends MediaWikiIntegrationTestCase {
 	public function testSuccess() {
@@ -48,13 +43,13 @@ class RefreshSecondaryDataUpdateTest extends MediaWikiIntegrationTestCase {
 		$revision->method( 'getId' )
 			->willReturn( 42 );
 
-		$dbw = $this->getDb();
+		$dbw = wfGetDB( DB_PRIMARY );
 
 		$dbw->startAtomic( __METHOD__ );
 
 		$this->assertSame( 0, $queue->getSize() );
 		$this->assertSame( 0, DeferredUpdates::pendingUpdatesCount() );
-		$wikiPage = $services->getWikiPageFactory()->newFromTitle( Title::makeTitle( NS_MAIN, 'TestPage' ) );
+		$wikiPage = WikiPage::factory( Title::makeTitle( NS_MAIN, 'TestPage' ) );
 		DeferredUpdates::addUpdate( new RefreshSecondaryDataUpdate(
 			$lbFactory,
 			$user,
@@ -126,13 +121,13 @@ class RefreshSecondaryDataUpdateTest extends MediaWikiIntegrationTestCase {
 		$revision->method( 'getId' )
 			->willReturn( 42 );
 
-		$dbw = $this->getDb();
+		$dbw = wfGetDB( DB_PRIMARY );
 		$dbw->startAtomic( __METHOD__ );
 		$goodCalls = 0;
 
 		$this->assertSame( 0, $queue->getSize() );
 		$this->assertSame( 0, DeferredUpdates::pendingUpdatesCount() );
-		$wikiPage = $services->getWikiPageFactory()->newFromTitle( Title::makeTitle( NS_MAIN, 'TestPage' ) );
+		$wikiPage = WikiPage::factory( Title::makeTitle( NS_MAIN, 'TestPage' ) );
 		DeferredUpdates::addUpdate( new RefreshSecondaryDataUpdate(
 			$lbFactory,
 			$user,
@@ -176,15 +171,12 @@ class RefreshSecondaryDataUpdateTest extends MediaWikiIntegrationTestCase {
 		$user = $this->getTestUser()->getUser();
 
 		$fname = __METHOD__;
-		$dbw = $lbFactory->getMainLB()->getConnection( DB_PRIMARY );
+		$dbw = $lbFactory->getMainLB()->getConnectionRef( DB_PRIMARY );
 		$dbw->setFlag( DBO_TRX, $dbw::REMEMBER_PRIOR ); // make queries trigger TRX
 		$reset = new ScopedCallback( [ $dbw, 'restoreFlags' ] );
 
 		$this->assertSame( 0, $dbw->trxLevel() );
-		$dbw->newSelectQueryBuilder()
-			->select( '*' )
-			->from( 'page' )
-			->caller( __METHOD__ )->fetchRow();
+		$dbw->selectRow( 'page', '*', '', __METHOD__ );
 		if ( !$dbw->trxLevel() ) {
 			$this->markTestSkipped( 'No implicit transaction, cannot test for T248003' );
 		}
@@ -206,17 +198,14 @@ class RefreshSecondaryDataUpdateTest extends MediaWikiIntegrationTestCase {
 			->getMock();
 		$updater->method( 'getSecondaryDataUpdates' )
 			->willReturnCallback( static function () use ( $dbw, $fname, $goodUpdate ) {
-				$dbw->newSelectQueryBuilder()
-					->select( '*' )
-					->from( 'page' )
-					->caller( $fname )->fetchRow();
+				$dbw->selectRow( 'page', '*', '', $fname );
 				$dbw->onTransactionResolution( static function () {
 				}, $fname );
 
 				return [ $goodUpdate ];
 			} );
 
-		$wikiPage = $this->getExistingTestPage();
+		$wikiPage = WikiPage::factory( Title::makeTitle( NS_MAIN, 'UTPage' ) );
 		$update = new RefreshSecondaryDataUpdate(
 			$lbFactory,
 			$user,

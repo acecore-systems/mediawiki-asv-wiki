@@ -20,13 +20,7 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
 use MediaWiki\MainConfigNames;
-use MediaWiki\Page\PageIdentity;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleFormatter;
-use MediaWiki\User\User;
 use MediaWiki\Watchlist\WatchlistManager;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\TypeDef\ExpiryDef;
@@ -37,7 +31,6 @@ use Wikimedia\ParamValidator\TypeDef\ExpiryDef;
  * @ingroup API
  */
 class ApiWatch extends ApiBase {
-	/** @var ApiPageSet|null */
 	private $mPageSet = null;
 
 	/** @var bool Whether watchlist expiries are enabled. */
@@ -46,28 +39,20 @@ class ApiWatch extends ApiBase {
 	/** @var string Relative maximum expiry. */
 	private $maxDuration;
 
-	protected WatchlistManager $watchlistManager;
-	private TitleFormatter $titleFormatter;
+	/** @var WatchlistManager */
+	protected $watchlistManager;
 
-	public function __construct(
-		ApiMain $mainModule,
-		string $moduleName,
-		WatchlistManager $watchlistManager,
-		TitleFormatter $titleFormatter
-	) {
+	public function __construct( ApiMain $mainModule, $moduleName, WatchlistManager $watchlistManager ) {
 		parent::__construct( $mainModule, $moduleName );
 
 		$this->watchlistManager = $watchlistManager;
-		$this->titleFormatter = $titleFormatter;
 		$this->expiryEnabled = $this->getConfig()->get( MainConfigNames::WatchlistExpiry );
 		$this->maxDuration = $this->getConfig()->get( MainConfigNames::WatchlistExpiryMaxDuration );
 	}
 
 	public function execute() {
 		$user = $this->getUser();
-		if ( !$user->isRegistered()
-			|| ( $user->isTemp() && !$user->isAllowed( 'editmywatchlist' ) )
-		) {
+		if ( !$user->isRegistered() ) {
 			$this->dieWithError( 'watchlistanontext', 'notloggedin' );
 		}
 
@@ -91,14 +76,14 @@ class ApiWatch extends ApiBase {
 				'interwikiTitles'
 			] );
 
-			foreach ( $pageSet->getMissingPages() as $page ) {
-				$r = $this->watchTitle( $page, $user, $params );
+			foreach ( $pageSet->getMissingTitles() as $title ) {
+				$r = $this->watchTitle( $title, $user, $params );
 				$r['missing'] = true;
 				$res[] = $r;
 			}
 
-			foreach ( $pageSet->getGoodPages() as $page ) {
-				$r = $this->watchTitle( $page, $user, $params );
+			foreach ( $pageSet->getGoodTitles() as $title ) {
+				$r = $this->watchTitle( $title, $user, $params );
 				$res[] = $r;
 			}
 			ApiResult::setIndexedTagName( $res, 'w' );
@@ -131,18 +116,18 @@ class ApiWatch extends ApiBase {
 		$continuationManager->setContinuationIntoResult( $this->getResult() );
 	}
 
-	private function watchTitle( PageIdentity $page, User $user, array $params,
+	private function watchTitle( Title $title, User $user, array $params,
 		$compatibilityMode = false
 	) {
-		$res = [ 'title' => $this->titleFormatter->getPrefixedText( $page ), 'ns' => $page->getNamespace() ];
+		$res = [ 'title' => $title->getPrefixedText(), 'ns' => $title->getNamespace() ];
 
-		if ( !$this->watchlistManager->isWatchable( $page ) ) {
+		if ( !$this->watchlistManager->isWatchable( $title ) ) {
 			$res['watchable'] = 0;
 			return $res;
 		}
 
 		if ( $params['unwatch'] ) {
-			$status = $this->watchlistManager->removeWatch( $user, $page );
+			$status = $this->watchlistManager->removeWatch( $user, $title );
 			$res['unwatched'] = $status->isOK();
 		} else {
 			$expiry = null;
@@ -153,7 +138,7 @@ class ApiWatch extends ApiBase {
 				$res['expiry'] = ApiResult::formatExpiry( $expiry );
 			}
 
-			$status = $this->watchlistManager->addWatch( $user, $page, $expiry );
+			$status = $this->watchlistManager->addWatch( $user, $title, $expiry );
 			$res['watched'] = $status->isOK();
 		}
 
@@ -176,7 +161,9 @@ class ApiWatch extends ApiBase {
 	 * @return ApiPageSet
 	 */
 	private function getPageSet() {
-		$this->mPageSet ??= new ApiPageSet( $this );
+		if ( $this->mPageSet === null ) {
+			$this->mPageSet = new ApiPageSet( $this );
+		}
 
 		return $this->mPageSet;
 	}
@@ -248,6 +235,3 @@ class ApiWatch extends ApiBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Watch';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiWatch::class, 'ApiWatch' );

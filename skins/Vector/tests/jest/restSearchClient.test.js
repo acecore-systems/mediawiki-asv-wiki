@@ -4,17 +4,14 @@ const jestFetchMock = require( 'jest-fetch-mock' );
 
 const mockedRequests = !process.env.TEST_LIVE_REQUESTS;
 const configMock = {
-	get: jest.fn().mockImplementation( ( key, fallback = null ) => {
+	get: jest.fn().mockImplementation( key => {
 		if ( key === 'wgScriptPath' ) {
 			return '/w';
 		}
 		if ( key === 'wgScript' ) {
 			return '/w/index.php';
 		}
-		if ( key === 'wgVectorSearchApiUrl' ) {
-			return 'https://en.wikipedia.org/w/rest.php';
-		}
-		return fallback;
+		return null;
 	} ),
 	set: jest.fn()
 };
@@ -69,9 +66,11 @@ describe( 'restApiSearchClient', () => {
 
 		const searchResult = await restSearchClient( configMock ).fetchByTitle(
 			'media',
+			'en.wikipedia.org',
 			2
 		).fetch;
 
+		/* eslint-disable-next-line compat/compat */
 		const controller = new AbortController();
 
 		expect( searchResult.query ).toStrictEqual( 'media' );
@@ -88,7 +87,7 @@ describe( 'restApiSearchClient', () => {
 		if ( mockedRequests ) {
 			expect( fetchMock ).toHaveBeenCalledTimes( 1 );
 			expect( fetchMock ).toHaveBeenCalledWith(
-				'https://en.wikipedia.org/w/rest.php/v1/search/title?q=media&limit=2',
+				'//en.wikipedia.org/w/rest.php/v1/search/title?q=media&limit=2',
 				{ headers: { accept: 'application/json' }, signal: controller.signal }
 			);
 		}
@@ -99,9 +98,11 @@ describe( 'restApiSearchClient', () => {
 		fetchMock.mockOnce( JSON.stringify( restResponse ) );
 
 		const searchResult = await restSearchClient( configMock ).fetchByTitle(
-			'thereIsNothingLikeThis'
+			'thereIsNothingLikeThis',
+			'en.wikipedia.org'
 		).fetch;
 
+		/* eslint-disable-next-line compat/compat */
 		const controller = new AbortController();
 		expect( searchResult.query ).toStrictEqual( 'thereIsNothingLikeThis' );
 		expect( searchResult.results ).toBeTruthy();
@@ -110,7 +111,7 @@ describe( 'restApiSearchClient', () => {
 		if ( mockedRequests ) {
 			expect( fetchMock ).toHaveBeenCalledTimes( 1 );
 			expect( fetchMock ).toHaveBeenCalledWith(
-				'https://en.wikipedia.org/w/rest.php/v1/search/title?q=thereIsNothingLikeThis&limit=10',
+				'//en.wikipedia.org/w/rest.php/v1/search/title?q=thereIsNothingLikeThis&limit=10',
 				{ headers: { accept: 'application/json' }, signal: controller.signal }
 			);
 		}
@@ -121,7 +122,8 @@ describe( 'restApiSearchClient', () => {
 			fetchMock.mockRejectOnce( new Error( 'failed' ) );
 
 			await expect( restSearchClient( configMock ).fetchByTitle(
-				'anything'
+				'anything',
+				'en.wikipedia.org'
 			).fetch ).rejects.toThrow( 'failed' );
 		} );
 	}

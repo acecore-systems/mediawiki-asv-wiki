@@ -2,20 +2,16 @@
 
 namespace MediaWiki\Widget;
 
-use OOUI\Widget;
-
 /**
  * Complex title input widget.
  *
  * @copyright 2011-2015 MediaWiki Widgets Team and others; see AUTHORS.txt
  * @license MIT
  */
-class ComplexTitleInputWidget extends Widget {
+class ComplexTitleInputWidget extends \OOUI\Widget {
 	/** @var array */
 	protected $config;
-	/** @var NamespaceInputWidget|null */
 	protected $namespace = null;
-	/** @var TitleInputWidget|null */
 	protected $title = null;
 
 	/**

@@ -1,13 +1,11 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
 use MediaWiki\Session\Token;
 
 /**
  * @group API
  * @group medium
- * @covers \MediaWiki\Api\ApiCheckToken
+ * @covers ApiCheckToken
  */
 class ApiCheckTokenTest extends ApiTestCase {
 

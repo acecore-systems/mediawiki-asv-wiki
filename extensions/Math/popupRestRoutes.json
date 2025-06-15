@@ -6,7 +6,6 @@
 		"services": [
 			"Math.WikibaseConnector",
 			"LanguageFactory",
-			"LanguageNameUtils",
 			"TitleFactory"
 		]
 	}

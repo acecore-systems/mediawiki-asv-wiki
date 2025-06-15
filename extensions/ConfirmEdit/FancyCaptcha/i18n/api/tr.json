@@ -6,6 +6,7 @@
 			"MuratTheTurkish"
 		]
 	},
+	"apihelp-fancycaptchareload-description": "Yeni bir FancyCaptcha alın.",
 	"apihelp-fancycaptchareload-summary": "Yeni bir FancyCaptcha alın.",
 	"apihelp-fancycaptchareload-example-1": "Yeni bir FancyCaptcha alın"
 }

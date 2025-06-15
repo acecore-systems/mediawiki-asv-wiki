@@ -10,10 +10,16 @@ use MediaWiki\Tests\ResourceLoader\ImageModuleTest;
  * @covers \MediaWiki\ResourceLoader\Image
  */
 class ImageTest extends MediaWikiUnitTestCase {
-	private const IMAGES_PATH = __DIR__ . '/../../../data/resourceloader';
+
+	private $imagesPath;
+
+	protected function setUp(): void {
+		parent::setUp();
+		$this->imagesPath = __DIR__ . '/../../../data/resourceloader';
+	}
 
 	protected function getTestImage( $name ) {
-		$options = ImageModuleTest::COMMON_IMAGE_DATA[$name];
+		$options = ImageModuleTest::$commonImageData[$name];
 		$fileDescriptor = is_string( $options ) ? $options : $options['file'];
 		$allowedVariants = ( is_array( $options ) && isset( $options['variants'] ) ) ?
 			$options['variants'] : [];
@@ -22,7 +28,7 @@ class ImageTest extends MediaWikiUnitTestCase {
 			$name,
 			'test',
 			$fileDescriptor,
-			self::IMAGES_PATH,
+			$this->imagesPath,
 			$variants
 		);
 	}
@@ -69,7 +75,7 @@ class ImageTest extends MediaWikiUnitTestCase {
 		$context->setLanguage( $languageCode );
 		$context->setDirection( $dirMap[$languageCode] );
 
-		$this->assertEquals( $image->getPath( $context ), self::IMAGES_PATH . '/' . $path );
+		$this->assertEquals( $image->getPath( $context ), $this->imagesPath . '/' . $path );
 	}
 
 	public function testGetExtension() {
@@ -87,8 +93,8 @@ class ImageTest extends MediaWikiUnitTestCase {
 		$context = $this->createMock( Context::class );
 
 		$image = $this->getTestImage( 'def' );
-		$data = file_get_contents( self::IMAGES_PATH . '/def.svg' );
-		$dataConstructive = file_get_contents( self::IMAGES_PATH . '/def_variantize.svg' );
+		$data = file_get_contents( $this->imagesPath . '/def.svg' );
+		$dataConstructive = file_get_contents( $this->imagesPath . '/def_variantize.svg' );
 		$this->assertEquals( $image->getImageData( $context, null, 'original' ), $data );
 		$this->assertEquals(
 			$image->getImageData( $context, 'destructive', 'original' ),
@@ -98,21 +104,21 @@ class ImageTest extends MediaWikiUnitTestCase {
 		$this->assertSame( 'RASTERIZESTUB', $image->getImageData( $context, null, 'rasterized' ) );
 
 		$image = $this->getTestImage( 'abc' );
-		$data = file_get_contents( self::IMAGES_PATH . '/abc.gif' );
+		$data = file_get_contents( $this->imagesPath . '/abc.gif' );
 		$this->assertEquals( $image->getImageData( $context, null, 'original' ), $data );
 		$this->assertEquals( $image->getImageData( $context, null, 'rasterized' ), $data );
 	}
 
 	public function testMassageSvgPathdata() {
 		$image = $this->getTestImage( 'ghi' );
-		$data = file_get_contents( self::IMAGES_PATH . '/ghi.svg' );
-		$dataMassaged = file_get_contents( self::IMAGES_PATH . '/ghi_massage.svg' );
+		$data = file_get_contents( $this->imagesPath . '/ghi.svg' );
+		$dataMassaged = file_get_contents( $this->imagesPath . '/ghi_massage.svg' );
 		$this->assertEquals( $image->massageSvgPathdata( $data ), $dataMassaged );
 	}
 }
 
 class ResourceLoaderImageTestable extends Image {
-	private const MOCK_FALLBACKS = [
+	private $mockFallbacks = [
 		'en-gb' => [ 'en' ],
 		'de-formal' => [ 'de' ],
 	];
@@ -128,6 +134,6 @@ class ResourceLoaderImageTestable extends Image {
 	}
 
 	protected function getLangFallbacks( string $code ): array {
-		return self::MOCK_FALLBACKS[$code] ?? [];
+		return $this->mockFallbacks[$code] ?? [];
 	}
 }

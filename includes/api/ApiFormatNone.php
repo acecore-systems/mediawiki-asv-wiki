@@ -20,8 +20,6 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
 /**
  * Formatter that outputs nothing, for when you don't care about the response
  * at all
@@ -36,6 +34,3 @@ class ApiFormatNone extends ApiFormatBase {
 	public function execute() {
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiFormatNone::class, 'ApiFormatNone' );

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel TableNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -30,7 +30,7 @@ ve.dm.TableNode = function VeDmTableNode() {
 OO.inheritClass( ve.dm.TableNode, ve.dm.BranchNode );
 
 /**
- * @event ve.dm.TableNode#cellAttributeChange
+ * @event cellAttributeChange
  * @param {ve.dm.TableCellableNode} cell
  */
 
@@ -48,9 +48,9 @@ ve.dm.TableNode.static.matchTagNames = [ 'table' ];
  * Handle splicing of child nodes
  */
 ve.dm.TableNode.prototype.onSplice = function () {
-	const nodes = Array.prototype.slice.call( arguments, 2 );
+	var nodes = Array.prototype.slice.call( arguments, 2 );
 	this.getMatrix().invalidate();
-	for ( let i = 0; i < nodes.length; i++ ) {
+	for ( var i = 0; i < nodes.length; i++ ) {
 		nodes[ i ].connect( this, {
 			cellAttributeChange: 'onCellAttributeChange'
 		} );
@@ -61,7 +61,7 @@ ve.dm.TableNode.prototype.onSplice = function () {
  * Handle cell attribute changes
  *
  * @param {ve.dm.TableCellableNode} cell
- * @fires ve.dm.TableNode#cellAttributeChange
+ * @fires cellAttributeChange
  */
 ve.dm.TableNode.prototype.onCellAttributeChange = function ( cell ) {
 	this.emit( 'cellAttributeChange', cell );
@@ -82,7 +82,7 @@ ve.dm.TableNode.prototype.getMatrix = function () {
  * @return {ve.dm.TableCaptionNode|null} The table's caption node, or null if not found
  */
 ve.dm.TableNode.prototype.getCaptionNode = function () {
-	for ( let i = 0, l = this.children.length; i < l; i++ ) {
+	for ( var i = 0, l = this.children.length; i < l; i++ ) {
 		if ( this.children[ i ] instanceof ve.dm.TableCaptionNode ) {
 			return this.children[ i ];
 		}
@@ -111,7 +111,7 @@ ve.dm.modelRegistry.register( ve.dm.TableNode );
  * e.g., providing consecutive row indexes.
  *
  * @class
- * @mixes OO.EventEmitter
+ * @mixins OO.EventEmitter
  *
  * @constructor
  * @param {ve.dm.TableNode} tableNode Table node to iterate through
@@ -144,12 +144,12 @@ OO.mixinClass( ve.dm.TableNodeCellIterator, OO.EventEmitter );
 /* Events */
 
 /**
- * @event ve.dm.TableNodeCellIterator#newSection
+ * @event newSection
  * @param {ve.dm.TableSectionNode} node Table section node
  */
 
 /**
- * @event ve.dm.TableNodeCellIterator#newRow
+ * @event newRow
  * @param {ve.dm.TableRowNode} node Table row node
  */
 
@@ -181,7 +181,7 @@ ve.dm.TableNodeCellIterator.prototype.next = function () {
 /**
  * Move to the next table section
  *
- * @fires ve.dm.TableNodeCellIterator#newSection
+ * @fires newSection
  */
 ve.dm.TableNodeCellIterator.prototype.nextSection = function () {
 	// If there are no sections left, finish
@@ -191,7 +191,7 @@ ve.dm.TableNodeCellIterator.prototype.nextSection = function () {
 		return;
 	}
 	// Get the next node and make sure it's a section node (and not an alien node)
-	const sectionNode = this.table.children[ this.sectionIndex ];
+	var sectionNode = this.table.children[ this.sectionIndex ];
 	this.sectionIndex++;
 	this.rowIndex = 0;
 	if ( sectionNode instanceof ve.dm.TableSectionNode ) {
@@ -207,7 +207,7 @@ ve.dm.TableNodeCellIterator.prototype.nextSection = function () {
 /**
  * Move to the next table row
  *
- * @fires ve.dm.TableNodeCellIterator#newRow
+ * @fires newRow
  */
 ve.dm.TableNodeCellIterator.prototype.nextRow = function () {
 	// If there are no rows left, go to the next section
@@ -219,7 +219,7 @@ ve.dm.TableNodeCellIterator.prototype.nextRow = function () {
 		}
 	}
 	// Get the next node and make sure it's a row node (and not an alien node)
-	const rowNode = this.sectionNode.children[ this.rowIndex ];
+	var rowNode = this.sectionNode.children[ this.rowIndex ];
 	this.rowIndex++;
 	this.cellIndex = 0;
 	if ( rowNode instanceof ve.dm.TableRowNode ) {
@@ -253,7 +253,7 @@ ve.dm.TableNodeCellIterator.prototype.nextCell = function () {
 		}
 	}
 	// Get the next node and make sure it's a cell node (and not an alien node)
-	const cellNode = this.rowNode.children[ this.cellIndex ];
+	var cellNode = this.rowNode.children[ this.cellIndex ];
 	this.cellNode = cellNode && cellNode.isCellable() ? cellNode : null;
 	this.cellIndex++;
 };

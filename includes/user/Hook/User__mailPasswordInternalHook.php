@@ -2,7 +2,7 @@
 
 namespace MediaWiki\User\Hook;
 
-use MediaWiki\User\User;
+use User;
 
 // phpcs:disable Squiz.Classes.ValidClassName.NotCamelCaps
 /**

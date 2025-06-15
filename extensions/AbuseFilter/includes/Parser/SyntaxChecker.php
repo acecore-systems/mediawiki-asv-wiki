@@ -7,7 +7,7 @@ use LogicException;
 use MediaWiki\Extension\AbuseFilter\KeywordsManager;
 use MediaWiki\Extension\AbuseFilter\Parser\Exception\InternalException;
 use MediaWiki\Extension\AbuseFilter\Parser\Exception\UserVisibleException;
-use MediaWiki\Message\Message;
+use Message;
 
 /**
  * SyntaxChecker statically analyzes the code without actually running it.
@@ -34,7 +34,7 @@ class SyntaxChecker {
 	private $treeRoot;
 
 	/** @var KeywordsManager */
-	private $keywordsManager;
+	protected $keywordsManager;
 
 	public const MCONSERVATIVE = 'MODE_CONSERVATIVE';
 	public const MLIBERAL = 'MODE_LIBERAL';
@@ -164,7 +164,7 @@ class SyntaxChecker {
 
 			case AFPTreeNode::LOGIC:
 				$result = $this->newNodeBinop( $node );
-				[ $op, $left, $right ] = $result->children;
+				list( $op, $left, $right ) = $result->children;
 				if ( $op === '&' || $op === '|' ) {
 					return $this->desugarAndOr( $op, $left, $right, $node->position );
 				} else {
@@ -190,7 +190,7 @@ class SyntaxChecker {
 				return $this->newNodeMapAll( $node );
 
 			case AFPTreeNode::ASSIGNMENT:
-				[ $varname, $value ] = $node->children;
+				list( $varname, $value ) = $node->children;
 
 				return new AFPTreeNode(
 					AFPTreeNode::FUNCTION_CALL,
@@ -484,19 +484,19 @@ class SyntaxChecker {
 				}
 
 			case AFPTreeNode::BINOP:
-				[ , $left, $right ] = $node->children;
+				list( , $left, $right ) = $node->children;
 				return $this->check( $right, $this->check( $left, $bound ) );
 
 			case AFPTreeNode::UNARY:
-				[ , $argument ] = $node->children;
+				list( , $argument ) = $node->children;
 				return $this->check( $argument, $bound );
 
 			case AFPTreeNode::BOOL_INVERT:
-				[ $argument ] = $node->children;
+				list( $argument ) = $node->children;
 				return $this->check( $argument, $bound );
 			// phpcs:ignore PSR2.ControlStructures.SwitchDeclaration.TerminatingComment
 			case AFPTreeNode::CONDITIONAL:
-				[ $condition, $exprIfTrue, $exprIfFalse ] = $node->children;
+				list( $condition, $exprIfTrue, $exprIfFalse ) = $node->children;
 				$bound = $this->check( $condition, $bound );
 				$boundLeft = $this->check( $exprIfTrue, $bound );
 				$boundRight = $this->check( $exprIfFalse, $bound );
@@ -512,7 +512,7 @@ class SyntaxChecker {
 				}
 
 			case AFPTreeNode::INDEX_ASSIGNMENT:
-				[ $varName, $offset, $value ] = $node->children;
+				list( $varName, $offset, $value ) = $node->children;
 
 				// deal with unbound $varName
 				$bound = $this->lookupVar( $varName, $node->position, $bound );
@@ -522,7 +522,7 @@ class SyntaxChecker {
 				return $this->assignVar( $varName, $node->position, $bound );
 
 			case AFPTreeNode::ARRAY_APPEND:
-				[ $varName, $value ] = $node->children;
+				list( $varName, $value ) = $node->children;
 
 				// deal with unbound $varName
 				$bound = $this->lookupVar( $varName, $node->position, $bound );
@@ -640,13 +640,13 @@ class SyntaxChecker {
 	 * @param int $position
 	 * @throws UserVisibleException
 	 */
-	private function checkArgCount( array $args, string $func, int $position ): void {
+	protected function checkArgCount( array $args, string $func, int $position ): void {
 		if ( !array_key_exists( $func, FilterEvaluator::FUNC_ARG_COUNT ) ) {
 			// @codeCoverageIgnoreStart
 			throw new InvalidArgumentException( "$func is not a valid function." );
 			// @codeCoverageIgnoreEnd
 		}
-		[ $min, $max ] = FilterEvaluator::FUNC_ARG_COUNT[ $func ];
+		list( $min, $max ) = FilterEvaluator::FUNC_ARG_COUNT[ $func ];
 		if ( count( $args ) < $min ) {
 			throw new UserVisibleException(
 				$min === 1 ? 'noparams' : 'notenoughargs',
@@ -669,7 +669,7 @@ class SyntaxChecker {
 	 * @param string $name
 	 * @return bool
 	 */
-	private function isReservedIdentifier( string $name ): bool {
+	protected function isReservedIdentifier( string $name ): bool {
 		return $this->keywordsManager->varExists( $name ) ||
 			array_key_exists( $name, FilterEvaluator::FUNCTIONS ) ||
 			// We need to check for true, false, if/then/else etc. because, even if they have a different

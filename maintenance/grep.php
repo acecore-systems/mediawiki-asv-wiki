@@ -1,17 +1,10 @@
 <?php
 // phpcs:disable MediaWiki.Files.ClassMatchesFilename.NotMatch
-use MediaWiki\Content\TextContent;
-use MediaWiki\Language\Language;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\WikiPageFactory;
 use MediaWiki\Revision\RevisionRecord;
-use MediaWiki\Title\Title;
-use MediaWiki\WikiMap\WikiMap;
-use Wikimedia\Rdbms\IExpression;
-use Wikimedia\Rdbms\LikeValue;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Search pages for a given regex
@@ -42,7 +35,7 @@ class GrepPages extends Maintenance {
 	}
 
 	private function init() {
-		$services = $this->getServiceContainer();
+		$services = MediaWikiServices::getInstance();
 		$this->contLang = $services->getContentLanguage();
 		$this->wikiPageFactory = $services->getWikiPageFactory();
 	}
@@ -100,7 +93,7 @@ class GrepPages extends Maintenance {
 	}
 
 	public function findPages( $prefixes = null ) {
-		$dbr = $this->getReplicaDB();
+		$dbr = $this->getDB( DB_REPLICA );
 		$orConds = [];
 		if ( $prefixes !== null ) {
 			foreach ( $prefixes as $prefix ) {
@@ -112,36 +105,28 @@ class GrepPages extends Maintenance {
 					$ns = NS_MAIN;
 					$prefixDBkey = $prefix;
 				}
-				$prefixExpr = $dbr->expr( 'page_namespace', '=', $ns );
+				$prefixCond = [ 'page_namespace' => $ns ];
 				if ( $prefixDBkey !== '' ) {
-					$prefixExpr = $prefixExpr->and(
-						'page_title',
-						IExpression::LIKE,
-						new LikeValue( $prefixDBkey, $dbr->anyString() )
-					);
+					$prefixCond[] = 'page_title ' . $dbr->buildLike( $prefixDBkey, $dbr->anyString() );
 				}
-				$orConds[] = $prefixExpr;
+				$orConds[] = $dbr->makeList( $prefixCond, LIST_AND );
 			}
 		}
-		$lastId = 0;
-		do {
-			$res = $dbr->newSelectQueryBuilder()
-				->queryInfo( WikiPage::getQueryInfo() )
-				->where( $orConds ? $dbr->orExpr( $orConds ) : [] )
-				->andWhere( $dbr->expr( 'page_id', '>', $lastId ) )
-				->limit( 200 )
-				->caller( __METHOD__ )
-				->fetchResultSet();
-			foreach ( $res as $row ) {
-				$title = Title::newFromRow( $row );
-				yield $this->wikiPageFactory->newFromTitle( $title );
-				$lastId = $row->page_id;
-			}
-		} while ( $res->numRows() );
+
+		$conds = $orConds ? $dbr->makeList( $orConds, LIST_OR ) : [];
+		$pageQuery = WikiPage::getQueryInfo();
+
+		$res = $dbr->newSelectQueryBuilder()
+			->queryInfo( $pageQuery )
+			->where( $conds )
+			->caller( __METHOD__ )
+			->fetchResultSet();
+		foreach ( $res as $row ) {
+			$title = Title::newFromRow( $row );
+			yield $this->wikiPageFactory->newFromTitle( $title );
+		}
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = GrepPages::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

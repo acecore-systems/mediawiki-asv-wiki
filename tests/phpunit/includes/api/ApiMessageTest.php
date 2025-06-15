@@ -1,14 +1,6 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
-use InvalidArgumentException;
-use MediaWiki\Api\ApiMessage;
-use MediaWiki\Api\ApiRawMessage;
-use MediaWiki\Language\RawMessage;
-use MediaWiki\Message\Message;
 use MediaWiki\Page\PageReferenceValue;
-use MediaWikiIntegrationTestCase;
 use Wikimedia\TestingAccessWrapper;
 
 /**
@@ -24,7 +16,7 @@ class ApiMessageTest extends MediaWikiIntegrationTestCase {
 
 		$msg = TestingAccessWrapper::newFromObject( $msg );
 		$msg2 = TestingAccessWrapper::newFromObject( $msg2 );
-		$this->assertSame( $msg->isInterface, $msg2->isInterface, 'interface' );
+		$this->assertSame( $msg->interface, $msg2->interface, 'interface' );
 		$this->assertSame( $msg->useDatabase, $msg2->useDatabase, 'useDatabase' );
 		$this->assertSame(
 			$msg->contextPage ? "{$msg->contextPage->getNamespace()}:{$msg->contextPage->getDbKey()}" : null,
@@ -34,7 +26,7 @@ class ApiMessageTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers MediaWiki\Api\ApiMessageTrait
+	 * @covers ApiMessageTrait
 	 * @dataProvider provideCodeDefaults
 	 */
 	public function testCodeDefaults( $msg, $expectedCode ) {
@@ -42,7 +34,7 @@ class ApiMessageTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expectedCode, $apiMessage->getApiCode() );
 	}
 
-	public static function provideCodeDefaults() {
+	public function provideCodeDefaults() {
 		// $msg, $expectedCode
 		yield 'foo' => [ 'foo', 'foo' ];
 		yield 'apierror prefix' => [ 'apierror-bar', 'bar' ];
@@ -53,7 +45,7 @@ class ApiMessageTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers MediaWiki\Api\ApiMessageTrait
+	 * @covers ApiMessageTrait
 	 * @dataProvider provideInvalidCode
 	 */
 	public function testInvalidCode( $code ) {
@@ -84,8 +76,8 @@ class ApiMessageTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Api\ApiMessage
-	 * @covers MediaWiki\Api\ApiMessageTrait
+	 * @covers ApiMessage
+	 * @covers ApiMessageTrait
 	 */
 	public function testApiMessage() {
 		$msg = new Message( [ 'foo', 'bar' ], [ 'baz' ] );
@@ -126,8 +118,8 @@ class ApiMessageTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Api\ApiRawMessage
-	 * @covers MediaWiki\Api\ApiMessageTrait
+	 * @covers ApiRawMessage
+	 * @covers ApiMessageTrait
 	 */
 	public function testApiRawMessage() {
 		$msg = new RawMessage( 'foo', [ 'baz' ] );
@@ -167,7 +159,7 @@ class ApiMessageTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Api\ApiMessage::create
+	 * @covers ApiMessage::create
 	 */
 	public function testApiMessageCreate() {
 		$this->assertInstanceOf( ApiMessage::class, ApiMessage::create( new Message( 'mainpage' ) ) );

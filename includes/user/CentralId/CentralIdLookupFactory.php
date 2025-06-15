@@ -20,10 +20,11 @@
 
 namespace MediaWiki\User\CentralId;
 
+use CentralIdLookup;
 use InvalidArgumentException;
+use LocalIdLookup;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\MainConfigNames;
-use MediaWiki\User\UserFactory;
 use MediaWiki\User\UserIdentityLookup;
 use Wikimedia\ObjectFactory\ObjectFactory;
 
@@ -35,6 +36,7 @@ class CentralIdLookupFactory {
 
 	/**
 	 * @internal
+	 * @var string[]
 	 */
 	public const CONSTRUCTOR_OPTIONS = [
 		MainConfigNames::CentralIdLookupProviders,
@@ -52,7 +54,6 @@ class CentralIdLookupFactory {
 
 	/** @var UserIdentityLookup */
 	private $userIdentityLookup;
-	private UserFactory $userFactory;
 
 	/** @var CentralIdLookup[] */
 	private $instanceCache = [];
@@ -65,15 +66,13 @@ class CentralIdLookupFactory {
 	public function __construct(
 		ServiceOptions $options,
 		ObjectFactory $objectFactory,
-		UserIdentityLookup $userIdentityLookup,
-		UserFactory $userFactory
+		UserIdentityLookup $userIdentityLookup
 	) {
 		$options->assertRequiredOptions( self::CONSTRUCTOR_OPTIONS );
 		$this->providers = $options->get( MainConfigNames::CentralIdLookupProviders );
 		$this->defaultProvider = $options->get( MainConfigNames::CentralIdLookupProvider );
 		$this->objectFactory = $objectFactory;
 		$this->userIdentityLookup = $userIdentityLookup;
-		$this->userFactory = $userFactory;
 	}
 
 	/**
@@ -102,8 +101,8 @@ class CentralIdLookupFactory {
 	 * @return CentralIdLookup
 	 * @throws InvalidArgumentException if $providerId is not properly configured
 	 */
-	public function getLookup( ?string $providerId = null ): CentralIdLookup {
-		$providerId ??= $this->defaultProvider;
+	public function getLookup( string $providerId = null ): CentralIdLookup {
+		$providerId = $providerId ?? $this->defaultProvider;
 
 		if ( !array_key_exists( $providerId, $this->instanceCache ) ) {
 			$providerSpec = $this->providers[$providerId] ?? null;
@@ -114,7 +113,7 @@ class CentralIdLookupFactory {
 				$providerSpec,
 				[ 'assertClass' => CentralIdLookup::class ]
 			);
-			$provider->init( $providerId, $this->userIdentityLookup, $this->userFactory );
+			$provider->init( $providerId, $this->userIdentityLookup );
 			$this->instanceCache[$providerId] = $provider;
 		}
 		return $this->instanceCache[$providerId];
@@ -134,7 +133,7 @@ class CentralIdLookupFactory {
 	 * @return ?CentralIdLookup
 	 * @throws InvalidArgumentException if $providerId is not properly configured
 	 */
-	public function getNonLocalLookup( ?string $providerID = null ): ?CentralIdLookup {
+	public function getNonLocalLookup( string $providerID = null ): ?CentralIdLookup {
 		$centralIdLookup = $this->getLookup( $providerID );
 		if ( $centralIdLookup instanceof LocalIdLookup ) {
 			/*

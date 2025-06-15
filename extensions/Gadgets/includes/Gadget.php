@@ -1,49 +1,45 @@
 <?php
 /**
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ * Gadgets extension - lets users select custom javascript gadgets
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along
- * with this program; if not, write to the Free Software Foundation, Inc.,
- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- * http://www.gnu.org/copyleft/gpl.html
+ * For more info see https://www.mediawiki.org/wiki/Extension:Gadgets
  *
  * @file
+ * @ingroup Extensions
+ * @author Daniel Kinzler, brightbyte.de
+ * @copyright © 2007 Daniel Kinzler
+ * @license GPL-2.0-or-later
  */
 
 namespace MediaWiki\Extension\Gadgets;
 
 use InvalidArgumentException;
+use MediaWiki\Extension\Gadgets\Content\GadgetDefinitionContent;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Permissions\Authority;
-use MediaWiki\ResourceLoader\ResourceLoader;
 use MediaWiki\User\UserIdentity;
+use ResourceLoader;
 use Skin;
 
 /**
- * Represents one gadget definition.
- *
- * @copyright 2007 Daniel Kinzler
+ * Wrapper for one gadget.
  */
 class Gadget {
 	/**
 	 * Increment this when changing class structure
 	 */
-	public const GADGET_CLASS_VERSION = 18;
+	public const GADGET_CLASS_VERSION = 13;
 
 	public const CACHE_TTL = 86400;
 
 	/** @var string[] */
-	private $dependencies = [];
+	private $scripts = [];
 	/** @var string[] */
-	private array $pages = [];
+	private $styles = [];
+	/** @var string[] */
+	private $datas = [];
+	/** @var string[] */
+	private $dependencies = [];
 	/** @var string[] */
 	private $peers = [];
 	/** @var string[] */
@@ -51,23 +47,17 @@ class Gadget {
 	/** @var string|null */
 	private $name;
 	/** @var string|null */
-	private $definition = null;
+	private $definition;
 	/** @var bool */
-	private bool $resourceLoaded = false;
-	/** @var bool */
-	private bool $requiresES6 = false;
+	private $resourceLoaded = false;
 	/** @var string[] */
-	private array $requiredRights = [];
+	private $requiredRights = [];
 	/** @var string[] */
-	private array $requiredActions = [];
+	private $requiredActions = [];
 	/** @var string[] */
-	private array $requiredSkins = [];
-	/** @var int[]|string[] */
-	private array $requiredNamespaces = [];
+	private $requiredSkins = [];
 	/** @var string[] */
-	private array $requiredCategories = [];
-	/** @var string[] */
-	private array $requiredContentModels = [];
+	private $targets = [ 'desktop' ];
 	/** @var bool */
 	private $onByDefault = false;
 	/** @var bool */
@@ -76,34 +66,33 @@ class Gadget {
 	private $package = false;
 	/** @var string */
 	private $type = '';
-	/** @var string */
-	private string $category = '';
+	/** @var string|null */
+	private $category;
 	/** @var bool */
 	private $supportsUrlLoad = false;
 
 	public function __construct( array $options ) {
 		foreach ( $options as $member => $option ) {
 			switch ( $member ) {
-				case 'category':
-				case 'definition':
+				case 'scripts':
+				case 'styles':
+				case 'datas':
 				case 'dependencies':
-				case 'hidden':
+				case 'peers':
 				case 'messages':
 				case 'name':
-				case 'onByDefault':
-				case 'package':
-				case 'pages':
-				case 'peers':
-				case 'requiredActions':
-				case 'requiredCategories':
-				case 'requiredContentModels':
-				case 'requiredNamespaces':
-				case 'requiredRights':
-				case 'requiredSkins':
-				case 'requiresES6':
+				case 'definition':
 				case 'resourceLoaded':
-				case 'supportsUrlLoad':
+				case 'requiredRights':
+				case 'requiredActions':
+				case 'requiredSkins':
+				case 'targets':
+				case 'onByDefault':
 				case 'type':
+				case 'hidden':
+				case 'package':
+				case 'category':
+				case 'supportsUrlLoad':
 					$this->{$member} = $option;
 					break;
 				default:
@@ -113,68 +102,38 @@ class Gadget {
 	}
 
 	/**
-	 * Create a serialized array based on the metadata in a GadgetDefinitionContent object,
-	 * from which a Gadget object can be constructed.
+	 * Create a object based on the metadata in a GadgetDefinitionContent object
 	 *
 	 * @param string $id
-	 * @param array $data
-	 * @return array
+	 * @param GadgetDefinitionContent $content
+	 * @return Gadget
 	 */
-	public static function serializeDefinition( string $id, array $data ): array {
+	public static function newFromDefinitionContent( $id, GadgetDefinitionContent $content ) {
+		$data = $content->getAssocArray();
 		$prefixGadgetNs = static function ( $page ) {
-			return GadgetRepo::RESOURCE_TITLE_PREFIX . $page;
+			return 'Gadget:' . $page;
 		};
-		return [
-			'category' => $data['settings']['category'],
-			'dependencies' => $data['module']['dependencies'],
-			'hidden' => $data['settings']['hidden'],
-			'messages' => $data['module']['messages'],
+		$info = [
 			'name' => $id,
+			'resourceLoaded' => true,
+			'requiredRights' => $data['settings']['rights'],
 			'onByDefault' => $data['settings']['default'],
 			'package' => $data['settings']['package'],
-			'pages' => array_map( $prefixGadgetNs, $data['module']['pages'] ),
-			'peers' => $data['module']['peers'],
+			'hidden' => $data['settings']['hidden'],
 			'requiredActions' => $data['settings']['actions'],
-			'requiredCategories' => $data['settings']['categories'],
-			'requiredContentModels' => $data['settings']['contentModels'],
-			'requiredNamespaces' => $data['settings']['namespaces'],
-			'requiredRights' => $data['settings']['rights'],
 			'requiredSkins' => $data['settings']['skins'],
-			'requiresES6' => $data['settings']['requiresES6'],
-			'resourceLoaded' => true,
+			'category' => $data['settings']['category'],
 			'supportsUrlLoad' => $data['settings']['supportsUrlLoad'],
+			'scripts' => array_map( $prefixGadgetNs, $data['module']['scripts'] ),
+			'styles' => array_map( $prefixGadgetNs, $data['module']['styles'] ),
+			'datas' => array_map( $prefixGadgetNs, $data['module']['datas'] ),
+			'dependencies' => $data['module']['dependencies'],
+			'peers' => $data['module']['peers'],
+			'messages' => $data['module']['messages'],
 			'type' => $data['module']['type'],
 		];
-	}
 
-	/**
-	 * Serialize to an array
-	 * @return array
-	 */
-	public function toArray(): array {
-		return [
-			'category' => $this->category,
-			'dependencies' => $this->dependencies,
-			'hidden' => $this->hidden,
-			'messages' => $this->messages,
-			'name' => $this->name,
-			'onByDefault' => $this->onByDefault,
-			'package' => $this->package,
-			'pages' => $this->pages,
-			'peers' => $this->peers,
-			'requiredActions' => $this->requiredActions,
-			'requiredCategories' => $this->requiredCategories,
-			'requiredContentModels' => $this->requiredContentModels,
-			'requiredNamespaces' => $this->requiredNamespaces,
-			'requiredRights' => $this->requiredRights,
-			'requiredSkins' => $this->requiredSkins,
-			'requiresES6' => $this->requiresES6,
-			'resourceLoaded' => $this->resourceLoaded,
-			'supportsUrlLoad' => $this->supportsUrlLoad,
-			'type' => $this->type,
-			// Legacy  (specific to MediaWikiGadgetsDefinitionRepo)
-			'definition' => $this->definition,
-		];
+		return new self( $info );
 	}
 
 	/**
@@ -194,7 +153,7 @@ class Gadget {
 	 * @return bool
 	 */
 	public static function isValidGadgetID( $id ) {
-		return $id !== '' && ResourceLoader::isValidModuleName( self::getModuleName( $id ) );
+		return strlen( $id ) > 0 && ResourceLoader::isValidModuleName( self::getModuleName( $id ) );
 	}
 
 	/**
@@ -208,7 +167,7 @@ class Gadget {
 	 * @return string Message key
 	 */
 	public function getDescriptionMessageKey() {
-		return 'gadget-' . $this->name;
+		return "gadget-{$this->getName()}";
 	}
 
 	/**
@@ -228,7 +187,7 @@ class Gadget {
 	/**
 	 * @return string Name of category (aka section) our gadget belongs to. Empty string if none.
 	 */
-	public function getCategory(): string {
+	public function getCategory() {
 		return $this->category;
 	}
 
@@ -252,13 +211,16 @@ class Gadget {
 	}
 
 	/**
-	 * Checks whether a given user may enable this gadget
+	 * Checks whether given user has permissions to use this gadget
 	 *
 	 * @param Authority $user The user to check against
 	 * @return bool
 	 */
 	public function isAllowed( Authority $user ) {
-		return !$this->requiredRights || $user->isAllowedAll( ...$this->requiredRights );
+		if ( count( $this->requiredRights ) ) {
+			return $user->isAllowedAll( ...$this->requiredRights );
+		}
+		return true;
 	}
 
 	/**
@@ -281,13 +243,11 @@ class Gadget {
 	 */
 	public function isPackaged(): bool {
 		// A packaged gadget needs to have a main script, so there must be at least one script
-		return $this->package && $this->supportsResourceLoader() && $this->getScripts() !== [];
+		return $this->package && $this->supportsResourceLoader() && count( $this->scripts ) > 0;
 	}
 
 	/**
-	 * Whether to load the gadget on a given page action.
-	 *
-	 * @param string $action Action name
+	 * @param string $action The action name
 	 * @return bool
 	 */
 	public function isActionSupported( string $action ): bool {
@@ -295,60 +255,22 @@ class Gadget {
 			return true;
 		}
 		// Don't require specifying 'submit' action in addition to 'edit'
-		if ( $action === 'submit' ) {
+		if ( $action == 'submit' ) {
 			$action = 'edit';
 		}
-		return in_array( $action, $this->requiredActions, true );
-	}
-
-	/**
-	 * Whether to load the gadget on pages in a given namespace ID.
-	 *
-	 * @param int $namespace Namespace ID
-	 * @return bool
-	 */
-	public function isNamespaceSupported( int $namespace ) {
-		// This is intentionally a non-strict in_array() because
-		// MediaWikiGadgetsDefinitionRepo sets numerical strings.
-		return !$this->requiredNamespaces || in_array( $namespace, $this->requiredNamespaces );
-	}
-
-	/**
-	 * Whether to load the gadget on pages in any of the given categories
-	 *
-	 * @param array $categories Category names (category title text, no namespace prefix, no dbkey-underscores)
-	 * @return bool
-	 */
-	public function isCategorySupported( array $categories ) {
-		if ( !$this->requiredCategories ) {
-			return true;
-		}
-		foreach ( $categories as $category ) {
-			if ( in_array( $category, $this->requiredCategories, true ) ) {
-				return true;
-			}
-		}
-		return false;
+		return in_array( $action, $this->requiredActions );
 	}
 
 	/**
 	 * Check if this gadget is compatible with a skin
 	 *
-	 * @param Skin $skin
+	 * @param Skin $skin The skin to check against
 	 * @return bool
 	 */
 	public function isSkinSupported( Skin $skin ) {
-		return !$this->requiredSkins || in_array( $skin->getSkinName(), $this->requiredSkins, true );
-	}
-
-	/**
-	 * Check if this gadget is compatible with the given content model
-	 *
-	 * @param string $contentModel The content model ID
-	 * @return bool
-	 */
-	public function isContentModelSupported( string $contentModel ) {
-		return !$this->requiredContentModels || in_array( $contentModel, $this->requiredContentModels );
+		return ( count( $this->requiredSkins ) === 0
+			|| in_array( $skin->getSkinName(), $this->requiredSkins )
+		);
 	}
 
 	/**
@@ -366,59 +288,54 @@ class Gadget {
 	}
 
 	/**
-	 * @return bool Whether this gadget requires ES6
-	 */
-	public function requiresES6(): bool {
-		return $this->requiresES6 && !$this->onByDefault;
-	}
-
-	/**
 	 * @return bool Whether this gadget has resources that can be loaded via ResourceLoader
 	 */
 	public function hasModule() {
-		return $this->getStyles() || ( $this->supportsResourceLoader() && $this->getScripts() );
+		return (
+			count( $this->styles ) + ( $this->supportsResourceLoader() ? count( $this->scripts ) : 0 )
+		) > 0;
 	}
 
 	/**
-	 * @return string|null Definition for this gadget from MediaWiki:Gadgets-definition,
-	 *  or null if MediaWikiGadgetsJsonRepo is used.
+	 * @return string Definition for this gadget from MediaWiki:gadgets-definition
 	 */
 	public function getDefinition() {
 		return $this->definition;
 	}
 
 	/**
-	 * @return string[] JS page names (including namespace)
+	 * @return array Array of pages with JS (including namespace)
 	 */
 	public function getScripts() {
-		return array_values( array_filter( $this->pages, static function ( $page ) {
-			return str_ends_with( $page, '.js' );
-		} ) );
+		return $this->scripts;
 	}
 
 	/**
-	 * @return string[] CSS page names (including namespace)
+	 * @return array Array of pages with CSS (including namespace)
 	 */
 	public function getStyles() {
-		return array_values( array_filter( $this->pages, static function ( $page ) {
-			return str_ends_with( $page, '.css' );
-		} ) );
+		return $this->styles;
 	}
 
 	/**
-	 * @return string[] JSON page names (including namespace)
+	 * @return array Array of pages with JSON (including namespace)
 	 */
 	public function getJSONs(): array {
-		return array_values( array_filter( $this->pages, static function ( $page ) {
-			return str_ends_with( $page, '.json' );
-		} ) );
+		return $this->isPackaged() ? $this->datas : [];
 	}
 
 	/**
-	 * @return string[] All page names for this gadget's resources
+	 * @return array Array of all of this gadget's resources
 	 */
 	public function getScriptsAndStyles() {
-		return array_merge( $this->getScripts(), $this->getStyles(), $this->getJSONs() );
+		return array_merge( $this->scripts, $this->styles, $this->getJSONs() );
+	}
+
+	/**
+	 * @return array
+	 */
+	public function getTargets() {
+		return $this->targets;
 	}
 
 	/**
@@ -426,7 +343,10 @@ class Gadget {
 	 * @return string[]
 	 */
 	public function getLegacyScripts() {
-		return $this->supportsResourceLoader() ? [] : $this->getScripts();
+		if ( $this->supportsResourceLoader() ) {
+			return [];
+		}
+		return $this->scripts;
 	}
 
 	/**
@@ -451,14 +371,14 @@ class Gadget {
 	}
 
 	/**
-	 * @return string[]
+	 * @return array
 	 */
 	public function getMessages() {
 		return $this->messages;
 	}
 
 	/**
-	 * Get user rights required to enable this gadget
+	 * Returns array of permissions required by this gadget
 	 * @return string[]
 	 */
 	public function getRequiredRights() {
@@ -466,7 +386,7 @@ class Gadget {
 	}
 
 	/**
-	 * Get page actions on which the gadget loads
+	 * Returns array of page actions on which the gadget runs
 	 * @return string[]
 	 */
 	public function getRequiredActions() {
@@ -474,42 +394,11 @@ class Gadget {
 	}
 
 	/**
-	 * Get page namespaces in which this gadget loads
-	 *
-	 * Use isNamespaceSupported() instead for basic checks, as
-	 * namespace IDs may be returned as numerical strings.
-	 *
-	 * Unknown namespaces and non-numerical values result in warnings
-	 * on Special:Gadgets, via GadgetRepo::checkInvalidLoadConditions.
-	 *
-	 * @return int[]|string[]
-	 */
-	public function getRequiredNamespaces() {
-		return $this->requiredNamespaces;
-	}
-
-	/**
-	 * Returns categories in which this gadget loads
-	 * @return string[]
-	 */
-	public function getRequiredCategories() {
-		return $this->requiredCategories;
-	}
-
-	/**
-	 * Get skins in which this gadget loads
+	 * Returns array of skins where this gadget works
 	 * @return string[]
 	 */
 	public function getRequiredSkins() {
 		return $this->requiredSkins;
-	}
-
-	/**
-	 * Get page content models for which this gadget loads
-	 * @return string[]
-	 */
-	public function getRequiredContentModels() {
-		return $this->requiredContentModels;
 	}
 
 	/**
@@ -521,50 +410,10 @@ class Gadget {
 			return $this->type;
 		}
 		// Similar to ResourceLoaderWikiModule default
-		if ( $this->getStyles() && !$this->getScripts() && !$this->dependencies ) {
+		if ( $this->styles && !$this->scripts && !$this->dependencies ) {
 			return 'styles';
 		}
 
 		return 'general';
-	}
-
-	/**
-	 * Get validation warnings
-	 * @return string[]
-	 */
-	public function getValidationWarnings(): array {
-		$warnings = [];
-
-		// Default gadget requiring ES6
-		if ( $this->onByDefault && $this->requiresES6 ) {
-			$warnings[] = "gadgets-validate-es6default";
-		}
-
-		// Gadget containing files with uncrecognised suffixes
-		if ( count( array_diff( $this->pages, $this->getScriptsAndStyles() ) ) !== 0 ) {
-			$warnings[] = "gadgets-validate-unknownpages";
-		}
-
-		// Non-package gadget containing JSON files
-		if ( !$this->package && count( $this->getJSONs() ) > 0 ) {
-			$warnings[] = "gadgets-validate-json";
-		}
-
-		// Package gadget without a script file in it (to serve as entry point)
-		if ( $this->package && count( $this->getScripts() ) === 0 ) {
-			$warnings[] = "gadgets-validate-noentrypoint";
-		}
-
-		// Gadget with type=styles having non-CSS files
-		if ( $this->type === 'styles' && count( $this->getScripts() ) > 0 ) {
-			$warnings[] = "gadgets-validate-scriptsnotallowed";
-		}
-
-		// Style-only gadgets having peers
-		if ( $this->getType() === 'styles' && count( $this->peers ) > 0 ) {
-			$warnings[] = "gadgets-validate-stylepeers";
-		}
-
-		return $warnings;
 	}
 }

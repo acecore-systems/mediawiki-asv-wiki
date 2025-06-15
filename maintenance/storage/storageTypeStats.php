@@ -19,18 +19,13 @@
  * @ingroup Maintenance ExternalStorage
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/../Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 class StorageTypeStats extends Maintenance {
 	public function execute() {
-		$dbr = $this->getReplicaDB();
+		$dbr = $this->getDB( DB_REPLICA );
 
-		$endId = $dbr->newSelectQueryBuilder()
-			->select( 'MAX(old_id)' )
-			->from( 'text' )
-			->caller( __METHOD__ )->fetchField();
+		$endId = $dbr->selectField( 'text', 'MAX(old_id)', '', __METHOD__ );
 		if ( !$endId ) {
 			$this->fatalError( 'No text rows!' );
 		}
@@ -66,13 +61,20 @@ SQL;
 			if ( $rangeStart / $binSize % 10 == 0 ) {
 				echo "$rangeStart\r";
 			}
-			$res = $dbr->newSelectQueryBuilder()
-				->select( [ 'old_flags', 'class' => $classSql, 'count' => 'COUNT(*)' ] )
-				->from( 'text' )
-				->where( $dbr->expr( 'old_id', '>=', intval( $rangeStart ) ) )
-				->andWhere( $dbr->expr( 'old_id', '<', intval( $rangeStart + $binSize ) ) )
-				->groupBy( [ 'old_flags', 'class' ] )
-				->caller( __METHOD__ )->fetchResultSet();
+			$res = $dbr->select(
+				'text',
+				[
+					'old_flags',
+					'class' => $classSql,
+					'count' => 'COUNT(*)',
+				],
+				[
+					'old_id >= ' . intval( $rangeStart ),
+					'old_id < ' . intval( $rangeStart + $binSize )
+				],
+				__METHOD__,
+				[ 'GROUP BY' => [ 'old_flags', 'class' ] ]
+			);
 
 			foreach ( $res as $row ) {
 				$flags = $row->old_flags;
@@ -109,7 +111,5 @@ SQL;
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = StorageTypeStats::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

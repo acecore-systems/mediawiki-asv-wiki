@@ -2,11 +2,9 @@
 	"@metadata": {
 		"authors": [
 			"Achiri Bitamsimli",
-			"Bashiru Nurideen Pona",
 			"Sir Amugi"
 		]
 	},
-	"ooui-copytextlayout-copy": "Yaama",
 	"ooui-outline-control-move-down": "Zaŋmi item maa sɔŋ gbunni",
 	"ooui-outline-control-move-up": "Zaŋ mi item duhi zuɣusaa",
 	"ooui-outline-control-remove": "Yihimi item maa",
@@ -23,6 +21,7 @@
 	"ooui-combobox-button-label": "Toggle piibunima",
 	"ooui-selectfile-button-select": "Piimi file",
 	"ooui-selectfile-button-select-multiple": "Piimi files",
+	"ooui-selectfile-not-supported": "File shɛli a ni pii maa bi saɣiti",
 	"ooui-selectfile-placeholder": "File shɛli bi pii",
 	"ooui-selectfile-dragdrop-placeholder": "Zaŋ mi file maa sɔŋ kpe",
 	"ooui-selectfile-dragdrop-placeholder-multiple": "Zaŋ mi files sɔŋ kpe",

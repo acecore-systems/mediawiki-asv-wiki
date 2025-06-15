@@ -1,7 +1,6 @@
 /**
  * Bosnian (bosanski) language functions
  */
-
 ( function ( $ ) {
 	'use strict';
 

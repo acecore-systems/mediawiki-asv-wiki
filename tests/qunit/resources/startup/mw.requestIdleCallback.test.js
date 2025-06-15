@@ -1,9 +1,11 @@
 ( function () {
 	QUnit.module( 'mw.requestIdleCallback', QUnit.newMwEnvironment( {
 		beforeEach: function () {
-			const clock = this.clock = this.sandbox.useFakeTimers();
+			var clock = this.clock = this.sandbox.useFakeTimers();
 
-			this.sandbox.stub( mw, 'now', () => Date.now() );
+			this.sandbox.stub( mw, 'now', function () {
+				return Date.now();
+			} );
 
 			this.tick = function ( forward ) {
 				return clock.tick( forward || 1 );
@@ -15,36 +17,37 @@
 	} ) );
 
 	QUnit.test( 'callback', function ( assert ) {
-		const sequence = [];
+		var sequence;
 
-		mw.requestIdleCallback( () => {
+		mw.requestIdleCallback( function () {
 			sequence.push( 'x' );
 		} );
-		mw.requestIdleCallback( () => {
+		mw.requestIdleCallback( function () {
 			sequence.push( 'y' );
 		} );
-		mw.requestIdleCallback( () => {
+		mw.requestIdleCallback( function () {
 			sequence.push( 'z' );
 		} );
 
+		sequence = [];
 		this.tick();
 		assert.deepEqual( sequence, [ 'x', 'y', 'z' ] );
 	} );
 
 	QUnit.test( 'nested', function ( assert ) {
-		let sequence;
+		var sequence;
 
-		mw.requestIdleCallback( () => {
+		mw.requestIdleCallback( function () {
 			sequence.push( 'x' );
 		} );
 		// Task Y is a task that schedules another task.
-		mw.requestIdleCallback( () => {
+		mw.requestIdleCallback( function () {
 			function other() {
 				sequence.push( 'y' );
 			}
 			mw.requestIdleCallback( other );
 		} );
-		mw.requestIdleCallback( () => {
+		mw.requestIdleCallback( function () {
 			sequence.push( 'z' );
 		} );
 
@@ -58,8 +61,8 @@
 	} );
 
 	QUnit.test( 'timeRemaining', function ( assert ) {
-		let sequence;
-		const tick = this.tick,
+		var sequence,
+			tick = this.tick,
 			jobs = [
 				{ time: 10, key: 'a' },
 				{ time: 20, key: 'b' },
@@ -69,7 +72,7 @@
 			];
 
 		mw.requestIdleCallback( function doWork( deadline ) {
-			let job;
+			var job;
 			while ( jobs[ 0 ] && deadline.timeRemaining() > 15 ) {
 				job = jobs.shift();
 				tick( job.time );
@@ -91,11 +94,11 @@
 
 	if ( window.requestIdleCallback ) {
 		QUnit.test( 'native', function ( assert ) {
-			const done = assert.async();
+			var done = assert.async();
 			// Remove polyfill and clock stub
 			mw.requestIdleCallback.restore();
 			this.clock.restore();
-			mw.requestIdleCallback( () => {
+			mw.requestIdleCallback( function () {
 				assert.expect( 0 );
 				done();
 			} );

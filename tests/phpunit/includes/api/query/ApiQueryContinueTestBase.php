@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Copyright © 2013 Yuri Astrakhan "<Firstname><Lastname>@gmail.com"
  *
@@ -20,11 +19,6 @@
  *
  * @file
  */
-
-namespace MediaWiki\Tests\Api\Query;
-
-use Exception;
-
 abstract class ApiQueryContinueTestBase extends ApiQueryTestBase {
 
 	/**
@@ -67,8 +61,8 @@ abstract class ApiQueryContinueTestBase extends ApiQueryTestBase {
 			$request = array_merge( $params, $continue );
 			uksort( $request, static function ( $a, $b ) {
 				// put 'continue' params at the end - lazy method
-				$a = str_contains( $a, 'continue' ) ? 'zzz ' . $a : $a;
-				$b = str_contains( $b, 'continue' ) ? 'zzz ' . $b : $b;
+				$a = strpos( $a, 'continue' ) !== false ? 'zzz ' . $a : $a;
+				$b = strpos( $b, 'continue' ) !== false ? 'zzz ' . $b : $b;
 
 				return strcmp( $a, $b );
 			} );

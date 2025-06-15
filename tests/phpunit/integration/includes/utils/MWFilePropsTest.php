@@ -1,12 +1,10 @@
 <?php
 
-use Wikimedia\FileBackend\FileBackend;
-
 /**
- * @covers \MWFileProps
+ * @covers MWFileProps
  */
 class MWFilePropsTest extends MediaWikiIntegrationTestCase {
-	public static function provideGetPropsFromPath() {
+	public function provideGetPropsFromPath() {
 		return [
 			'nonexistent.png' => [ 'nonexistent.png', [
 				'fileExists' => false,

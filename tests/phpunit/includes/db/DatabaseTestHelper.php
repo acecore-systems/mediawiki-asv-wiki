@@ -3,13 +3,10 @@
 use MediaWiki\Tests\Unit\Libs\Rdbms\AddQuoterMock;
 use MediaWiki\Tests\Unit\Libs\Rdbms\SQLPlatformTestHelper;
 use Psr\Log\NullLogger;
-use Wikimedia\ObjectCache\HashBagOStuff;
 use Wikimedia\Rdbms\Database;
-use Wikimedia\Rdbms\Database\DatabaseFlags;
 use Wikimedia\Rdbms\DatabaseDomain;
 use Wikimedia\Rdbms\FakeResultWrapper;
 use Wikimedia\Rdbms\QueryStatus;
-use Wikimedia\Rdbms\Replication\ReplicationReporter;
 use Wikimedia\Rdbms\TransactionProfiler;
 use Wikimedia\RequestTimeout\RequestTimeout;
 
@@ -20,10 +17,10 @@ use Wikimedia\RequestTimeout\RequestTimeout;
 class DatabaseTestHelper extends Database {
 
 	/**
-	 * @var string __CLASS__ of the test suite,
+	 * @var string[] __CLASS__ of the test suite,
 	 * used to determine, if the function name is passed every time to query()
 	 */
-	protected string $testName;
+	protected $testName = [];
 
 	/**
 	 * @var string[] Array of lastSqls passed to query(),
@@ -47,8 +44,8 @@ class DatabaseTestHelper extends Database {
 	/** @var int[] */
 	protected $forcedAffectedCountQueue = [];
 
-	public function __construct( string $testName, array $opts = [] ) {
-		$params = $opts + [
+	public function __construct( $testName, array $opts = [] ) {
+		parent::__construct( $opts + [
 			'host' => null,
 			'user' => null,
 			'password' => null,
@@ -63,7 +60,9 @@ class DatabaseTestHelper extends Database {
 			'srvCache' => new HashBagOStuff(),
 			'profiler' => null,
 			'trxProfiler' => new TransactionProfiler(),
-			'logger' => new NullLogger(),
+			'connLogger' => new NullLogger(),
+			'queryLogger' => new NullLogger(),
+			'replLogger' => new NullLogger(),
 			'errorLogger' => static function ( Exception $e ) {
 				wfWarn( get_class( $e ) . ': ' . $e->getMessage() );
 			},
@@ -72,17 +71,10 @@ class DatabaseTestHelper extends Database {
 			},
 			'criticalSectionProvider' =>
 				RequestTimeout::singleton()->createCriticalSectionProvider( 120 )
-		];
-		parent::__construct( $params );
+		] );
 
 		$this->testName = $testName;
 		$this->platform = new SQLPlatformTestHelper( new AddQuoterMock() );
-		$this->flagsHolder = new DatabaseFlags( 0 );
-		$this->replicationReporter = new ReplicationReporter(
-			$params['topologyRole'],
-			$params['logger'],
-			$params['srvCache']
-		);
 
 		$this->currentDomain = DatabaseDomain::newUnspecified();
 		$this->open( 'localhost', 'testuser', 'password', 'testdb', null, '' );
@@ -142,8 +134,8 @@ class DatabaseTestHelper extends Database {
 			$check = $m[1];
 		}
 
-		if ( !str_starts_with( $check, $this->testName ) ) {
-			throw new LogicException( 'function name does not start with test class. ' .
+		if ( substr( $check, 0, strlen( $this->testName ) ) !== $this->testName ) {
+			throw new MWException( 'function name does not start with test class. ' .
 				$fname . ' vs. ' . $this->testName . '. ' .
 				'Please provide __METHOD__ to database methods.' );
 		}
@@ -161,8 +153,8 @@ class DatabaseTestHelper extends Database {
 	}
 
 	public function tableExists( $table, $fname = __METHOD__ ) {
-		[ $db, $pt ] = $this->platform->getDatabaseAndTableIdentifier( $table );
-		if ( isset( $this->sessionTempTables[$db][$pt] ) ) {
+		$tableRaw = $this->tableName( $table, 'raw' );
+		if ( isset( $this->sessionTempTables[$tableRaw] ) ) {
 			return true; // already known to exist
 		}
 
@@ -181,7 +173,7 @@ class DatabaseTestHelper extends Database {
 		return true;
 	}
 
-	protected function lastInsertId() {
+	public function insertId() {
 		return -1;
 	}
 
@@ -205,6 +197,10 @@ class DatabaseTestHelper extends Database {
 
 	public function indexInfo( $table, $index, $fname = 'Database::indexInfo' ) {
 		return false;
+	}
+
+	public function fetchAffectedRowCount() {
+		return -1;
 	}
 
 	public function getSoftwareLink() {
@@ -239,8 +235,7 @@ class DatabaseTestHelper extends Database {
 		if ( $this->nextResMapQueue ) {
 			$this->lastResMap = array_shift( $this->nextResMapQueue );
 			if ( !$this->lastResMap['errno'] && $this->forcedAffectedCountQueue ) {
-				$count = array_shift( $this->forcedAffectedCountQueue );
-				$this->lastQueryAffectedRows = $count;
+				$this->affectedRowCount = array_shift( $this->forcedAffectedCountQueue );
 			}
 		} else {
 			$this->lastResMap = [ 'res' => [], 'errno' => 0, 'error' => '' ];

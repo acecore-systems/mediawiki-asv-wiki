@@ -1,9 +1,6 @@
 <?php
 
-namespace MediaWiki\Tests\Logger\Monolog;
-
-use MediaWiki\Logger\Monolog\CeeFormatter;
-use MediaWiki\Logger\Monolog\LogstashFormatter;
+namespace MediaWiki\Logger\Monolog;
 
 /**
  * @covers \MediaWiki\Logger\Monolog\CeeFormatter

@@ -22,12 +22,6 @@
  * @author Russ Nelson
  */
 
-namespace Wikimedia\FileBackend\FileIteration;
-
-use Iterator;
-use Traversable;
-use Wikimedia\FileBackend\SwiftFileBackend;
-
 /**
  * SwiftFileBackend helper class to page through listings.
  * Swift also has a listing limit of 10,000 objects for performance.
@@ -36,11 +30,11 @@ use Wikimedia\FileBackend\SwiftFileBackend;
  * @ingroup FileBackend
  */
 abstract class SwiftFileBackendList implements Iterator {
-	/** @var string[]|array[] Current page of entries; path list or (path,stat map) list */
-	protected $iterableBuffer = [];
+	/** @var array List of path or (path,stat array) entries */
+	protected $bufferIter = [];
 
-	/** @var string|null Continuation marker; the next page starts *after* this path */
-	protected $continueAfter = null;
+	/** @var string|null List items *after* this path */
+	protected $bufferAfter = null;
 
 	/** @var int */
 	protected $pos = 0;
@@ -67,8 +61,6 @@ abstract class SwiftFileBackendList implements Iterator {
 	 * @param string $fullCont Resolved container name
 	 * @param string $dir Resolved directory relative to container
 	 * @param array $params
-	 * @note This defers I/O by not buffering the first page (useful for AppendIterator use)
-	 * @note Do not call current()/valid() without calling rewind() first
 	 */
 	public function __construct( SwiftFileBackend $backend, $fullCont, $dir, array $params ) {
 		$this->backend = $backend;
@@ -97,23 +89,15 @@ abstract class SwiftFileBackendList implements Iterator {
 	 * @inheritDoc
 	 */
 	public function next(): void {
+		// Advance to the next file in the page
+		next( $this->bufferIter );
 		++$this->pos;
-		if ( $this->iterableBuffer === null ) {
-			// Last page of entries failed to load
-			return;
-		}
-		// Advance to the next entry in the page
-		next( $this->iterableBuffer );
-		// Check if there are no entries left in this page and
+		// Check if there are no files left in this page and
 		// advance to the next page if this page was not empty.
-		if ( !$this->valid() && count( $this->iterableBuffer ) ) {
-			$this->iterableBuffer = $this->pageFromList(
-				$this->container,
-				$this->dir,
-				$this->continueAfter,
-				self::PAGE_SIZE,
-				$this->params
-			);
+		if ( !$this->valid() && count( $this->bufferIter ) ) {
+			$this->bufferIter = $this->pageFromList(
+				$this->container, $this->dir, $this->bufferAfter, self::PAGE_SIZE, $this->params
+			); // updates $this->bufferAfter
 		}
 	}
 
@@ -122,15 +106,11 @@ abstract class SwiftFileBackendList implements Iterator {
 	 */
 	public function rewind(): void {
 		$this->pos = 0;
-		$this->continueAfter = null;
-		$this->iterableBuffer = $this->pageFromList(
-			$this->container,
-			$this->dir,
+		$this->bufferAfter = null;
+		$this->bufferIter = $this->pageFromList(
 			// @phan-suppress-next-line PhanTypeMismatchArgumentPropertyReferenceReal
-			$this->continueAfter,
-			self::PAGE_SIZE,
-			$this->params
-		);
+			$this->container, $this->dir, $this->bufferAfter, self::PAGE_SIZE, $this->params
+		); // updates $this->bufferAfter
 	}
 
 	/**
@@ -138,26 +118,22 @@ abstract class SwiftFileBackendList implements Iterator {
 	 * @return bool
 	 */
 	public function valid(): bool {
-		if ( $this->iterableBuffer === null ) {
-			// Last page of entries failed to load
-			return false;
+		if ( $this->bufferIter === null ) {
+			return false; // some failure?
+		} else {
+			return ( current( $this->bufferIter ) !== false ); // no paths can have this value
 		}
-		// Note that entries (paths/tuples) are never boolean
-		return ( current( $this->iterableBuffer ) !== false );
 	}
 
 	/**
-	 * Get the next page of entries
+	 * Get the given list portion (page)
 	 *
 	 * @param string $container Resolved container name
 	 * @param string $dir Resolved path relative to container
-	 * @param string &$after @phan-output-reference Continuation marker
+	 * @param string &$after @phan-output-reference
 	 * @param int $limit
 	 * @param array $params
 	 * @return Traversable|array
 	 */
 	abstract protected function pageFromList( $container, $dir, &$after, $limit, array $params );
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( SwiftFileBackendList::class, 'SwiftFileBackendList' );

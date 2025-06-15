@@ -20,9 +20,7 @@
 
 namespace MediaWiki\EditPage\Constraint;
 
-use MediaWiki\Permissions\PermissionManager;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
+use MediaWiki\Permissions\Authority;
 use StatusValue;
 
 /**
@@ -35,47 +33,24 @@ use StatusValue;
  */
 class EditRightConstraint implements IEditConstraint {
 
-	private User $performer;
-	private PermissionManager $permManager;
-	private Title $title;
-	private string $result;
-	private bool $new;
+	/** @var Authority */
+	private $performer;
+
+	/** @var string|null */
+	private $result;
 
 	/**
-	 * @param User $performer
-	 * @param PermissionManager $permManager
-	 * @param Title $title
-	 * @param bool $new
+	 * @param Authority $performer
 	 */
 	public function __construct(
-		User $performer,
-		PermissionManager $permManager,
-		Title $title,
-		bool $new
+		Authority $performer
 	) {
 		$this->performer = $performer;
-		$this->permManager = $permManager;
-		$this->title = $title;
-		$this->new = $new;
 	}
 
 	public function checkConstraint(): string {
-		if ( $this->new ) {
-			// Check isn't simple enough to just repeat when getting the status
-			if ( !$this->performer->authorizeWrite( 'create', $this->title ) ) {
-				$this->result = (string)self::AS_NO_CREATE_PERMISSION;
-				return self::CONSTRAINT_FAILED;
-			}
-		}
-
 		// Check isn't simple enough to just repeat when getting the status
-		// Prior to 1.41 this checked if the user had edit rights in general
-		// instead of for the specific page in question.
-		if ( !$this->permManager->userCan(
-			'edit',
-			$this->performer,
-			$this->title
-		) ) {
+		if ( !$this->performer->isAllowed( 'edit' ) ) {
 			$this->result = self::CONSTRAINT_FAILED;
 			return self::CONSTRAINT_FAILED;
 		}
@@ -88,15 +63,12 @@ class EditRightConstraint implements IEditConstraint {
 		$statusValue = StatusValue::newGood();
 
 		if ( $this->result === self::CONSTRAINT_FAILED ) {
-			if ( !$this->performer->isRegistered() ) {
+			if ( !$this->performer->getUser()->isRegistered() ) {
 				$statusValue->setResult( false, self::AS_READ_ONLY_PAGE_ANON );
 			} else {
 				$statusValue->fatal( 'readonlytext' );
 				$statusValue->value = self::AS_READ_ONLY_PAGE_LOGGED;
 			}
-		} elseif ( $this->result === (string)self::AS_NO_CREATE_PERMISSION ) {
-			$statusValue->fatal( 'nocreatetext' );
-			$statusValue->value = self::AS_NO_CREATE_PERMISSION;
 		}
 
 		return $statusValue;

@@ -19,11 +19,6 @@
  * @author fdcn <fdcn64@gmail.com>, PhiLiP <philip.npc@gmail.com>
  */
 
-namespace MediaWiki\Language;
-
-use MediaWiki\Logger\LoggerFactory;
-use StringUtils;
-
 /**
  * The rules used for language conversion, this processes the rules
  * extracted by Parser from the `-{ }-` wikitext syntax.
@@ -39,21 +34,15 @@ class ConverterRule {
 	 * @var LanguageConverter
 	 */
 	public $mConverter;
-	/** @var string|false */
 	public $mRuleDisplay = '';
-	/** @var string|false */
 	public $mRuleTitle = false;
 	/**
 	 * @var string the text of the rules
 	 */
 	public $mRules = '';
-	/** @var string */
 	public $mRulesAction = 'none';
-	/** @var array */
 	public $mFlags = [];
-	/** @var array */
 	public $mVariantFlags = [];
-	/** @var array */
 	public $mConvTable = [];
 	/**
 	 * @var array of the translation in each variant
@@ -74,7 +63,7 @@ class ConverterRule {
 	}
 
 	/**
-	 * Check if the variant array is in the convert array.
+	 * Check if variants array in convert array.
 	 *
 	 * @param array|string $variants Variant language code
 	 * @return string|false Translated text
@@ -166,22 +155,9 @@ class ConverterRule {
 		$unidtable = [];
 		$varsep_pattern = $this->mConverter->getVarSeparatorPattern();
 
-		// Split text according to $varsep_pattern, but ignore semicolons from HTML entities
+		// Split according to $varsep_pattern, but ignore semicolons from HTML entities
 		$rules = preg_replace( '/(&[#a-zA-Z0-9]+);/', "$1\x01", $rules );
 		$choice = preg_split( $varsep_pattern, $rules );
-		// @phan-suppress-next-line PhanTypeComparisonFromArray
-		if ( $choice === false ) {
-			$error = preg_last_error();
-			$errorText = preg_last_error_msg();
-			LoggerFactory::getInstance( 'parser' )->warning(
-				'ConverterRule preg_split error: {code} {errorText}',
-				[
-					'code' => $error,
-					'errorText' => $errorText
-				]
-			);
-			$choice = [];
-		}
 		$choice = str_replace( "\x01", ';', $choice );
 
 		foreach ( $choice as $c ) {
@@ -281,8 +257,8 @@ class ConverterRule {
 	}
 
 	/**
-	 * Similar to getRuleConvertedStr(), but this prefers to use MediaWiki\Title\Title;
-	 * use original page title if $variant === $this->mConverter->getMainCode(),
+	 * Similar to getRuleConvertedStr(), but this prefers to use original
+	 * page title if $variant === $this->mConverter->getMainCode()
 	 * and may return false in this case (so this title conversion rule
 	 * will be ignored and the original title is shown).
 	 *
@@ -388,7 +364,7 @@ class ConverterRule {
 				$this->mRules = $this->mConverter->autoConvert( $this->mRules,
 					$variant );
 			} else {
-				// if the current variant is not in flags,
+				// if current variant no in flags,
 				// then we check its fallback variants.
 				$variantFallbacks =
 					$this->mConverter->getVariantFallbacks( $variant );
@@ -417,7 +393,7 @@ class ConverterRule {
 
 		if ( !$this->mBidtable && !$this->mUnidtable ) {
 			if ( isset( $flags['+'] ) || isset( $flags['-'] ) ) {
-				// fill all variants if the text in -{A/H/-|text}- is non-empty but without rules
+				// fill all variants if text in -{A/H/-|text}- is non-empty but without rules
 				if ( $rules !== '' ) {
 					foreach ( $this->mConverter->getVariants() as $v ) {
 						$this->mBidtable[$v] = $rules;
@@ -464,7 +440,7 @@ class ConverterRule {
 					$this->mRuleDisplay = '';
 					break;
 				default:
-					// ignore unknown flags (but see error-case below)
+					// ignore unknown flags (but see error case below)
 			}
 		}
 		if ( $this->mRuleDisplay === false ) {
@@ -501,7 +477,7 @@ class ConverterRule {
 	}
 
 	/**
-	 * Return how to deal with conversion rules.
+	 * Return how deal with conversion rules.
 	 * @return string
 	 */
 	public function getRulesAction() {
@@ -533,6 +509,3 @@ class ConverterRule {
 		return $this->mFlags;
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ConverterRule::class, 'ConverterRule' );

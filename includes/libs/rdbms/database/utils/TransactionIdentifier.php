@@ -19,15 +19,13 @@
  */
 namespace Wikimedia\Rdbms;
 
-use Stringable;
-
 /**
  * Class used for token representing identifiers for atomic transactions from IDatabase instances
  *
  * @ingroup Database
  * @internal
  */
-class TransactionIdentifier implements Stringable {
+class TransactionIdentifier {
 	/** @var string Application-side ID of the active transaction or an empty string otherwise */
 	private $id = '';
 

@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:MergeHistory
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,34 +18,23 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
-use LogEventsList;
-use LogPage;
 use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\CommentFormatter\CommentFormatter;
-use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\Page\MergeHistoryFactory;
-use MediaWiki\Pager\MergeHistoryPager;
+use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\RevisionStore;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Status\Status;
-use MediaWiki\Title\Title;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
- * Combine the revision history of two articles into one.
- *
- * Limited to users with the appropriate permissions,
- * and with some restrictions on whether a page's history can be
- * merged.
+ * Special page allowing users with the appropriate permissions to
+ * merge article histories, with some restrictions
  *
  * @ingroup SpecialPage
  */
 class SpecialMergeHistory extends SpecialPage {
-	/** @var string|null */
+	/** @var string */
 	protected $mAction;
 
 	/** @var string */
@@ -76,35 +67,38 @@ class SpecialMergeHistory extends SpecialPage {
 	/** @var Title|null */
 	protected $mDestObj;
 
-	private MergeHistoryFactory $mergeHistoryFactory;
-	private LinkBatchFactory $linkBatchFactory;
-	private IConnectionProvider $dbProvider;
-	private RevisionStore $revisionStore;
-	private CommentFormatter $commentFormatter;
+	/** @var int[] */
+	public $prevId;
 
-	/** @var Status */
-	private $mStatus;
+	/** @var MergeHistoryFactory */
+	private $mergeHistoryFactory;
+
+	/** @var LinkBatchFactory */
+	private $linkBatchFactory;
+
+	/** @var ILoadBalancer */
+	private $loadBalancer;
+
+	/** @var RevisionStore */
+	private $revisionStore;
 
 	/**
 	 * @param MergeHistoryFactory $mergeHistoryFactory
 	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param RevisionStore $revisionStore
-	 * @param CommentFormatter $commentFormatter
 	 */
 	public function __construct(
 		MergeHistoryFactory $mergeHistoryFactory,
 		LinkBatchFactory $linkBatchFactory,
-		IConnectionProvider $dbProvider,
-		RevisionStore $revisionStore,
-		CommentFormatter $commentFormatter
+		ILoadBalancer $loadBalancer,
+		RevisionStore $revisionStore
 	) {
 		parent::__construct( 'MergeHistory', 'mergehistory' );
 		$this->mergeHistoryFactory = $mergeHistoryFactory;
 		$this->linkBatchFactory = $linkBatchFactory;
-		$this->dbProvider = $dbProvider;
+		$this->loadBalancer = $loadBalancer;
 		$this->revisionStore = $revisionStore;
-		$this->commentFormatter = $commentFormatter;
 	}
 
 	public function doesWrites() {
@@ -124,13 +118,13 @@ class SpecialMergeHistory extends SpecialPage {
 		$this->mTargetID = intval( $request->getVal( 'targetID' ) );
 		$this->mDestID = intval( $request->getVal( 'destID' ) );
 		$this->mTimestamp = $request->getVal( 'mergepoint' );
-		if ( $this->mTimestamp === null || !preg_match( '/[0-9]{14}(\|[0-9]+)?/', $this->mTimestamp ) ) {
+		if ( $this->mTimestamp === null || !preg_match( '/[0-9]{14}/', $this->mTimestamp ) ) {
 			$this->mTimestamp = '';
 		}
 		$this->mComment = $request->getText( 'wpComment' );
 
 		$this->mMerge = $request->wasPosted()
-			&& $this->getContext()->getCsrfTokenSet()->matchToken( $request->getVal( 'wpEditToken' ) );
+			&& $this->getUser()->matchEditToken( $request->getVal( 'wpEditToken' ) );
 
 		// target page
 		if ( $this->mSubmitted ) {
@@ -152,7 +146,6 @@ class SpecialMergeHistory extends SpecialPage {
 
 		$this->setHeaders();
 		$this->outputHeader();
-		$status = Status::newGood();
 
 		if ( $this->mTargetID && $this->mDestID && $this->mAction == 'submit' && $this->mMerge ) {
 			$this->merge();
@@ -166,33 +159,31 @@ class SpecialMergeHistory extends SpecialPage {
 			return;
 		}
 
+		$errors = [];
 		if ( !$this->mTargetObj instanceof Title ) {
-			$status->merge( Status::newFatal( 'mergehistory-invalid-source' ) );
+			$errors[] = $this->msg( 'mergehistory-invalid-source' )->parseAsBlock();
 		} elseif ( !$this->mTargetObj->exists() ) {
-			$status->merge( Status::newFatal(
-				'mergehistory-no-source',
+			$errors[] = $this->msg( 'mergehistory-no-source',
 				wfEscapeWikiText( $this->mTargetObj->getPrefixedText() )
-			) );
+			)->parseAsBlock();
 		}
 
 		if ( !$this->mDestObj instanceof Title ) {
-			$status->merge( Status::newFatal( 'mergehistory-invalid-destination' ) );
+			$errors[] = $this->msg( 'mergehistory-invalid-destination' )->parseAsBlock();
 		} elseif ( !$this->mDestObj->exists() ) {
-			$status->merge( Status::newFatal(
-				'mergehistory-no-destination',
+			$errors[] = $this->msg( 'mergehistory-no-destination',
 				wfEscapeWikiText( $this->mDestObj->getPrefixedText() )
-			) );
+			)->parseAsBlock();
 		}
 
 		if ( $this->mTargetObj && $this->mDestObj && $this->mTargetObj->equals( $this->mDestObj ) ) {
-			$status->merge( Status::newFatal( 'mergehistory-same-destination' ) );
+			$errors[] = $this->msg( 'mergehistory-same-destination' )->parseAsBlock();
 		}
 
-		$this->mStatus = $status;
-
-		$this->showMergeForm();
-
-		if ( $this->mStatus->isGood() ) {
+		if ( count( $errors ) ) {
+			$this->showMergeForm();
+			$this->getOutput()->addHTML( implode( "\n", $errors ) );
+		} else {
 			$this->showHistory();
 		}
 	}
@@ -201,146 +192,183 @@ class SpecialMergeHistory extends SpecialPage {
 		$out = $this->getOutput();
 		$out->addWikiMsg( 'mergehistory-header' );
 
-		$fields = [
-			'submitted' => [
-				'type' => 'hidden',
-				'default' => '1',
-				'name' => 'submitted'
-			],
-			'title' => [
-				'type' => 'hidden',
-				'default' => $this->getPageTitle()->getPrefixedDBkey(),
-				'name' => 'title'
-			],
-			'mergepoint' => [
-				'type' => 'hidden',
-				'default' => $this->mTimestamp,
-				'name' => 'mergepoint'
-			],
-			'target' => [
-				'type' => 'title',
-				'label-message' => 'mergehistory-from',
-				'default' => $this->mTarget,
-				'id' => 'target',
-				'name' => 'target'
-			],
-			'dest' => [
-				'type' => 'title',
-				'label-message' => 'mergehistory-into',
-				'default' => $this->mDest,
-				'id' => 'dest',
-				'name' => 'dest'
-			]
-		];
-
-		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
-		$form->setWrapperLegendMsg( 'mergehistory-box' )
-			->setSubmitTextMsg( 'mergehistory-go' )
-			->setMethod( 'get' )
-			->prepareForm()
-			->displayForm( $this->mStatus );
+		$out->addHTML(
+			Xml::openElement( 'form', [
+				'method' => 'get',
+				'action' => wfScript() ] ) .
+				'<fieldset>' .
+				Xml::element( 'legend', [],
+					$this->msg( 'mergehistory-box' )->text() ) .
+				Html::hidden( 'title', $this->getPageTitle()->getPrefixedDBkey() ) .
+				Html::hidden( 'submitted', '1' ) .
+				Html::hidden( 'mergepoint', $this->mTimestamp ) .
+				Xml::openElement( 'table' ) .
+				'<tr>
+				<td>' . Xml::label( $this->msg( 'mergehistory-from' )->text(), 'target' ) . '</td>
+				<td>' . Xml::input( 'target', 30, $this->mTarget, [ 'id' => 'target' ] ) . '</td>
+			</tr><tr>
+				<td>' . Xml::label( $this->msg( 'mergehistory-into' )->text(), 'dest' ) . '</td>
+				<td>' . Xml::input( 'dest', 30, $this->mDest, [ 'id' => 'dest' ] ) . '</td>
+			</tr><tr><td>' .
+				Xml::submitButton( $this->msg( 'mergehistory-go' )->text() ) .
+				'</td></tr>' .
+				Xml::closeElement( 'table' ) .
+				'</fieldset>' .
+				'</form>'
+		);
 
 		$this->addHelpLink( 'Help:Merge history' );
 	}
 
 	private function showHistory() {
+		$this->showMergeForm();
+
 		# List all stored revisions
 		$revisions = new MergeHistoryPager(
-			$this->getContext(),
-			$this->getLinkRenderer(),
+			$this,
 			$this->linkBatchFactory,
-			$this->dbProvider,
+			$this->loadBalancer,
 			$this->revisionStore,
-			$this->commentFormatter,
 			[],
 			$this->mTargetObj,
-			$this->mDestObj,
-			$this->mTimestamp
+			$this->mDestObj
 		);
 		$haveRevisions = $revisions->getNumRows() > 0;
 
 		$out = $this->getOutput();
-		$out->addModuleStyles( [
-			'mediawiki.interface.helpers.styles',
-			'mediawiki.special'
-		] );
+		$out->addModuleStyles( [ 'mediawiki.interface.helpers.styles' ] );
 		$titleObj = $this->getPageTitle();
 		$action = $titleObj->getLocalURL( [ 'action' => 'submit' ] );
 		# Start the form here
-		$fields = [
-			'targetID' => [
-				'type' => 'hidden',
-				'name' => 'targetID',
-				'default' => $this->mTargetObj->getArticleID()
-			],
-			'destID' => [
-				'type' => 'hidden',
-				'name' => 'destID',
-				'default' => $this->mDestObj->getArticleID()
-			],
-			'target' => [
-				'type' => 'hidden',
-				'name' => 'target',
-				'default' => $this->mTarget
-			],
-			'dest' => [
-				'type' => 'hidden',
-				'name' => 'dest',
-				'default' => $this->mDest
-			],
-		];
-		if ( $haveRevisions ) {
-			$fields += [
-				'explanation' => [
-					'type' => 'info',
-					'default' => $this->msg( 'mergehistory-merge', $this->mTargetObj->getPrefixedText(),
-						$this->mDestObj->getPrefixedText() )->parse(),
-					'raw' => true,
-					'cssclass' => 'mw-mergehistory-explanation',
-					'section' => 'mergehistory-submit'
-				],
-				'reason' => [
-					'type' => 'text',
-					'name' => 'wpComment',
-					'label-message' => 'mergehistory-reason',
-					'size' => 50,
-					'default' => $this->mComment,
-					'section' => 'mergehistory-submit'
-				],
-				'submit' => [
-					'type' => 'submit',
-					'default' => $this->msg( 'mergehistory-submit' ),
-					'section' => 'mergehistory-submit',
-					'id' => 'mw-merge-submit',
-					'name' => 'merge'
-				]
-			];
-		}
-		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
-		$form->addHiddenField( 'wpEditToken', $form->getCsrfTokenSet()->getToken() )
-			->setId( 'merge' )
-			->setAction( $action )
-			->suppressDefaultSubmit();
+		$top = Xml::openElement(
+			'form',
+			[
+				'method' => 'post',
+				'action' => $action,
+				'id' => 'merge'
+			]
+		);
+		$out->addHTML( $top );
 
 		if ( $haveRevisions ) {
-			$form->setFooterHtml(
-				'<h2 id="mw-mergehistory">' . $this->msg( 'mergehistory-list' )->escaped() . '</h2>' .
-				$revisions->getNavigationBar() .
-				$revisions->getBody() .
-				$revisions->getNavigationBar()
-			);
+			# Format the user-visible controls (comment field, submission button)
+			# in a nice little table
+			$table =
+				Xml::openElement( 'fieldset' ) .
+					$this->msg( 'mergehistory-merge', $this->mTargetObj->getPrefixedText(),
+						$this->mDestObj->getPrefixedText() )->parse() .
+					Xml::openElement( 'table', [ 'id' => 'mw-mergehistory-table' ] ) .
+					'<tr>
+						<td class="mw-label">' .
+					Xml::label( $this->msg( 'mergehistory-reason' )->text(), 'wpComment' ) .
+					'</td>
+					<td class="mw-input">' .
+					Xml::input( 'wpComment', 50, $this->mComment, [ 'id' => 'wpComment' ] ) .
+					"</td>
+					</tr>
+					<tr>
+						<td>\u{00A0}</td>
+						<td class=\"mw-submit\">" .
+					Xml::submitButton(
+						$this->msg( 'mergehistory-submit' )->text(),
+						[ 'name' => 'merge', 'id' => 'mw-merge-submit' ]
+					) .
+					'</td>
+					</tr>' .
+					Xml::closeElement( 'table' ) .
+					Xml::closeElement( 'fieldset' );
+
+			$out->addHTML( $table );
+		}
+
+		$out->addHTML(
+			'<h2 id="mw-mergehistory">' .
+				$this->msg( 'mergehistory-list' )->escaped() . "</h2>\n"
+		);
+
+		if ( $haveRevisions ) {
+			$out->addHTML( $revisions->getNavigationBar() );
+			$out->addHTML( $revisions->getBody() );
+			$out->addHTML( $revisions->getNavigationBar() );
 		} else {
-			$form->setFooterHtml( $this->msg( 'mergehistory-empty' ) );
+			$out->addWikiMsg( 'mergehistory-empty' );
 		}
-
-		$form->prepareForm()->displayForm( false );
 
 		# Show relevant lines from the merge log:
 		$mergeLogPage = new LogPage( 'merge' );
 		$out->addHTML( '<h2>' . $mergeLogPage->getName()->escaped() . "</h2>\n" );
 		LogEventsList::showLogExtract( $out, 'merge', $this->mTargetObj );
 
+		# When we submit, go by page ID to avoid some nasty but unlikely collisions.
+		# Such would happen if a page was renamed after the form loaded, but before submit
+		$misc = Html::hidden( 'targetID', $this->mTargetObj->getArticleID() );
+		$misc .= Html::hidden( 'destID', $this->mDestObj->getArticleID() );
+		$misc .= Html::hidden( 'target', $this->mTarget );
+		$misc .= Html::hidden( 'dest', $this->mDest );
+		$misc .= Html::hidden( 'wpEditToken', $this->getUser()->getEditToken() );
+		$misc .= Xml::closeElement( 'form' );
+		$out->addHTML( $misc );
+
 		return true;
+	}
+
+	public function formatRevisionRow( $row ) {
+		$revRecord = $this->revisionStore->newRevisionFromRow( $row );
+
+		$linkRenderer = $this->getLinkRenderer();
+
+		$stxt = '';
+		$last = $this->msg( 'last' )->escaped();
+
+		$ts = wfTimestamp( TS_MW, $row->rev_timestamp );
+		$checkBox = Xml::radio( 'mergepoint', $ts, ( $this->mTimestamp === $ts ) );
+
+		$user = $this->getUser();
+
+		$pageLink = $linkRenderer->makeKnownLink(
+			$revRecord->getPageAsLinkTarget(),
+			$this->getLanguage()->userTimeAndDate( $ts, $user ),
+			[],
+			[ 'oldid' => $revRecord->getId() ]
+		);
+		if ( $revRecord->isDeleted( RevisionRecord::DELETED_TEXT ) ) {
+			$class = Linker::getRevisionDeletedClass( $revRecord );
+			$pageLink = '<span class=" ' . $class . '">' . $pageLink . '</span>';
+		}
+
+		# Last link
+		if ( !$revRecord->userCan( RevisionRecord::DELETED_TEXT, $this->getAuthority() ) ) {
+			$last = $this->msg( 'last' )->escaped();
+		} elseif ( isset( $this->prevId[$row->rev_id] ) ) {
+			$last = $linkRenderer->makeKnownLink(
+				$revRecord->getPageAsLinkTarget(),
+				$this->msg( 'last' )->text(),
+				[],
+				[
+					'diff' => $row->rev_id,
+					'oldid' => $this->prevId[$row->rev_id]
+				]
+			);
+		}
+
+		$userLink = Linker::revUserTools( $revRecord );
+
+		$size = $row->rev_len;
+		if ( $size !== null ) {
+			$stxt = Linker::formatRevisionSize( $size );
+		}
+		$comment = Linker::revComment( $revRecord );
+
+		// Tags, if any.
+		list( $tagSummary, $classes ) = ChangeTags::formatSummaryRow(
+			$row->ts_tags,
+			'mergehistory',
+			$this->getContext()
+		);
+
+		return Html::rawElement( 'li', $classes,
+			$this->msg( 'mergehistory-revisionrow' )
+				->rawParams( $checkBox, $last, $pageLink, $userLink, $stxt, $comment, $tagSummary )->escaped() );
 	}
 
 	/**
@@ -405,9 +433,3 @@ class SpecialMergeHistory extends SpecialPage {
 		return 'pagetools';
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialMergeHistory::class, 'SpecialMergeHistory' );

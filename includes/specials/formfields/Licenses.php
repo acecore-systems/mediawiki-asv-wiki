@@ -23,18 +23,24 @@
  * @copyright Copyright © 2005, Ævar Arnfjörð Bjarmason
  */
 
-use MediaWiki\Html\Html;
-use MediaWiki\HTMLForm\HTMLFormField;
 use MediaWiki\MediaWikiServices;
 
 /**
  * A License class for use on Special:Upload
  */
 class Licenses extends HTMLFormField {
-	protected string $msg;
-	protected array $lines = [];
-	protected string $html;
-	protected ?string $selected;
+	/** @var string */
+	protected $msg;
+
+	/** @var array */
+	protected $lines = [];
+
+	/** @var string */
+	protected $html;
+
+	/** @var string|null */
+	protected $selected;
+	/** #@- */
 
 	/**
 	 * @param array $params
@@ -89,12 +95,12 @@ class Licenses extends HTMLFormField {
 		$lines = explode( "\n", $this->msg );
 
 		foreach ( $lines as $line ) {
-			if ( !str_starts_with( $line, '*' ) ) {
+			if ( strpos( $line, '*' ) !== 0 ) {
 				continue;
 			}
-			[ $level, $line ] = $this->trimStars( $line );
+			list( $level, $line ) = $this->trimStars( $line );
 
-			if ( str_contains( $line, '|' ) ) {
+			if ( strpos( $line, '|' ) !== false ) {
 				$obj = $this->buildLine( $line );
 				$this->stackItem( $this->lines, $levels, $obj );
 			} else {
@@ -147,7 +153,8 @@ class Licenses extends HTMLFormField {
 				$html .= $this->outputOption(
 					$key, '',
 					[
-						'disabled' => 'disabled'
+						'disabled' => 'disabled',
+						'style' => 'color: GrayText', // for MSIE
 					],
 					$depth
 				);
@@ -182,6 +189,8 @@ class Licenses extends HTMLFormField {
 		$val = str_repeat( /* &nbsp */ "\u{00A0}", $depth * 2 ) . $text;
 		return str_repeat( "\t", $depth ) . Html::element( 'option', $attribs, $val ) . "\n";
 	}
+
+	/** #@- */
 
 	/**
 	 * Accessor for $this->lines

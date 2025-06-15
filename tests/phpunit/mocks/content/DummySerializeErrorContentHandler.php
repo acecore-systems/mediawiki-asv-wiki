@@ -16,8 +16,6 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 
-use MediaWiki\Content\Content;
-
 /**
  * A dummy content handler that will throw on an attempt to serialize content.
  */

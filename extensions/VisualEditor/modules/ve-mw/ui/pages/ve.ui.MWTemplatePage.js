@@ -1,7 +1,7 @@
 /*!
  * VisualEditor user interface MWTemplatePage class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -16,11 +16,11 @@
  * @param {ve.dm.MWTemplateModel} template Template model
  * @param {string} name Unique symbolic name of page
  * @param {Object} [config] Configuration options
- * @param {jQuery} [config.$overlay] Overlay to render dropdowns in
- * @param {boolean} [config.isReadOnly] Page is read-only
+ * @cfg {jQuery} [$overlay] Overlay to render dropdowns in
+ * @cfg {boolean} [isReadOnly] Page is read-only
  */
 ve.ui.MWTemplatePage = function VeUiMWTemplatePage( template, name, config ) {
-	const link = template.getTemplateDataQueryTitle();
+	var link = template.getTemplateDataQueryTitle();
 
 	// Configuration initialization
 	config = ve.extendObject( {
@@ -41,27 +41,26 @@ ve.ui.MWTemplatePage = function VeUiMWTemplatePage( template, name, config ) {
 	} );
 
 	// Initialization
-	const description = this.spec.getDescription();
-	if ( description ) {
-		this.$description.append(
-			$( '<p>' ).text( description )
-		);
-	}
+	this.$description
+		.text( this.spec.getDescription() );
 
 	// The transcluded page may be dynamically generated or unspecified in the DOM
 	// for other reasons (T68724). In that case we can't tell the user what the
 	// template is called, nor link to the template page. However, if we know for
 	// certain that the template doesn't exist, be explicit about it (T162694).
-	const linkData = ve.init.platform.linkCache.getCached( '_missing/' + link ),
+	var linkData = ve.init.platform.linkCache.getCached( '_missing/' + link ),
 		knownAsMissing = link && linkData && linkData.missing;
 
-	let key,
-		messageStyle = 've-ui-mwTemplatePage-description-missing';
-	if ( description ) {
+	var key,
+		messageStyle = 've-ui-mwTemplatePage-description-missing',
+		$addMessageHere = this.$description;
+	if ( this.spec.getDescription() ) {
 		key = 'visualeditor-dialog-transclusion-see-template';
 		messageStyle = 've-ui-mwTemplatePage-description-extra';
+		$addMessageHere = $( '<span>' );
+		this.$description.append( $( '<hr>' ), $addMessageHere );
 	} else if ( !link || knownAsMissing ) {
-		let title;
+		var title;
 		try {
 			title = link && new mw.Title( link );
 		} catch ( e ) {
@@ -75,23 +74,21 @@ ve.ui.MWTemplatePage = function VeUiMWTemplatePage( template, name, config ) {
 	}
 
 	if ( key ) {
-		const $addMessageHere = $( '<p>' );
 		// The following messages are used here:
 		// * visualeditor-dialog-transclusion-no-template-description
 		// * visualeditor-dialog-transclusion-see-template
 		// * visualeditor-dialog-transclusion-template-title-modifier
 		// * visualeditor-dialog-transclusion-template-title-nonexistent
-		const $msg = mw.message( key, this.spec.getLabel(), link ).parseDom();
+		var $msg = mw.message( key, this.spec.getLabel(), link ).parseDom();
 		// The following classes are used here:
 		// * ve-ui-mwTemplatePage-description-extra
 		// * ve-ui-mwTemplatePage-description-missing
 		$addMessageHere.addClass( messageStyle ).append( $msg );
 		ve.targetLinksToNewWindow( $addMessageHere[ 0 ] );
-		this.$description.append( $addMessageHere );
 	}
 
 	this.$description.find( 'a[href]' )
-		.on( 'click', () => {
+		.on( 'click', function () {
 			ve.track( 'activity.transclusion', { action: 'template-doc-link-click' } );
 		} );
 
@@ -99,7 +96,7 @@ ve.ui.MWTemplatePage = function VeUiMWTemplatePage( template, name, config ) {
 		.append( this.$description );
 
 	if ( !knownAsMissing ) {
-		let noticeWidget;
+		var noticeWidget;
 
 		if ( this.template.getSpec().getDocumentedParameterOrder().length &&
 			!this.template.getSpec().isDocumented()

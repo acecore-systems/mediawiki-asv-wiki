@@ -20,8 +20,6 @@ class ExternalStoreFactory implements LoggerAwareInterface {
 	private $localDomainId;
 	/** @var LoggerInterface */
 	private $logger;
-	/** @var ExternalStoreMedium[] */
-	private $stores = [];
 
 	/**
 	 * @param string[] $externalStores See $wgExternalStores
@@ -33,7 +31,7 @@ class ExternalStoreFactory implements LoggerAwareInterface {
 		array $externalStores,
 		array $defaultStores,
 		string $localDomainId,
-		?LoggerInterface $logger = null
+		LoggerInterface $logger = null
 	) {
 		$this->protocols = array_map( 'strtolower', $externalStores );
 		$this->writeBaseUrls = $defaultStores;
@@ -74,20 +72,12 @@ class ExternalStoreFactory implements LoggerAwareInterface {
 	 * @throws ExternalStoreException When $proto is not recognized
 	 */
 	public function getStore( $proto, array $params = [] ) {
-		$cacheKey = $proto . ':' . json_encode( $params );
-		if ( isset( $this->stores[$cacheKey] ) ) {
-			return $this->stores[$cacheKey];
-		}
 		$protoLowercase = strtolower( $proto ); // normalize
 		if ( !$this->protocols || !in_array( $protoLowercase, $this->protocols ) ) {
 			throw new ExternalStoreException( "Protocol '$proto' is not enabled." );
 		}
 
-		if ( $protoLowercase === 'db' ) {
-			$class = 'ExternalStoreDB';
-		} else {
-			$class = 'ExternalStore' . ucfirst( $proto );
-		}
+		$class = 'ExternalStore' . ucfirst( $proto );
 		if ( isset( $params['wiki'] ) ) {
 			$params += [ 'domain' => $params['wiki'] ]; // b/c
 		}
@@ -109,8 +99,7 @@ class ExternalStoreFactory implements LoggerAwareInterface {
 		}
 
 		// Any custom modules should be added to $wgAutoLoadClasses for on-demand loading
-		$this->stores[$cacheKey] = new $class( $params );
-		return $this->stores[$cacheKey];
+		return new $class( $params );
 	}
 
 	/**
@@ -127,7 +116,7 @@ class ExternalStoreFactory implements LoggerAwareInterface {
 	 * @since 1.34
 	 */
 	public function getStoreForUrl( $url, array $params = [] ) {
-		[ $proto, $path ] = self::splitStorageUrl( $url );
+		list( $proto, $path ) = self::splitStorageUrl( $url );
 		if ( $path == '' ) { // bad URL
 			throw new ExternalStoreException( "Invalid URL '$url'" );
 		}
@@ -144,7 +133,7 @@ class ExternalStoreFactory implements LoggerAwareInterface {
 	 * @since 1.34
 	 */
 	public function getStoreLocationFromUrl( $url ) {
-		[ , $location ] = self::splitStorageUrl( $url );
+		list( , $location ) = self::splitStorageUrl( $url );
 		if ( $location == '' ) { // bad URL
 			throw new ExternalStoreException( "Invalid URL '$url'" );
 		}
@@ -161,7 +150,7 @@ class ExternalStoreFactory implements LoggerAwareInterface {
 	public function getUrlsByProtocol( array $urls ) {
 		$urlsByProtocol = [];
 		foreach ( $urls as $url ) {
-			[ $proto, ] = self::splitStorageUrl( $url );
+			list( $proto, ) = self::splitStorageUrl( $url );
 			$urlsByProtocol[$proto][] = $url;
 		}
 

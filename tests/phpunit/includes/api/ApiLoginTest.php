@@ -1,18 +1,8 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
-use MediaWiki\Api\ApiErrorFormatter;
-use MediaWiki\Auth\AbstractSecondaryAuthenticationProvider;
-use MediaWiki\Auth\AuthenticationResponse;
-use MediaWiki\Auth\UsernameAuthenticationRequest;
 use MediaWiki\MainConfigNames;
 use MediaWiki\Session\BotPasswordSessionProvider;
 use MediaWiki\Session\SessionManager;
-use MediaWiki\Session\Token;
-use MediaWiki\User\BotPassword;
-use MediaWiki\User\User;
-use MWRestrictions;
 use Wikimedia\TestingAccessWrapper;
 
 /**
@@ -20,9 +10,14 @@ use Wikimedia\TestingAccessWrapper;
  * @group Database
  * @group medium
  *
- * @covers \MediaWiki\Api\ApiLogin
+ * @covers ApiLogin
  */
 class ApiLoginTest extends ApiTestCase {
+	protected function setUp(): void {
+		parent::setUp();
+
+		$this->tablesUsed[] = 'bot_passwords';
+	}
 
 	public static function provideEnableBotPasswords() {
 		return [
@@ -60,8 +55,8 @@ class ApiLoginTest extends ApiTestCase {
 		$ret = $this->doApiRequest( [
 			'action' => 'login',
 			'lgname' => '',
-			'lgpassword' => $this->getTestSysop()->getPassword(),
-			'lgtoken' => (string)( new Token( 'foobar', '' ) ),
+			'lgpassword' => self::$users['sysop']->getPassword(),
+			'lgtoken' => (string)( new MediaWiki\Session\Token( 'foobar', '' ) ),
 		], $session );
 		$this->assertSame( 'Failed', $ret[0]['login']['result'] );
 	}
@@ -141,10 +136,10 @@ class ApiLoginTest extends ApiTestCase {
 	}
 
 	public function testBadToken() {
-		$testUser = $this->getTestSysop();
-		$userName = $testUser->getUser()->getName();
-		$password = $testUser->getPassword();
-		$testUser->getUser()->logout();
+		$user = self::$users['sysop'];
+		$userName = $user->getUser()->getName();
+		$password = $user->getPassword();
+		$user->getUser()->logout();
 
 		$ret = $this->doUserLogin( $userName, $password, [ 'lgtoken' => 'invalid token' ] );
 
@@ -152,10 +147,10 @@ class ApiLoginTest extends ApiTestCase {
 	}
 
 	public function testLostSession() {
-		$testUser = $this->getTestSysop();
-		$userName = $testUser->getUser()->getName();
-		$password = $testUser->getPassword();
-		$testUser->getUser()->logout();
+		$user = self::$users['sysop'];
+		$userName = $user->getUser()->getName();
+		$password = $user->getPassword();
+		$user->getUser()->logout();
 
 		$ret = $this->doApiRequest( [
 			'action' => 'query',
@@ -166,7 +161,7 @@ class ApiLoginTest extends ApiTestCase {
 		$this->assertArrayNotHasKey( 'warnings', $ret );
 
 		// Lose the session
-		SessionManager::getGlobalSession()->clear();
+		MediaWiki\Session\SessionManager::getGlobalSession()->clear();
 		$ret[2] = [];
 
 		$ret = $this->doApiRequest( [
@@ -188,9 +183,9 @@ class ApiLoginTest extends ApiTestCase {
 	}
 
 	public function testBadPass() {
-		$user = $this->getTestSysop()->getUser();
-		$userName = $user->getName();
-		$user->logout();
+		$user = self::$users['sysop'];
+		$userName = $user->getUser()->getName();
+		$user->getUser()->logout();
 
 		$ret = $this->doUserLogin( $userName, 'bad', [ 'errorformat' => 'raw' ] );
 
@@ -213,10 +208,10 @@ class ApiLoginTest extends ApiTestCase {
 			$enableBotPasswords
 		);
 
-		$testUser = $this->getTestSysop();
-		$userName = $testUser->getUser()->getName();
-		$password = $testUser->getPassword();
-		$testUser->getUser()->logout();
+		$user = self::$users['sysop'];
+		$userName = $user->getUser()->getName();
+		$password = $user->getPassword();
+		$user->getUser()->logout();
 
 		$ret = $this->doUserLogin( $userName, $password );
 
@@ -239,10 +234,10 @@ class ApiLoginTest extends ApiTestCase {
 		);
 
 		$mockProvider = $this->createMock(
-			AbstractSecondaryAuthenticationProvider::class );
+			MediaWiki\Auth\AbstractSecondaryAuthenticationProvider::class );
 		$mockProvider->method( 'beginSecondaryAuthentication' )->willReturn(
-			AuthenticationResponse::newUI(
-				[ new UsernameAuthenticationRequest ],
+			MediaWiki\Auth\AuthenticationResponse::newUI(
+				[ new MediaWiki\Auth\UsernameAuthenticationRequest ],
 				// Slightly silly message here
 				wfMessage( 'mainpage' )
 			)
@@ -258,10 +253,10 @@ class ApiLoginTest extends ApiTestCase {
 			] ],
 		] );
 
-		$testUser = $this->getTestSysop();
-		$userName = $testUser->getUser()->getName();
-		$password = $testUser->getPassword();
-		$testUser->getUser()->logout();
+		$user = self::$users['sysop'];
+		$userName = $user->getUser()->getName();
+		$password = $user->getPassword();
+		$user->getUser()->logout();
 
 		$ret = $this->doUserLogin( $userName, $password );
 
@@ -273,7 +268,7 @@ class ApiLoginTest extends ApiTestCase {
 	}
 
 	/**
-	 * @return array [ $username, $password ] suitable for passing to an API request for successful login
+	 * @return [ $username, $password ] suitable for passing to an API request for successful login
 	 */
 	private function setUpForBotPassword() {
 		global $wgSessionProviders;
@@ -289,6 +284,7 @@ class ApiLoginTest extends ApiTestCase {
 				],
 			] ),
 			MainConfigNames::EnableBotPasswords => true,
+			MainConfigNames::BotPasswordsDatabase => false,
 			MainConfigNames::CentralIdLookupProvider => 'local',
 			MainConfigNames::GrantPermissions => [
 				'test' => [ 'read' => true ],
@@ -306,10 +302,10 @@ class ApiLoginTest extends ApiTestCase {
 			SessionManager::singleton()->getProvider( BotPasswordSessionProvider::class )
 		);
 
-		$user = $this->getTestSysop()->getUser();
+		$user = self::$users['sysop'];
 		$centralId = $this->getServiceContainer()
 			->getCentralIdLookup()
-			->centralIdFromLocalUser( $user );
+			->centralIdFromLocalUser( $user->getUser() );
 		$this->assertNotSame( 0, $centralId );
 
 		$password = 'ngfhmjm64hv0854493hsj5nncjud2clk';
@@ -317,20 +313,21 @@ class ApiLoginTest extends ApiTestCase {
 		// A is unsalted MD5 (thus fast) ... we don't care about security here, this is test only
 		$passwordHash = $passwordFactory->newFromPlaintext( $password );
 
-		$this->getDb()->newInsertQueryBuilder()
-			->insertInto( 'bot_passwords' )
-			->row( [
+		$dbw = wfGetDB( DB_PRIMARY );
+		$dbw->insert(
+			'bot_passwords',
+			[
 				'bp_user' => $centralId,
 				'bp_app_id' => 'foo',
 				'bp_password' => $passwordHash->toString(),
 				'bp_token' => '',
 				'bp_restrictions' => MWRestrictions::newDefault()->toJson(),
 				'bp_grants' => '["test"]',
-			] )
-			->caller( __METHOD__ )
-			->execute();
+			],
+			__METHOD__
+		);
 
-		$lgName = $user->getName() . BotPassword::getSeparator() . 'foo';
+		$lgName = $user->getUser()->getName() . BotPassword::getSeparator() . 'foo';
 
 		return [ $lgName, $password ];
 	}
@@ -354,7 +351,7 @@ class ApiLoginTest extends ApiTestCase {
 			$throttle
 		);
 
-		[ $name, $password ] = $this->setUpForBotPassword();
+		list( $name, $password ) = $this->setUpForBotPassword();
 
 		for ( $i = 0; $i < $throttle[0]['count']; $i++ ) {
 			$this->doUserLogin( $name, 'incorrectpasswordincorrectpassword' );

@@ -18,17 +18,10 @@
  * @file
  */
 
-namespace MediaWiki\Content;
-
 use MediaWiki\Content\Renderer\ContentParseParams;
 use MediaWiki\Content\Transform\PreSaveTransformParams;
-use MediaWiki\Html\Html;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Parser\ParserOutput;
-use MediaWiki\Parser\ParserOutputFlags;
-use MediaWiki\Title\Title;
-use WikiPage;
 
 /**
  * Content handler for JavaScript pages.
@@ -48,7 +41,7 @@ class JavaScriptContentHandler extends CodeContentHandler {
 	}
 
 	/**
-	 * @return class-string<JavaScriptContent>
+	 * @return string
 	 */
 	protected function getContentClass() {
 		return JavaScriptContent::class;
@@ -69,19 +62,25 @@ class JavaScriptContentHandler extends CodeContentHandler {
 		// The parameters are passed as a string so the / is not url-encoded by wfArrayToCgi
 		$url = $destination->getFullURL( 'action=raw&ctype=text/javascript', false, PROTO_RELATIVE );
 		$class = $this->getContentClass();
-		// Don't needlessly encode ampersands in URLs (T107289).
-		// Avoid FormatJson or Html::encodeJsCall to ensure long-term byte-identical stability,
-		// as required for JavaScriptContent::getRedirectTarget validation.
-		$redirectContent = '/* #REDIRECT */mw.loader.load('
-			. json_encode( $url, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE )
-			. ');';
-		return new $class( $redirectContent );
+		return new $class( '/* #REDIRECT */' . Xml::encodeJsCall( 'mw.loader.load', [ $url ] ) );
 	}
 
 	public function preSaveTransform(
 		Content $content,
 		PreSaveTransformParams $pstParams
 	): Content {
+		$shouldCallDeprecatedMethod = $this->shouldCallDeprecatedContentTransformMethod(
+			$content,
+			$pstParams
+		);
+
+		if ( $shouldCallDeprecatedMethod ) {
+			return $this->callDeprecatedContentPST(
+				$content,
+				$pstParams
+			);
+		}
+
 		'@phan-var JavascriptContent $content';
 
 		$parserOptions = $pstParams->getParserOptions();
@@ -158,11 +157,6 @@ class JavaScriptContentHandler extends CodeContentHandler {
 		}
 
 		$output->clearWrapperDivClass();
-		$output->setRawText( $html );
-		// Suppress the TOC (T307691)
-		$output->setOutputFlag( ParserOutputFlags::NO_TOC );
-		$output->setSections( [] );
+		$output->setText( $html );
 	}
 }
-/** @deprecated class alias since 1.43 */
-class_alias( JavaScriptContentHandler::class, 'JavaScriptContentHandler' );

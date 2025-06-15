@@ -35,7 +35,8 @@ use Wikimedia\Assert\Assert;
  */
 class EditConstraintRunner {
 
-	private LoggerInterface $logger;
+	/** @var LoggerInterface */
+	private $logger;
 
 	/**
 	 * @var IEditConstraint[]
@@ -45,7 +46,7 @@ class EditConstraintRunner {
 	private $constraints = [];
 
 	/**
-	 * @var IEditConstraint|false
+	 * @var IEditConstraint|bool
 	 *
 	 * The constraint that failed, so that its status can be fetched, or false if none failed.
 	 */

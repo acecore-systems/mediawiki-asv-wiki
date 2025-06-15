@@ -1,6 +1,6 @@
 ( function () {
-	const UriUtil = require( 'skins.minerva.scripts/UriUtil.js' );
-	const mwUriOrg = mw.Uri;
+	var UriUtil = require( '../../../resources/skins.minerva.scripts/UriUtil.js' );
+	var mwUriOrg = mw.Uri;
 
 	QUnit.module( 'Minerva UriUtil', {
 		beforeEach: function () {
@@ -11,7 +11,7 @@
 		}
 	} );
 
-	QUnit.test( '.isInternal()', ( assert ) => {
+	QUnit.test( '.isInternal()', function ( assert ) {
 		assert.true(
 			UriUtil.isInternal( new mw.Uri( '/relative' ) ),
 			'relative URLs are internal'

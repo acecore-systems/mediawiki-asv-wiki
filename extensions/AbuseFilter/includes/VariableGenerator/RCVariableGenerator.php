@@ -7,13 +7,12 @@ use MediaWiki\Extension\AbuseFilter\Hooks\AbuseFilterHookRunner;
 use MediaWiki\Extension\AbuseFilter\Variables\VariableHolder;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\Page\WikiPageFactory;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
-use MediaWiki\User\UserFactory;
+use MimeAnalyzer;
 use MWFileProps;
 use RecentChange;
 use RepoGroup;
-use Wikimedia\Mime\MimeAnalyzer;
+use Title;
+use User;
 
 /**
  * This class contains the logic used to create variable holders used to
@@ -23,7 +22,7 @@ class RCVariableGenerator extends VariableGenerator {
 	/**
 	 * @var RecentChange
 	 */
-	private $rc;
+	protected $rc;
 
 	/** @var User */
 	private $contextUser;
@@ -37,7 +36,6 @@ class RCVariableGenerator extends VariableGenerator {
 
 	/**
 	 * @param AbuseFilterHookRunner $hookRunner
-	 * @param UserFactory $userFactory
 	 * @param MimeAnalyzer $mimeAnalyzer
 	 * @param RepoGroup $repoGroup
 	 * @param WikiPageFactory $wikiPageFactory
@@ -47,15 +45,14 @@ class RCVariableGenerator extends VariableGenerator {
 	 */
 	public function __construct(
 		AbuseFilterHookRunner $hookRunner,
-		UserFactory $userFactory,
 		MimeAnalyzer $mimeAnalyzer,
 		RepoGroup $repoGroup,
 		WikiPageFactory $wikiPageFactory,
 		RecentChange $rc,
 		User $contextUser,
-		?VariableHolder $vars = null
+		VariableHolder $vars = null
 	) {
-		parent::__construct( $hookRunner, $userFactory, $vars );
+		parent::__construct( $hookRunner, $vars );
 
 		$this->mimeAnalyzer = $mimeAnalyzer;
 		$this->repoGroup = $repoGroup;
@@ -68,7 +65,7 @@ class RCVariableGenerator extends VariableGenerator {
 	 * @return VariableHolder|null
 	 */
 	public function getVars(): ?VariableHolder {
-		if ( $this->rc->getAttribute( 'rc_source' ) === RecentChange::SRC_LOG ) {
+		if ( $this->rc->getAttribute( 'rc_type' ) == RC_LOG ) {
 			switch ( $this->rc->getAttribute( 'rc_log_type' ) ) {
 				case 'move':
 					$this->addMoveVars();
@@ -86,7 +83,7 @@ class RCVariableGenerator extends VariableGenerator {
 					return null;
 			}
 		} elseif ( $this->rc->getAttribute( 'rc_this_oldid' ) ) {
-			// It's an edit (or a page creation).
+			// It's an edit.
 			$this->addEditVarsForRow();
 		} elseif (
 			!$this->hookRunner->onAbuseFilterGenerateVarsForRecentChange(
@@ -108,7 +105,7 @@ class RCVariableGenerator extends VariableGenerator {
 	private function addMoveVars(): self {
 		$userIdentity = $this->rc->getPerformerIdentity();
 
-		$oldTitle = Title::castFromPageReference( $this->rc->getPage() ) ?: Title::makeTitle( NS_SPECIAL, 'BadTitle' );
+		$oldTitle = $this->rc->getTitle();
 		$newTitle = Title::newFromText( $this->rc->getParam( '4::target' ) );
 
 		$this->addUserVars( $userIdentity, $this->rc )
@@ -117,15 +114,6 @@ class RCVariableGenerator extends VariableGenerator {
 
 		$this->vars->setVar( 'summary', $this->rc->getAttribute( 'rc_comment' ) );
 		$this->vars->setVar( 'action', 'move' );
-
-		$this->vars->setLazyLoadVar(
-			'moved_from_last_edit_age',
-			'previous-revision-age',
-			// rc_last_oldid is zero (RecentChange::newLogEntry)
-			[ 'revid' => $this->rc->getAttribute( 'rc_this_oldid' ) ]
-		);
-		// TODO: add moved_to_last_edit_age (is it possible?)
-		// TODO: add old_wikitext etc. (T320347)
 
 		return $this;
 	}
@@ -136,25 +124,16 @@ class RCVariableGenerator extends VariableGenerator {
 	private function addCreateAccountVars(): self {
 		$this->vars->setVar(
 			'action',
-			// XXX: as of 1.43, the following is never true
 			$this->rc->getAttribute( 'rc_log_action' ) === 'autocreate'
 				? 'autocreateaccount'
 				: 'createaccount'
 		);
 
-		$name = Title::castFromPageReference( $this->rc->getPage() )->getText();
+		$name = $this->rc->getTitle()->getText();
 		// Add user data if the account was created by a registered user
 		$userIdentity = $this->rc->getPerformerIdentity();
 		if ( $userIdentity->isRegistered() && $name !== $userIdentity->getName() ) {
 			$this->addUserVars( $userIdentity, $this->rc );
-		} else {
-			// Set the user_type so that creations of temporary accounts vs named accounts can be filtered for an
-			// abuse filter that matches account creations.
-			$this->vars->setLazyLoadVar(
-				'user_type',
-				'user-type',
-				[ 'user-identity' => $userIdentity ]
-			);
 		}
 
 		$this->vars->setVar( 'accountname', $name );
@@ -166,7 +145,7 @@ class RCVariableGenerator extends VariableGenerator {
 	 * @return $this
 	 */
 	private function addDeleteVars(): self {
-		$title = Title::castFromPageReference( $this->rc->getPage() ) ?: Title::makeTitle( NS_SPECIAL, 'BadTitle' );
+		$title = $this->rc->getTitle();
 		$userIdentity = $this->rc->getPerformerIdentity();
 
 		$this->addUserVars( $userIdentity, $this->rc )
@@ -174,8 +153,6 @@ class RCVariableGenerator extends VariableGenerator {
 
 		$this->vars->setVar( 'action', 'delete' );
 		$this->vars->setVar( 'summary', $this->rc->getAttribute( 'rc_comment' ) );
-		// TODO: add page_last_edit_age
-		// TODO: add old_wikitext etc. (T173663)
 
 		return $this;
 	}
@@ -184,7 +161,7 @@ class RCVariableGenerator extends VariableGenerator {
 	 * @return $this
 	 */
 	private function addUploadVars(): self {
-		$title = Title::castFromPageReference( $this->rc->getPage() ) ?: Title::makeTitle( NS_SPECIAL, 'BadTitle' );
+		$title = $this->rc->getTitle();
 		$userIdentity = $this->rc->getPerformerIdentity();
 
 		$this->addUserVars( $userIdentity, $this->rc )
@@ -192,13 +169,6 @@ class RCVariableGenerator extends VariableGenerator {
 
 		$this->vars->setVar( 'action', 'upload' );
 		$this->vars->setVar( 'summary', $this->rc->getAttribute( 'rc_comment' ) );
-
-		$this->vars->setLazyLoadVar(
-			'page_last_edit_age',
-			'previous-revision-age',
-			// rc_last_oldid is zero (RecentChange::newLogEntry)
-			[ 'revid' => $this->rc->getAttribute( 'rc_this_oldid' ) ]
-		);
 
 		$time = $this->rc->getParam( 'img_timestamp' );
 		$file = $this->repoGroup->findFile(
@@ -236,38 +206,30 @@ class RCVariableGenerator extends VariableGenerator {
 	 * @return $this
 	 */
 	private function addEditVarsForRow(): self {
-		$title = Title::castFromPageReference( $this->rc->getPage() ) ?: Title::makeTitle( NS_SPECIAL, 'BadTitle' );
+		$title = $this->rc->getTitle();
 		$userIdentity = $this->rc->getPerformerIdentity();
 
 		$this->addUserVars( $userIdentity, $this->rc )
 			->addTitleVars( $title, 'page', $this->rc );
 
+		// @todo Set old_content_model and new_content_model
 		$this->vars->setVar( 'action', 'edit' );
 		$this->vars->setVar( 'summary', $this->rc->getAttribute( 'rc_comment' ) );
 
 		$this->vars->setLazyLoadVar( 'new_wikitext', 'revision-text-by-id',
 			[ 'revid' => $this->rc->getAttribute( 'rc_this_oldid' ), 'contextUser' => $this->contextUser ] );
-		$this->vars->setLazyLoadVar( 'new_content_model', 'content-model-by-id',
-			[ 'revid' => $this->rc->getAttribute( 'rc_this_oldid' ) ] );
 
 		$parentId = $this->rc->getAttribute( 'rc_last_oldid' );
 		if ( $parentId ) {
 			$this->vars->setLazyLoadVar( 'old_wikitext', 'revision-text-by-id',
 				[ 'revid' => $parentId, 'contextUser' => $this->contextUser ] );
-			$this->vars->setLazyLoadVar( 'old_content_model', 'content-model-by-id',
-				[ 'revid' => $parentId ] );
-			$this->vars->setLazyLoadVar( 'page_last_edit_age', 'revision-age-by-id',
-				[ 'revid' => $parentId, 'asof' => $this->rc->getAttribute( 'rc_timestamp' ) ] );
 		} else {
 			$this->vars->setVar( 'old_wikitext', '' );
-			$this->vars->setVar( 'old_content_model', '' );
-			$this->vars->setVar( 'page_last_edit_age', null );
 		}
 
 		$this->addEditVars(
 			$this->wikiPageFactory->newFromTitle( $title ),
-			$this->contextUser,
-			false
+			$this->contextUser
 		);
 
 		return $this;

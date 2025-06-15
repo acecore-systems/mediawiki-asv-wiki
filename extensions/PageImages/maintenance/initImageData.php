@@ -6,8 +6,7 @@ if ( $IP === false ) {
 }
 require_once "$IP/maintenance/Maintenance.php";
 
-use MediaWiki\Maintenance\Maintenance;
-use MediaWiki\Title\Title;
+use MediaWiki\MediaWikiServices;
 use PageImages\Job\InitImageDataJob;
 
 /**
@@ -37,54 +36,52 @@ class InitImageData extends Maintenance {
 	 * Do the actual work of filling out page images
 	 */
 	public function execute() {
+		global $wgPageImagesNamespaces;
+
 		$lastId = $this->getOption( 'start', 0 );
 		$isQuiet = $this->getOption( 'quiet', false );
 		$queue = null;
 		$maxPressure = $this->getOption( 'queue-pressure', 0 );
 		if ( $maxPressure > 0 ) {
-			$queue = $this->getServiceContainer()->getJobQueueGroup();
+			$queue = MediaWikiServices::getInstance()->getJobQueueGroup();
 		}
 
 		do {
-			$dbr = $this->getServiceContainer()->getDBLoadBalancerFactory()
-				->getReplicaDatabase();
-			$queryBuilder = $dbr->newSelectQueryBuilder()
-				->select( 'page_id' )
-				->from( 'page' )
-				->leftJoin( 'imagelinks', null, 'page_id = il_from' )
-				->where( [
-					$dbr->expr( 'page_id', '>', (int)$lastId ),
-					$dbr->expr( 'il_from', '!=', null ),
-					'page_is_redirect' => 0,
-				] )
-				->orderBy( 'page_id' )
-				->groupBy( 'page_id' )
-				->limit( $this->mBatchSize )
-				->caller( __METHOD__ );
+			$tables = [ 'page', 'imagelinks' ];
+			$conds = [
+				'page_id > ' . (int)$lastId,
+				'il_from IS NOT NULL',
+				'page_is_redirect' => 0,
+			];
+			$fields = [ 'page_id' ];
+			$joinConds = [ 'imagelinks' => [
+				'LEFT JOIN', 'page_id = il_from',
+			] ];
+
+			$dbr = wfGetDB( DB_REPLICA );
 			if ( $this->hasOption( 'namespaces' ) ) {
 				$ns = explode( ',', $this->getOption( 'namespaces' ) );
-				$queryBuilder->andWhere( [ 'page_namespace' => $ns ] );
+				$conds['page_namespace'] = $ns;
 			} else {
-				$queryBuilder->andWhere( [
-					'page_namespace' => $this->getServiceContainer()->getMainConfig()->get( 'PageImagesNamespaces' )
-				] );
+				$conds['page_namespace'] = $wgPageImagesNamespaces;
 			}
 			if ( $this->hasOption( 'earlier-than' ) ) {
-				$queryBuilder->andWhere(
-					$dbr->expr( 'page_touched', '<', $dbr->timestamp( $this->getOption( 'earlier-than' ) ) )
-				);
+				$conds[] = 'page_touched < '
+					. $dbr->addQuotes( $dbr->timestamp( $this->getOption( 'earlier-than' ) ) );
 			}
 			if ( $this->hasOption( 'later-than' ) ) {
-				$queryBuilder->andWhere(
-					$dbr->expr( 'page_touched', '>', $dbr->timestamp( $this->getOption( 'later-than' ) ) )
-				);
+				$conds[] = 'page_touched > '
+					. $dbr->addQuotes( $dbr->timestamp( $this->getOption( 'later-than' ) ) );
 			}
-			$pageIds = $queryBuilder->fetchFieldValues();
-			$job = new InitImageDataJob(
-				Title::newMainPage(),
-				[ 'page_ids' => $pageIds ],
-				$this->getServiceContainer()->getDBLoadBalancerFactory()
+			$res = $dbr->select( $tables, $fields, $conds, __METHOD__,
+				[ 'LIMIT' => $this->mBatchSize, 'ORDER_BY' => 'page_id', 'GROUP BY' => 'page_id' ],
+				$joinConds
 			);
+			$pageIds = [];
+			foreach ( $res as $row ) {
+				$pageIds[] = $row->page_id;
+			}
+			$job = new InitImageDataJob( Title::newMainPage(), [ 'page_ids' => $pageIds ] );
 			if ( $queue === null ) {
 				$job->run();
 			} else {
@@ -93,7 +90,7 @@ class InitImageData extends Maintenance {
 			}
 			$lastId = end( $pageIds );
 			$this->output( "$lastId\n" );
-		} while ( $pageIds );
+		} while ( $res->numRows() );
 		$this->output( "done\n" );
 	}
 

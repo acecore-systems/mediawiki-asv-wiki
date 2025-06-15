@@ -21,11 +21,11 @@ trait SerializationTestTrait {
 		// Creation of dynamic property is deprecated, can happen as backward-compatibility check
 		$this->markTestSkippedIfPhp( '>=', '8.2' );
 
-		$className = self::getClassToTest();
-		foreach ( self::getSupportedSerializationFormats() as $serializationFormat ) {
+		$className = $this->getClassToTest();
+		foreach ( $this->getSupportedSerializationFormats() as $serializationFormat ) {
 			$serializationUtils = new SerializationTestUtils(
-				self::getSerializedDataPath(),
-				self::getTestInstances( self::getTestInstancesAndAssertions() ),
+				$this->getSerializedDataPath(),
+				$this->getTestInstances( $this->getTestInstancesAndAssertions() ),
 				$serializationFormat['ext'],
 				$serializationFormat['serializer'],
 				$serializationFormat['deserializer']
@@ -52,7 +52,7 @@ trait SerializationTestTrait {
 	 */
 	public function testDeserialization( callable $deserializer, object $expected, string $data ) {
 		$deserialized = $deserializer( $data );
-		$this->assertInstanceOf( self::getClassToTest(), $deserialized );
+		$this->assertInstanceOf( $this->getClassToTest(), $deserialized );
 		$this->validateObjectEquality( $expected, $deserialized );
 	}
 
@@ -66,11 +66,11 @@ trait SerializationTestTrait {
 		// Creation of dynamic property is deprecated, can happen as backward-compatibility check
 		$this->markTestSkippedIfPhp( '>=', '8.2' );
 
-		$className = self::getClassToTest();
-		foreach ( self::getSupportedSerializationFormats() as $serializationFormat ) {
+		$className = $this->getClassToTest();
+		foreach ( $this->getSupportedSerializationFormats() as $serializationFormat ) {
 			$serializationUtils = new SerializationTestUtils(
-				self::getSerializedDataPath(),
-				self::getTestInstances( self::getTestInstancesAndAssertions() ),
+				$this->getSerializedDataPath(),
+				$this->getTestInstances( $this->getTestInstancesAndAssertions() ),
 				$serializationFormat['ext'],
 				$serializationFormat['serializer'],
 				$serializationFormat['deserializer']
@@ -120,10 +120,10 @@ trait SerializationTestTrait {
 	 *  - For each test instance defined by ::getTestInstances
 	 * @return Generator for [ object $instance, callable $serializer, callable $deserializer ]
 	 */
-	public static function provideSerializationRoundTrip(): Generator {
-		$testCases = self::getTestInstancesAndAssertions();
-		$className = self::getClassToTest();
-		foreach ( self::getSupportedSerializationFormats() as $serializationFormat ) {
+	public function provideSerializationRoundTrip(): Generator {
+		$testCases = $this->getTestInstancesAndAssertions();
+		$className = $this->getClassToTest();
+		foreach ( $this->getSupportedSerializationFormats() as $serializationFormat ) {
 			foreach ( $testCases as $testCaseName => [ 'instance' => $instance ] ) {
 				yield "{$className}:{$testCaseName}, " .
 					"serialized with {$serializationFormat['ext']}" => [
@@ -155,40 +155,6 @@ trait SerializationTestTrait {
 	}
 
 	/**
-	 * @param mixed $expected
-	 * @param mixed $actual
-	 * @param string|null $propName
-	 */
-	private function validateArrayEquality( $expected, $actual, ?string $propName = null ) {
-		$this->assertIsArray( $actual, "$propName: Expected array." );
-		$eKeys = array_keys( $expected );
-		$aKeys = array_keys( $actual );
-		$this->assertSame( count( $eKeys ), count( $aKeys ), "$propName: Expected equal-sized arrays." );
-		$i = 0;
-		foreach ( $expected as $k => $v ) {
-			$this->validateEquality( $k, $aKeys[$i], "$propName:$i" );
-			$this->validateEquality( $v, $actual[$k], $k );
-			$i++;
-		}
-	}
-
-	/**
-	 * @param mixed $expected
-	 * @param mixed $actual
-	 * @param string|null $propName
-	 */
-	private function validateEquality( $expected, $actual, ?string $propName = null ) {
-		if ( is_array( $expected ) ) {
-			$this->validateArrayEquality( $expected, $actual, $propName );
-		} elseif ( is_object( $expected ) ) {
-			$this->assertIsObject( $actual, "Expected an object, but found: " . get_debug_type( $actual ) );
-			$this->validateObjectEquality( $expected, $actual );
-		} else {
-			$this->assertSame( $expected, $actual, $propName );
-		}
-	}
-
-	/**
 	 * Asserts that all the fields across class hierarchy for
 	 * provided objects are equal.
 	 * @param object $expected
@@ -198,7 +164,7 @@ trait SerializationTestTrait {
 	private function validateObjectEquality(
 		object $expected,
 		object $actual,
-		?ReflectionClass $class = null
+		ReflectionClass $class = null
 	) {
 		if ( !$class ) {
 			$class = new ReflectionClass( $expected );
@@ -206,11 +172,9 @@ trait SerializationTestTrait {
 
 		foreach ( $class->getProperties() as $prop ) {
 			$prop->setAccessible( true );
-			$this->validateEquality(
-				$prop->getValue( $expected ),
-				$prop->getValue( $actual ),
-				$prop->getName()
-			);
+			$expectedValue = $prop->getValue( $expected );
+			$actualValue = $prop->getValue( $actual );
+			$this->assertSame( $expectedValue, $actualValue, $prop->getName() );
 		}
 
 		$parent = $class->getParentClass();
@@ -224,9 +188,9 @@ trait SerializationTestTrait {
 	 * - For each acceptance test instance defined by ::getTestInstancesAndAssertions
 	 * @return Generator for [ $instance which to run assertions on, $assertionsCallback ]
 	 */
-	public static function provideCurrentVersionTestObjects(): Generator {
-		$className = self::getClassToTest();
-		$testCases = self::getTestInstancesAndAssertions();
+	public function provideCurrentVersionTestObjects(): Generator {
+		$className = $this->getClassToTest();
+		$testCases = $this->getTestInstancesAndAssertions();
 		foreach ( $testCases as $testCaseName => $testCase ) {
 			yield "{$className}:{$testCaseName}, current" =>
 			[ $testCase['instance'], $testCase['assertions'] ];
@@ -244,12 +208,12 @@ trait SerializationTestTrait {
 		// Creation of dynamic property is deprecated, can happen as backward-compatibility check
 		$this->markTestSkippedIfPhp( '>=', '8.2' );
 
-		$className = self::getClassToTest();
-		$testCases = self::getTestInstancesAndAssertions();
-		$testObjects = self::getTestInstances( $testCases );
-		foreach ( self::getSupportedSerializationFormats() as $serializationFormat ) {
+		$className = $this->getClassToTest();
+		$testCases = $this->getTestInstancesAndAssertions();
+		$testObjects = $this->getTestInstances( $testCases );
+		foreach ( $this->getSupportedSerializationFormats() as $serializationFormat ) {
 			$serializationUtils = new SerializationTestUtils(
-				self::getSerializedDataPath(),
+				$this->getSerializedDataPath(),
 				$testObjects,
 				$serializationFormat['ext'],
 				$serializationFormat['serializer'],
@@ -291,7 +255,7 @@ trait SerializationTestTrait {
 	 * @param array[] $instancesAndAssertions
 	 * @return array
 	 */
-	private static function getTestInstances( array $instancesAndAssertions ): array {
+	private function getTestInstances( array $instancesAndAssertions ): array {
 		return array_map( static function ( $testCase ) {
 			return $testCase['instance'];
 		}, $instancesAndAssertions );
@@ -300,12 +264,12 @@ trait SerializationTestTrait {
 	/**
 	 * @return string the name of the class to test.
 	 */
-	abstract public static function getClassToTest(): string;
+	abstract protected function getClassToTest(): string;
 
 	/**
 	 * @return string the path to serialized data.
 	 */
-	abstract public static function getSerializedDataPath(): string;
+	abstract protected function getSerializedDataPath(): string;
 
 	/**
 	 * @return array a map of $testCaseName to a map, containing the following keys:
@@ -313,7 +277,7 @@ trait SerializationTestTrait {
 	 *  - 'assertions' => a callable that performs assertions on the deserialized objects.
 	 *  Callable signature: ( MediaWikiIntegrationTestCase $testCase, object $instance )
 	 */
-	abstract public static function getTestInstancesAndAssertions(): array;
+	abstract protected function getTestInstancesAndAssertions(): array;
 
 	/**
 	 * Get a list of serialization formats supported by the tested class.
@@ -323,5 +287,5 @@ trait SerializationTestTrait {
 	 *  - 'serializer' => callable to serialize objects
 	 *  - 'deserializer' => callable to deserialize objects
 	 */
-	abstract public static function getSupportedSerializationFormats(): array;
+	abstract protected function getSupportedSerializationFormats(): array;
 }

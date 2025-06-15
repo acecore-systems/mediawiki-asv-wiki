@@ -21,16 +21,7 @@
  * @ingroup SpecialPage
  */
 
-namespace MediaWiki\SpecialPage;
-
-use HtmlArmor;
-use MediaWiki\Html\Html;
-use MediaWiki\Language\ILanguageConverter;
-use MediaWiki\Linker\Linker;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Title\Title;
-use Skin;
-use stdClass;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IResultWrapper;
 
@@ -104,6 +95,3 @@ abstract class PageQueryPage extends QueryPage {
 		}
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( PageQueryPage::class, 'PageQueryPage' );

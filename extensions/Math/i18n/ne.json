@@ -5,9 +5,9 @@
 			"Bhawani Gautam",
 			"Bhawani Gautam Rhk",
 			"NehalDaveND",
-			"पर्वत सुबेदी",
 			"बडा काजी",
-			"सरोज कुमार ढकाल"
+			"सरोज कुमार ढकाल",
+			"पर्वत सुबेदी"
 		]
 	},
 	"math-visualeditor-mwlatexinspector-display": "दृश्य",
@@ -18,7 +18,7 @@
 	"math_syntax_error": "सूत्र (syntax) त्रुटि",
 	"math_unknown_error": "अज्ञात समस्या",
 	"math_unknown_function": "अज्ञात निर्देशन",
-	"mw-math-source": "यसलाई TeX को रुपमा  छोड्ने(पाठ प्रदर्शको लागि)",
+	"mw_math_source": "यसलाई TeX को रुपमा  छोड्ने(पाठ प्रदर्शको लागि)",
 	"prefs-math": "गणित",
 	"mathwikibase": "गणित सूत्र जानकारी",
 	"math-wikibase-formula-information": "गणित सूत्र जानकारी"

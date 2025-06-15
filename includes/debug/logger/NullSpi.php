@@ -34,7 +34,6 @@ use Psr\Log\NullLogger;
  *
  * @see \MediaWiki\Logger\LoggerFactory
  * @since 1.25
- * @ingroup Debug
  * @copyright © 2014 Wikimedia Foundation and contributors
  */
 class NullSpi implements Spi {

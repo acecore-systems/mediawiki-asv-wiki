@@ -19,6 +19,7 @@
 	"ooui-dialog-process-retry": "Perbeer obbenuujts",
 	"ooui-dialog-process-continue": "Doorgaon",
 	"ooui-selectfile-button-select": "Kees e bestandj",
+	"ooui-selectfile-not-supported": "Selektie van 'n besjtandj waert neet óngersteund",
 	"ooui-selectfile-placeholder": "Dao is gein besjtandj geselekteerd",
 	"ooui-selectfile-dragdrop-placeholder": "Sleip e bestandj hieroppes"
 }

@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\Specials\SpecialTrackingCategories;
+use SpecialTrackingCategories;
 
 // phpcs:disable Squiz.Classes.ValidClassName.NotCamelCaps
 /**

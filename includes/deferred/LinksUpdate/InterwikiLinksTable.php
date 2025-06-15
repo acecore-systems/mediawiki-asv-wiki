@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Deferred\LinksUpdate;
 
-use MediaWiki\Parser\ParserOutput;
+use ParserOutput;
 
 /**
  * iwlinks

@@ -20,19 +20,18 @@
 
 namespace MediaWiki\Extension\ImageMap;
 
-use DOMDocumentFragment;
+use ConfigFactory;
+use DOMDocument;
 use DOMElement;
+use DOMXPath;
 use MediaWiki\Hook\ParserFirstCallInitHook;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Output\OutputPage;
-use MediaWiki\Parser\Parser;
-use MediaWiki\Parser\Sanitizer;
-use MediaWiki\Title\Title;
-use MediaWiki\Xml\Xml;
-use Wikimedia\Assert\Assert;
-use Wikimedia\Parsoid\Ext\WTUtils;
-use Wikimedia\Parsoid\Utils\DOMCompat;
-use Wikimedia\Parsoid\Utils\DOMUtils;
+use OutputPage;
+use Parser;
+use Sanitizer;
+use Title;
+use Wikimedia\AtEase\AtEase;
+use Xml;
 
 class ImageMap implements ParserFirstCallInitHook {
 
@@ -41,10 +40,6 @@ class ImageMap implements ParserFirstCallInitHook {
 	private const BOTTOM_LEFT = 2;
 	private const TOP_LEFT = 3;
 	private const NONE = 4;
-
-	private const DESC_TYPE_MAP = [
-		'top-right', 'bottom-right', 'bottom-left', 'top-left'
-	];
 
 	/**
 	 * @param Parser $parser
@@ -65,7 +60,7 @@ class ImageMap implements ParserFirstCallInitHook {
 		}
 
 		global $wgUrlProtocols;
-		$config = MediaWikiServices::getInstance()->getMainConfig();
+		$config = ConfigFactory::getDefaultInstance()->makeConfig( 'main' );
 		$enableLegacyMediaDOM = $config->get( 'ParserEnableLegacyMediaDOM' );
 
 		$lines = explode( "\n", $input );
@@ -73,8 +68,7 @@ class ImageMap implements ParserFirstCallInitHook {
 		$first = true;
 		$scale = 1;
 		$imageNode = null;
-		$domDoc = DOMCompat::newDocument( true );
-		$domFragment = null;
+		$domDoc = null;
 		$thumbWidth = 0;
 		$thumbHeight = 0;
 		$imageTitle = null;
@@ -130,14 +124,21 @@ class ImageMap implements ParserFirstCallInitHook {
 				$imageHTML = $parser->getStripState()->unstripBoth( $imageHTML );
 				$imageHTML = Sanitizer::normalizeCharReferences( $imageHTML );
 
-				$domFragment = $domDoc->createDocumentFragment();
-				DOMUtils::setFragmentInnerHTML( $domFragment, $imageHTML );
-				$imageNode = DOMCompat::querySelector( $domFragment, 'img' );
-				if ( !$imageNode ) {
+				$domDoc = new DOMDocument();
+				AtEase::suppressWarnings();
+				$ok = $domDoc->loadXML( $imageHTML );
+				AtEase::restoreWarnings();
+				if ( !$ok ) {
 					return $this->error( 'imagemap_invalid_image' );
 				}
-				$thumbWidth = (int)$imageNode->getAttribute( 'width' );
-				$thumbHeight = (int)$imageNode->getAttribute( 'height' );
+				$xpath = new DOMXPath( $domDoc );
+				$imgs = $xpath->query( '//img' );
+				if ( !$imgs->length ) {
+					return $this->error( 'imagemap_invalid_image' );
+				}
+				$imageNode = $imgs->item( 0 );
+				$thumbWidth = $imageNode->getAttribute( 'width' );
+				$thumbHeight = $imageNode->getAttribute( 'height' );
 
 				$imageObj = $repoGroup->findFile( $imageTitle );
 				if ( !$imageObj || !$imageObj->exists() ) {
@@ -287,7 +288,7 @@ class ImageMap implements ParserFirstCallInitHook {
 			}
 		}
 
-		if ( !$imageNode || !$domFragment ) {
+		if ( $first || !$imageNode || !$domDoc ) {
 			return $this->error( 'imagemap_no_image' );
 		}
 
@@ -310,9 +311,9 @@ class ImageMap implements ParserFirstCallInitHook {
 		}
 
 		if ( $mapHTML !== '' ) {
-			$mapFragment = $domDoc->createDocumentFragment();
-			DOMUtils::setFragmentInnerHTML( $mapFragment, $mapHTML );
-			$mapNode = $mapFragment->firstChild;
+			$mapDoc = new DOMDocument();
+			$mapDoc->loadXML( $mapHTML );
+			$mapNode = $domDoc->importNode( $mapDoc->documentElement, true );
 		}
 
 		$div = null;
@@ -321,20 +322,17 @@ class ImageMap implements ParserFirstCallInitHook {
 			// Add a surrounding div, remove the default link to the description page
 			$anchor = $imageNode->parentNode;
 			$parent = $anchor->parentNode;
-			'@phan-var DOMElement $anchor';
 
 			// Handle cases where there are no anchors, like `|link=`
-			if ( $anchor instanceof DOMDocumentFragment ) {
+			if ( $anchor instanceof DOMDocument ) {
 				$parent = $anchor;
 				$anchor = $imageNode;
 			}
 
-			$div = $domDoc->createElement( 'div' );
-			$parent->insertBefore( $div, $anchor );
+			$div = $parent->insertBefore( new DOMElement( 'div' ), $anchor );
 			$div->setAttribute( 'class', 'noresize' );
 			if ( $defaultLinkAttribs ) {
-				$defaultAnchor = $domDoc->createElement( 'a' );
-				$div->appendChild( $defaultAnchor );
+				$defaultAnchor = $div->appendChild( new DOMElement( 'a' ) );
 				foreach ( $defaultLinkAttribs as $name => $value ) {
 					$defaultAnchor->setAttribute( $name, $value );
 				}
@@ -344,6 +342,7 @@ class ImageMap implements ParserFirstCallInitHook {
 			}
 
 			// Add the map HTML to the div
+			// We used to add it before the div, but that made tidy unhappy
 			if ( isset( $mapNode ) ) {
 				$div->appendChild( $mapNode );
 			}
@@ -353,8 +352,6 @@ class ImageMap implements ParserFirstCallInitHook {
 		} else {
 			$anchor = $imageNode->parentNode;
 			$wrapper = $anchor->parentNode;
-			Assert::precondition( $wrapper instanceof DOMElement, 'Anchor node has a parent' );
-			'@phan-var DOMElement $anchor';
 
 			$classes = $wrapper->getAttribute( 'class' );
 
@@ -369,18 +366,25 @@ class ImageMap implements ParserFirstCallInitHook {
 			$wrapper->setAttribute( 'class', $classes );
 
 			if ( $defaultLinkAttribs ) {
-				$imageParent = $domDoc->createElement( 'a' );
+				$imageParent = $wrapper->ownerDocument->createElement( 'a' );
 				foreach ( $defaultLinkAttribs as $name => $value ) {
 					$imageParent->setAttribute( $name, $value );
 				}
 			} else {
-				$imageParent = $domDoc->createElement( 'span' );
+				$imageParent = new DOMElement( 'span' );
 			}
 			$wrapper->insertBefore( $imageParent, $anchor );
 
-			if ( !WTUtils::hasVisibleCaption( $wrapper ) ) {
-				$caption = DOMCompat::querySelector( $domFragment, 'figcaption' );
-				$captionText = trim( WTUtils::textContentFromCaption( $caption ) );
+			$typeOf = $wrapper->getAttribute( 'typeof' ) ?? '';
+			preg_match( '#^mw:(?:Image|Video|Audio)(/|$)#', $typeOf, $match );
+			$format = $match[1] ?? '';
+			$hasVisibleMedia = in_array( $format, [ 'Thumb', 'Frame' ], true );
+
+			if ( !$hasVisibleMedia ) {
+				$xpath = new DOMXPath( $wrapper->ownerDocument );
+				$captions = $xpath->query( '//figcaption', $wrapper );
+				$caption = $captions->item( 0 );
+				$captionText = trim( $caption->textContent );
 				if ( $captionText ) {
 					$imageParent->setAttribute( 'title', $captionText );
 				}
@@ -394,86 +398,54 @@ class ImageMap implements ParserFirstCallInitHook {
 			$wrapper->removeChild( $anchor );
 		}
 
-		$parserOutput = $parser->getOutput();
-
-		if ( $enableLegacyMediaDOM ) {
-			// Determine whether a "magnify" link is present
-			$magnify = DOMCompat::querySelector( $domFragment, '.magnify' );
-			if ( !$magnify && $descType !== self::NONE ) {
-				// Add image description link
-				if ( $descType === self::TOP_LEFT || $descType === self::BOTTOM_LEFT ) {
-					$marginLeft = 0;
-				} else {
-					$marginLeft = $thumbWidth - 20;
-				}
-				if ( $descType === self::TOP_LEFT || $descType === self::TOP_RIGHT ) {
-					$marginTop = -$thumbHeight;
-					// 1px hack for IE, to stop it poking out the top
-					$marginTop++;
-				} else {
-					$marginTop = -20;
-				}
-				$div->setAttribute( 'style', "height: {$thumbHeight}px; width: {$thumbWidth}px; " );
-				$descWrapper = $domDoc->createElement( 'div' );
-				$div->appendChild( $descWrapper );
-				$descWrapper->setAttribute( 'style',
-					"margin-left: {$marginLeft}px; " .
-						"margin-top: {$marginTop}px; " .
-						"text-align: left;"
-				);
-
-				$descAnchor = $domDoc->createElement( 'a' );
-				$descWrapper->appendChild( $descAnchor );
-				$descAnchor->setAttribute( 'href', $imageTitle->getLocalURL() );
-				$descAnchor->setAttribute(
-					'title',
-					wfMessage( 'imagemap_description' )->inContentLanguage()->text()
-				);
-				$descImg = $domDoc->createElement( 'img' );
-				$descAnchor->appendChild( $descImg );
-				$descImg->setAttribute(
-					'alt',
-					wfMessage( 'imagemap_description' )->inContentLanguage()->text()
-				);
-				$url = $config->get( 'ExtensionAssetsPath' ) . '/ImageMap/resources/desc-20.png';
-				$descImg->setAttribute(
-					'src',
-					OutputPage::transformResourcePath( $config, $url )
-				);
-				$descImg->setAttribute( 'style', 'border: none;' );
+		// Determine whether a "magnify" link is present
+		$xpath = new DOMXPath( $domDoc );
+		$magnify = $xpath->query( '//div[@class="magnify"]' );
+		if ( $enableLegacyMediaDOM && !$magnify->length && $descType !== self::NONE ) {
+			// Add image description link
+			if ( $descType === self::TOP_LEFT || $descType === self::BOTTOM_LEFT ) {
+				$marginLeft = 0;
+			} else {
+				$marginLeft = $thumbWidth - 20;
 			}
-		} else {
-			'@phan-var DOMElement $wrapper';
-			$typeOf = $wrapper->getAttribute( 'typeof' );
-			if ( preg_match( '#\bmw:File/Thumb\b#', $typeOf ) ) {
-				// $imageNode was cloned above
-				$img = $imageParent->firstChild;
-				'@phan-var DOMElement $img';
-				if ( !$img->hasAttribute( 'resource' ) ) {
-					$img->setAttribute( 'resource', $imageTitle->getLocalURL() );
-				}
-			} elseif ( $descType !== self::NONE ) {
-				// The following classes are used here:
-				// * mw-ext-imagemap-desc-top-right
-				// * mw-ext-imagemap-desc-bottom-right
-				// * mw-ext-imagemap-desc-bottom-left
-				// * mw-ext-imagemap-desc-top-left
-				DOMCompat::getClassList( $wrapper )->add(
-					'mw-ext-imagemap-desc-' . self::DESC_TYPE_MAP[$descType]
-				);
-				// $imageNode was cloned above
-				$img = $imageParent->firstChild;
-				'@phan-var DOMElement $img';
-				if ( !$img->hasAttribute( 'resource' ) ) {
-					$img->setAttribute( 'resource', $imageTitle->getLocalURL() );
-				}
-				$parserOutput->addModules( [ 'ext.imagemap' ] );
-				$parserOutput->addModuleStyles( [ 'ext.imagemap.styles' ] );
+			if ( $descType === self::TOP_LEFT || $descType === self::TOP_RIGHT ) {
+				$marginTop = -$thumbHeight;
+				// 1px hack for IE, to stop it poking out the top
+				$marginTop++;
+			} else {
+				$marginTop = -20;
 			}
+			$div->setAttribute( 'style', "height: {$thumbHeight}px; width: {$thumbWidth}px; " );
+			$descWrapper = $div->appendChild( new DOMElement( 'div' ) );
+			$descWrapper->setAttribute( 'style',
+				"margin-left: {$marginLeft}px; " .
+					"margin-top: {$marginTop}px; " .
+					"text-align: left;"
+			);
+
+			$descAnchor = $descWrapper->appendChild( new DOMElement( 'a' ) );
+			$descAnchor->setAttribute( 'href', $imageTitle->getLocalURL() );
+			$descAnchor->setAttribute(
+				'title',
+				wfMessage( 'imagemap_description' )->inContentLanguage()->text()
+			);
+			$descImg = $descAnchor->appendChild( new DOMElement( 'img' ) );
+			$descImg->setAttribute(
+				'alt',
+				wfMessage( 'imagemap_description' )->inContentLanguage()->text()
+			);
+			$url = $config->get( 'ExtensionAssetsPath' ) . '/ImageMap/resources/desc-20.png';
+			$descImg->setAttribute(
+				'src',
+				OutputPage::transformResourcePath( $config, $url )
+			);
+			$descImg->setAttribute( 'style', 'border: none;' );
 		}
 
-		// Output the result (XHTML-compliant)
-		$output = DOMUtils::getFragmentInnerHTML( $domFragment );
+		// Output the result
+		// We use saveXML() not saveHTML() because then we get XHTML-compliant output.
+		// The disadvantage is that we have to strip out the DTD
+		$output = preg_replace( '/<\?xml[^?]*\?>/', '', $domDoc->saveXML( null, LIBXML_NOEMPTYTAG ) );
 
 		// Register links
 		foreach ( $links as $title ) {
@@ -481,14 +453,14 @@ class ImageMap implements ParserFirstCallInitHook {
 				// Don't register special or interwiki links...
 			} elseif ( $title->getNamespace() === NS_MEDIA ) {
 				// Regular Media: links are recorded as image usages
-				$parserOutput->addImage( $title->getDBkey() );
+				$parser->getOutput()->addImage( $title->getDBkey() );
 			} else {
 				// Plain ol' link
-				$parserOutput->addLink( $title );
+				$parser->getOutput()->addLink( $title );
 			}
 		}
 		foreach ( $extLinks as $title ) {
-			$parserOutput->addExternalLink( $title );
+			$parser->getOutput()->addExternalLink( $title );
 		}
 		// Armour output against broken parser
 		return str_replace( "\n", '', $output );

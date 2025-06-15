@@ -1,31 +1,9 @@
 <?php
 
-use MediaWiki\Cache\LinkCache;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\Linker\LinkRendererFactory;
-use MediaWiki\Tests\Unit\Permissions\MockAuthorityTrait;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleFactory;
-use MediaWiki\User\UserIdentityValue;
-use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\LBFactory;
-
 /**
- * @covers \ProtectLogFormatter
+ * @covers ProtectLogFormatter
  */
 class ProtectLogFormatterTest extends LogFormatterTestCase {
-
-	use MockAuthorityTrait;
-
-	protected function setUp(): void {
-		parent::setUp();
-
-		$db = $this->createNoOpMock( IDatabase::class, [ 'getInfinity' ] );
-		$db->method( 'getInfinity' )->willReturn( 'infinity' );
-		$lbFactory = $this->createMock( LBFactory::class );
-		$lbFactory->method( 'getReplicaDatabase' )->willReturn( $db );
-		$this->setService( 'DBLoadBalancerFactory', $lbFactory );
-	}
 
 	/**
 	 * Provide different rows from the logging table to test
@@ -451,7 +429,7 @@ class ProtectLogFormatterTest extends LogFormatterTestCase {
 		$this->doTestLogFormatter( $row, $extra );
 	}
 
-	public static function provideGetActionLinks() {
+	public function provideGetActionLinks() {
 		yield [
 			[ 'protect' ],
 			true
@@ -466,11 +444,12 @@ class ProtectLogFormatterTest extends LogFormatterTestCase {
 	 * @param string[] $permissions
 	 * @param bool $shouldMatch
 	 * @dataProvider provideGetActionLinks
-	 * @covers \ProtectLogFormatter::getActionLinks
+	 * @covers ProtectLogFormatter::getActionLinks
 	 */
 	public function testGetActionLinks( array $permissions, $shouldMatch ) {
 		RequestContext::resetMain();
-		$user = $this->mockUserAuthorityWithPermissions( new UserIdentityValue( 42, __METHOD__ ), $permissions );
+		$user = $this->getTestUser()->getUser();
+		$this->overrideUserPermissions( $user, $permissions );
 		$row = $this->expandDatabaseRow( [
 			'type' => 'protect',
 			'action' => 'unprotect',
@@ -480,23 +459,9 @@ class ProtectLogFormatterTest extends LogFormatterTestCase {
 			'params' => [],
 		], false );
 		$context = new RequestContext();
-		$context->setAuthority( $user );
-		$context->setLanguage( 'en' );
-		$formatter = $this->getServiceContainer()->getLogFormatterFactory()->newFromRow( $row );
+		$context->setUser( $user );
+		$formatter = LogFormatter::newFromRow( $row );
 		$formatter->setContext( $context );
-		$titleFactory = $this->createMock( TitleFactory::class );
-		$titleFactory->method( 'makeTitle' )->willReturnCallback( static function ( ...$params ) {
-			$ret = Title::makeTitle( ...$params );
-			$ret->resetArticleID( 0 );
-			return $ret;
-		} );
-		$this->setService( 'TitleFactory', $titleFactory );
-		$formatter->setLinkRenderer( ( new LinkRendererFactory(
-			$this->getServiceContainer()->getTitleFormatter(),
-			$this->createMock( LinkCache::class ),
-			$this->getServiceContainer()->getSpecialPageFactory(),
-			$this->getServiceContainer()->getHookContainer()
-		) )->create() );
 		if ( $shouldMatch ) {
 			$this->assertStringMatchesFormat(
 				'%Aaction=protect%A', $formatter->getActionLinks() );

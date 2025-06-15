@@ -1,6 +1,6 @@
 <?php
 
-namespace MediaWiki\Extension\TextExtracts;
+namespace TextExtracts;
 
 use MediaWiki\MediaWikiServices;
 
@@ -61,7 +61,7 @@ class TextTruncator {
 		}
 
 		$index = min( $requestedSentenceCount, $res ) - 1;
-		[ $tail, $length ] = $matches[0][$index];
+		list( $tail, $length ) = $matches[0][$index];
 		// PCRE returns raw offsets, so using substr() instead of mb_substr()
 		$text = substr( $text, 0, $length ) . $tail;
 

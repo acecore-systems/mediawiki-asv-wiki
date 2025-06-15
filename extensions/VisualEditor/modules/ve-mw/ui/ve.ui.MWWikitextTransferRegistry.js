@@ -1,7 +1,7 @@
 /*!
  * VisualEditor MediaWiki WikitextTransferRegistry and registrations.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -24,7 +24,7 @@ ve.ui.mwWikitextTransferRegistry.register(
 	'[['
 );
 
-ve.init.platform.getInitializedPromise().done( () => {
+ve.init.platform.getInitializedPromise().done( function () {
 	ve.ui.mwWikitextTransferRegistry.register(
 		'externalLink',
 		// [url label]

@@ -2,8 +2,8 @@
 
 namespace MediaWiki\Extension\AbuseFilter\Special;
 
+use Html;
 use MediaWiki\Extension\AbuseFilter\AbuseFilterPermissionManager;
-use MediaWiki\Extension\AbuseFilter\AbuseLoggerFactory;
 use MediaWiki\Extension\AbuseFilter\CentralDBManager;
 use MediaWiki\Extension\AbuseFilter\Consequences\ConsequencesFactory;
 use MediaWiki\Extension\AbuseFilter\Consequences\ConsequencesRegistry;
@@ -28,8 +28,7 @@ use MediaWiki\Extension\AbuseFilter\View\AbuseFilterViewList;
 use MediaWiki\Extension\AbuseFilter\View\AbuseFilterViewRevert;
 use MediaWiki\Extension\AbuseFilter\View\AbuseFilterViewTestBatch;
 use MediaWiki\Extension\AbuseFilter\View\AbuseFilterViewTools;
-use MediaWiki\Html\Html;
-use MediaWiki\Title\Title;
+use Title;
 use Wikimedia\ObjectFactory\ObjectFactory;
 
 class SpecialAbuseFilter extends AbuseFilterSpecialPage {
@@ -48,7 +47,6 @@ class SpecialAbuseFilter extends AbuseFilterSpecialPage {
 			FilterLookup::SERVICE_NAME,
 		],
 		AbuseFilterViewEdit::class => [
-			'DBLoadBalancerFactory',
 			'PermissionManager',
 			AbuseFilterPermissionManager::SERVICE_NAME,
 			FilterProfiler::SERVICE_NAME,
@@ -60,7 +58,7 @@ class SpecialAbuseFilter extends AbuseFilterSpecialPage {
 			SpecsFormatter::SERVICE_NAME,
 		],
 		AbuseFilterViewExamine::class => [
-			'DBLoadBalancerFactory',
+			'DBLoadBalancer',
 			AbuseFilterPermissionManager::SERVICE_NAME,
 			FilterLookup::SERVICE_NAME,
 			EditBoxBuilderFactory::SERVICE_NAME,
@@ -68,7 +66,6 @@ class SpecialAbuseFilter extends AbuseFilterSpecialPage {
 			VariablesFormatter::SERVICE_NAME,
 			VariablesManager::SERVICE_NAME,
 			VariableGeneratorFactory::SERVICE_NAME,
-			AbuseLoggerFactory::SERVICE_NAME
 		],
 		AbuseFilterViewHistory::class => [
 			'UserNameUtils',
@@ -82,14 +79,12 @@ class SpecialAbuseFilter extends AbuseFilterSpecialPage {
 		],
 		AbuseFilterViewList::class => [
 			'LinkBatchFactory',
-			'ConnectionProvider',
 			AbuseFilterPermissionManager::SERVICE_NAME,
 			FilterProfiler::SERVICE_NAME,
 			SpecsFormatter::SERVICE_NAME,
 			CentralDBManager::SERVICE_NAME,
 		],
 		AbuseFilterViewRevert::class => [
-			'DBLoadBalancerFactory',
 			'UserFactory',
 			AbuseFilterPermissionManager::SERVICE_NAME,
 			FilterLookup::SERVICE_NAME,
@@ -98,7 +93,6 @@ class SpecialAbuseFilter extends AbuseFilterSpecialPage {
 			SpecsFormatter::SERVICE_NAME,
 		],
 		AbuseFilterViewTestBatch::class => [
-			'DBLoadBalancerFactory',
 			AbuseFilterPermissionManager::SERVICE_NAME,
 			EditBoxBuilderFactory::SERVICE_NAME,
 			RuleCheckerFactory::SERVICE_NAME,
@@ -178,9 +172,10 @@ class SpecialAbuseFilter extends AbuseFilterSpecialPage {
 	/**
 	 * Instantiate the view class
 	 *
+	 * @phan-param class-string $viewClass
 	 * @suppress PhanTypeInvalidCallableArraySize
 	 *
-	 * @param class-string<AbuseFilterView> $viewClass
+	 * @param string $viewClass
 	 * @param array $params
 	 * @return AbuseFilterView
 	 */

@@ -2,18 +2,18 @@
 
 namespace MediaWiki\Tests\Unit;
 
-use MediaWiki\Content\JsonContent;
+use JsonContent;
 use MediaWikiUnitTestCase;
 
 /**
  * Split from \JsonContentTest integration tests
  *
  * @author Addshore
- * @covers \MediaWiki\Content\JsonContent
+ * @covers \JsonContent
  */
 class JsonContentTest extends MediaWikiUnitTestCase {
 
-	public static function provideValidConstruction() {
+	public function provideValidConstruction() {
 		return [
 			[ 'foo', false, null ],
 			[ '[]', true, [] ],
@@ -35,7 +35,7 @@ class JsonContentTest extends MediaWikiUnitTestCase {
 		$this->assertEquals( $expected, $obj->getData()->getValue() );
 	}
 
-	public static function provideDataToEncode() {
+	public function provideDataToEncode() {
 		return [
 			[
 				// Round-trip empty array

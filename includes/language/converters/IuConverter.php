@@ -33,7 +33,7 @@
  * @ingroup Languages
  */
 class IuConverter extends LanguageConverterSpecific {
-	private const TO_LATIN = [
+	public $mToLatin = [
 		'ᐦ' => 'h', 'ᐃ' => 'i', 'ᐄ' => 'ii', 'ᐅ' => 'u', 'ᐆ' => 'uu', 'ᐊ' => 'a', 'ᐋ' => 'aa',
 		'ᑉ' => 'p', 'ᐱ' => 'pi', 'ᐲ' => 'pii', 'ᐳ' => 'pu', 'ᐴ' => 'puu', 'ᐸ' => 'pa', 'ᐹ' => 'paa',
 		'ᑦ' => 't', 'ᑎ' => 'ti', 'ᑏ' => 'tii', 'ᑐ' => 'tu', 'ᑑ' => 'tuu', 'ᑕ' => 'ta', 'ᑖ' => 'taa',
@@ -54,16 +54,16 @@ class IuConverter extends LanguageConverterSpecific {
 		'ᖡ' => 'ɫii', 'ᖢ' => 'ɫu', 'ᖣ' => 'ɫuu', 'ᖤ' => 'ɫa', 'ᖥ' => 'ɫaa',
 	];
 
-	private const UPPER_TO_LOWER_CASE_LATIN = [
-		'A' => 'a', 'B' => 'b', 'C' => 'c', 'D' => 'd', 'E' => 'e',
-		'F' => 'f', 'G' => 'g', 'H' => 'h', 'I' => 'i', 'J' => 'j',
-		'K' => 'k', 'L' => 'l', 'M' => 'm', 'N' => 'n', 'O' => 'o',
-		'P' => 'p', 'Q' => 'q', 'R' => 'r', 'S' => 's', 'T' => 't',
-		'U' => 'u', 'V' => 'v', 'W' => 'w', 'X' => 'x', 'Y' => 'y',
+	public $mUpperToLowerCaseLatin = [
+		'A' => 'a',	'B' => 'b',	'C' => 'c',	'D' => 'd',	'E' => 'e',
+		'F' => 'f',	'G' => 'g',	'H' => 'h',	'I' => 'i',	'J' => 'j',
+		'K' => 'k',	'L' => 'l',	'M' => 'm',	'N' => 'n',	'O' => 'o',
+		'P' => 'p',	'Q' => 'q',	'R' => 'r',	'S' => 's',	'T' => 't',
+		'U' => 'u',	'V' => 'v',	'W' => 'w',	'X' => 'x',	'Y' => 'y',
 		'Z' => 'z',
 	];
 
-	private const TO_SYLLABICS = [
+	public $mToSyllabics = [
 		'h' => 'ᐦ', 'i' => 'ᐃ', 'ii' => 'ᐄ', 'u' => 'ᐅ', 'uu' => 'ᐆ', 'a' => 'ᐊ', 'aa' => 'ᐋ',
 		'p' => 'ᑉ', 'pi' => 'ᐱ', 'pii' => 'ᐲ', 'pu' => 'ᐳ', 'puu' => 'ᐴ', 'pa' => 'ᐸ', 'paa' => 'ᐹ',
 		't' => 'ᑦ', 'ti' => 'ᑎ', 'tii' => 'ᑏ', 'tu' => 'ᑐ', 'tuu' => 'ᑑ', 'ta' => 'ᑕ', 'taa' => 'ᑖ',
@@ -84,14 +84,32 @@ class IuConverter extends LanguageConverterSpecific {
 		'ɫii' => 'ᖡ', 'ɫu' => 'ᖢ', 'ɫuu' => 'ᖣ', 'ɫa' => 'ᖤ', 'ɫaa' => 'ᖥ',
 	];
 
+	/**
+	 * Get Main language code.
+	 * @since 1.36
+	 *
+	 * @return string
+	 */
 	public function getMainCode(): string {
 		return 'iu';
 	}
 
+	/**
+	 * Get supported variants of the language.
+	 * @since 1.36
+	 *
+	 * @return array
+	 */
 	public function getLanguageVariants(): array {
 		return [ 'iu', 'ike-cans', 'ike-latn' ];
 	}
 
+	/**
+	 * Get language variants fallbacks.
+	 * @since 1.36
+	 *
+	 * @return array
+	 */
 	public function getVariantsFallbacks(): array {
 		return [
 			'iu' => 'ike-cans',
@@ -100,15 +118,23 @@ class IuConverter extends LanguageConverterSpecific {
 		];
 	}
 
-	protected function loadDefaultTables(): array {
-		return [
-			'lowercase' => new ReplacementArray( self::UPPER_TO_LOWER_CASE_LATIN ),
-			'ike-cans' => new ReplacementArray( self::TO_SYLLABICS ),
-			'ike-latn' => new ReplacementArray( self::TO_LATIN ),
+	protected function loadDefaultTables() {
+		$this->mTables = [
+			'lowercase' => new ReplacementArray( $this->mUpperToLowerCaseLatin ),
+			'ike-cans' => new ReplacementArray( $this->mToSyllabics ),
+			'ike-latn' => new ReplacementArray( $this->mToLatin ),
 			'iu' => new ReplacementArray()
 		];
 	}
 
+	/**
+	 * It translates text into variant
+	 *
+	 * @param string $text
+	 * @param string $toVariant
+	 *
+	 * @return string
+	 */
 	public function translate( $text, $toVariant ) {
 		// If $text is empty or only includes spaces, do nothing
 		// Otherwise translate it

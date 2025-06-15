@@ -1,5 +1,3 @@
-'use strict';
-
 /*!
  * VisualEditor ContentEditable MWReferencesListNode class.
  *
@@ -10,9 +8,11 @@
 /**
  * ContentEditable MediaWiki references list node.
  *
- * @constructor
+ * @class
  * @extends ve.ce.LeafNode
- * @mixes ve.ce.FocusableNode
+ * @mixin ve.ce.FocusableNode
+ *
+ * @constructor
  * @param {ve.dm.MWReferencesListNode} model Model to observe
  * @param {Object} [config] Configuration options
  */
@@ -24,6 +24,8 @@ ve.ce.MWReferencesListNode = function VeCeMWReferencesListNode() {
 	ve.ce.FocusableNode.call( this );
 
 	// Properties
+	this.internalList = null;
+	this.listNode = null;
 	this.modified = false;
 
 	// DOM changes
@@ -39,12 +41,7 @@ ve.ce.MWReferencesListNode = function VeCeMWReferencesListNode() {
 	this.updateDebounced = ve.debounce( this.update.bind( this ) );
 
 	// Initialization
-	// Rendering the reference list can be slow, so do it in an idle callback
-	// (i.e. after the editor has finished loading). Previously we used the
-	// Parsoid DOM rendering for the first paint, and updated only when references
-	// were modified, but this means the reference list is out of sync with the
-	// model for features such as T54750.
-	mw.requestIdleCallback( this.update.bind( this ) );
+	this.updateDebounced();
 };
 
 /* Inheritance */
@@ -64,34 +61,25 @@ ve.ce.MWReferencesListNode.static.primaryCommandName = 'referencesList';
 /* Static Methods */
 
 /**
- * @override
- * @see ve.ce.LeafNode
+ * @inheritdoc
  */
 ve.ce.MWReferencesListNode.static.getDescription = function ( model ) {
 	return model.getAttribute( 'refGroup' );
-};
-
-/**
- * @override
- * @see ve.ce.FocusableNode
- */
-ve.ce.MWReferencesListNode.prototype.getExtraHighlightClasses = function () {
-	return ve.ce.FocusableNode.prototype
-		.getExtraHighlightClasses.apply( this, arguments )
-		.concat( [ 've-ce-mwReferencesListNode-highlight' ] );
 };
 
 /* Methods */
 
 /**
  * Handle setup events.
+ *
+ * @method
  */
 ve.ce.MWReferencesListNode.prototype.onSetup = function () {
-	const internalList = this.getModel().getDocument().getInternalList();
-	const listNode = internalList.getListNode();
+	this.internalList = this.getModel().getDocument().getInternalList();
+	this.listNode = this.internalList.getListNode();
 
-	internalList.connect( this, { update: 'onInternalListUpdate' } );
-	listNode.connect( this, { update: 'onListNodeUpdate' } );
+	this.internalList.connect( this, { update: 'onInternalListUpdate' } );
+	this.listNode.connect( this, { update: 'onListNodeUpdate' } );
 
 	// Parent method
 	ve.ce.MWReferencesListNode.super.prototype.onSetup.call( this );
@@ -99,19 +87,22 @@ ve.ce.MWReferencesListNode.prototype.onSetup = function () {
 
 /**
  * Handle teardown events.
+ *
+ * @method
  */
 ve.ce.MWReferencesListNode.prototype.onTeardown = function () {
 	// Parent method
 	ve.ce.MWReferencesListNode.super.prototype.onTeardown.call( this );
 
-	if ( !this.getModel() || !this.getModel().getDocument() ) {
+	if ( !this.listNode ) {
 		return;
 	}
-	const internalList = this.getModel().getDocument().getInternalList();
-	const listNode = internalList.getListNode();
 
-	internalList.disconnect( this, { update: 'onInternalListUpdate' } );
-	listNode.disconnect( this, { update: 'onListNodeUpdate' } );
+	this.internalList.disconnect( this, { update: 'onInternalListUpdate' } );
+	this.listNode.disconnect( this, { update: 'onListNodeUpdate' } );
+
+	this.internalList = null;
+	this.listNode = null;
 };
 
 /**
@@ -119,12 +110,10 @@ ve.ce.MWReferencesListNode.prototype.onTeardown = function () {
  *
  * This will occur after a document transaction.
  *
+ * @method
  * @param {string[]} groupsChanged A list of groups which have changed in this transaction
  */
 ve.ce.MWReferencesListNode.prototype.onInternalListUpdate = function ( groupsChanged ) {
-	if ( !this.getModel() ) {
-		return;
-	}
 	// Only update if this group has been changed
 	if ( groupsChanged.indexOf( this.getModel().getAttribute( 'listGroup' ) ) !== -1 ) {
 		this.modified = true;
@@ -155,6 +144,8 @@ ve.ce.MWReferencesListNode.prototype.onAttributeChange = function ( key ) {
  * Handle the updating of the InternalListNode.
  *
  * This will occur after changes to any InternalItemNode.
+ *
+ * @method
  */
 ve.ce.MWReferencesListNode.prototype.onListNodeUpdate = function () {
 	// When the list node updates we're not sure which list group the item
@@ -167,51 +158,39 @@ ve.ce.MWReferencesListNode.prototype.onListNodeUpdate = function () {
  * Update the references list.
  */
 ve.ce.MWReferencesListNode.prototype.update = function () {
-	const model = this.getModel();
+	var model = this.getModel();
 
 	// Check the node hasn't been destroyed, as this method is debounced.
 	if ( !model ) {
 		return;
 	}
 
-	const refGroup = model.getAttribute( 'refGroup' );
+	var internalList = model.getDocument().internalList;
+	var refGroup = model.getAttribute( 'refGroup' );
+	var listGroup = model.getAttribute( 'listGroup' );
+	var nodes = internalList.getNodeGroup( listGroup );
 
-	const docRefs = ve.dm.MWDocumentReferences.static.refsForDoc( model.getDocument() );
-	const groupRefs = docRefs.getGroupRefs( refGroup );
-	const hasModelReferences = !groupRefs.isEmpty();
-
-	let emptyText;
+	var emptyText;
 	if ( refGroup !== '' ) {
 		emptyText = ve.msg( 'cite-ve-referenceslist-isempty', refGroup );
 	} else {
 		emptyText = ve.msg( 'cite-ve-referenceslist-isempty-default' );
 	}
 
-	let originalDomElements;
-	if ( model.getElement().originalDomElementsHash ) {
-		originalDomElements = model.getStore().value(
-			model.getElement().originalDomElementsHash
-		);
-	}
-	// Use the Parsoid-provided DOM if:
-	//
-	// * There are no references in the model
-	// * There have been no changes to the references in the model (!this.modified)
-	//
-	// In practice this is for he.wiki where references are template-generated (T187495)
-	if (
-		!hasModelReferences &&
-		!this.modified &&
-		originalDomElements
-	) {
+	// Just use Parsoid-provided DOM for first rendering
+	// NB: Technically this.modified could be reset to false if this
+	// node is re-attached, but that is an unlikely edge case.
+	if ( !this.modified && model.getElement().originalDomElementsHash ) {
 		// Create a copy when importing to the main document, as extensions may
-		this.$originalRefList = $( ve.copyDomElements( originalDomElements, document ) );
 		// modify DOM nodes in the main doc.
-		if ( this.$originalRefList.find( 'li' ).length ) {
-			this.$element.append( this.$originalRefList );
-		} else {
+		this.$originalRefList = $( ve.copyDomElements( model.getStore().value(
+			model.getElement().originalDomElementsHash
+		), document ) );
+		if ( !nodes || !nodes.indexOrder.length ) {
 			this.$refmsg.text( emptyText );
 			this.$element.append( this.$refmsg );
+		} else {
+			this.$element.append( this.$originalRefList );
 		}
 		return;
 	}
@@ -220,116 +199,69 @@ ve.ce.MWReferencesListNode.prototype.update = function () {
 		this.$originalRefList.remove();
 		this.$originalRefList = null;
 	}
-	// Copy CSS to dynamic ref list
-	if ( originalDomElements ) {
-		// Get first container, e.g. skipping TemplateStyles
-		const divs = originalDomElements.filter( ( element ) => element.tagName === 'DIV' );
-		if ( divs.length ) {
-			// eslint-disable-next-line mediawiki/class-doc
-			this.$element.addClass( divs[ 0 ].getAttribute( 'class' ) );
-			this.$element.attr( 'style', divs[ 0 ].getAttribute( 'style' ) );
-		}
-	}
-
-	this.$reflist.detach().empty().attr( 'data-mw-group', refGroup || null );
+	this.$reflist.detach().empty();
 	this.$refmsg.detach();
 
-	if ( !hasModelReferences ) {
+	if ( refGroup !== '' ) {
+		this.$reflist.attr( 'data-mw-group', refGroup );
+	} else {
+		this.$reflist.removeAttr( 'data-mw-group' );
+	}
+
+	if ( !nodes || !nodes.indexOrder.length ) {
 		this.$refmsg.text( emptyText );
 		this.$element.append( this.$refmsg );
 	} else {
-		// Render all at once.
-		this.$reflist.append(
-			groupRefs.getTopLevelKeysInReflistOrder()
-				.map( ( listKey ) => this.renderListItem(
-					groupRefs, refGroup, listKey
-				) )
-		);
+		for ( var i = 0, iLen = nodes.indexOrder.length; i < iLen; i++ ) {
+			var index = nodes.indexOrder[ i ];
+			var firstNode = nodes.firstNodes[ index ];
 
+			var key = internalList.keys[ index ];
+			var keyedNodes = nodes.keyedNodes[ key ];
+			keyedNodes = keyedNodes.filter( function ( node ) {
+				// Exclude placeholder references
+				if ( node.getAttribute( 'placeholder' ) ) {
+					return false;
+				}
+				// Exclude references defined inside the references list node
+				do {
+					node = node.parent;
+					if ( node instanceof ve.dm.MWReferencesListNode ) {
+						return false;
+					}
+				} while ( node );
+				return true;
+			} );
+
+			if ( !keyedNodes.length ) {
+				continue;
+			}
+
+			var $li = $( '<li>' )
+				.append( this.renderBacklinks( keyedNodes, refGroup ) );
+
+			// Generate reference HTML from first item in key
+			var modelNode = internalList.getItemNode( firstNode.getAttribute( 'listIndex' ) );
+			if ( modelNode && modelNode.length ) {
+				var refPreview = new ve.ui.MWPreviewElement( modelNode, { useView: true } );
+				$li.append(
+					$( '<span>' )
+						.addClass( 'reference-text' )
+						.append( refPreview.$element )
+				);
+			} else {
+				$li.append(
+					$( '<span>' )
+						.addClass( 've-ce-mwReferencesListNode-muted' )
+						.text( ve.msg( 'cite-ve-referenceslist-missingref-in-list' ) )
+				);
+			}
+
+			this.$reflist.append( $li );
+		}
 		this.updateClasses();
 		this.$element.append( this.$reflist );
 	}
-};
-
-/**
- * Render a reference list item
- *
- * @private
- * @param {ve.dm.MWGroupReferences} groupRefs object holding calculated information about all group refs
- * @param {string} refGroup Reference group
- * @param {string} key top-level reference key, doesn't necessarily exist
- * @return {jQuery} Rendered list item
- */
-ve.ce.MWReferencesListNode.prototype.renderListItem = function ( groupRefs, refGroup, key ) {
-	const ref = groupRefs.getInternalModelNode( key );
-	const backlinkNodes = groupRefs.getRefUsages( key );
-	const subrefs = groupRefs.getSubrefs( key );
-
-	const $li = $( '<li>' )
-		.css( '--footnote-number', `"${ groupRefs.getIndexLabel( key ) }."` )
-		.append( this.renderBacklinks( backlinkNodes, refGroup ), ' ' );
-
-	if ( ref && ref.length ) {
-		const refPreview = new ve.ui.MWPreviewElement( ref, { useView: true } );
-		$li.append(
-			$( '<span>' )
-				.addClass( 'reference-text' )
-				.append( refPreview.$element )
-		);
-
-		if ( this.getRoot() ) {
-			const surface = this.getRoot().getSurface().getSurface();
-			// TODO: attach to the singleton click handler on the surface
-			$li.on( 'mousedown', ( e ) => {
-				if ( ve.isUnmodifiedLeftClick( e ) ) {
-					const node = groupRefs.getRefNode( key );
-					const items = ve.ui.contextItemFactory.getRelatedItems( [ node ] )
-						.filter( ( item ) => item.name !== 'mobileActions' );
-					if ( items.length ) {
-						const contextItem = ve.ui.contextItemFactory.lookup( items[ 0 ].name );
-						if ( contextItem ) {
-							const command = surface.commandRegistry
-								.lookup( contextItem.static.commandName );
-							if ( command ) {
-								const fragmentArgs = {
-									fragment: surface.getModel()
-										.getLinearFragment( node.getOuterRange(), true ),
-									selectFragmentOnClose: false
-								};
-								const newArgs = ve.copy( command.args );
-								if ( command.name === 'reference' ) {
-									newArgs[ 1 ] = fragmentArgs;
-								} else {
-									ve.extendObject( newArgs[ 0 ], fragmentArgs );
-								}
-								command.execute( surface, newArgs );
-							}
-						}
-					}
-				}
-				e.preventDefault();
-			} );
-		}
-	} else {
-		$li.append(
-			$( '<span>' )
-				.addClass( 've-ce-mwReferencesListNode-muted' )
-				.text( subrefs.length ? ve.msg( 'cite-ve-referenceslist-missing-parent' ) :
-					ve.msg( 'cite-ve-referenceslist-missingref-in-list' ) )
-		).addClass( 've-ce-mwReferencesListNode-missingRef' );
-	}
-
-	if ( subrefs.length ) {
-		$li.append(
-			$( '<ol>' ).append(
-				subrefs.map( ( subNode ) => this.renderListItem(
-					groupRefs, refGroup, subNode.getAttribute( 'listKey' )
-				) )
-			)
-		);
-	}
-
-	return $li;
 };
 
 /**
@@ -338,7 +270,7 @@ ve.ce.MWReferencesListNode.prototype.renderListItem = function ( groupRefs, refG
  * Currently used to set responsive layout
  */
 ve.ce.MWReferencesListNode.prototype.updateClasses = function () {
-	const isResponsive = this.getModel().getAttribute( 'isResponsive' );
+	var isResponsive = this.getModel().getAttribute( 'isResponsive' );
 
 	this.$element
 		.toggleClass( 'mw-references-wrap', isResponsive )
@@ -353,23 +285,32 @@ ve.ce.MWReferencesListNode.prototype.updateClasses = function () {
  * @return {jQuery} Element containing backlinks
  */
 ve.ce.MWReferencesListNode.prototype.renderBacklinks = function ( keyedNodes, refGroup ) {
-	if ( keyedNodes.length === 1 ) {
-		return $( '<a>' )
-			.attr( 'rel', 'mw:referencedBy' )
-			.attr( 'data-mw-group', refGroup || null )
-			.append( $( '<span>' ).addClass( 'mw-linkback-text' ).text( '↑ ' ) );
+	var $link;
+	if ( keyedNodes.length > 1 ) {
+		// named reference with multiple usages
+		var $refSpan = $( '<span>' ).attr( 'rel', 'mw:referencedBy' );
+		for ( var j = 0, jLen = keyedNodes.length; j < jLen; j++ ) {
+			$link = $( '<a>' ).append(
+				$( '<span>' ).addClass( 'mw-linkback-text' )
+					.text( ( j + 1 ) + ' ' )
+			);
+			if ( refGroup !== '' ) {
+				$link.attr( 'data-mw-group', refGroup );
+			}
+			$refSpan.append( $link );
+		}
+		return $refSpan;
+	} else {
+		// solo reference
+		$link = $( '<a>' ).attr( 'rel', 'mw:referencedBy' ).append(
+			$( '<span>' ).addClass( 'mw-linkback-text' )
+				.text( '↑ ' )
+		);
+		if ( refGroup !== '' ) {
+			$link.attr( 'data-mw-group', refGroup );
+		}
+		return $link;
 	}
-
-	// named reference with multiple usages
-	const $refSpan = $( '<span>' ).attr( 'rel', 'mw:referencedBy' );
-	for ( let i = 0; i < keyedNodes.length; i++ ) {
-		$( '<a>' )
-			.attr( 'data-mw-group', refGroup || null )
-			// FIXME: i18n backlink numbering
-			.append( $( '<span>' ).addClass( 'mw-linkback-text' ).text( ( i + 1 ) + ' ' ) )
-			.appendTo( $refSpan );
-	}
-	return $refSpan;
 };
 
 /* Registration */

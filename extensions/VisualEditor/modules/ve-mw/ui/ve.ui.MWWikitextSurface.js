@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface MWWikitextSurface class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -9,11 +9,12 @@
  * @extends ve.ui.Surface
  *
  * @constructor
- * @param {ve.init.Target} target
  * @param {HTMLDocument|Array|ve.dm.LinearData|ve.dm.Document} dataOrDoc Document data to edit
  * @param {Object} [config] Configuration options
  */
 ve.ui.MWWikitextSurface = function VeUiMWWikitextSurface() {
+	var surface = this;
+
 	// Parent constructor
 	ve.ui.MWWikitextSurface.super.apply( this, arguments );
 
@@ -47,11 +48,6 @@ ve.ui.MWWikitextSurface = function VeUiMWWikitextSurface() {
 		this.$textbox.textSelection( 'unregister' );
 	}
 
-	// Note: Chainable methods (setContents/setSelection) must use
-	// non-arrow functions that return this. We can't just return
-	// this.$textbox either as the collection could be cloned.
-	/* eslint es-x/no-arrow-functions: error */
-	const surface = this;
 	// Backwards support for the textSelection API
 	this.$textbox.textSelection( 'register', {
 		getContents: function () {
@@ -62,7 +58,7 @@ ve.ui.MWWikitextSurface = function VeUiMWWikitextSurface() {
 			return this;
 		},
 		getSelection: function () {
-			const range = surface.getModel().getSelection().getCoveringRange();
+			var range = surface.getModel().getSelection().getCoveringRange();
 			if ( !range ) {
 				return '';
 			}
@@ -75,12 +71,12 @@ ve.ui.MWWikitextSurface = function VeUiMWWikitextSurface() {
 			return this;
 		},
 		getCaretPosition: function ( options ) {
-			const range = surface.getModel().getSelection().getCoveringRange(),
+			var range = surface.getModel().getSelection().getCoveringRange(),
 				surfaceModel = surface.getModel(),
 				caretPos = range ? surfaceModel.getSourceOffsetFromOffset( range.start ) : 0;
 
 			return options.startAndEnd ?
-				[ caretPos, range ? surfaceModel.getSourceOffsetFromOffset( range.end ) : 0 ] :
+				[ caretPos, surfaceModel.getSourceOffsetFromOffset( range.end ) ] :
 				caretPos;
 		},
 		replaceSelection: function ( value ) {
@@ -93,7 +89,6 @@ ve.ui.MWWikitextSurface = function VeUiMWWikitextSurface() {
 			return this;
 		}
 	} );
-	/* eslint es-x/no-arrow-functions: off */
 };
 
 /* Inheritance */

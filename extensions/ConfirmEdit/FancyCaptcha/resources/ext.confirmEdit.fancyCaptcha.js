@@ -1,15 +1,15 @@
 /* eslint-disable no-jquery/no-global-selector */
 $( document ).on( 'click', '.fancycaptcha-reload', function () {
-	const $this = $( this ),
+	var $this = $( this ),
 		$root = $this.closest( '.fancycaptcha-captcha-container' ),
 		$captchaImage = $root.find( '.fancycaptcha-image' );
 
 	$this.addClass( 'fancycaptcha-reload-loading' );
 
 	// AJAX request to get captcha index key
-	new mw.Api().post( { action: 'fancycaptchareload' } ).done( ( data ) => {
-		const captchaIndex = data.fancycaptchareload.index;
-		let imgSrc;
+	new mw.Api().post( { action: 'fancycaptchareload' } ).done( function ( data ) {
+		var captchaIndex = data.fancycaptchareload.index,
+			imgSrc;
 		if ( typeof captchaIndex === 'string' ) {
 			// replace index key with a new one for captcha image
 			imgSrc = $captchaImage.attr( 'src' ).replace( /(wpCaptchaId=)\w+/, '$1' + captchaIndex );
@@ -27,7 +27,7 @@ $( document ).on( 'click', '.fancycaptcha-reload', function () {
 			$captchaImage.data( 'captchaId', captchaIndex );
 		}
 	} )
-		.always( () => {
+		.always( function () {
 			$this.removeClass( 'fancycaptcha-reload-loading' );
 		} );
 

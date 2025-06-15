@@ -3,7 +3,6 @@
 namespace MediaWiki\User\TempUser;
 
 use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\RawSQLValue;
 
 /**
  * Base class for serial acquisition code shared between core and CentralAuth.
@@ -24,7 +23,7 @@ abstract class DBSerialProvider implements SerialProvider {
 		$this->numShards = $config['numShards'] ?? 1;
 	}
 
-	public function acquireIndex( int $year = 0 ): int {
+	public function acquireIndex(): int {
 		if ( $this->numShards ) {
 			$shard = mt_rand( 0, $this->numShards - 1 );
 		} else {
@@ -34,22 +33,20 @@ abstract class DBSerialProvider implements SerialProvider {
 		$dbw = $this->getDB();
 		$table = $this->getTableName();
 		$dbw->startAtomic( __METHOD__ );
-		$dbw->newInsertQueryBuilder()
-			->insertInto( $table )
-			->row( [
+		$dbw->upsert(
+			$table,
+			[
 				'uas_shard' => $shard,
-				'uas_year' => $year,
-				'uas_value' => 1
-			] )
-			->onDuplicateKeyUpdate()
-			->uniqueIndexFields( [ 'uas_shard', 'uas_year' ] )
-			->set( [ 'uas_value' => new RawSQLValue( 'uas_value+1' ) ] )
-			->caller( __METHOD__ )->execute();
+				'uas_value' => 1,
+			],
+			[ [ 'uas_shard' ] ],
+			[ 'uas_value=uas_value+1' ],
+			__METHOD__
+		);
 		$value = $dbw->newSelectQueryBuilder()
 			->select( 'uas_value' )
 			->from( $table )
 			->where( [ 'uas_shard' => $shard ] )
-			->andWhere( [ 'uas_year' => $year ] )
 			->caller( __METHOD__ )
 			->fetchField();
 		$dbw->endAtomic( __METHOD__ );

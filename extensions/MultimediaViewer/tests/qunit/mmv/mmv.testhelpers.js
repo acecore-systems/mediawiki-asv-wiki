@@ -1,7 +1,17 @@
-const { MultimediaViewer } = require( 'mmv' );
-
 ( function () {
-	const MTH = {};
+	var MTH = {};
+
+	MTH.enterFullscreenMock = function () {
+		this.first().addClass( 'jq-fullscreened' ).data( 'isFullscreened', true );
+
+		$( document ).trigger( $.Event( 'jq-fullscreen-change', { element: this, fullscreen: true } ) );
+	};
+
+	MTH.exitFullscreenMock = function () {
+		this.first().removeClass( 'jq-fullscreened' ).data( 'isFullscreened', false );
+
+		$( document ).trigger( $.Event( 'jq-fullscreen-change', { element: this, fullscreen: false } ) );
+	};
 
 	/**
 	 * Returns the exception thrown by callback, or undefined if no exception was thrown.
@@ -10,7 +20,7 @@ const { MultimediaViewer } = require( 'mmv' );
 	 * @return {Error}
 	 */
 	MTH.getException = function ( callback ) {
-		let ex;
+		var ex;
 		try {
 			callback();
 		} catch ( e ) {
@@ -35,7 +45,7 @@ const { MultimediaViewer } = require( 'mmv' );
 	 * @return {mw.SafeStorage} Local storage-like object
 	 */
 	MTH.getUnsupportedLocalStorage = function () {
-		return MTH.createLocalStorage( undefined );
+		return this.createLocalStorage( undefined );
 	};
 
 	/**
@@ -44,11 +54,11 @@ const { MultimediaViewer } = require( 'mmv' );
 	 * @return {mw.SafeStorage} Local storage-like object
 	 */
 	MTH.getDisabledLocalStorage = function () {
-		const e = function () {
+		var e = function () {
 			throw new Error( 'Error' );
 		};
 
-		return MTH.createLocalStorage( {
+		return this.createLocalStorage( {
 			getItem: e,
 			setItem: e,
 			removeItem: e
@@ -58,24 +68,27 @@ const { MultimediaViewer } = require( 'mmv' );
 	/**
 	 * Returns a fake local storage which is not saved between reloads.
 	 *
+	 * @param {Object} [initialData]
 	 * @return {mw.SafeStorage} Local storage-like object
 	 */
-	MTH.getFakeLocalStorage = function () {
-		const bag = new Map();
-		return MTH.createLocalStorage( {
-			getItem: ( key ) => bag.get( key ) || null,
-			setItem: ( key, value ) => bag.set( key, value ),
-			removeItem: ( key ) => bag.delete( key )
+	MTH.getFakeLocalStorage = function ( initialData ) {
+		var bag = new mw.Map();
+		bag.set( initialData );
+
+		return this.createLocalStorage( {
+			getItem: function ( key ) { return bag.get( key ); },
+			setItem: function ( key, value ) { bag.set( key, value ); },
+			removeItem: function ( key ) { bag.set( key, null ); }
 		} );
 	};
 
 	/**
 	 * Returns a viewer object with all the appropriate placeholder functions.
 	 *
-	 * @return {MultimediaViewer}
+	 * @return {mw.mmv.MultimediaViewer}
 	 */
 	MTH.getMultimediaViewer = function () {
-		return new MultimediaViewer( {
+		return new mw.mmv.MultimediaViewer( {
 			imageQueryParameter: function () {},
 			language: function () {},
 			recordVirtualViewBeaconURI: function () {},
@@ -113,15 +126,15 @@ const { MultimediaViewer } = require( 'mmv' );
 	 * @return {Function}
 	 */
 	MTH.asyncMethod = function ( object, method, assert ) {
-		const helpers = this;
+		var helpers = this;
 		return function () {
 			// apply arguments to original promise
-			const promise = object[ method ].apply( object, arguments );
+			var promise = object[ method ].apply( object, arguments );
 
 			helpers.asyncPromises.push( promise );
 
 			if ( assert ) {
-				const done = assert.async();
+				var done = assert.async();
 				// use setTimeout to ensure `done` is not the first callback handler
 				// to execute (possibly ending the test's wait right before
 				// the result of the promise is executed)
@@ -140,22 +153,22 @@ const { MultimediaViewer } = require( 'mmv' );
 	 * @return {jQuery.Promise}
 	 */
 	MTH.waitForAsync = function () {
-		const deferred = $.Deferred();
+		var deferred = $.Deferred();
 
 		// it's possible that, before this function call, some code was executed
 		// that triggers async code that will eventually end up `asyncPromises`
 		// in order to give that code a chance to run, we'll add another promise
 		// to the array, that will only resolve at the end of the current call
 		// stack (using setTimeout)
-		MTH.asyncPromises.push( deferred.promise() );
+		this.asyncPromises.push( deferred.promise() );
 		setTimeout( deferred.resolve );
 
-		return QUnit.whenPromisesComplete.apply( null, MTH.asyncPromises ).then(
-			() => {
-				MTH.asyncPromises = [];
-			}
+		return QUnit.whenPromisesComplete.apply( null, this.asyncPromises ).then(
+			function () {
+				this.asyncPromises = [];
+			}.bind( this )
 		);
 	};
 
-	module.exports = MTH;
+	mw.mmv.testHelpers = MTH;
 }() );

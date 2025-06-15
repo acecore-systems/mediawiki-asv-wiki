@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Unusedcategories
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,34 +18,27 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
 use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\SpecialPage\QueryPage;
-use MediaWiki\Title\Title;
-use Skin;
-use stdClass;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
- * Implements Special:Unusedcategories
- *
  * @ingroup SpecialPage
  */
 class SpecialUnusedCategories extends QueryPage {
 
 	/**
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param LinkBatchFactory $linkBatchFactory
 	 */
 	public function __construct(
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		LinkBatchFactory $linkBatchFactory
 	) {
 		parent::__construct( 'Unusedcategories' );
-		$this->setDatabaseProvider( $dbProvider );
+		$this->setDBLoadBalancer( $loadBalancer );
 		$this->setLinkBatchFactory( $linkBatchFactory );
 	}
 
@@ -67,10 +62,10 @@ class SpecialUnusedCategories extends QueryPage {
 				'title' => 'page_title',
 			],
 			'conds' => [
-				'cl_from' => null,
+				'cl_from IS NULL',
 				'page_namespace' => NS_CATEGORY,
 				'page_is_redirect' => 0,
-				'pp_page' => null,
+				'pp_page IS NULL'
 			],
 			'join_conds' => [
 				'categorylinks' => [ 'LEFT JOIN', 'cl_to = page_title' ],
@@ -109,9 +104,3 @@ class SpecialUnusedCategories extends QueryPage {
 		$this->executeLBFromResultWrapper( $res );
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialUnusedCategories::class, 'SpecialUnusedCategories' );

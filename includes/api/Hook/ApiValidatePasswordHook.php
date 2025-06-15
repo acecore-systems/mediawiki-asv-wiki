@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Api\Hook;
 
-use MediaWiki\Api\ApiValidatePassword;
+use ApiValidatePassword;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

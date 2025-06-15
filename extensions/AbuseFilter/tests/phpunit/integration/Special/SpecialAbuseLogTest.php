@@ -15,7 +15,7 @@ use MediaWikiIntegrationTestCase;
 use stdClass;
 
 /**
- * @covers \MediaWiki\Extension\AbuseFilter\Special\SpecialAbuseLog
+ * @coversDefaultClass \MediaWiki\Extension\AbuseFilter\Special\SpecialAbuseLog
  */
 class SpecialAbuseLogTest extends MediaWikiIntegrationTestCase {
 	/**
@@ -25,6 +25,7 @@ class SpecialAbuseLogTest extends MediaWikiIntegrationTestCase {
 	 * @param bool $canSeeSuppressed
 	 * @param string $expected
 	 * @dataProvider provideEntryAndVisibility
+	 * @covers ::getEntryVisibilityForUser
 	 */
 	public function testGetEntryVisibilityForUser(
 		stdClass $row,
@@ -46,7 +47,7 @@ class SpecialAbuseLogTest extends MediaWikiIntegrationTestCase {
 		);
 	}
 
-	public static function provideEntryAndVisibility(): Generator {
+	public function provideEntryAndVisibility(): Generator {
 		$visibleRow = (object)[ 'afl_rev_id' => 1, 'afl_deleted' => 0 ];
 		$hiddenRow = (object)[ 'afl_rev_id' => 1, 'afl_deleted' => 1 ];
 		$page = new PageIdentityValue( 1, NS_MAIN, 'Foo', PageIdentityValue::LOCAL );

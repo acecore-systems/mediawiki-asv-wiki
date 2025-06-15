@@ -2,13 +2,12 @@
 
 namespace MediaWiki\Settings\Source\Format;
 
-use Stringable;
 use UnexpectedValueException;
 
 /**
  * Decodes settings data from JSON.
  */
-class JsonFormat implements Stringable, SettingsFormat {
+class JsonFormat implements SettingsFormat {
 
 	/**
 	 * Decodes JSON.

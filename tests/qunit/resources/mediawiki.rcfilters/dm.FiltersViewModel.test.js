@@ -1,7 +1,6 @@
 /* eslint-disable camelcase */
 ( function () {
-	const rcfilters = require( 'mediawiki.rcfilters.filters.ui' );
-	const filterDefinition = [ {
+	var filterDefinition = [ {
 			name: 'group1',
 			type: 'send_unselected_if_any',
 			filters: [
@@ -276,14 +275,16 @@
 		}
 	} ) );
 
-	QUnit.test( 'Setting up filters', ( assert ) => {
-		const model = new rcfilters.dm.FiltersViewModel();
+	QUnit.test( 'Setting up filters', function ( assert ) {
+		var model = new mw.rcfilters.dm.FiltersViewModel();
 
 		model.initializeFilters( filterDefinition, viewsDefinition );
 
 		// Test that all items were created
 		assert.true(
-			Object.keys( baseFilterRepresentation ).every( ( filterName ) => model.getItemByName( filterName ) instanceof rcfilters.dm.FilterItem ),
+			Object.keys( baseFilterRepresentation ).every( function ( filterName ) {
+				return model.getItemByName( filterName ) instanceof mw.rcfilters.dm.FilterItem;
+			} ),
 			'Filters instantiated and stored correctly'
 		);
 
@@ -309,8 +310,8 @@
 		);
 	} );
 
-	QUnit.test( 'Default filters', ( assert ) => {
-		const model = new rcfilters.dm.FiltersViewModel();
+	QUnit.test( 'Default filters', function ( assert ) {
+		var model = new mw.rcfilters.dm.FiltersViewModel();
 
 		model.initializeFilters( filterDefinition, viewsDefinition );
 
@@ -322,8 +323,8 @@
 		);
 	} );
 
-	QUnit.test( 'Parameter minimal state', ( assert ) => {
-		const model = new rcfilters.dm.FiltersViewModel(),
+	QUnit.test( 'Parameter minimal state', function ( assert ) {
+		var model = new mw.rcfilters.dm.FiltersViewModel(),
 			cases = [
 				{
 					input: {},
@@ -384,7 +385,7 @@
 
 		model.initializeFilters( filterDefinition, viewsDefinition );
 
-		cases.forEach( ( test ) => {
+		cases.forEach( function ( test ) {
 			assert.deepEqual(
 				model.getMinimizedParamRepresentation( test.input ),
 				test.result,
@@ -393,19 +394,20 @@
 		} );
 	} );
 
-	QUnit.test( 'Parameter states', ( assert ) => {
+	QUnit.test( 'Parameter states', function ( assert ) {
 		// Some groups / params have their defaults immediately applied
 		// to their state. These include single_option which can never
 		// be empty, etc. These are these states:
-		const appliedDefaultParameters = {
-			group4: 'option2',
-			group5: 'option1',
-			// Sticky, their defaults apply immediately
-			group6option2: '1',
-			group6option3: '1',
-			group7: 'group7option2'
-		};
-		let model = new rcfilters.dm.FiltersViewModel();
+		var parametersWithoutExcluded,
+			appliedDefaultParameters = {
+				group4: 'option2',
+				group5: 'option1',
+				// Sticky, their defaults apply immediately
+				group6option2: '1',
+				group6option3: '1',
+				group7: 'group7option2'
+			},
+			model = new mw.rcfilters.dm.FiltersViewModel();
 
 		model.initializeFilters( filterDefinition, viewsDefinition );
 		assert.deepEqual(
@@ -433,10 +435,10 @@
 		);
 
 		// Reset
-		model = new rcfilters.dm.FiltersViewModel();
+		model = new mw.rcfilters.dm.FiltersViewModel();
 		model.initializeFilters( filterDefinition, viewsDefinition );
 
-		const parametersWithoutExcluded = $.extend( true, {}, appliedDefaultParameters );
+		parametersWithoutExcluded = $.extend( true, {}, appliedDefaultParameters );
 		delete parametersWithoutExcluded.group7;
 		delete parametersWithoutExcluded.group6option2;
 		delete parametersWithoutExcluded.group6option3;
@@ -448,8 +450,8 @@
 		);
 	} );
 
-	QUnit.test( 'Cleaning up parameter states', ( assert ) => {
-		const model = new rcfilters.dm.FiltersViewModel(),
+	QUnit.test( 'Cleaning up parameter states', function ( assert ) {
+		var model = new mw.rcfilters.dm.FiltersViewModel(),
 			cases = [
 				{
 					input: {},
@@ -468,7 +470,7 @@
 
 		model.initializeFilters( filterDefinition, viewsDefinition );
 
-		cases.forEach( ( test ) => {
+		cases.forEach( function ( test ) {
 			assert.deepEqual(
 				model.removeStickyParams( test.input ),
 				test.result,
@@ -478,8 +480,9 @@
 
 	} );
 
-	QUnit.test( 'Finding matching filters', ( assert ) => {
-		const testCases = [
+	QUnit.test( 'Finding matching filters', function ( assert ) {
+		var foundMatches,
+			testCases = [
 				{
 					query: 'group',
 					expectedMatches: {
@@ -516,19 +519,21 @@
 					reason: 'Finds no results if using namespaces prefix (:) to search for filter title'
 				}
 			],
-			model = new rcfilters.dm.FiltersViewModel(),
+			model = new mw.rcfilters.dm.FiltersViewModel(),
 			extractNames = function ( matches ) {
-				const result = {};
-				Object.keys( matches ).forEach( ( groupName ) => {
-					result[ groupName ] = matches[ groupName ].map( ( item ) => item.getName() );
+				var result = {};
+				Object.keys( matches ).forEach( function ( groupName ) {
+					result[ groupName ] = matches[ groupName ].map( function ( item ) {
+						return item.getName();
+					} );
 				} );
 				return result;
 			};
 
 		model.initializeFilters( filterDefinition, viewsDefinition );
 
-		testCases.forEach( ( testCase ) => {
-			const matches = model.findMatches( testCase.query );
+		testCases.forEach( function ( testCase ) {
+			var matches = model.findMatches( testCase.query );
 			assert.deepEqual(
 				extractNames( matches ),
 				testCase.expectedMatches,
@@ -536,15 +541,15 @@
 			);
 		} );
 
-		const foundMatches = model.findMatches( 'foo' );
+		foundMatches = model.findMatches( 'foo' );
 		assert.true(
 			$.isEmptyObject( foundMatches ),
 			'findMatches returns an empty object when no results found'
 		);
 	} );
 
-	QUnit.test( 'getParametersFromFilters', ( assert ) => {
-		let model = new rcfilters.dm.FiltersViewModel();
+	QUnit.test( 'getParametersFromFilters', function ( assert ) {
+		var model = new mw.rcfilters.dm.FiltersViewModel();
 
 		model.initializeFilters( filterDefinition, viewsDefinition );
 
@@ -644,7 +649,7 @@
 		);
 
 		// Reset
-		model = new rcfilters.dm.FiltersViewModel();
+		model = new mw.rcfilters.dm.FiltersViewModel();
 		model.initializeFilters( filterDefinition, viewsDefinition );
 
 		// Select an option from single_option group
@@ -674,11 +679,12 @@
 		);
 	} );
 
-	QUnit.test( 'getParametersFromFilters (custom object)', ( assert ) => {
+	QUnit.test( 'getParametersFromFilters (custom object)', function ( assert ) {
 		// This entire test uses different base definition than the global one
 		// on purpose, to verify that the values inserted as a custom object
 		// are the ones we expect in return
-		const model = new rcfilters.dm.FiltersViewModel(),
+		var originalState,
+			model = new mw.rcfilters.dm.FiltersViewModel(),
 			definition = [ {
 				name: 'group1',
 				title: 'Group 1',
@@ -792,10 +798,10 @@
 
 		model.initializeFilters( definition );
 		// Store original state
-		const originalState = model.getSelectedState();
+		originalState = model.getSelectedState();
 
 		// Test each case
-		cases.forEach( ( test ) => {
+		cases.forEach( function ( test ) {
 			assert.deepEqual(
 				model.getParametersFromFilters( test.input ),
 				test.expected,
@@ -812,8 +818,8 @@
 		);
 	} );
 
-	QUnit.test( 'getFiltersFromParameters', ( assert ) => {
-		let model = new rcfilters.dm.FiltersViewModel();
+	QUnit.test( 'getFiltersFromParameters', function ( assert ) {
+		var model = new mw.rcfilters.dm.FiltersViewModel();
 
 		model.initializeFilters( filterDefinition, viewsDefinition );
 
@@ -828,7 +834,7 @@
 			model.getFiltersFromParameters( {
 				filter2: '1'
 			} ),
-			Object.assign( {}, baseFilterRepresentation, {
+			$.extend( {}, baseFilterRepresentation, {
 				group1__filter1: true, // The text is "show filter 1"
 				group1__filter2: false, // The text is "show filter 2"
 				group1__filter3: true // The text is "show filter 3"
@@ -842,7 +848,7 @@
 				filter2: '1',
 				filter3: '1'
 			} ),
-			Object.assign( {}, baseFilterRepresentation, {
+			$.extend( {}, baseFilterRepresentation, {
 				group1__filter1: false, // The text is "show filter 1"
 				group1__filter2: false, // The text is "show filter 2"
 				group1__filter3: false // The text is "show filter 3"
@@ -874,7 +880,7 @@
 		// The result here is ignoring the first toggleFiltersSelected call
 		assert.deepEqual(
 			model.getSelectedState(),
-			Object.assign( {}, baseFilterRepresentation, {
+			$.extend( {}, baseFilterRepresentation, {
 				group2__filter4: true,
 				group2__filter5: true,
 				group2__filter6: false
@@ -883,7 +889,7 @@
 		);
 
 		// Reset
-		model = new rcfilters.dm.FiltersViewModel();
+		model = new mw.rcfilters.dm.FiltersViewModel();
 		model.initializeFilters( filterDefinition, viewsDefinition );
 
 		model.toggleFiltersSelected(
@@ -893,7 +899,7 @@
 		);
 		assert.deepEqual(
 			model.getSelectedState(),
-			Object.assign( {}, baseFilterRepresentation, {
+			$.extend( {}, baseFilterRepresentation, {
 				group3__filter7: true,
 				group3__filter8: false,
 				group3__filter9: false
@@ -908,7 +914,7 @@
 		);
 		assert.deepEqual(
 			model.getSelectedState(),
-			Object.assign( {}, baseFilterRepresentation, {
+			$.extend( {}, baseFilterRepresentation, {
 				group3__filter7: true,
 				group3__filter8: true,
 				group3__filter9: false
@@ -923,7 +929,7 @@
 		);
 		assert.deepEqual(
 			model.getSelectedState(),
-			Object.assign( {}, baseFilterRepresentation, {
+			$.extend( {}, baseFilterRepresentation, {
 				group3__filter7: true,
 				group3__filter8: true,
 				group3__filter9: true
@@ -938,7 +944,7 @@
 		);
 		assert.deepEqual(
 			model.getSelectedState(),
-			Object.assign( {}, baseFilterRepresentation, {
+			$.extend( {}, baseFilterRepresentation, {
 				group3__filter7: true,
 				group3__filter8: true,
 				group3__filter9: true
@@ -953,7 +959,7 @@
 		);
 		assert.deepEqual(
 			model.getSelectedState(),
-			Object.assign( {}, baseFilterRepresentation, {
+			$.extend( {}, baseFilterRepresentation, {
 				group3__filter7: true,
 				group3__filter8: false,
 				group3__filter9: true
@@ -968,7 +974,7 @@
 		);
 		assert.deepEqual(
 			model.getSelectedState(),
-			Object.assign( {}, baseFilterRepresentation, {
+			$.extend( {}, baseFilterRepresentation, {
 				group4__option1: true,
 				group4__option2: false
 			} ),
@@ -997,15 +1003,15 @@
 		);
 		assert.deepEqual(
 			model.getSelectedState(),
-			Object.assign( {}, baseFilterRepresentation, {
+			$.extend( {}, baseFilterRepresentation, {
 				group4__option2: true
 			} ),
 			'A \'single_option\' parameter always reflects the latest selected value.'
 		);
 	} );
 
-	QUnit.test( 'sanitizeStringOptionGroup', ( assert ) => {
-		const model = new rcfilters.dm.FiltersViewModel();
+	QUnit.test( 'sanitizeStringOptionGroup', function ( assert ) {
+		var model = new mw.rcfilters.dm.FiltersViewModel();
 
 		model.initializeFilters( filterDefinition, viewsDefinition );
 
@@ -1028,8 +1034,8 @@
 		);
 	} );
 
-	QUnit.test( 'Filter interaction: subsets', ( assert ) => {
-		const model = new rcfilters.dm.FiltersViewModel();
+	QUnit.test( 'Filter interaction: subsets', function ( assert ) {
+		var model = new mw.rcfilters.dm.FiltersViewModel();
 
 		model.initializeFilters( filterDefinition, viewsDefinition );
 
@@ -1097,10 +1103,10 @@
 		);
 	} );
 
-	QUnit.test( 'Filter interaction: full coverage', ( assert ) => {
-		const model = new rcfilters.dm.FiltersViewModel(),
+	QUnit.test( 'Filter interaction: full coverage', function ( assert ) {
+		var model = new mw.rcfilters.dm.FiltersViewModel(),
 			isCapsuleItemMuted = function ( filterName ) {
-				const itemModel = model.getItemByName( filterName ),
+				var itemModel = model.getItemByName( filterName ),
 					groupModel = itemModel.getGroupModel();
 
 				// This is the logic inside the capsule widget
@@ -1162,7 +1168,7 @@
 		// Group2 (full coverage) has all items selected, all its items are muted
 		assert.deepEqual(
 			getCurrentItemsMutedState(),
-			Object.assign( {}, baseMuteState, {
+			$.extend( {}, baseMuteState, {
 				group2__filter4: true,
 				group2__filter5: true,
 				group2__filter6: true
@@ -1178,7 +1184,7 @@
 		// Group1 (full coverage) has all items selected, no items in it are muted (non full coverage)
 		assert.deepEqual(
 			getCurrentItemsMutedState(),
-			Object.assign( {}, baseMuteState, {
+			$.extend( {}, baseMuteState, {
 				group2__filter4: true,
 				group2__filter5: true,
 				group2__filter6: true
@@ -1198,8 +1204,8 @@
 		);
 	} );
 
-	QUnit.test( 'Filter interaction: conflicts', ( assert ) => {
-		let model = new rcfilters.dm.FiltersViewModel();
+	QUnit.test( 'Filter interaction: conflicts', function ( assert ) {
+		var model = new mw.rcfilters.dm.FiltersViewModel();
 
 		model.initializeFilters( filterDefinition, viewsDefinition );
 
@@ -1251,7 +1257,7 @@
 		);
 
 		// Reset
-		model = new rcfilters.dm.FiltersViewModel();
+		model = new mw.rcfilters.dm.FiltersViewModel();
 		model.initializeFilters( filterDefinition, viewsDefinition );
 
 		// Select a filter that has a conflict with a specific filter
@@ -1363,7 +1369,7 @@
 
 		/* Simple case */
 		// Reset
-		model = new rcfilters.dm.FiltersViewModel();
+		model = new mw.rcfilters.dm.FiltersViewModel();
 		model.initializeFilters( filterDefinition, viewsDefinition );
 
 		// Select a filter that has a conflict with a specific filter
@@ -1401,22 +1407,22 @@
 		);
 	} );
 
-	QUnit.test( 'Filter highlights', ( assert ) => {
+	QUnit.test( 'Filter highlights', function ( assert ) {
 		// We are using a different (smaller) definition here than the global one
-		const definition = [ {
-			name: 'group1',
-			title: 'Group 1',
-			type: 'string_options',
-			filters: [
-				{ name: 'filter1', cssClass: 'class1', label: '1', description: '1' },
-				{ name: 'filter2', cssClass: 'class2', label: '2', description: '2' },
-				{ name: 'filter3', cssClass: 'class3', label: '3', description: '3' },
-				{ name: 'filter4', cssClass: 'class4', label: '4', description: '4' },
-				{ name: 'filter5', cssClass: 'class5', label: '5', description: '5' },
-				{ name: 'filter6', label: '6', description: '6' }
-			]
-		} ];
-		let model = new rcfilters.dm.FiltersViewModel();
+		var definition = [ {
+				name: 'group1',
+				title: 'Group 1',
+				type: 'string_options',
+				filters: [
+					{ name: 'filter1', cssClass: 'class1', label: '1', description: '1' },
+					{ name: 'filter2', cssClass: 'class2', label: '2', description: '2' },
+					{ name: 'filter3', cssClass: 'class3', label: '3', description: '3' },
+					{ name: 'filter4', cssClass: 'class4', label: '4', description: '4' },
+					{ name: 'filter5', cssClass: 'class5', label: '5', description: '5' },
+					{ name: 'filter6', label: '6', description: '6' }
+				]
+			} ],
+			model = new mw.rcfilters.dm.FiltersViewModel();
 
 		model.initializeFilters( definition );
 
@@ -1437,7 +1443,9 @@
 		model.setHighlightColor( 'group1__filter2', 'color2' );
 
 		assert.deepEqual(
-			model.getHighlightedItems().map( ( item ) => item.getName() ),
+			model.getHighlightedItems().map( function ( item ) {
+				return item.getName();
+			} ),
 			[
 				'group1__filter1',
 				'group1__filter2'
@@ -1460,7 +1468,9 @@
 
 		model.clearHighlightColor( 'group1__filter1' );
 		assert.deepEqual(
-			model.getHighlightedItems().map( ( item ) => item.getName() ),
+			model.getHighlightedItems().map( function ( item ) {
+				return item.getName();
+			} ),
 			[
 				'group1__filter2'
 			],
@@ -1468,7 +1478,7 @@
 		);
 
 		// Reset
-		model = new rcfilters.dm.FiltersViewModel();
+		model = new mw.rcfilters.dm.FiltersViewModel();
 		model.initializeFilters( definition );
 
 		model.setHighlightColor( 'group1__filter1', 'color1' );
@@ -1476,7 +1486,9 @@
 		model.setHighlightColor( 'group1__filter3', 'color3' );
 
 		assert.deepEqual(
-			model.getHighlightedItems().map( ( item ) => item.getName() ),
+			model.getHighlightedItems().map( function ( item ) {
+				return item.getName();
+			} ),
 			[
 				'group1__filter1',
 				'group1__filter2',
@@ -1492,14 +1504,16 @@
 		);
 
 		// Reset
-		model = new rcfilters.dm.FiltersViewModel();
+		model = new mw.rcfilters.dm.FiltersViewModel();
 		model.initializeFilters( definition );
 
 		model.setHighlightColor( 'group1__filter1', 'color1' );
 		model.setHighlightColor( 'group1__filter6', 'color6' );
 
 		assert.deepEqual(
-			model.getHighlightedItems().map( ( item ) => item.getName() ),
+			model.getHighlightedItems().map( function ( item ) {
+				return item.getName();
+			} ),
 			[
 				'group1__filter1'
 			],
@@ -1507,8 +1521,8 @@
 		);
 	} );
 
-	QUnit.test( 'emptyAllFilters', ( assert ) => {
-		const model = new rcfilters.dm.FiltersViewModel();
+	QUnit.test( 'emptyAllFilters', function ( assert ) {
+		var model = new mw.rcfilters.dm.FiltersViewModel();
 
 		model.initializeFilters( shortFilterDefinition, null );
 
@@ -1530,8 +1544,8 @@
 		);
 	} );
 
-	QUnit.test( 'areVisibleFiltersEmpty', ( assert ) => {
-		const model = new rcfilters.dm.FiltersViewModel();
+	QUnit.test( 'areVisibleFiltersEmpty', function ( assert ) {
+		var model = new mw.rcfilters.dm.FiltersViewModel();
 		model.initializeFilters( shortFilterDefinition, null );
 
 		model.emptyAllFilters();

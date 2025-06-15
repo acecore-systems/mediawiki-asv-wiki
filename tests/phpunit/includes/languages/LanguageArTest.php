@@ -2,12 +2,12 @@
 
 /**
  * @group Language
- * @covers \LanguageAr
+ * @covers LanguageAr
  */
 class LanguageArTest extends LanguageClassesTestCase {
 
 	/**
-	 * @covers \MediaWiki\Language\Language::formatNum
+	 * @covers Language::formatNum
 	 * @dataProvider provideFormatNum
 	 */
 	public function testFormatNum( $num, $formatted ) {
@@ -23,13 +23,13 @@ class LanguageArTest extends LanguageClassesTestCase {
 	}
 
 	/**
-	 * @covers \LanguageAr::normalize
-	 * @covers \MediaWiki\Language\Language::normalize
+	 * @covers LanguageAr::normalize
+	 * @covers Language::normalize
 	 * @dataProvider provideNormalize
 	 */
 	public function testNormalize( $input, $expected ) {
 		if ( $input === $expected ) {
-			$this->fail( 'Expected output must differ.' );
+			throw new Exception( 'Expected output must differ.' );
 		}
 
 		$this->assertSame(
@@ -59,7 +59,7 @@ class LanguageArTest extends LanguageClassesTestCase {
 	/**
 	 * Mostly to test the raw ascii feature.
 	 * @dataProvider provideSprintfDate
-	 * @covers \MediaWiki\Language\Language::sprintfDate
+	 * @covers Language::sprintfDate
 	 */
 	public function testSprintfDate( $format, $date, $expected ) {
 		$this->assertEquals( $expected, $this->getLang()->sprintfDate( $format, $date ) );
@@ -92,7 +92,7 @@ class LanguageArTest extends LanguageClassesTestCase {
 
 	/**
 	 * @dataProvider providePlural
-	 * @covers \MediaWiki\Language\Language::convertPlural
+	 * @covers Language::convertPlural
 	 */
 	public function testPlural( $result, $value ) {
 		$forms = [ 'zero', 'one', 'two', 'few', 'many', 'other' ];
@@ -101,7 +101,7 @@ class LanguageArTest extends LanguageClassesTestCase {
 
 	/**
 	 * @dataProvider providePlural
-	 * @covers \MediaWiki\Language\Language::getPluralRuleType
+	 * @covers Language::getPluralRuleType
 	 */
 	public function testGetPluralRuleType( $result, $value ) {
 		$this->assertEquals( $result, $this->getLang()->getPluralRuleType( $value ) );

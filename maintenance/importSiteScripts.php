@@ -21,15 +21,9 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\Content\ContentHandler;
-use MediaWiki\Json\FormatJson;
-use MediaWiki\StubObject\StubGlobalUser;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
+use MediaWiki\MediaWikiServices;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script to import all scripts in the MediaWiki namespace from a
@@ -59,7 +53,7 @@ class ImportSiteScripts extends Maintenance {
 		$baseUrl = $this->getArg( 1 );
 		$pageList = $this->fetchScriptList();
 		$this->output( 'Importing ' . count( $pageList ) . " pages\n" );
-		$services = $this->getServiceContainer();
+		$services = MediaWikiServices::getInstance();
 		$wikiPageFactory = $services->getWikiPageFactory();
 		$httpRequestFactory = $services->getHttpRequestFactory();
 
@@ -96,13 +90,13 @@ class ImportSiteScripts extends Maintenance {
 
 		while ( true ) {
 			$url = wfAppendQuery( $baseUrl, $data );
-			$strResult = $this->getServiceContainer()->getHttpRequestFactory()->
+			$strResult = MediaWikiServices::getInstance()->getHttpRequestFactory()->
 				get( $url, [], __METHOD__ );
 			$result = FormatJson::decode( $strResult, true );
 
 			$page = null;
 			foreach ( $result['query']['allpages'] as $page ) {
-				if ( str_ends_with( $page['title'], '.js' ) ) {
+				if ( substr( $page['title'], -3 ) === '.js' ) {
 					strtok( $page['title'], ':' );
 					$pages[] = strtok( '' );
 				}
@@ -125,7 +119,5 @@ class ImportSiteScripts extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = ImportSiteScripts::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

@@ -1,18 +1,14 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
 use MediaWiki\Block\DatabaseBlock;
 use MediaWiki\Block\Restriction\PageRestriction;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\SlotRecord;
 use MediaWiki\Tests\Unit\Permissions\MockAuthorityTrait;
-use MediaWiki\Title\Title;
-use MWCryptRand;
 
 /**
  * Tests for action=revisiondelete
- * @covers MediaWiki\Api\ApiRevisionDelete
+ * @covers APIRevisionDelete
  * @group API
  * @group medium
  * @group Database
@@ -20,27 +16,26 @@ use MWCryptRand;
 class ApiRevisionDeleteTest extends ApiTestCase {
 	use MockAuthorityTrait;
 
-	/** @var int[] */
+	public static $page = 'Help:ApiRevDel_test';
 	public $revs = [];
 
 	protected function setUp(): void {
 		parent::setUp();
 		// Make a few edits for us to play with
-		$title = Title::makeTitle( NS_HELP, 'ApiRevDel_test' );
 		for ( $i = 1; $i <= 5; $i++ ) {
-			$status = $this->editPage( $title, MWCryptRand::generateHex( 10 ), 'summary' );
-			$this->revs[] = $status->getNewRevision()->getId();
+			$this->editPage( self::$page, MWCryptRand::generateHex( 10 ), 'summary' );
+			$this->revs[] = Title::newFromText( self::$page )->getLatestRevID( Title::READ_LATEST );
 		}
 	}
 
 	public function testHidingRevisions() {
-		$performer = $this->mockRegisteredAuthorityWithPermissions( [ 'deleterevision' ] );
+		$performer = $this->mockAnonAuthorityWithPermissions( [ 'writeapi', 'deleterevision' ] );
 		$revid = array_shift( $this->revs );
 		$out = $this->doApiRequestWithToken( [
 			'action' => 'revisiondelete',
 			'reason' => __METHOD__,
 			'type' => 'revision',
-			'target' => 'Help:ApiRevDel_test',
+			'target' => self::$page,
 			'ids' => $revid,
 			'hide' => 'content|user|comment',
 		], null, $performer );
@@ -67,7 +62,7 @@ class ApiRevisionDeleteTest extends ApiTestCase {
 			'action' => 'revisiondelete',
 			'reason' => __METHOD__,
 			'type' => 'revision',
-			'target' => 'Help:ApiRevDel_test',
+			'target' => self::$page,
 			'ids' => $revid,
 			'show' => 'content|user|comment',
 		], null, $performer );
@@ -94,14 +89,14 @@ class ApiRevisionDeleteTest extends ApiTestCase {
 	}
 
 	public function testUnhidingOutput() {
-		$performer = $this->mockRegisteredAuthorityWithPermissions( [ 'deleterevision' ] );
+		$performer = $this->mockAnonAuthorityWithPermissions( [ 'writeapi', 'deleterevision' ] );
 		$revid = array_shift( $this->revs );
 		// Hide revisions
 		$this->doApiRequestWithToken( [
 			'action' => 'revisiondelete',
 			'reason' => __METHOD__,
 			'type' => 'revision',
-			'target' => 'Help:ApiRevDel_test',
+			'target' => self::$page,
 			'ids' => $revid,
 			'hide' => 'content|user|comment',
 		], null, $performer );
@@ -110,7 +105,7 @@ class ApiRevisionDeleteTest extends ApiTestCase {
 			'action' => 'revisiondelete',
 			'reason' => __METHOD__,
 			'type' => 'revision',
-			'target' => 'Help:ApiRevDel_test',
+			'target' => self::$page,
 			'ids' => $revid,
 			'show' => 'comment',
 		], null, $performer );
@@ -127,8 +122,8 @@ class ApiRevisionDeleteTest extends ApiTestCase {
 	}
 
 	public function testPartiallyBlockedPage() {
-		$this->expectApiErrorCode( 'blocked' );
-		$performer = $this->mockAnonAuthorityWithPermissions( [ 'deleterevision' ] );
+		$this->setExpectedApiException( 'apierror-blocked-partial' );
+		$performer = $this->mockAnonAuthorityWithPermissions( [ 'writeapi', 'deleterevision' ] );
 
 		$block = new DatabaseBlock( [
 			'address' => $performer->getUser(),
@@ -136,9 +131,8 @@ class ApiRevisionDeleteTest extends ApiTestCase {
 			'sitewide' => false,
 		] );
 
-		$title = Title::makeTitle( NS_HELP, 'ApiRevDel_test' );
 		$block->setRestrictions( [
-			new PageRestriction( 0, $title->getArticleID() )
+			new PageRestriction( 0, Title::newFromText( self::$page )->getArticleID() )
 		] );
 		$this->getServiceContainer()->getDatabaseBlockStore()->insertBlock( $block );
 
@@ -148,7 +142,7 @@ class ApiRevisionDeleteTest extends ApiTestCase {
 			'action' => 'revisiondelete',
 			'reason' => __METHOD__,
 			'type' => 'revision',
-			'target' => $title->getPrefixedText(),
+			'target' => self::$page,
 			'ids' => $revid,
 			'hide' => 'content|user|comment',
 		], null, $performer );

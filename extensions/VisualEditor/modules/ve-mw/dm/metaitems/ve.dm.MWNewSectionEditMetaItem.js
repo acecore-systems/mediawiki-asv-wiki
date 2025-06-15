@@ -1,12 +1,12 @@
 /*!
  * VisualEditor DataModel MWNewSectionEditMetaItem class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
 /**
- * DataModel new section edit link meta item (for `__NEWSECTIONLINK__` and `__NONEWSECTIONLINK__`).
+ * DataModel new section edit link meta item (for __NEWSECTIONLINK__ and __NONEWSECTIONLINK__).
  *
  * @class
  * @extends ve.dm.MWFlaggedMetaItem

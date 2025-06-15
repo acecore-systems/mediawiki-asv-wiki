@@ -19,12 +19,12 @@
 				 * @return {jQuery} Rendered HTML
 				 */
 				render: function ( data, partialTemplates ) {
-					const partials = {};
+					var partials = {};
 					if ( partialTemplates ) {
-						for ( const name in partialTemplates ) {
-							const template = partialTemplates[ name ];
+						// eslint-disable-next-line no-jquery/no-each-util
+						$.each( partialTemplates, function ( name, template ) {
 							partials[ name ] = template.getSource();
-						}
+						} );
 					}
 					return $( $.parseHTML( Mustache.render( src, data, partials ) ) );
 				}

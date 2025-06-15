@@ -1,30 +1,29 @@
 ( function () {
 
 	/**
+	 * Provides various methods needed for formatting dates and times.
+	 *
 	 * @class
-	 * @classdesc Provides various methods needed for formatting dates and times.
 	 * @abstract
-	 * @mixes OO.EventEmitter
+	 * @mixins OO.EventEmitter
 	 *
 	 * @constructor
-	 * @description Create an instance of `mw.widgets.datetime.DateTimeFormatter`.
 	 * @param {Object} [config] Configuration options
-	 * @param {string} [config.format='@default'] May be a key from the
-	 *  {@link mw.widgets.datetime.DateTimeFormatter.formats}, or a format
-	 *  specification as defined by {@link mw.widgets.datetime.DateTimeFormatter#parseFieldSpec}
-	 *  and {@link mw.widgets.datetime.DateTimeFormatter#getFieldForTag}.
-	 * @param {boolean} [config.local=false] Whether dates are local time or UTC
-	 * @param {string[]} [config.fullZones] Time zone indicators. Array of 2 strings, for
+	 * @cfg {string} [format='@default'] May be a key from the {@link #static-formats static formats},
+	 *  or a format specification as defined by {@link #method-parseFieldSpec parseFieldSpec}
+	 *  and {@link #method-getFieldForTag getFieldForTag}.
+	 * @cfg {boolean} [local=false] Whether dates are local time or UTC
+	 * @cfg {string[]} [fullZones] Time zone indicators. Array of 2 strings, for
 	 *  UTC and local time.
-	 * @param {string[]} [config.shortZones] Abbreviated time zone indicators. Array of 2
+	 * @cfg {string[]} [shortZones] Abbreviated time zone indicators. Array of 2
 	 *  strings, for UTC and local time.
-	 * @param {Date} [config.defaultDate] Default date, for filling unspecified components.
+	 * @cfg {Date} [defaultDate] Default date, for filling unspecified components.
 	 *  Defaults to the current date and time (with 0 milliseconds).
 	 */
 	mw.widgets.datetime.DateTimeFormatter = function MwWidgetsDatetimeDateTimeFormatter( config ) {
 		this.constructor.static.setupDefaults();
 
-		config = Object.assign( {
+		config = $.extend( {
 			format: '@default',
 			local: false,
 			fullZones: this.constructor.static.fullZones,
@@ -67,28 +66,25 @@
 	 *
 	 * @static
 	 * @inheritable
-	 * @type {Object}
-	 * @name mw.widgets.datetime.DateTimeFormatter.formats
+	 * @property {Object}
 	 */
 	mw.widgets.datetime.DateTimeFormatter.static.formats = {};
 
 	/**
-	 * Default time zone indicators.
+	 * Default time zone indicators
 	 *
 	 * @static
 	 * @inheritable
-	 * @type {string[]}
-	 * @name mw.widgets.datetime.DateTimeFormatter.fullZones
+	 * @property {string[]}
 	 */
 	mw.widgets.datetime.DateTimeFormatter.static.fullZones = null;
 
 	/**
-	 * Default abbreviated time zone indicators.
+	 * Default abbreviated time zone indicators
 	 *
 	 * @static
 	 * @inheritable
-	 * @type {string[]}
-	 * @name mw.widgets.datetime.DateTimeFormatter.shortZones
+	 * @property {string[]}
 	 */
 	mw.widgets.datetime.DateTimeFormatter.static.shortZones = null;
 
@@ -115,14 +111,13 @@
 	/**
 	 * A `local` event is emitted when the 'local' flag is changed.
 	 *
-	 * @event mw.widgets.datetime.DateTimeFormatter.local
-	 * @param {boolean} local Whether dates are local time
+	 * @event local
 	 */
 
 	/* Methods */
 
 	/**
-	 * Whether dates are in local time or UTC.
+	 * Whether dates are in local time or UTC
 	 *
 	 * @return {boolean} True if local time
 	 */
@@ -131,12 +126,11 @@
 	};
 
 	/**
-	 * Toggle whether dates are in local time or UTC.
+	 * Toggle whether dates are in local time or UTC
 	 *
 	 * @param {boolean} [flag] Set the flag instead of toggling it
-	 * @fires mw.widgets.datetime.DateTimeFormatter.local
+	 * @fires local
 	 * @chainable
-	 * @return {mw.widgets.datetime.DateTimeFormatter}
 	 */
 	mw.widgets.datetime.DateTimeFormatter.prototype.toggleLocal = function ( flag ) {
 		if ( flag === undefined ) {
@@ -152,7 +146,7 @@
 	};
 
 	/**
-	 * Get the default date.
+	 * Get the default date
 	 *
 	 * @return {Date}
 	 */
@@ -172,7 +166,7 @@
 	};
 
 	/**
-	 * Parse a format string into a field specification.
+	 * Parse a format string into a field specification
 	 *
 	 * The input is a string containing tags formatted as ${tag|param|param...}
 	 * (for editable fields) and $!{tag|param|param...} (for non-editable fields).
@@ -191,9 +185,7 @@
 	 * @return {Array}
 	 */
 	mw.widgets.datetime.DateTimeFormatter.prototype.parseFieldSpec = function ( format ) {
-		let m, last, tag, params, spec;
-
-		const
+		var m, last, tag, params, spec,
 			ret = [],
 			re = /(.*?)(\$(!?)\{([^}]+)\})/g;
 
@@ -225,31 +217,7 @@
 	};
 
 	/**
-	 * @typedef {Object} mw.widgets.datetime.DateTimeFormatter~FieldSpecificationObject
-	 * @property {string|null} component Date component corresponding to this field, if any.
-	 * @property {boolean} editable Whether this field is editable.
-	 * @property {string} type What kind of field this is:
-	 *  - 'static': The field is a static string; component will be null.
-	 *  - 'number': The field is generally numeric.
-	 *  - 'string': The field is generally textual.
-	 *  - 'boolean': The field is a boolean.
-	 *  - 'toggleLocal': The field represents {@link #getLocal this.getLocal()}.
-	 *    Editing should directly call {@link #toggleLocal this.toggleLocal()}.
-	 * @property {boolean} calendarComponent Whether this field is part of a calendar, e.g.
-	 *  part of the date instead of the time.
-	 * @property {number} size Maximum number of characters in the field (when
-	 *  the 'intercalary' component is falsey). If 0, the field should be hidden entirely.
-	 * @property {Object.<string,number>} intercalarySize Map from
-	 *  'intercalary' component values to overridden sizes.
-	 * @property {string} value For type='static', the string to display.
-	 * @property {function(Mixed): string} formatValue A function to format a
-	 *  component value as a display string.
-	 * @property {function(string): Mixed} parseValue A function to parse a
-	 *  display string into a component value. If parsing fails, returns undefined.
-	 */
-
-	/**
-	 * Turn a tag into a field specification object.
+	 * Turn a tag into a field specification object
 	 *
 	 * Fields implemented here are:
 	 * - ${intercalary|X|text}: Text that is only displayed when the 'intercalary'
@@ -265,10 +233,30 @@
 	 * @abstract
 	 * @param {string} tag
 	 * @param {string[]} params
-	 * @return {FieldSpecificationObject} Field specification object, or null if the tag+params are unrecognized.
+	 * @return {Object|null} Field specification object, or null if the tag+params are unrecognized.
+	 * @return {string|null} return.component Date component corresponding to this field, if any.
+	 * @return {boolean} return.editable Whether this field is editable.
+	 * @return {string} return.type What kind of field this is:
+	 *  - 'static': The field is a static string; component will be null.
+	 *  - 'number': The field is generally numeric.
+	 *  - 'string': The field is generally textual.
+	 *  - 'boolean': The field is a boolean.
+	 *  - 'toggleLocal': The field represents {@link #getLocal this.getLocal()}.
+	 *    Editing should directly call {@link #toggleLocal this.toggleLocal()}.
+	 * @return {boolean} return.calendarComponent Whether this field is part of a calendar, e.g.
+	 *  part of the date instead of the time.
+	 * @return {number} return.size Maximum number of characters in the field (when
+	 *  the 'intercalary' component is falsey). If 0, the field should be hidden entirely.
+	 * @return {Object.<string,number>} return.intercalarySize Map from
+	 *  'intercalary' component values to overridden sizes.
+	 * @return {string} return.value For type='static', the string to display.
+	 * @return {function(Mixed): string} return.formatValue A function to format a
+	 *  component value as a display string.
+	 * @return {function(string): Mixed} return.parseValue A function to parse a
+	 *  display string into a component value. If parsing fails, returns undefined.
 	 */
 	mw.widgets.datetime.DateTimeFormatter.prototype.getFieldForTag = function ( tag, params ) {
-		let c, spec = null;
+		var c, spec = null;
 
 		switch ( tag ) {
 			case 'intercalary':
@@ -305,7 +293,7 @@
 							type: 'toggleLocal',
 							size: 5 + c.length,
 							formatValue: function ( v ) {
-								let o, r;
+								var o, r;
 								if ( v ) {
 									o = new Date().getTimezoneOffset();
 									r = String( Math.abs( o ) % 60 );
@@ -322,7 +310,7 @@
 								}
 							},
 							parseValue: function ( v ) {
-								let m;
+								var m;
 								v = String( v ).trim();
 								if ( ( m = /^([+-−])([0-9]{1,2}):?([0-9]{2})$/.test( v ) ) ) {
 									return ( m[ 2 ] * 60 + m[ 3 ] ) * ( m[ 1 ] === '+' ? -1 : 1 );
@@ -345,7 +333,7 @@
 						};
 						spec.size = Math.max.apply(
 							// eslint-disable-next-line no-jquery/no-map-util
-							null, $.map( spec.values, ( v ) => v.length )
+							null, $.map( spec.values, function ( v ) { return v.length; } )
 						);
 						return spec;
 				}
@@ -357,7 +345,7 @@
 	};
 
 	/**
-	 * Format a value for a field specification.
+	 * Format a value for a field specification
 	 *
 	 * 'this' must be the field specification object. The intention is that you
 	 * could just assign this function as the 'formatValue' for each field spec.
@@ -367,7 +355,7 @@
 	 * - zeropad: Whether to pad the number with zeros.
 	 *
 	 * @protected
-	 * @param {any} v
+	 * @param {Mixed} v
 	 * @return {string}
 	 */
 	mw.widgets.datetime.DateTimeFormatter.prototype.formatSpecValue = function ( v ) {
@@ -393,7 +381,7 @@
 	};
 
 	/**
-	 * Parse a value for a field specification.
+	 * Parse a value for a field specification
 	 *
 	 * 'this' must be the field specification object. The intention is that you
 	 * could just assign this function as the 'parseValue' for each field spec.
@@ -406,7 +394,7 @@
 	 * @return {number|string|null}
 	 */
 	mw.widgets.datetime.DateTimeFormatter.prototype.parseSpecValue = function ( v ) {
-		let k;
+		var k, re;
 
 		if ( v === '' ) {
 			return null;
@@ -421,11 +409,12 @@
 			}
 		}
 
+		// eslint-disable-next-line no-restricted-properties
 		if ( v.normalize ) {
+			// eslint-disable-next-line no-restricted-properties
 			v = v.normalize();
 		}
-
-		const re = new RegExp( '^\\s*' + mw.util.escapeRegExp( v ), 'i' );
+		re = new RegExp( '^\\s*' + mw.util.escapeRegExp( v ), 'i' );
 		for ( k in this.values ) {
 			k = +k;
 			if ( !isNaN( k ) && re.test( this.values[ k ] ) ) {
@@ -440,7 +429,7 @@
 	};
 
 	/**
-	 * Get components from a Date object.
+	 * Get components from a Date object
 	 *
 	 * Most specific components are defined by the subclass. "Global" components
 	 * are:
@@ -459,7 +448,7 @@
 	};
 
 	/**
-	 * Get a Date object from components.
+	 * Get a Date object from components
 	 *
 	 * @param {Object} components Date components
 	 * @return {Date}
@@ -470,7 +459,7 @@
 	};
 
 	/**
-	 * Adjust a date.
+	 * Adjust a date
 	 *
 	 * @param {Date|null} date To be adjusted
 	 * @param {string} component To adjust
@@ -487,7 +476,7 @@
 	};
 
 	/**
-	 * Get the column headings (weekday abbreviations) for a calendar grid.
+	 * Get the column headings (weekday abbreviations) for a calendar grid
 	 *
 	 * Null-valued columns are hidden if getCalendarData() returns no "day" object
 	 * for all days in that column.
@@ -501,7 +490,7 @@
 	};
 
 	/**
-	 * Test whether two dates are in the same calendar grid.
+	 * Test whether two dates are in the same calendar grid
 	 *
 	 * @abstract
 	 * @param {Date} date1
@@ -514,7 +503,7 @@
 	};
 
 	/**
-	 * Test whether the date parts of two Dates are equal.
+	 * Test whether the date parts of two Dates are equal
 	 *
 	 * @param {Date} date1
 	 * @param {Date} date2
@@ -537,7 +526,7 @@
 	};
 
 	/**
-	 * Test whether the time parts of two Dates are equal.
+	 * Test whether the time parts of two Dates are equal
 	 *
 	 * @param {Date} date1
 	 * @param {Date} date2
@@ -562,7 +551,7 @@
 	};
 
 	/**
-	 * Test whether toggleLocal() changes the date part.
+	 * Test whether toggleLocal() changes the date part
 	 *
 	 * @param {Date} date
 	 * @return {boolean}
@@ -584,7 +573,7 @@
 	 * @return {Date}
 	 */
 	mw.widgets.datetime.DateTimeFormatter.prototype.mergeDateAndTime = function ( datepart, timepart ) {
-		const ret = new Date( datepart.getTime() );
+		var ret = new Date( datepart.getTime() );
 
 		if ( this.local ) {
 			ret.setHours(
@@ -606,18 +595,7 @@
 	};
 
 	/**
-	 * @typedef {Object} mw.widgets.datetime.DateTimeFormatter~CalendarGridData
-	 * @property {string} header String to display as the calendar header
-	 * @property {string} monthComponent Component to adjust by ±1 to change months.
-	 * @property {string} dayComponent Component to adjust by ±1 to change days.
-	 * @property {string} [weekComponent] Component to adjust by ±1 to change
-	 *   weeks. If omitted, the dayComponent should be adjusted by ±the number of
-	 *   non-nullable columns returned by this.getCalendarHeadings() to change weeks.
-	 * @property {Array} rows Array of arrays of "day" objects or null/undefined.
-	 */
-
-	/**
-	 * Get data for a calendar grid.
+	 * Get data for a calendar grid
 	 *
 	 * A "day" object is:
 	 * - display: {string} Display text for the day.
@@ -629,7 +607,14 @@
 	 *
 	 * @abstract
 	 * @param {Date|null} current Current date
-	 * @return {CalendarGridData} Data
+	 * @return {Object} Data
+	 * @return {string} return.header String to display as the calendar header
+	 * @return {string} return.monthComponent Component to adjust by ±1 to change months.
+	 * @return {string} return.dayComponent Component to adjust by ±1 to change days.
+	 * @return {string} [return.weekComponent] Component to adjust by ±1 to change
+	 *   weeks. If omitted, the dayComponent should be adjusted by ±the number of
+	 *   non-nullable columns returned by this.getCalendarHeadings() to change weeks.
+	 * @return {Array} return.rows Array of arrays of "day" objects or null/undefined.
 	 */
 	mw.widgets.datetime.DateTimeFormatter.prototype.getCalendarData = function ( /* components */ ) {
 		// Should be overridden by subclass

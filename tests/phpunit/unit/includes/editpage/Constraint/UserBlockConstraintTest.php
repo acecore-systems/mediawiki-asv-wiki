@@ -21,8 +21,6 @@
 use MediaWiki\EditPage\Constraint\IEditConstraint;
 use MediaWiki\EditPage\Constraint\UserBlockConstraint;
 use MediaWiki\Permissions\PermissionManager;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
 
 /**
  * Tests the UserBlockConstraint

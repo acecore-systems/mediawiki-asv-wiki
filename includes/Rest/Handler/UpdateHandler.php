@@ -2,14 +2,15 @@
 
 namespace MediaWiki\Rest\Handler;
 
-use MediaWiki\Api\IApiMessage;
-use MediaWiki\Content\TextContent;
-use MediaWiki\Json\FormatJson;
-use MediaWiki\ParamValidator\TypeDef\ArrayDef;
+use FormatJson;
+use IApiMessage;
+use MediaWiki\Rest\HttpException;
 use MediaWiki\Rest\LocalizedHttpException;
+use MediaWiki\Rest\Validator\JsonBodyValidator;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\SlotRecord;
-use MediaWiki\Utils\MWTimestamp;
+use MWTimestamp;
+use TextContent;
 use Wikimedia\Message\MessageValue;
 use Wikimedia\ParamValidator\ParamValidator;
 
@@ -49,14 +50,21 @@ class UpdateHandler extends EditHandler {
 				ParamValidator::PARAM_TYPE => 'string',
 				ParamValidator::PARAM_REQUIRED => true,
 			],
-		] + parent::getParamSettings();
+		];
 	}
 
 	/**
 	 * @inheritDoc
 	 */
-	public function getBodyParamSettings(): array {
-		return [
+	public function getBodyValidator( $contentType ) {
+		if ( $contentType !== 'application/json' ) {
+			throw new HttpException( "Unsupported Content-Type",
+				415,
+				[ 'content_type' => $contentType ]
+			);
+		}
+
+		return new JsonBodyValidator( [
 			'source' => [
 				self::PARAM_SOURCE => 'body',
 				ParamValidator::PARAM_TYPE => 'string',
@@ -76,12 +84,8 @@ class UpdateHandler extends EditHandler {
 				self::PARAM_SOURCE => 'body',
 				ParamValidator::PARAM_TYPE => 'array',
 				ParamValidator::PARAM_REQUIRED => false,
-				ArrayDef::PARAM_SCHEMA => ArrayDef::makeObjectSchema(
-					[ 'id' => 'integer' ],
-					[ 'timestamp' => 'string' ], // from GET response, will be ignored
-				),
 			],
-		] + $this->getTokenParamDefinition();
+		] + $this->getTokenParamDefinition() );
 	}
 
 	/**
@@ -89,7 +93,6 @@ class UpdateHandler extends EditHandler {
 	 */
 	protected function getActionModuleParameters() {
 		$body = $this->getValidatedBody();
-		'@phan-var array $body';
 
 		$title = $this->getTitleParameter();
 		$baseRevId = $body['latest']['id'] ?? 0;
@@ -102,9 +105,7 @@ class UpdateHandler extends EditHandler {
 			);
 		}
 
-		// Use a known good CSRF token if a token is not needed because we are
-		// using a method of authentication that protects against CSRF, like OAuth.
-		$token = $this->needsToken() ? $this->getToken() : $this->getUser()->getEditToken();
+		$token = $this->getToken() ?? $this->getUser()->getEditToken();
 
 		$params = [
 			'action' => 'edit',
@@ -185,7 +186,6 @@ class UpdateHandler extends EditHandler {
 	 */
 	private function getConflictData() {
 		$body = $this->getValidatedBody();
-		'@phan-var array $body';
 		$baseRevId = $body['latest']['id'] ?? 0;
 		$title = $this->titleParser->parseTitle( $this->getValidatedParams()['title'] );
 

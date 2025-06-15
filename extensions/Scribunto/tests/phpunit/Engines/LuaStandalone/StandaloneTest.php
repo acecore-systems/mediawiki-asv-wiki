@@ -1,13 +1,6 @@
 <?php
 
-namespace MediaWiki\Extension\Scribunto\Tests\Engines\LuaStandalone;
-
-use MediaWiki\Extension\Scribunto\Tests\Engines\LuaCommon\LuaEngineUnitTestBase;
-
-/**
- * @covers \MediaWiki\Extension\Scribunto\Engines\LuaStandalone\LuaStandaloneEngine
- */
-class StandaloneTest extends LuaEngineUnitTestBase {
+class LuaStandaloneTest extends Scribunto_LuaEngineUnitTestBase {
 	/** @inheritDoc */
 	protected static $moduleName = 'StandaloneTests';
 

@@ -24,7 +24,7 @@ namespace MediaWiki\ResourceLoader;
 
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Title\TitleValue;
+use TitleValue;
 
 /**
  * Module for user customizations styles.
@@ -34,8 +34,8 @@ use MediaWiki\Title\TitleValue;
  */
 class UserStylesModule extends WikiModule {
 
-	/** @inheritDoc */
 	protected $origin = self::ORIGIN_USER_INDIVIDUAL;
+	protected $targets = [ 'desktop', 'mobile' ];
 
 	/**
 	 * @param Context $context
@@ -43,8 +43,7 @@ class UserStylesModule extends WikiModule {
 	 */
 	protected function getPages( Context $context ) {
 		$user = $context->getUserIdentity();
-		$tempUserConfig = MediaWikiServices::getInstance()->getTempUserConfig();
-		if ( !$user || !$user->isRegistered() || $tempUserConfig->isTempName( $user->getName() ) ) {
+		if ( !$user || !$user->isRegistered() ) {
 			return [];
 		}
 
@@ -90,3 +89,6 @@ class UserStylesModule extends WikiModule {
 		return self::GROUP_USER;
 	}
 }
+
+/** @deprecated since 1.39 */
+class_alias( UserStylesModule::class, 'ResourceLoaderUserStylesModule' );

@@ -24,8 +24,8 @@
 
 namespace MediaWiki\Extension\SpamBlacklist;
 
-use MediaWiki\Api\ApiBase;
-use MediaWiki\Api\ApiResult;
+use ApiBase;
+use ApiResult;
 use Wikimedia\ParamValidator\ParamValidator;
 
 /**

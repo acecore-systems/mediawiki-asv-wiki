@@ -18,8 +18,6 @@
  * @file
  */
 
-use MediaWiki\Language\Language;
-
 /**
  * English-specific code.
  *

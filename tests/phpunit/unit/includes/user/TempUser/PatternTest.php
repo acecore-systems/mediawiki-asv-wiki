@@ -4,14 +4,13 @@ namespace MediaWiki\Tests\User\TempUser;
 
 use MediaWiki\User\TempUser\Pattern;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 /**
  * @covers \MediaWiki\User\TempUser\Pattern
  */
 class PatternTest extends TestCase {
 	public function testInvalid() {
-		$this->expectException( RuntimeException::class );
+		$this->expectException( \MWException::class );
 		$pattern = new Pattern( 'test', 'test' );
 		$pattern->isMatch( 'test' );
 	}
@@ -91,18 +90,5 @@ class PatternTest extends TestCase {
 	public function testGenerate( $stringPattern, $serial, $expected ) {
 		$pattern = new Pattern( 'test', $stringPattern );
 		$this->assertSame( $expected, $pattern->generate( $serial ) );
-	}
-
-	public function testGenerateWithYear() {
-		$pattern = new Pattern( 'test', '*$1*' );
-		$this->assertSame(
-			'*2000-123*',
-			$pattern->generate( '123', '2000' )
-		);
-	}
-
-	public function testToString() {
-		$pattern = new Pattern( 'test', '*$1' );
-		$this->assertSame( '*$1', (string)$pattern );
 	}
 }

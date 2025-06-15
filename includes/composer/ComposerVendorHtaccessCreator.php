@@ -18,8 +18,6 @@
  *
  */
 
-namespace MediaWiki\Composer;
-
 /**
  * Creates a .htaccess in the vendor/ directory
  * to prevent web access.

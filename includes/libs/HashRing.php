@@ -41,7 +41,7 @@
  *
  * @since 1.22
  */
-class HashRing {
+class HashRing implements Serializable {
 	/** @var string Hashing algorithm for hash() */
 	protected $algo;
 	/** @var int[] Non-empty (location => integer weight) */
@@ -120,6 +120,7 @@ class HashRing {
 	 * @param int $limit Maximum number of locations to return
 	 * @param int $from One of the RING_* class constants
 	 * @return string[] List of locations
+	 * @throws InvalidArgumentException
 	 * @throws UnexpectedValueException
 	 */
 	public function getLocations( $item, $limit, $from = self::RING_ALL ) {
@@ -410,7 +411,7 @@ class HashRing {
 			if ( count( $this->ejectExpiryByLocation ) ) {
 				// Some locations are still ejected from the ring
 				$liveRing = [];
-				foreach ( $this->baseRing as $nodeInfo ) {
+				foreach ( $this->baseRing as $i => $nodeInfo ) {
 					$location = $nodeInfo[self::KEY_LOCATION];
 					if ( !isset( $this->ejectExpiryByLocation[$location] ) ) {
 						$liveRing[] = $nodeInfo;
@@ -437,6 +438,10 @@ class HashRing {
 		return time();
 	}
 
+	public function serialize(): string {
+		return serialize( $this->__serialize() );
+	}
+
 	public function __serialize() {
 		return [
 			'algorithm' => $this->algo,
@@ -445,9 +450,13 @@ class HashRing {
 		];
 	}
 
+	public function unserialize( $serialized ): void {
+		$this->__unserialize( unserialize( $serialized ) );
+	}
+
 	public function __unserialize( $data ) {
 		if ( is_array( $data ) ) {
-			$this->init( $data['locations'] ?? [], $data['algorithm'] ?? 'sha1', $data['ejections'] ?? [] );
+			$this->init( $data['locations'], $data['algorithm'], $data['ejections'] );
 		} else {
 			throw new UnexpectedValueException( __METHOD__ . ": unable to decode JSON." );
 		}

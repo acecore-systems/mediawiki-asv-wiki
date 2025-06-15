@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel CheckListNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -45,7 +45,7 @@ ve.dm.CheckListNode.static.createItem = function () {
 };
 
 ve.dm.CheckListNode.static.toDomElements = function ( dataElement, doc ) {
-	const list = doc.createElement( 'ul' );
+	var list = doc.createElement( 'ul' );
 	list.setAttribute( 'rel', 've:checkList' );
 	return [ list ];
 };

@@ -26,7 +26,5 @@
 	"syntaxhighlight-visualeditor-mwsyntaxhighlightinspector-title": "Segmento de código",
 	"syntaxhighlight-error-pygments-invocation-failure": "Error al invocar Pygments",
 	"syntaxhighlight-error-unknown-language": "Lenguaje desconocido \"$1\"",
-	"syntaxhighlight-error-exceeds-size-limit": "El tamaño del código ($1 {{PLURAL:$1|bytes}}) supera el máximo permitido ($2 {{PLURAL:$2|bytes}})",
-	"syntaxhighlight-button-copy": "Copiar",
-	"syntaxhighlight-button-copied": "¡Copiado!"
+	"syntaxhighlight-error-exceeds-size-limit": "El tamaño del código ($1 {{PLURAL:$1|bytes}}) supera el máximo permitido ($2 {{PLURAL:$2|bytes}})"
 }

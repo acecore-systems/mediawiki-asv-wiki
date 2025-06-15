@@ -1,17 +1,17 @@
 /**
- * A widget representing a single toggle filter.
+ * A widget representing a single toggle filter
  *
  * @class mw.rcfilters.ui.CheckboxInputWidget
- * @ignore
  * @extends OO.ui.CheckboxInputWidget
  *
+ * @constructor
  * @param {Object} config Configuration object
  */
-const CheckboxInputWidget = function MwRcfiltersUiCheckboxInputWidget( config ) {
+var CheckboxInputWidget = function MwRcfiltersUiCheckboxInputWidget( config ) {
 	config = config || {};
 
 	// Parent
-	CheckboxInputWidget.super.call( this, config );
+	CheckboxInputWidget.parent.call( this, config );
 
 	// Event
 	this.$input
@@ -33,11 +33,10 @@ OO.inheritClass( CheckboxInputWidget, OO.ui.CheckboxInputWidget );
 /* Events */
 
 /**
- * The user has checked or unchecked this checkbox.
- *
  * @event userChange
  * @param {boolean} Current state of the checkbox
- * @ignore
+ *
+ * The user has checked or unchecked this checkbox
  */
 
 /* Methods */

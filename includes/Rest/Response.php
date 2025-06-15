@@ -6,45 +6,31 @@ use HttpStatus;
 use Psr\Http\Message\StreamInterface;
 
 class Response implements ResponseInterface {
+	/** @var int */
+	private $statusCode = 200;
 
-	private int $statusCode = 200;
-	private string $reasonPhrase = 'OK';
-	private string $protocolVersion = '1.1';
-	private StreamInterface $body;
-	private HeaderContainer $headerContainer;
-	private array $cookies = [];
+	/** @var string */
+	private $reasonPhrase = 'OK';
+
+	/** @var string */
+	private $protocolVersion = '1.1';
+
+	/** @var StreamInterface */
+	private $body;
+
+	/** @var HeaderContainer */
+	private $headerContainer;
+
+	/** @var array */
+	private $cookies = [];
 
 	/**
-	 * @param string|StreamInterface $body
-	 *
 	 * @internal Use ResponseFactory
+	 * @param string $bodyContents
 	 */
-	public function __construct( $body = '' ) {
-		if ( is_string( $body ) ) {
-			$body = new StringStream( $body );
-		}
-
-		$this->body = $body;
+	public function __construct( $bodyContents = '' ) {
+		$this->body = new StringStream( $bodyContents );
 		$this->headerContainer = new HeaderContainer;
-	}
-
-	/**
-	 * @internal for backwards compatibility code
-	 */
-	public static function cast( ResponseInterface $iResponse ): Response {
-		if ( $iResponse instanceof Response ) {
-			return $iResponse;
-		}
-
-		$resp = new Response(
-			$iResponse->getBody()
-		);
-
-		foreach ( $iResponse->getHeaders() as $name => $values ) {
-			$resp->setHeader( $name, $values );
-		}
-
-		return $resp;
 	}
 
 	public function getStatusCode() {

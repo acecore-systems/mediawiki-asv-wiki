@@ -1,7 +1,6 @@
 /**
  * Irish (Gaeilge) language functions
  */
-
 ( function ( $ ) {
 	'use strict';
 

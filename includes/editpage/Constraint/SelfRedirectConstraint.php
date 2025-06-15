@@ -20,7 +20,7 @@
 
 namespace MediaWiki\EditPage\Constraint;
 
-use MediaWiki\Content\Content;
+use Content;
 use MediaWiki\Linker\LinkTarget;
 use StatusValue;
 
@@ -34,11 +34,20 @@ use StatusValue;
  */
 class SelfRedirectConstraint implements IEditConstraint {
 
-	private bool $allowSelfRedirect;
-	private Content $newContent;
-	private Content $originalContent;
-	private LinkTarget $title;
-	private string $result;
+	/** @var bool */
+	private $allowSelfRedirect;
+
+	/** @var Content */
+	private $newContent;
+
+	/** @var Content */
+	private $originalContent;
+
+	/** @var LinkTarget */
+	private $title;
+
+	/** @var string|null */
+	private $result;
 
 	/**
 	 * @param bool $allowSelfRedirect

@@ -4,18 +4,18 @@ namespace MediaWiki\Extension\AbuseFilter\Consequences;
 
 use MediaWiki\Block\BlockUser;
 use MediaWiki\Config\ServiceOptions;
-use MediaWiki\Extension\AbuseFilter\ActionSpecifier;
 use MediaWiki\Extension\AbuseFilter\Consequences\Consequence\Block;
 use MediaWiki\Extension\AbuseFilter\Consequences\Consequence\Consequence;
 use MediaWiki\Extension\AbuseFilter\Consequences\Consequence\ConsequencesDisablerConsequence;
 use MediaWiki\Extension\AbuseFilter\Consequences\Consequence\HookAborterConsequence;
 use MediaWiki\Extension\AbuseFilter\FilterLookup;
 use MediaWiki\Extension\AbuseFilter\GlobalNameUtils;
+use MediaWiki\Extension\AbuseFilter\Variables\UnsetVariableException;
 use MediaWiki\Extension\AbuseFilter\Variables\VariableHolder;
-use MediaWiki\Message\Message;
-use MediaWiki\Status\Status;
-use MediaWiki\User\UserIdentityUtils;
+use MediaWiki\Linker\LinkTarget;
+use MediaWiki\User\UserIdentity;
 use Psr\Log\LoggerInterface;
+use Status;
 
 class ConsequencesExecutor {
 	public const CONSTRUCTOR_OPTIONS = [
@@ -35,12 +35,12 @@ class ConsequencesExecutor {
 	private $filterLookup;
 	/** @var LoggerInterface */
 	private $logger;
-	/** @var UserIdentityUtils */
-	private $userIdentityUtils;
 	/** @var ServiceOptions */
 	private $options;
-	/** @var ActionSpecifier */
-	private $specifier;
+	/** @var UserIdentity */
+	private $user;
+	/** @var LinkTarget */
+	private $title;
 	/** @var VariableHolder */
 	private $vars;
 
@@ -50,9 +50,9 @@ class ConsequencesExecutor {
 	 * @param ConsequencesRegistry $consRegistry
 	 * @param FilterLookup $filterLookup
 	 * @param LoggerInterface $logger
-	 * @param UserIdentityUtils $userIdentityUtils
 	 * @param ServiceOptions $options
-	 * @param ActionSpecifier $specifier
+	 * @param UserIdentity $user
+	 * @param LinkTarget $title
 	 * @param VariableHolder $vars
 	 */
 	public function __construct(
@@ -61,9 +61,9 @@ class ConsequencesExecutor {
 		ConsequencesRegistry $consRegistry,
 		FilterLookup $filterLookup,
 		LoggerInterface $logger,
-		UserIdentityUtils $userIdentityUtils,
 		ServiceOptions $options,
-		ActionSpecifier $specifier,
+		UserIdentity $user,
+		LinkTarget $title,
 		VariableHolder $vars
 	) {
 		$this->consLookup = $consLookup;
@@ -71,10 +71,10 @@ class ConsequencesExecutor {
 		$this->consRegistry = $consRegistry;
 		$this->filterLookup = $filterLookup;
 		$this->logger = $logger;
-		$this->userIdentityUtils = $userIdentityUtils;
 		$options->assertRequiredOptions( self::CONSTRUCTOR_OPTIONS );
 		$this->options = $options;
-		$this->specifier = $specifier;
+		$this->user = $user;
+		$this->title = $title;
 		$this->vars = $vars;
 	}
 
@@ -84,7 +84,7 @@ class ConsequencesExecutor {
 	 * @param string[] $filters
 	 * @return Status returns the operation's status. $status->isOK() will return true if
 	 *         there were no actions taken, false otherwise. $status->getValue() will return
-	 *         an array listing the actions taken. $status->getMessages() will provide
+	 *         an array listing the actions taken. $status->getErrors() etc. will provide
 	 *         the errors and warnings to be shown to the user to explain the actions.
 	 */
 	public function executeFilterActions( array $filters ): Status {
@@ -161,13 +161,11 @@ class ConsequencesExecutor {
 	 * @return array[]
 	 */
 	private function specializeParameters( array $consParams ): array {
-		$user = $this->specifier->getUser();
-		$isNamed = $this->userIdentityUtils->isNamed( $user );
 		foreach ( $consParams as $filter => $actions ) {
 			foreach ( $actions as $name => $parameters ) {
 				if ( $name === 'block' ) {
 					$consParams[$filter][$name] = [
-						'expiry' => $isNamed ? $parameters[2] : $parameters[1],
+						'expiry' => $this->user->isRegistered() ? $parameters[2] : $parameters[1],
 						'blocktalk' => $parameters[0] === 'blocktalk'
 					];
 				}
@@ -328,13 +326,15 @@ class ConsequencesExecutor {
 		$baseConsParams = new Parameters(
 			$filterObj,
 			$isGlobalFilter,
-			$this->specifier
+			$this->user,
+			$this->title,
+			$this->vars->getComputedVariable( 'action' )->toString()
 		);
 
 		switch ( $actionName ) {
 			case 'throttle':
 				$throttleId = array_shift( $rawParams );
-				[ $rateCount, $ratePeriod ] = explode( ',', array_shift( $rawParams ) );
+				list( $rateCount, $ratePeriod ) = explode( ',', array_shift( $rawParams ) );
 
 				$throttleParams = [
 					'id' => $throttleId,
@@ -362,7 +362,13 @@ class ConsequencesExecutor {
 					$rawParams['blocktalk']
 				);
 			case 'tag':
-				return $this->consFactory->newTag( $baseConsParams, $rawParams );
+				try {
+					// The variable is not lazy-loaded
+					$accountName = $this->vars->getComputedVariable( 'accountname' )->toNative();
+				} catch ( UnsetVariableException $_ ) {
+					$accountName = null;
+				}
+				return $this->consFactory->newTag( $baseConsParams, $accountName, $rawParams );
 			default:
 				if ( array_key_exists( $actionName, $this->consRegistry->getCustomActions() ) ) {
 					$callback = $this->consRegistry->getCustomActions()[$actionName];
@@ -376,13 +382,14 @@ class ConsequencesExecutor {
 
 	/**
 	 * @param Consequence $consequence
-	 * @return array [ executed (bool), message (?Message) ]
-	 * @phan-return array{0:bool, 1:?Message}
+	 * @return array [ Executed (bool), Message (?array) ] The message is given as an array
+	 *   containing the message key followed by any message parameters.
+	 * @todo Improve return value
 	 */
 	private function takeConsequenceAction( Consequence $consequence ): array {
 		$res = $consequence->execute();
 		if ( $res && $consequence instanceof HookAborterConsequence ) {
-			$message = Message::newFromSpecifier( $consequence->getMessage() );
+			$message = $consequence->getMessage();
 		}
 
 		return [ $res, $message ?? null ];
@@ -394,7 +401,8 @@ class ConsequencesExecutor {
 	 *
 	 * @param array[] $actionsTaken associative array mapping each filter to the list if
 	 *                actions taken because of that filter.
-	 * @param Message[] $messages a list of Message objects
+	 * @param array[] $messages a list of arrays, where each array contains a message key
+	 *                followed by any message parameters.
 	 *
 	 * @return Status
 	 */
@@ -402,7 +410,7 @@ class ConsequencesExecutor {
 		$status = Status::newGood( $actionsTaken );
 
 		foreach ( $messages as $msg ) {
-			$status->fatal( $msg );
+			$status->fatal( ...$msg );
 		}
 
 		return $status;

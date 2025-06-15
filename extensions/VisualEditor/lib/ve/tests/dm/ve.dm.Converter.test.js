@@ -1,26 +1,24 @@
 /*!
  * VisualEditor DataModel Converter tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.dm.Converter' );
 
 /* Tests */
 
-QUnit.test( 'getModelFromDom', ( assert ) => {
-	const cases = ve.dm.example.domToDataCases;
+QUnit.test( 'getModelFromDom', function ( assert ) {
+	var cases = ve.dm.example.domToDataCases;
 
-	for ( const msg in cases ) {
-		const caseItem = ve.copy( cases[ msg ] );
-		caseItem.base = caseItem.base || ve.dm.example.baseUri;
-		ve.test.utils.runGetModelFromDomTest( assert, caseItem, msg );
+	for ( var msg in cases ) {
+		ve.test.utils.runGetModelFromDomTest( assert, ve.copy( cases[ msg ] ), msg );
 	}
 } );
 
-QUnit.test( 'getModelFromDom with store argument', ( assert ) => {
-	const store = new ve.dm.HashValueStore();
-	const model = ve.dm.converter.getModelFromDom(
+QUnit.test( 'getModelFromDom with store argument', function ( assert ) {
+	var store = new ve.dm.HashValueStore();
+	var model = ve.dm.converter.getModelFromDom(
 		ve.createDocumentFromHtml( '<p>foo</p>' ),
 		{ lang: 'en', dir: 'ltr' },
 		store
@@ -28,18 +26,16 @@ QUnit.test( 'getModelFromDom with store argument', ( assert ) => {
 	assert.strictEqual( model.getStore(), store, 'Document store is reference-equal to store argument' );
 } );
 
-QUnit.test( 'getDomFromModel', ( assert ) => {
-	const cases = ve.dm.example.domToDataCases;
+QUnit.test( 'getDomFromModel', function ( assert ) {
+	var cases = ve.dm.example.domToDataCases;
 
-	for ( const msg in cases ) {
-		const caseItem = ve.copy( cases[ msg ] );
-		caseItem.base = caseItem.base || ve.dm.example.baseUri;
-		ve.test.utils.runGetDomFromModelTest( assert, caseItem, msg );
+	for ( var msg in cases ) {
+		ve.test.utils.runGetDomFromModelTest( assert, ve.copy( cases[ msg ] ), msg );
 	}
 } );
 
-QUnit.test( 'getFullData', ( assert ) => {
-	const cases = [
+QUnit.test( 'getFullData', function ( assert ) {
+	var cases = [
 		{
 			msg: 'Metadata in ContentBranchNode gets moved outside by any change',
 			beforeHtml: '<p>x</p><!-- w --><meta foo="x"><p>ab<meta foo="y">cd</p><p>ef<meta foo="z">gh</p>',
@@ -80,8 +76,8 @@ QUnit.test( 'getFullData', ( assert ) => {
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
-		const doc = ve.dm.converter.getModelFromDom( ve.createDocumentFromHtml( caseItem.beforeHtml ) ),
+	cases.forEach( function ( caseItem ) {
+		var doc = ve.dm.converter.getModelFromDom( ve.createDocumentFromHtml( caseItem.beforeHtml ) ),
 			tx = caseItem.transaction( doc );
 
 		doc.commit( tx );
@@ -100,12 +96,12 @@ QUnit.test( 'getFullData', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'roundTripMetadata', ( assert ) => {
-	const beforeHtml = '<!-- w --><meta foo="x"><p>ab<meta foo="y">cd</p><p>ef<meta foo="z">gh</p>',
+QUnit.test( 'roundTripMetadata', function ( assert ) {
+	var beforeHtml = '<!-- w --><meta foo="x"><p>ab<meta foo="y">cd</p><p>ef<meta foo="z">gh</p>',
 		afterHtml = '<!-- w --><meta foo="x"><p>abc</p><meta foo="y"><p>ef<meta foo="z">gh</p>';
 
-	const doc = ve.dm.converter.getModelFromDom( ve.createDocumentFromHtml( beforeHtml ) );
-	const tx = ve.dm.TransactionBuilder.static.newFromRemoval( doc, new ve.Range( 10, 11 ) );
+	var doc = ve.dm.converter.getModelFromDom( ve.createDocumentFromHtml( beforeHtml ) );
+	var tx = ve.dm.TransactionBuilder.static.newFromRemoval( doc, new ve.Range( 10, 11 ) );
 	doc.commit( tx );
 	assert.strictEqual(
 		ve.dm.converter.getDomFromModel( doc ).body.innerHTML,

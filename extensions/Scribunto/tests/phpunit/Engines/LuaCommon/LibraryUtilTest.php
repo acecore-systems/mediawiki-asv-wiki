@@ -1,11 +1,6 @@
 <?php
 
-namespace MediaWiki\Extension\Scribunto\Tests\Engines\LuaCommon;
-
-/**
- * @coversNothing
- */
-class LibraryUtilTest extends LuaEngineUnitTestBase {
+class Scribunto_LuaLibraryUtilTest extends Scribunto_LuaEngineUnitTestBase {
 	/** @inheritDoc */
 	protected static $moduleName = 'LibraryUtilTests';
 

@@ -1,5 +1,7 @@
 <?php
 /**
+ * Trait for issuing warnings on deprecated access.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -18,14 +20,7 @@
  * @file
  */
 
-namespace MediaWiki\Debug;
-
-use ReflectionFunction;
-use ReflectionProperty;
-
 /**
- * Trait for issuing warnings on deprecated access.
- *
  * Use this trait in classes which have properties for which public access
  * is deprecated or implementation has been moved to another class.
  * Set the list of properties in $deprecatedPublicProperties
@@ -73,7 +68,7 @@ trait DeprecationHelper {
 	 * E.g. [ 'mNewRev' => [ '1.32', 'DifferenceEngine', null ]
 	 * @var string[][]
 	 */
-	protected static $deprecatedPublicProperties = [];
+	protected $deprecatedPublicProperties = [];
 
 	/**
 	 * Whether to emit a deprecation warning when unknown properties are accessed.
@@ -102,10 +97,7 @@ trait DeprecationHelper {
 		$class = null,
 		$component = null
 	) {
-		if ( isset( self::$deprecatedPublicProperties[$property] ) ) {
-			return;
-		}
-		self::$deprecatedPublicProperties[$property] = [
+		$this->deprecatedPublicProperties[$property] = [
 			$version,
 			$class ?: __CLASS__,
 			$component,
@@ -138,10 +130,7 @@ trait DeprecationHelper {
 		$class = null,
 		$component = null
 	) {
-		if ( isset( self::$deprecatedPublicProperties[$property] ) ) {
-			return;
-		}
-		self::$deprecatedPublicProperties[$property] = [
+		$this->deprecatedPublicProperties[$property] = [
 			$version,
 			$class ?: __CLASS__,
 			null,
@@ -161,8 +150,8 @@ trait DeprecationHelper {
 	 */
 	protected function deprecateDynamicPropertiesAccess(
 		string $version,
-		?string $class = null,
-		?string $component = null
+		string $class = null,
+		string $component = null
 	) {
 		$this->dynamicPropertiesAccessDeprecated = [ $version, $class ?: __CLASS__, $component ];
 	}
@@ -171,8 +160,8 @@ trait DeprecationHelper {
 		// Overriding magic __isset is required not only for isset() and empty(),
 		// but to correctly support null coalescing for dynamic properties,
 		// e.g. $foo->bar ?? 'default'
-		if ( isset( self::$deprecatedPublicProperties[$name] ) ) {
-			[ $version, $class, $component, $getter ] = self::$deprecatedPublicProperties[$name];
+		if ( isset( $this->deprecatedPublicProperties[$name] ) ) {
+			list( $version, $class, $component, $getter ) = $this->deprecatedPublicProperties[$name];
 			$qualifiedName = $class . '::$' . $name;
 			wfDeprecated( $qualifiedName, $version, $component, 2 );
 			if ( $getter ) {
@@ -196,15 +185,8 @@ trait DeprecationHelper {
 	}
 
 	public function __get( $name ) {
-		if ( get_object_vars( $this ) === [] ) {
-			// Object is being destructed, all bets are off (T363492);
-			// in particular, we can't check $this->dynamicPropertiesAccessDeprecated anymore.
-			// Just get the property and hope for the best...
-			return $this->$name;
-		}
-
-		if ( isset( self::$deprecatedPublicProperties[$name] ) ) {
-			[ $version, $class, $component, $getter ] = self::$deprecatedPublicProperties[$name];
+		if ( isset( $this->deprecatedPublicProperties[$name] ) ) {
+			list( $version, $class, $component, $getter ) = $this->deprecatedPublicProperties[$name];
 			$qualifiedName = $class . '::$' . $name;
 			wfDeprecated( $qualifiedName, $version, $component, 2 );
 			if ( $getter ) {
@@ -232,16 +214,8 @@ trait DeprecationHelper {
 	}
 
 	public function __set( $name, $value ) {
-		if ( get_object_vars( $this ) === [] ) {
-			// Object is being destructed, all bets are off (T363492);
-			// in particular, we can't check $this->dynamicPropertiesAccessDeprecated anymore.
-			// Just set the property and hope for the best...
-			$this->$name = $value;
-			return;
-		}
-
-		if ( isset( self::$deprecatedPublicProperties[$name] ) ) {
-			[ $version, $class, $component, , $setter ] = self::$deprecatedPublicProperties[$name];
+		if ( isset( $this->deprecatedPublicProperties[$name] ) ) {
+			list( $version, $class, $component, , $setter ) = $this->deprecatedPublicProperties[$name];
 			$qualifiedName = $class . '::$' . $name;
 			wfDeprecated( $qualifiedName, $version, $component, 2 );
 			if ( $setter ) {
@@ -300,8 +274,6 @@ trait DeprecationHelper {
 	private function deprecationHelperCallGetter( $getter ) {
 		if ( is_string( $getter ) ) {
 			$getter = [ $this, $getter ];
-		} elseif ( ( new ReflectionFunction( $getter ) )->getClosureThis() !== null ) {
-			$getter = $getter->bindTo( $this );
 		}
 		return $getter();
 	}
@@ -309,11 +281,7 @@ trait DeprecationHelper {
 	private function deprecationHelperCallSetter( $setter, $value ) {
 		if ( is_string( $setter ) ) {
 			$setter = [ $this, $setter ];
-		} elseif ( ( new ReflectionFunction( $setter ) )->getClosureThis() !== null ) {
-			$setter = $setter->bindTo( $this );
 		}
 		$setter( $value );
 	}
 }
-/** @deprecated class alias since 1.43 */
-class_alias( DeprecationHelper::class, 'DeprecationHelper' );

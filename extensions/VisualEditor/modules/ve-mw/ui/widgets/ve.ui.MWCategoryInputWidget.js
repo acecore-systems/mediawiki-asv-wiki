@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface MWCategoryInputWidget class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -10,13 +10,13 @@
  *
  * @class
  * @extends OO.ui.TextInputWidget
- * @mixes OO.ui.mixin.LookupElement
+ * @mixins OO.ui.mixin.LookupElement
  *
  * @constructor
  * @param {ve.ui.MWCategoryWidget} categoryWidget
  * @param {Object} [config] Configuration options
- * @param {jQuery} [config.$overlay] Overlay to render dropdowns in
- * @param {mw.Api} [config.api] API object to use, uses Target#getContentApi if not specified
+ * @cfg {jQuery} [$overlay] Overlay to render dropdowns in
+ * @cfg {mw.Api} [api] API object to use, uses Target#getContentApi if not specified
  */
 ve.ui.MWCategoryInputWidget = function VeUiMWCategoryInputWidget( categoryWidget, config ) {
 	// Config initialization
@@ -51,9 +51,8 @@ OO.mixinClass( ve.ui.MWCategoryInputWidget, OO.ui.mixin.LookupElement );
 /* Events */
 
 /**
+ * @event choose
  * A category was chosen
- *
- * @event ve.ui.MWCategoryInputWidget#choose
  * @param {OO.ui.MenuOptionWidget} item Chosen item
  */
 
@@ -63,7 +62,7 @@ OO.mixinClass( ve.ui.MWCategoryInputWidget, OO.ui.mixin.LookupElement );
  * @inheritdoc
  */
 ve.ui.MWCategoryInputWidget.prototype.getLookupRequest = function () {
-	let title = mw.Title.newFromText( this.value );
+	var title = mw.Title.newFromText( this.value );
 	if ( title && title.getNamespaceId() === mw.config.get( 'wgNamespaceIds' ).category ) {
 		title = title.getMainText();
 	} else {
@@ -83,11 +82,11 @@ ve.ui.MWCategoryInputWidget.prototype.getLookupRequest = function () {
  * @inheritdoc
  */
 ve.ui.MWCategoryInputWidget.prototype.getLookupCacheDataFromResponse = function ( data ) {
-	const result = [],
+	var result = [],
 		linkCacheUpdate = {},
 		query = data.query || {};
 
-	( query.pages || [] ).forEach( ( categoryPage ) => {
+	( query.pages || [] ).forEach( function ( categoryPage ) {
 		result.push( mw.Title.newFromText( categoryPage.title ).getMainText() );
 		linkCacheUpdate[ categoryPage.title ] = {
 			missing: Object.prototype.hasOwnProperty.call( categoryPage, 'missing' ),
@@ -98,7 +97,7 @@ ve.ui.MWCategoryInputWidget.prototype.getLookupCacheDataFromResponse = function 
 		};
 	} );
 
-	( query.redirects || [] ).forEach( ( redirect ) => {
+	( query.redirects || [] ).forEach( function ( redirect ) {
 		if ( !Object.prototype.hasOwnProperty.call( linkCacheUpdate, redirect.to ) ) {
 			linkCacheUpdate[ redirect.to ] = ve.init.platform.linkCache.getCached( redirect.to ) ||
 				{ missing: false, redirectFrom: [ redirect.from ] };
@@ -122,15 +121,16 @@ ve.ui.MWCategoryInputWidget.prototype.getLookupCacheDataFromResponse = function 
  * @inheritdoc
  */
 ve.ui.MWCategoryInputWidget.prototype.getLookupMenuOptionsFromData = function ( data ) {
-	const itemWidgets = [],
+	var widget = this,
+		exactMatch = false,
+		itemWidgets = [],
 		existingCategoryItems = [],
 		matchingCategoryItems = [],
 		hiddenCategoryItems = [],
 		newCategoryItems = [],
 		existingCategories = this.categoryWidget.getCategories(),
-		linkCacheUpdate = {};
-
-	let canonicalQueryValue = mw.Title.newFromText( this.value ),
+		linkCacheUpdate = {},
+		canonicalQueryValue = mw.Title.newFromText( this.value ),
 		prefixedCanonicalQueryValue = mw.Title.newFromText(
 			this.value,
 			mw.config.get( 'wgNamespaceIds' ).category
@@ -143,9 +143,8 @@ ve.ui.MWCategoryInputWidget.prototype.getLookupMenuOptionsFromData = function ( 
 		canonicalQueryValue = canonicalQueryValue.getMainText();
 	}
 
-	let exactMatch = false;
-	data.forEach( ( suggestedCategory ) => {
-		const suggestedCategoryTitle = mw.Title.newFromText(
+	data.forEach( function ( suggestedCategory ) {
+		var suggestedCategoryTitle = mw.Title.newFromText(
 				suggestedCategory,
 				mw.config.get( 'wgNamespaceIds' ).category
 			).getPrefixedText(),
@@ -168,7 +167,7 @@ ve.ui.MWCategoryInputWidget.prototype.getLookupMenuOptionsFromData = function ( 
 	} );
 
 	// Existing categories
-	existingCategories.forEach( ( existingCategory, i ) => {
+	existingCategories.forEach( function ( existingCategory, i ) {
 		if ( existingCategory === canonicalQueryValue ) {
 			exactMatch = true;
 		}
@@ -208,14 +207,14 @@ ve.ui.MWCategoryInputWidget.prototype.getLookupMenuOptionsFromData = function ( 
 			label: ve.msg( 'visualeditor-dialog-meta-categories-input-hiddencategorieslabel' ),
 			items: hiddenCategoryItems
 		}
-	].forEach( ( sectionData ) => {
+	].forEach( function ( sectionData ) {
 		if ( sectionData.items.length ) {
 			itemWidgets.push( new OO.ui.MenuSectionOptionWidget( {
 				data: sectionData.id,
 				label: sectionData.label
 			} ) );
-			sectionData.items.forEach( ( categoryItem ) => {
-				itemWidgets.push( this.getCategoryWidgetFromName( categoryItem ) );
+			sectionData.items.forEach( function ( categoryItem ) {
+				itemWidgets.push( widget.getCategoryWidgetFromName( categoryItem ) );
 			} );
 		}
 	} );
@@ -225,7 +224,7 @@ ve.ui.MWCategoryInputWidget.prototype.getLookupMenuOptionsFromData = function ( 
 
 /**
  * @inheritdoc
- * @fires ve.ui.MWCategoryInputWidget#choose
+ * @fires choose
  */
 ve.ui.MWCategoryInputWidget.prototype.onLookupMenuChoose = function ( item ) {
 	this.emit( 'choose', item );
@@ -241,11 +240,11 @@ ve.ui.MWCategoryInputWidget.prototype.onLookupMenuChoose = function ( item ) {
  * @return {OO.ui.MenuOptionWidget} Menu item widget to be shown
  */
 ve.ui.MWCategoryInputWidget.prototype.getCategoryWidgetFromName = function ( name ) {
-	const cachedData = ve.init.platform.linkCache.getCached( mw.Title.newFromText(
-		name,
-		mw.config.get( 'wgNamespaceIds' ).category
-	).getPrefixedText() );
-	let optionWidget, labelText;
+	var cachedData = ve.init.platform.linkCache.getCached( mw.Title.newFromText(
+			name,
+			mw.config.get( 'wgNamespaceIds' ).category
+		).getPrefixedText() ),
+		optionWidget, labelText;
 	if ( cachedData && cachedData.redirectFrom ) {
 		labelText = mw.Title.newFromText( cachedData.redirectFrom[ 0 ] ).getMainText();
 		optionWidget = new OO.ui.MenuOptionWidget( {

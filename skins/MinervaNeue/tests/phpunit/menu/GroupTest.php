@@ -16,17 +16,17 @@ class GroupTest extends MediaWikiIntegrationTestCase {
 	private $homeComponent = [
 		'text' => 'Home',
 		'href' => '/Main_page',
-		'class' => '',
+		'class' => 'mw-ui-icon mw-ui-icon-before mw-ui-icon-home',
 		'data-event-name' => 'menu.home',
-		'icon' => 'home'
+		'icon' => null
 	];
 
 	/** @var string[] */
 	private $nearbyComponent = [
 		'text' => 'Nearby',
 		'href' => '/wiki/Special:Nearby',
-		'class' => '',
-		'icon' => 'nearby'
+		'class' => 'mw-ui-icon mw-ui-icon-before mw-ui-icon-nearby',
+		'icon' => null
 	];
 
 	/**
@@ -36,7 +36,7 @@ class GroupTest extends MediaWikiIntegrationTestCase {
 	public function testItShouldntHaveEntriesByDefault() {
 		$menu = new Group( 'p-test' );
 
-		$this->assertSame( [], $menu->getEntries() );
+		$this->assertEmpty( $menu->getEntries() );
 		$this->assertFalse( $menu->hasEntries() );
 	}
 
@@ -63,26 +63,11 @@ class GroupTest extends MediaWikiIntegrationTestCase {
 				'name' => 'home',
 				'components' => [
 					[
-						'tag-name' => 'a',
-						'label' => $this->homeComponent['text'],
-						'array-attributes' => [
-							[
-								'key' => 'href',
-								'value' => $this->homeComponent['href'],
-							],
-							[
-								'key' => 'data-event-name',
-								'value' => 'menu.home'
-							],
-							[
-								'key' => 'data-mw',
-								'value' => 'interface'
-							],
-						],
-						'classes' => 'menu__item--home',
-						'data-icon' => [
-							'icon' => 'home',
-						],
+						'text' => $this->homeComponent['text'],
+						'href' => $this->homeComponent['href'],
+						'class' => 'mw-ui-icon mw-ui-icon-before mw-ui-icon-home menu__item--home',
+						'icon' => 'minerva-home',
+						'data-event-name' => 'menu.home'
 					]
 				 ],
 			],
@@ -129,25 +114,13 @@ class GroupTest extends MediaWikiIntegrationTestCase {
 				'name' => 'nearby',
 				'components' => [
 					[
-						'tag-name' => 'a',
-						'label' => $this->nearbyComponent['text'],
-						'array-attributes' => [
-							[
-								'key' => 'href',
-								'value' => $this->nearbyComponent['href'],
-							],
-							[
-								'key' => 'data-mw',
-								'value' => 'interface'
-							],
-						],
-						'classes' => 'menu__item--nearby',
-						'data-icon' => [
-							'icon' => 'nearby',
-						]
+						'text' => $this->nearbyComponent['text'],
+						'href' => $this->nearbyComponent['href'],
+						'class' => 'mw-ui-icon mw-ui-icon-before mw-ui-icon-nearby menu__item--nearby',
+						'icon' => 'minerva-nearby'
 					]
 				],
-				'class' => 'skin-minerva-list-item-jsonly'
+				'class' => 'jsonly'
 			],
 		];
 

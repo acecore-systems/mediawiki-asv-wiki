@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable LeafNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -11,7 +11,7 @@
  *
  * @abstract
  * @extends ve.ce.Node
- * @mixes ve.LeafNode
+ * @mixins ve.LeafNode
  *
  * @constructor
  * @param {ve.dm.LeafNode} model

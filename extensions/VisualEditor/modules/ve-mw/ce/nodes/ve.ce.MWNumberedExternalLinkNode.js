@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable MWNumberedExternalLinkNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -10,7 +10,7 @@
  *
  * @class
  * @extends ve.ce.LeafNode
- * @mixes ve.ce.FocusableNode
+ * @mixins ve.ce.FocusableNode
  * @constructor
  * @param {ve.dm.MWNumberedExternalLinkNode} model Model to observe
  * @param {Object} [config] Configuration options
@@ -82,8 +82,7 @@ ve.ce.MWNumberedExternalLinkNode.static.getDescription = function ( model ) {
  * Handle model update events.
  */
 ve.ce.MWNumberedExternalLinkNode.prototype.onUpdate = function () {
-	// T322704
-	ve.setAttributeSafe( this.$link[ 0 ], 'href', this.model.getAttribute( 'href' ) || '', '#' );
+	this.$link.attr( 'href', this.model.getAttribute( 'href' ) );
 };
 
 /* Registration */

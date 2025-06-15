@@ -1,12 +1,14 @@
 /*!
  * VisualEditor user interface MWVESwitchPopupWidget class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
 mw.libs.ve = mw.libs.ve || {};
 /**
+ *
+ *
  * @class
  * @extends OO.ui.PopupWidget
  *
@@ -15,7 +17,7 @@ mw.libs.ve = mw.libs.ve || {};
  * @param {Object} [config] Configuration options
  */
 mw.libs.ve.SwitchPopupWidget = function MWLibsVESwitchPopupWidget( mode, config ) {
-	const prefix = mode === 'visual' ? 'visualeditor-mweditmodewt' : 'visualeditor-mweditmodeve',
+	var prefix = mode === 'visual' ? 'visualeditor-mweditmodewt' : 'visualeditor-mweditmodeve',
 		option = mode === 'visual' ? 'visualeditor-hidevisualswitchpopup' : 'visualeditor-hidesourceswitchpopup';
 
 	// Parent constructor
@@ -32,17 +34,17 @@ mw.libs.ve.SwitchPopupWidget = function MWLibsVESwitchPopupWidget( mode, config 
 	// The following messages are used here:
 	// * visualeditor-mweditmodewt-popup-body
 	// * visualeditor-mweditmodeve-popup-body
-	let $content = $( '<p>' ).text( mw.msg( prefix + '-popup-body' ) );
+	var $content = $( '<p>' ).text( mw.msg( prefix + '-popup-body' ) );
 
-	if ( mw.user.isNamed() ) {
-		const showAgainCheckbox = new OO.ui.CheckboxInputWidget()
-			.on( 'change', ( value ) => {
-				const configValue = value ? '1' : '';
+	if ( !mw.user.isAnon() ) {
+		var showAgainCheckbox = new OO.ui.CheckboxInputWidget()
+			.on( 'change', function ( value ) {
+				var configValue = value ? '1' : '';
 				new mw.Api().saveOption( option, configValue );
 				mw.user.options.set( option, configValue );
 			} );
 
-		const showAgainLayout = new OO.ui.FieldLayout( showAgainCheckbox, {
+		var showAgainLayout = new OO.ui.FieldLayout( showAgainCheckbox, {
 			align: 'inline',
 			label: mw.msg( 'visualeditor-mweditmodeve-showagain' )
 		} );

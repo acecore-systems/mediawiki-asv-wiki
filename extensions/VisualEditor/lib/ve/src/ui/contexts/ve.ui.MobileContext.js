@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface MobileContext class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -87,7 +87,8 @@ ve.ui.MobileContext.prototype.createInspectorWindowManager = function () {
  * @inheritdoc
  */
 ve.ui.MobileContext.prototype.onInspectorOpening = function ( win, opening ) {
-	const observer = this.surface.getView().surfaceObserver;
+	var context = this,
+		observer = this.surface.getView().surfaceObserver;
 
 	this.inspector = win;
 
@@ -98,13 +99,13 @@ ve.ui.MobileContext.prototype.onInspectorOpening = function ( win, opening ) {
 	observer.stopTimerLoop();
 
 	opening
-		.then( ( opened ) => {
-			opened.then( ( closed ) => {
-				closed.always( () => {
-					this.inspector = null;
+		.then( function ( opened ) {
+			opened.then( function ( closed ) {
+				closed.always( function () {
+					context.inspector = null;
 					// Reenable observer
 					observer.startTimerLoop();
-					this.afterContextChange();
+					context.afterContextChange();
 				} );
 			} );
 		} );
@@ -114,6 +115,7 @@ ve.ui.MobileContext.prototype.onInspectorOpening = function ( win, opening ) {
  * @inheritdoc
  */
 ve.ui.MobileContext.prototype.toggleMenu = function ( show ) {
+	var context = this;
 	show = show === undefined ? !this.choosing : !!show;
 
 	if ( show !== this.choosing ) {
@@ -126,9 +128,9 @@ ve.ui.MobileContext.prototype.toggleMenu = function ( show ) {
 			// Parent method
 			ve.ui.MobileContext.super.prototype.toggleMenu.call( this, true );
 		} else {
-			this.hideMenuTimeout = setTimeout( () => {
+			this.hideMenuTimeout = setTimeout( function () {
 				// Parent method
-				ve.ui.MobileContext.super.prototype.toggleMenu.call( this, false );
+				ve.ui.MobileContext.super.prototype.toggleMenu.call( context, false );
 			}, 100 );
 		}
 	}
@@ -140,16 +142,18 @@ ve.ui.MobileContext.prototype.toggleMenu = function ( show ) {
  * @inheritdoc
  */
 ve.ui.MobileContext.prototype.toggle = function ( show ) {
+	var context = this;
+
 	show = show === undefined ? !this.visible : !!show;
 	if ( show && !this.visible ) {
-		const deferred = ve.createDeferred();
+		var deferred = ve.createDeferred();
 		// Set opening flag immediately
-		this.openingTimeout = setTimeout( () => {
+		this.openingTimeout = setTimeout( function () {
 			// Parent method
-			ve.ui.MobileContext.super.prototype.toggle.call( this, true );
-			this.emit( 'resize' );
+			ve.ui.MobileContext.super.prototype.toggle.call( context, true );
+			context.emit( 'resize' );
 			deferred.resolve();
-			this.openingTimeout = null;
+			context.openingTimeout = null;
 		}, 250 );
 		return deferred;
 	} else {
@@ -157,11 +161,11 @@ ve.ui.MobileContext.prototype.toggle = function ( show ) {
 			clearTimeout( this.openingTimeout );
 			this.openingTimeout = null;
 		}
-		setTimeout( () => {
-			this.emit( 'resize' );
+		setTimeout( function () {
+			context.emit( 'resize' );
 		}, 100 );
 		// Parent method
-		return ve.ui.MobileContext.super.prototype.toggle.call( this, show );
+		return ve.ui.MobileContext.super.prototype.toggle.call( context, show );
 	}
 };
 
@@ -178,13 +182,6 @@ ve.ui.MobileContext.prototype.isVisible = function () {
 ve.ui.MobileContext.prototype.isInspectable = function () {
 	// Parent method
 	return ve.ui.MobileContext.super.prototype.isInspectable.call( this ) &&
-		// Suppress context when virtual keyboard is visible
-		!this.surface.getView().hasNativeCursorSelection();
-};
-
-/**
- * @inheritdoc
- */
-ve.ui.MobileContext.prototype.getSurfacePadding = function () {
-	return { bottom: this.$element[ 0 ].clientHeight };
+		// Suppress context when surface is active (virtual keyboard)
+		this.surface.getView().isDeactivated();
 };

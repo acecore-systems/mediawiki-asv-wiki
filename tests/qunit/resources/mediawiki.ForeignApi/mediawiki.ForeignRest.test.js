@@ -1,31 +1,30 @@
-QUnit.module( 'mediawiki.ForeignRest', ( hooks ) => {
-	const CoreForeignApi = require( 'mediawiki.ForeignApi.core' ).ForeignApi;
-	const CoreForeignRest = require( 'mediawiki.ForeignApi.core' ).ForeignRest;
-
-	hooks.beforeEach( function () {
-		this.server = this.sandbox.useFakeServer();
-		this.server.respondImmediately = true;
-		this.actionApi = new CoreForeignApi( 'http://test.example.com/api.php' );
-	} );
+( function () {
+	QUnit.module( 'mediawiki.ForeignRest', QUnit.newMwEnvironment( {
+		beforeEach: function () {
+			this.server = this.sandbox.useFakeServer();
+			this.server.respondImmediately = true;
+			this.actionApi = new mw.ForeignApi( 'http://test.example.com/api.php' );
+		}
+	} ) );
 
 	QUnit.test( 'get()', function ( assert ) {
-		const api = new CoreForeignRest( 'http://test.example.com/rest.php', this.actionApi );
+		var api = new mw.ForeignRest( 'http://test.example.com/rest.php', this.actionApi );
 
-		this.server.respond( ( request ) => {
+		this.server.respond( function ( request ) {
 			assert.strictEqual( request.method, 'GET' );
 			assert.strictEqual( request.url, 'http://test.example.com/rest.php/test/rest/path' );
 			request.respond( 200, { 'Content-Type': 'application/json' }, '{}' );
 		} );
 
-		return api.get( '/test/rest/path' ).then( ( data ) => {
+		return api.get( '/test/rest/path' ).then( function ( data ) {
 			assert.deepEqual( data, {}, 'If request succeeds without errors, resolve deferred' );
 		} );
 	} );
 
 	QUnit.test( 'post()', function ( assert ) {
-		const api = new CoreForeignRest( 'http://test.example.com/rest.php', this.actionApi );
+		var api = new mw.ForeignRest( 'http://test.example.com/rest.php', this.actionApi );
 
-		this.server.respond( ( request ) => {
+		this.server.respond( function ( request ) {
 			assert.strictEqual( request.method, 'POST', 'Method should be POST' );
 			assert.strictEqual( request.url, 'http://test.example.com/rest.php/test/bla/bla/bla', 'Url should be correct' );
 			assert.true( /^application\/json/.test( request.requestHeaders[ 'Content-Type' ] ), 'Should set JSON content-type' );
@@ -38,20 +37,20 @@ QUnit.module( 'mediawiki.ForeignRest', ( hooks ) => {
 			param: 'value'
 		}, {
 			authorization: 'my_token'
-		} ).then( ( data ) => {
+		} ).then( function ( data ) {
 			assert.deepEqual( data, {}, 'If request succeeds without errors, resolve deferred' );
 		} );
 	} );
 
 	QUnit.test( 'http error', function ( assert ) {
-		const api = new CoreForeignRest( 'http://test.example.com/rest.php', this.actionApi );
+		var api = new mw.ForeignRest( 'http://test.example.com/rest.php', this.actionApi );
 
 		this.server.respond( [ 404, {}, 'FAIL' ] );
 
 		api.get( '/test/rest/path' )
-			.fail( ( errorCode ) => {
+			.fail( function ( errorCode ) {
 				assert.strictEqual( errorCode, 'http', 'API error should reject the deferred' );
 			} )
 			.always( assert.async() );
 	} );
-} );
+}() );

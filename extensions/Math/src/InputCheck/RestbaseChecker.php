@@ -4,17 +4,13 @@ namespace MediaWiki\Extension\Math\InputCheck;
 
 use Exception;
 use MediaWiki\Extension\Math\MathRestbaseInterface;
-use MediaWiki\Message\Message;
+use Message;
 
 /**
  * MediaWiki math extension
  *
  * @copyright 2002-2015 Tomasz Wegrzanowski, Brion Vibber, Moritz Schubotz,
  * and other MediaWiki contributors
- *
- * @note The restbase checker does not support purging the cache as it just represents
- * the state of the restbase interface.
- *
  * @license GPL-2.0-or-later
  * @author Moritz Schubotz
  */
@@ -48,9 +44,9 @@ class RestbaseChecker extends BaseChecker {
 	 * Some TeX checking programs may return
 	 * a modified tex string after having checked it.
 	 * You can get the altered tex string with this method
-	 * @return ?string A valid Tex string
+	 * @return string A valid Tex string
 	 */
-	public function getValidTex(): ?string {
+	public function getValidTex() {
 		return $this->restbaseInterface->getCheckedTex();
 	}
 
@@ -71,7 +67,7 @@ class RestbaseChecker extends BaseChecker {
 		return $this->errorObjectToMessage( $err, $host );
 	}
 
-	public function getRbi(): MathRestbaseInterface {
+	public function getRbi() {
 		return $this->restbaseInterface;
 	}
 

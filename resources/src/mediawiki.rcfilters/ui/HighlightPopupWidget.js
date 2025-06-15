@@ -1,19 +1,20 @@
-const HighlightColorPickerWidget = require( './HighlightColorPickerWidget.js' );
+var HighlightColorPickerWidget = require( './HighlightColorPickerWidget.js' ),
+	HighlightPopupWidget;
 /**
  * A popup containing a color picker, for setting highlight colors.
  *
  * @class mw.rcfilters.ui.HighlightPopupWidget
- * @ignore
  * @extends OO.ui.PopupWidget
  *
+ * @constructor
  * @param {mw.rcfilters.Controller} controller RCFilters controller
  * @param {Object} [config] Configuration object
  */
-const HighlightPopupWidget = function MwRcfiltersUiHighlightPopupWidget( controller, config ) {
+HighlightPopupWidget = function MwRcfiltersUiHighlightPopupWidget( controller, config ) {
 	config = config || {};
 
 	// Parent
-	HighlightPopupWidget.super.call( this, Object.assign( {
+	HighlightPopupWidget.parent.call( this, $.extend( {
 		autoClose: true,
 		anchor: false,
 		padded: true,

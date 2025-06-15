@@ -22,12 +22,11 @@
 
 namespace MediaWiki\Extension\Scribunto;
 
-use MediaWiki\Extension\Scribunto\Hooks\HookRunner;
-use MediaWiki\MediaWikiServices;
-use MediaWiki\Parser\Parser;
-use MediaWiki\Parser\ParserOutput;
-use MediaWiki\Status\Status;
-use MediaWiki\Title\Title;
+use Hooks as MWHooks;
+use Parser;
+use ParserOutput;
+use Status;
+use Title;
 
 /**
  * Base class for all script engines. Includes all code
@@ -155,8 +154,6 @@ abstract class ScribuntoEngineBase {
 		$params = [];
 		if ( $this->title ) {
 			$params['title'] = $this->title;
-		} else {
-			wfDeprecated( __METHOD__ . ' without valid title for engine', '1.42' );
 		}
 		return $params;
 	}
@@ -174,7 +171,7 @@ abstract class ScribuntoEngineBase {
 	public function fetchModuleFromParser( Title $title ) {
 		$key = $title->getPrefixedDBkey();
 		if ( !array_key_exists( $key, $this->modules ) ) {
-			[ $text, $finalTitle ] = $this->parser->fetchTemplateAndTitle( $title );
+			list( $text, $finalTitle ) = $this->parser->fetchTemplateAndTitle( $title );
 			if ( $text === false ) {
 				$this->modules[$key] = null;
 				return null;
@@ -184,8 +181,7 @@ abstract class ScribuntoEngineBase {
 			if ( !isset( $this->modules[$finalKey] ) ) {
 				$this->modules[$finalKey] = $this->newModule( $text, $finalKey );
 			}
-			// $finalKey may be different from $key in the case of redirects;
-			// store the module in both places.
+			// Almost certainly $key === $finalKey, but just in case...
 			// @phan-suppress-next-line PhanTypeMismatchProperty
 			$this->modules[$key] = $this->modules[$finalKey];
 		}
@@ -260,8 +256,7 @@ abstract class ScribuntoEngineBase {
 	 */
 	protected function getLibraries( $engine, array $coreLibraries = [] ) {
 		$extraLibraries = [];
-		( new HookRunner( MediaWikiServices::getInstance()->getHookContainer() ) )
-			->onScribuntoExternalLibraries( $engine, $extraLibraries );
+		MWHooks::run( 'ScribuntoExternalLibraries', [ $engine, &$extraLibraries ] );
 		return $coreLibraries + $extraLibraries;
 	}
 
@@ -274,8 +269,7 @@ abstract class ScribuntoEngineBase {
 	 */
 	protected function getLibraryPaths( $engine, array $coreLibraryPaths = [] ) {
 		$extraLibraryPaths = [];
-		( new HookRunner( MediaWikiServices::getInstance()->getHookContainer() ) )
-			->onScribuntoExternalLibraryPaths( $engine, $extraLibraryPaths );
+		MWHooks::run( 'ScribuntoExternalLibraryPaths', [ $engine, &$extraLibraryPaths ] );
 		return array_merge( $coreLibraryPaths, $extraLibraryPaths );
 	}
 
@@ -299,44 +293,5 @@ abstract class ScribuntoEngineBase {
 	 */
 	public function formatLimitData( $key, &$value, &$report, $isHTML, $localize ) {
 		return true;
-	}
-
-	/**
-	 * @see Content::updateRedirect
-	 *
-	 * @param ScribuntoContent $content
-	 * @param Title $target
-	 * @return ScribuntoContent
-	 */
-	public function updateRedirect( ScribuntoContent $content, Title $target ): ScribuntoContent {
-		return $content;
-	}
-
-	/**
-	 * @see Content::getRedirectTarget
-	 *
-	 * @param ScribuntoContent $content
-	 * @return Title|null
-	 */
-	public function getRedirectTarget( ScribuntoContent $content ) {
-		return null;
-	}
-
-	/**
-	 * @see ContentHandler::makeRedirectContent
-	 * @param Title $destination
-	 * @param string $text
-	 * @return ScribuntoContent|null
-	 */
-	public function makeRedirectContent( Title $destination, $text = '' ) {
-		return null;
-	}
-
-	/**
-	 * @see ContentHandler::supportsRedirects
-	 * @return bool false
-	 */
-	public function supportsRedirects(): bool {
-		return false;
 	}
 }

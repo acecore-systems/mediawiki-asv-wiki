@@ -6,6 +6,7 @@
 		]
 	},
 	"multimediaviewer-license-default": "Čääiti liiseens",
+	"multimediaviewer-optin-mmv": "Vääldi Mediakeččee kiävtun",
 	"multimediaviewer-reuse-loading-placeholder": "Luođiimin…",
 	"multimediaviewer-share-tab": "Jyevi",
 	"multimediaviewer-download-link": "Luođii taam tiätuvuárhá",
@@ -16,6 +17,8 @@
 	"multimediaviewer-default-embed-dimensions": "Miniatyyrkuuvij nabdosstuárudâh",
 	"multimediaviewer-original-embed-dimensions": "Algâalgâlâš tiätuvuárkká $1",
 	"multimediaviewer-title-popup-text": "Kuvvim",
+	"multimediaviewer-options-tooltip": "Vääldi Mediakeččee kiävtun teikkâ meddâlist kiävtust",
+	"multimediaviewer-option-cancel-button": "Jooskâ",
 	"multimediaviewer-enable-dialog-header": "Vääldi Mediakeččee kiävtun?",
 	"multimediaviewer-enable-submit-button": "Vääldi Mediakeččee kiävtun"
 }

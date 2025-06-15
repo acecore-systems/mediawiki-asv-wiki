@@ -1,20 +1,15 @@
 <?php
 
-namespace MediaWiki\Extension\Scribunto\Tests\Engines\LuaCommon;
-
-use MediaWiki\Content\WikitextContent;
 use MediaWiki\Interwiki\ClassicInterwikiLookup;
-use MediaWiki\MainConfigNames;
 use MediaWiki\Page\PageIdentityValue;
 use MediaWiki\Parser\ParserOutputFlags;
 use MediaWiki\Permissions\RestrictionStore;
-use MediaWiki\Title\Title;
 
 /**
- * @covers \MediaWiki\Extension\Scribunto\Engines\LuaCommon\TitleLibrary
+ * @covers Scribunto_LuaTitleLibrary
  * @group Database
  */
-class TitleLibraryTest extends LuaEngineTestBase {
+class Scribunto_LuaTitleLibraryTest extends Scribunto_LuaEngineTestBase {
 	/** @inheritDoc */
 	protected static $moduleName = 'TitleLibraryTests';
 
@@ -29,19 +24,21 @@ class TitleLibraryTest extends LuaEngineTestBase {
 		parent::setUp();
 
 		// Set up interwikis (via wgInterwikiCache) before creating any Titles
-		$this->overrideConfigValues( [
-			MainConfigNames::Server => '//wiki.local',
-			MainConfigNames::CanonicalServer => 'http://wiki.local',
-			MainConfigNames::UsePathInfo => true,
-			MainConfigNames::ActionPaths => [],
-			MainConfigNames::Script => '/w/index.php',
-			MainConfigNames::ScriptPath => '/w',
-			MainConfigNames::ArticlePath => '/wiki/$1',
-			MainConfigNames::InterwikiCache => ClassicInterwikiLookup::buildCdbHash( [ [
-				'iw_prefix' => 'interwikiprefix',
-				'iw_url' => '//test.wikipedia.org/wiki/$1',
-				'iw_local' => 0,
-			] ] ),
+		$this->setMwGlobals( [
+			'wgServer' => '//wiki.local',
+			'wgCanonicalServer' => 'http://wiki.local',
+			'wgUsePathInfo' => true,
+			'wgActionPaths' => [],
+			'wgScript' => '/w/index.php',
+			'wgScriptPath' => '/w',
+			'wgArticlePath' => '/wiki/$1',
+			'wgInterwikiCache' => ClassicInterwikiLookup::buildCdbHash( [
+				[
+					'iw_prefix' => 'interwikiprefix',
+					'iw_url'    => '//test.wikipedia.org/wiki/$1',
+					'iw_local'  => 0,
+				],
+			] ),
 		] );
 
 		$editor = self::getTestSysop()->getUser();
@@ -212,7 +209,7 @@ class TitleLibraryTest extends LuaEngineTestBase {
 		$this->assertSame( $flag, $engine->getParser()->getOutput()->getOutputFlag( ParserOutputFlags::VARY_PAGE_ID ) );
 	}
 
-	public static function provideVaryPageId() {
+	public function provideVaryPageId() {
 		return [
 			'by getCurrentTitle()' => [
 				'ScribuntoTestPage',

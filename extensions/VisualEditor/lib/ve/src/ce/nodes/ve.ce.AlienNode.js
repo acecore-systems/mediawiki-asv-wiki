@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable AlienNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -10,7 +10,7 @@
  * @class
  * @abstract
  * @extends ve.ce.LeafNode
- * @mixes ve.ce.FocusableNode
+ * @mixins ve.ce.FocusableNode
  *
  * @constructor
  * @param {ve.dm.AlienNode} model

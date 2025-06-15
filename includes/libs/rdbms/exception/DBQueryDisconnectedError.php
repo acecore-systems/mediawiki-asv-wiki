@@ -36,10 +36,12 @@ class DBQueryDisconnectedError extends DBQueryError {
 	 * @param string|null $message Optional message, intended for subclasses (optional)
 	 */
 	public function __construct( IDatabase $db, $error, $errno, $sql, $fname, $message = null ) {
-		$message ??= "A connection error occurred during a query. \n" .
-			"Query: $sql\n" .
-			"Function: $fname\n" .
-			"Error: $errno $error\n";
+		if ( $message === null ) {
+			$message = "A connection error occurred during a query. \n" .
+				"Query: $sql\n" .
+				"Function: $fname\n" .
+				"Error: $errno $error\n";
+		}
 
 		parent::__construct( $db, $error, $errno, $sql, $fname, $message );
 	}

@@ -20,8 +20,6 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
 /**
  * This interface allows for overriding the default conversion applied by
  * ApiResult::validateValue().
@@ -47,6 +45,3 @@ interface ApiSerializable {
 	 */
 	public function serializeForApiResult();
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiSerializable::class, 'ApiSerializable' );

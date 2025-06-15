@@ -1,8 +1,6 @@
 <?php
 
 use MediaWiki\MainConfigNames;
-use MediaWiki\Request\FauxRequest;
-use MediaWiki\Title\Title;
 use Wikimedia\TestingAccessWrapper;
 
 class ImagePageTest extends MediaWikiMediaTestCase {
@@ -23,7 +21,6 @@ class ImagePageTest extends MediaWikiMediaTestCase {
 
 	public function getImagePage( $filename ) {
 		$title = Title::makeTitleSafe( NS_FILE, $filename );
-		$title->setContentModel( CONTENT_MODEL_WIKITEXT );
 		$file = $this->dataFile( $filename );
 		$iPage = new ImagePage( $title );
 		$iPage->setFile( $file );
@@ -31,7 +28,7 @@ class ImagePageTest extends MediaWikiMediaTestCase {
 	}
 
 	/**
-	 * @covers \ImagePage::getThumbSizes
+	 * @covers ImagePage::getThumbSizes
 	 * @dataProvider providerGetThumbSizes
 	 * @param string $filename
 	 * @param int $expectedNumberThumbs How many thumbnails to show
@@ -46,7 +43,7 @@ class ImagePageTest extends MediaWikiMediaTestCase {
 		$this->assertCount( $expectedNumberThumbs, $actual );
 	}
 
-	public static function providerGetThumbSizes() {
+	public function providerGetThumbSizes() {
 		return [
 			[ 'animated.gif', 2 ],
 			[ 'Toll_Texas_1.svg', 1 ],
@@ -56,7 +53,7 @@ class ImagePageTest extends MediaWikiMediaTestCase {
 	}
 
 	/**
-	 * @covers \ImagePage::getLanguageForRendering()
+	 * @covers ImagePage::getLanguageForRendering()
 	 * @dataProvider provideGetLanguageForRendering
 	 *
 	 * @param string|null $expected Expected IETF language code
@@ -83,7 +80,7 @@ class ImagePageTest extends MediaWikiMediaTestCase {
 		$this->assertEquals( $expected, $result );
 	}
 
-	public static function provideGetLanguageForRendering() {
+	public function provideGetLanguageForRendering() {
 		return [
 			[ 'ru', 'ru' ],
 			[ 'ru', 'ru', null, 'ru' ],

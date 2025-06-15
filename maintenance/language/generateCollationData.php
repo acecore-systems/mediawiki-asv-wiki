@@ -21,9 +21,7 @@
  * @ingroup MaintenanceLanguage
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/../Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 use Wikimedia\StaticArrayWriter;
 
@@ -33,25 +31,20 @@ use Wikimedia\StaticArrayWriter;
  * @ingroup MaintenanceLanguage
  */
 class GenerateCollationData extends Maintenance {
-	/** @var string The directory with source data files in it */
+	/** The directory with source data files in it */
 	public $dataDir;
 
-	/** @var int The primary weights, indexed by codepoint */
+	/** The primary weights, indexed by codepoint */
 	public $weights;
 
 	/**
 	 * A hashtable keyed by codepoint, where presence indicates that a character
 	 * has a decomposition mapping. This makes it non-preferred for group header
 	 * selection.
-	 * @var string[]
 	 */
 	public $mappedChars;
 
-	/** @var string */
 	public $debugOutFile;
-
-	/** @var string[] */
-	private $groups;
 
 	public function __construct() {
 		parent::__construct();
@@ -68,9 +61,14 @@ class GenerateCollationData extends Maintenance {
 		$allkeysPresent = file_exists( "{$this->dataDir}/allkeys.txt" );
 		$ucdallPresent = file_exists( "{$this->dataDir}/ucd.all.grouped.xml" );
 
+		// As of January 2013, these links work for all versions of Unicode
+		// between 5.1 and 6.2, inclusive.
+		$allkeysURL = "https://www.unicode.org/Public/UCA/<Unicode version>/allkeys.txt";
+		$ucdallURL = "https://www.unicode.org/Public/<Unicode version>/ucdxml/ucd.all.grouped.zip";
+
 		if ( !$allkeysPresent || !$ucdallPresent ) {
 			$icuVersion = INTL_ICU_VERSION;
-			$unicodeVersion = implode( '.', array_slice( IntlChar::getUnicodeVersion(), 0, 3 ) );
+			$unicodeVersion = IcuCollation::getUnicodeVersionForICU();
 
 			$error = "";
 
@@ -85,11 +83,33 @@ class GenerateCollationData extends Maintenance {
 					. "\n\n";
 			}
 
-			$error .= "You are using ICU $icuVersion, intended for Unicode $unicodeVersion. "
-				. "Appropriate file(s) should be available at:\n";
+			$versionKnown = false;
+			if ( version_compare( $icuVersion, "4.0", "<" ) ) {
+				// Extra old version
+				$error .= "You are using outdated version of ICU ($icuVersion), intended for "
+					. ( $unicodeVersion ? "Unicode $unicodeVersion" : "an unknown version of Unicode" )
+					. "; this file might not be available for it, and it's not supported by MediaWiki. "
+					. " You are on your own; consider upgrading PHP's intl extension or try "
+					. "one of the files available at:";
+			} elseif ( version_compare( $icuVersion, "51.0", ">=" ) ) {
+				// Extra recent version
+				$error .= "You are using ICU $icuVersion, released after this script was last updated. "
+					. "Check what is the Unicode version it is using at http://site.icu-project.org/download . "
+					. "It can't be guaranteed everything will work, but appropriate file(s) should "
+					. "be available at:";
+			} else {
+				// ICU 4.0 to 50.x
+				$versionKnown = true;
+				$error .= "You are using ICU $icuVersion, intended for "
+					. ( $unicodeVersion ? "Unicode $unicodeVersion" : "an unknown version of Unicode" )
+					. ". Appropriate file(s) should be available at:";
+			}
+			$error .= "\n";
 
-			$allkeysURL = "https://www.unicode.org/Public/UCA/$unicodeVersion/allkeys.txt";
-			$ucdallURL = "https://www.unicode.org/Public/$unicodeVersion/ucdxml/ucd.all.grouped.zip";
+			if ( $versionKnown && $unicodeVersion ) {
+				$allkeysURL = str_replace( "<Unicode version>", "$unicodeVersion.0", $allkeysURL );
+				$ucdallURL = str_replace( "<Unicode version>", "$unicodeVersion.0", $ucdallURL );
+			}
 
 			if ( !$allkeysPresent ) {
 				$error .= "* $allkeysURL\n";
@@ -178,7 +198,6 @@ class GenerateCollationData extends Maintenance {
 		// For each character with an entry in allkeys.txt, overwrite the implicit
 		// entry in $this->weights that came from the UCD.
 		// Also gather a list of tertiary weights, for use in selecting the group header
-		// phpcs:ignore Generic.CodeAnalysis.AssignmentInCondition.FoundInWhileCondition
 		while ( ( $line = fgets( $file ) ) !== false ) {
 			// We're only interested in single-character weights, pick them out with a regex
 			$line = trim( $line );
@@ -303,17 +322,11 @@ class GenerateCollationData extends Maintenance {
 }
 
 class UcdXmlReader {
-	/** @var string */
 	public $fileName;
-	/** @var callable */
 	public $callback;
-	/** @var array */
 	public $groupAttrs;
-	/** @var XMLReader */
 	public $xml;
-	/** @var array[] */
 	public $blocks = [];
-	/** @var array */
 	public $currentBlock;
 
 	public function __construct( $fileName ) {
@@ -346,8 +359,9 @@ class UcdXmlReader {
 
 	protected function open() {
 		$this->xml = new XMLReader;
-		if ( !$this->xml->open( $this->fileName ) ) {
-			throw new RuntimeException( __METHOD__ . ": unable to open {$this->fileName}" );
+		$this->xml->open( $this->fileName );
+		if ( !$this->xml ) {
+			throw new MWException( __METHOD__ . ": unable to open {$this->fileName}" );
 		}
 		while ( $this->xml->name !== 'ucd' && $this->xml->read() );
 		$this->xml->read();
@@ -428,7 +442,5 @@ class UcdXmlReader {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = GenerateCollationData::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

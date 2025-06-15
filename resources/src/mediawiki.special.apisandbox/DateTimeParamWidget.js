@@ -1,4 +1,4 @@
-const TextParamMixin = require( './TextParamMixin.js' ),
+var TextParamMixin = require( './TextParamMixin.js' ),
 	UtilMixin = require( './UtilMixin.js' );
 
 /**
@@ -15,7 +15,7 @@ function DateTimeParamWidget( config ) {
 	};
 	config.clearable = false;
 
-	DateTimeParamWidget.super.call( this, config );
+	DateTimeParamWidget.parent.call( this, config );
 }
 
 OO.inheritClass( DateTimeParamWidget, mw.widgets.datetime.DateTimeInputWidget );

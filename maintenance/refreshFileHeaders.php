@@ -23,12 +23,9 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\FileRepo\File\FileSelectQueryBuilder;
-use Wikimedia\Rdbms\SelectQueryBuilder;
+use MediaWiki\MediaWikiServices;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script to refresh file headers from metadata
@@ -55,7 +52,7 @@ class RefreshFileHeaders extends Maintenance {
 	}
 
 	public function execute() {
-		$repo = $this->getServiceContainer()->getRepoGroup()->getLocalRepo();
+		$repo = MediaWikiServices::getInstance()->getRepoGroup()->getLocalRepo();
 		$start = str_replace( ' ', '_', $this->getOption( 'start', '' ) ); // page on img_name
 		$end = str_replace( ' ', '_', $this->getOption( 'end', '' ) ); // page on img_name
 		// filter by img_media_type
@@ -66,32 +63,39 @@ class RefreshFileHeaders extends Maintenance {
 		$minor_mime = str_replace( ' ', '_', $this->getOption( 'minor_mime', '' ) );
 
 		$count = 0;
-		$dbr = $this->getReplicaDB();
+		$dbr = $this->getDB( DB_REPLICA );
+
+		$fileQuery = LocalFile::getQueryInfo();
 
 		do {
-			$queryBuilder = FileSelectQueryBuilder::newForFile( $dbr );
+			$conds = [ 'img_name > ' . $dbr->addQuotes( $start ) ];
 
-			$queryBuilder->where( $dbr->expr( 'img_name', '>', $start ) );
 			if ( strlen( $end ) ) {
-				$queryBuilder->andWhere( $dbr->expr( 'img_name', '<=', $end ) );
+				$conds[] = 'img_name <= ' . $dbr->addQuotes( $end );
 			}
 
 			if ( strlen( $media_type ) ) {
-				$queryBuilder->andWhere( [ 'img_media_type' => $media_type ] );
+				$conds['img_media_type'] = $media_type;
 			}
 
 			if ( strlen( $major_mime ) ) {
-				$queryBuilder->andWhere( [ 'img_major_mime' => $major_mime ] );
+				$conds['img_major_mime'] = $major_mime;
 			}
 
 			if ( strlen( $minor_mime ) ) {
-				$queryBuilder->andWhere( [ 'img_minor_mime' => $minor_mime ] );
+				$conds['img_minor_mime'] = $minor_mime;
 			}
 
-			$res = $queryBuilder
-				->orderBy( 'img_name', SelectQueryBuilder::SORT_ASC )
-				->limit( $this->getBatchSize() )
-				->caller( __METHOD__ )->fetchResultSet();
+			$res = $dbr->select( $fileQuery['tables'],
+				$fileQuery['fields'],
+				$conds,
+				__METHOD__,
+				[
+					'LIMIT' => $this->getBatchSize(),
+					'ORDER BY' => 'img_name ASC'
+				],
+				$fileQuery['joins']
+			);
 
 			if ( $res->numRows() > 0 ) {
 				$row1 = $res->current();
@@ -149,12 +153,10 @@ class RefreshFileHeaders extends Maintenance {
 		$status = $repo->getBackend()->doQuickOperations( $backendOperations );
 
 		if ( !$status->isGood() ) {
-			$this->error( $status );
+			$this->error( "Encountered error: " . print_r( $status, true ) );
 		}
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = RefreshFileHeaders::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

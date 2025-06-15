@@ -1,11 +1,11 @@
 {
 	"@metadata": {
 		"authors": [
-			"1100100",
 			"Roonyh",
 			"Shwetha",
 			"පසිඳු කාවින්ද",
-			"හරිත"
+			"හරිත",
+			1100100
 		]
 	},
 	"mobile-frontend-editor-edit": "සංස්කරණය",

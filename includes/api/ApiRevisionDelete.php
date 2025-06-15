@@ -21,13 +21,7 @@
  * @since 1.23
  */
 
-namespace MediaWiki\Api;
-
-use ChangeTags;
 use MediaWiki\Revision\RevisionRecord;
-use MediaWiki\Status\Status;
-use MediaWiki\Title\Title;
-use RevisionDeleter;
 use Wikimedia\ParamValidator\ParamValidator;
 
 /**
@@ -214,6 +208,3 @@ class ApiRevisionDelete extends ApiBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Revisiondelete';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiRevisionDelete::class, 'ApiRevisionDelete' );

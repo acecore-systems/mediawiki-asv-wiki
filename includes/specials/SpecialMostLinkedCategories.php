@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Mostlinkedcategories
+ *
  * Copyright © 2005, Ævar Arnfjörð Bjarmason
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,46 +20,38 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- */
-
-namespace MediaWiki\Specials;
-
-use HtmlArmor;
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Html\Html;
-use MediaWiki\Language\ILanguageConverter;
-use MediaWiki\Languages\LanguageConverterFactory;
-use MediaWiki\Linker\Linker;
-use MediaWiki\SpecialPage\QueryPage;
-use MediaWiki\Title\Title;
-use Skin;
-use stdClass;
-use Wikimedia\Rdbms\IConnectionProvider;
-use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\IResultWrapper;
-
-/**
- * List of categories with the most pages in them
- *
  * @ingroup SpecialPage
  * @author Ævar Arnfjörð Bjarmason <avarab@gmail.com>
  */
+
+use MediaWiki\Cache\LinkBatchFactory;
+use MediaWiki\Languages\LanguageConverterFactory;
+use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\ILoadBalancer;
+use Wikimedia\Rdbms\IResultWrapper;
+
+/**
+ * A querypage to show categories ordered in descending order by the pages in them
+ *
+ * @ingroup SpecialPage
+ */
 class SpecialMostLinkedCategories extends QueryPage {
 
-	private ILanguageConverter $languageConverter;
+	/** @var ILanguageConverter */
+	private $languageConverter;
 
 	/**
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param LinkBatchFactory $linkBatchFactory
 	 * @param LanguageConverterFactory $languageConverterFactory
 	 */
 	public function __construct(
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		LinkBatchFactory $linkBatchFactory,
 		LanguageConverterFactory $languageConverterFactory
 	) {
 		parent::__construct( 'Mostlinkedcategories' );
-		$this->setDatabaseProvider( $dbProvider );
+		$this->setDBLoadBalancer( $loadBalancer );
 		$this->setLinkBatchFactory( $linkBatchFactory );
 		$this->languageConverter = $languageConverterFactory->getLanguageConverter( $this->getContentLanguage() );
 	}
@@ -67,13 +61,12 @@ class SpecialMostLinkedCategories extends QueryPage {
 	}
 
 	public function getQueryInfo() {
-		$dbr = $this->getDatabaseProvider()->getReplicaDatabase();
 		return [
 			'tables' => [ 'category' ],
 			'fields' => [ 'title' => 'cat_title',
 				'namespace' => NS_CATEGORY,
 				'value' => 'cat_pages' ],
-			'conds' => [ $dbr->expr( 'cat_pages', '>', 0 ) ],
+			'conds' => [ 'cat_pages > 0' ],
 		];
 	}
 
@@ -121,8 +114,3 @@ class SpecialMostLinkedCategories extends QueryPage {
 		return 'highuse';
 	}
 }
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialMostLinkedCategories::class, 'SpecialMostLinkedCategories' );

@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Revision;
 
-use MediaWiki\Message\Message;
+use Message;
 
 /**
  * @newable

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable LanguageAnnotation class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -45,7 +45,7 @@ ve.ce.LanguageAnnotation.static.tagName = 'span';
  * @inheritdoc
  */
 ve.ce.LanguageAnnotation.static.getDescription = function ( model ) {
-	const lang = ( model.getAttribute( 'lang' ) || '' ).toLowerCase(),
+	var lang = ( model.getAttribute( 'lang' ) || '' ).toLowerCase(),
 		name = ve.init.platform.getLanguageName( lang ),
 		dir = ( model.getAttribute( 'dir' ) || '' ).toUpperCase();
 

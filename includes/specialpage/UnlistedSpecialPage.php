@@ -21,8 +21,6 @@
  * @ingroup SpecialPage
  */
 
-namespace MediaWiki\SpecialPage;
-
 /**
  * Shortcut to construct a special page which is unlisted by default.
  *
@@ -48,6 +46,3 @@ class UnlistedSpecialPage extends SpecialPage {
 		return false;
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( UnlistedSpecialPage::class, 'UnlistedSpecialPage' );

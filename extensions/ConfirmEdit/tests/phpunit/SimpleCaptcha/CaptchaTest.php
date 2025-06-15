@@ -1,18 +1,10 @@
 <?php
 
-use MediaWiki\Config\HashConfig;
-use MediaWiki\Context\RequestContext;
 use MediaWiki\Extension\ConfirmEdit\CaptchaTriggers;
 use MediaWiki\Extension\ConfirmEdit\SimpleCaptcha\SimpleCaptcha;
 use MediaWiki\Extension\ConfirmEdit\Store\CaptchaCacheStore;
 use MediaWiki\Extension\ConfirmEdit\Store\CaptchaStore;
-use MediaWiki\Registration\ExtensionRegistry;
-use MediaWiki\Request\FauxRequest;
-use MediaWiki\Request\WebRequest;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
 use Wikimedia\ScopedCallback;
-use Wikimedia\TestingAccessWrapper;
 
 /**
  * @covers \MediaWiki\Extension\ConfirmEdit\SimpleCaptcha\SimpleCaptcha
@@ -22,14 +14,6 @@ class CaptchaTest extends MediaWikiIntegrationTestCase {
 
 	/** @var ScopedCallback[] */
 	private $hold = [];
-
-	protected function setUp(): void {
-		parent::setUp();
-
-		// Clear any handlers of the ConfirmEditTriggersCaptcha hook for this test, as in CI their additional
-		// checks may cause the tests to fail (such as those from IPReputation).
-		$this->clearHook( 'ConfirmEditTriggersCaptcha' );
-	}
 
 	public function tearDown(): void {
 		// Destroy any ScopedCallbacks being held
@@ -88,13 +72,15 @@ class CaptchaTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testTriggersCaptcha( $action, $expectedResult ) {
 		$captcha = new SimpleCaptcha();
-		$this->overrideConfigValue( 'CaptchaTriggers', [
-			$action => $expectedResult,
+		$this->setMwGlobals( [
+			'wgCaptchaTriggers' => [
+				$action => $expectedResult,
+			]
 		] );
 		$this->assertEquals( $expectedResult, $captcha->triggersCaptcha( $action ) );
 	}
 
-	public static function provideSimpleTriggersCaptcha() {
+	public function provideSimpleTriggersCaptcha() {
 		$data = [];
 		$captchaTriggers = new ReflectionClass( CaptchaTriggers::class );
 		$constants = $captchaTriggers->getConstants();
@@ -106,16 +92,15 @@ class CaptchaTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @dataProvider provideBooleans
+	 * @dataProvider provideNamespaceOverwrites
 	 */
-	public function testNamespaceTriggersOverwrite( bool $expected ) {
-		$trigger = 'edit';
+	public function testNamespaceTriggersOverwrite( $trigger, $expected ) {
 		$captcha = new SimpleCaptcha();
-		$this->overrideConfigValues( [
-			'CaptchaTriggers' => [
+		$this->setMwGlobals( [
+			'wgCaptchaTriggers' => [
 				$trigger => !$expected,
 			],
-			'CaptchaTriggersOnNamespace' => [
+			'wgCaptchaTriggersOnNamespace' => [
 				0 => [
 					$trigger => $expected,
 				],
@@ -125,9 +110,16 @@ class CaptchaTest extends MediaWikiIntegrationTestCase {
 		$this->assertEquals( $expected, $captcha->triggersCaptcha( $trigger, $title ) );
 	}
 
+	public function provideNamespaceOverwrites() {
+		return [
+			[ 'edit', true ],
+			[ 'edit', false ],
+		];
+	}
+
 	private function setCaptchaTriggersAttribute( $trigger, $value ) {
 		// Avoid clobbering captcha triggers registered by other extensions
-		$this->overrideConfigValue( 'CaptchaTriggers', $GLOBALS['wgCaptchaTriggers'] );
+		$this->setMwGlobals( 'wgCaptchaTriggers', $GLOBALS['wgCaptchaTriggers'] );
 
 		$this->hold[] = ExtensionRegistry::getInstance()->setAttributeForTest(
 			'CaptchaTriggers', [ $trigger => $value ]
@@ -135,42 +127,56 @@ class CaptchaTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @dataProvider provideBooleans
+	 * @dataProvider provideAttributeSet
 	 */
-	public function testCaptchaTriggersAttributeSetTrue( bool $value ) {
-		$trigger = 'test';
+	public function testCaptchaTriggersAttributeSetTrue( $trigger, $value ) {
 		$this->setCaptchaTriggersAttribute( $trigger, $value );
 		$captcha = new SimpleCaptcha();
 		$this->assertEquals( $value, $captcha->triggersCaptcha( $trigger ) );
 	}
 
+	public function provideAttributeSet() {
+		return [
+			[ 'test', true ],
+			[ 'test', false ],
+		];
+	}
+
 	/**
-	 * @dataProvider provideBooleans
+	 * @dataProvider provideAttributeOverwritten
 	 */
-	public function testCaptchaTriggersAttributeGetsOverwritten( bool $expected ) {
-		$trigger = 'edit';
-		$this->overrideConfigValue( 'CaptchaTriggers', [ $trigger => $expected ] );
+	public function testCaptchaTriggersAttributeGetsOverwritten( $trigger, $expected ) {
+		$this->setMwGlobals( 'wgCaptchaTriggers', [ $trigger => $expected ] );
 		$this->setCaptchaTriggersAttribute( $trigger, !$expected );
 		$captcha = new SimpleCaptcha();
 		$this->assertEquals( $expected, $captcha->triggersCaptcha( $trigger ) );
 	}
 
+	public function provideAttributeOverwritten() {
+		return [
+			[ 'edit', true ],
+			[ 'edit', false ],
+		];
+	}
+
 	/**
-	 * @dataProvider provideBooleans
+	 * @dataProvider provideCanSkipCaptchaUserright
 	 */
-	public function testCanSkipCaptchaUserright( bool $userIsAllowed ) {
+	public function testCanSkipCaptchaUserright( $userIsAllowed, $expected ) {
 		$testObject = new SimpleCaptcha();
 		$user = $this->createMock( User::class );
 		$user->method( 'isAllowed' )->willReturn( $userIsAllowed );
 
 		$actual = $testObject->canSkipCaptcha( $user, RequestContext::getMain()->getConfig() );
 
-		$this->assertEquals( $userIsAllowed, $actual );
+		$this->assertEquals( $expected, $actual );
 	}
 
-	public static function provideBooleans() {
-		yield [ true ];
-		yield [ false ];
+	public function provideCanSkipCaptchaUserright() {
+		return [
+			[ true, true ],
+			[ false, false ]
+		];
 	}
 
 	/**
@@ -181,14 +187,15 @@ class CaptchaTest extends MediaWikiIntegrationTestCase {
 		$testObject = new SimpleCaptcha();
 		$user = $this->createMock( User::class );
 		$user->method( 'isEmailConfirmed' )->willReturn( $userIsMailConfirmed );
-		$config = new HashConfig( [ 'AllowConfirmedEmail' => $allowUserConfirmEmail ] );
+		$config = $this->createMock( Config::class );
+		$config->method( 'get' )->willReturn( $allowUserConfirmEmail );
 
 		$actual = $testObject->canSkipCaptcha( $user, $config );
 
 		$this->assertEquals( $expected, $actual );
 	}
 
-	public static function provideCanSkipCaptchaMailconfirmed() {
+	public function provideCanSkipCaptchaMailconfirmed() {
 		return [
 			[ false, false, false ],
 			[ false, true, false ],
@@ -202,48 +209,25 @@ class CaptchaTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testCanSkipCaptchaIPWhitelisted( $requestIP, $IPWhitelist, $expected ) {
 		$testObject = new SimpleCaptcha();
-		$config = new HashConfig( [ 'AllowConfirmedEmail' => false ] );
+		$config = $this->createMock( Config::class );
 		$request = $this->createMock( WebRequest::class );
 		$request->method( 'getIP' )->willReturn( $requestIP );
 
 		$this->setMwGlobals( [
 			'wgRequest' => $request,
+			'wgCaptchaWhitelistIP' => $IPWhitelist
 		] );
-		$this->overrideConfigValue( 'CaptchaWhitelistIP', $IPWhitelist );
 
 		$actual = $testObject->canSkipCaptcha( RequestContext::getMain()->getUser(), $config );
 
 		$this->assertEquals( $expected, $actual );
 	}
 
-	public static function provideCanSkipCaptchaIPWhitelisted() {
+	public function provideCanSkipCaptchaIPWhitelisted() {
 		return ( [
 			[ '127.0.0.1', [ '127.0.0.1', '127.0.0.2' ], true ],
 			[ '127.0.0.1', [], false ]
 		]
 		);
-	}
-
-	public function testTriggersCaptchaReturnsEarlyIfCaptchaSolved() {
-		$this->overrideConfigValue( 'CaptchaTriggers', [
-			'edit' => true,
-		] );
-		$testObject = new SimpleCaptcha();
-		/** @var SimpleCaptcha $wrapper */
-		$wrapper = TestingAccessWrapper::newFromObject( $testObject );
-		$wrapper->captchaSolved = true;
-		$this->assertFalse( $testObject->triggersCaptcha( 'edit' ), 'CAPTCHA is not triggered if already solved' );
-	}
-
-	public function testForceShowCaptcha() {
-		$this->overrideConfigValue( 'CaptchaTriggers', [
-			'edit' => false,
-		] );
-		$testObject = new SimpleCaptcha();
-		$this->assertFalse(
-			$testObject->triggersCaptcha( 'edit' ), 'CAPTCHA is not triggered by edit action in this configuration'
-		);
-		$testObject->setForceShowCaptcha( true );
-		$this->assertTrue( $testObject->triggersCaptcha( 'edit' ), 'Force showing a CAPTCHA if flag is set' );
 	}
 }

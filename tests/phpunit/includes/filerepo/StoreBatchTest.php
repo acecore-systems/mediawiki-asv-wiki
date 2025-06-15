@@ -1,18 +1,12 @@
 <?php
 
-use MediaWiki\Status\Status;
-use MediaWiki\WikiMap\WikiMap;
-use Wikimedia\FileBackend\FSFileBackend;
-
 /**
  * @group FileRepo
  * @group medium
  */
 class StoreBatchTest extends MediaWikiIntegrationTestCase {
 
-	/** @var string[] */
 	protected $createdFiles;
-	/** @var string */
 	protected $date;
 	/** @var FileRepo */
 	protected $repo;
@@ -93,7 +87,7 @@ class StoreBatchTest extends MediaWikiIntegrationTestCase {
 	 */
 	private function storecohort( $fn, $infn, $otherfn, $fromrepo ) {
 		$f = $this->storeit( $fn, $infn, 0 );
-		$this->assertStatusGood( $f, 'failed to store a new file' );
+		$this->assertStatusOK( $f, 'failed to store a new file' );
 		$this->assertSame( 0, $f->failCount, "counts wrong {$f->successCount} {$f->failCount}" );
 		$this->assertSame( 1, $f->successCount, "counts wrong {$f->successCount} {$f->failCount}" );
 		if ( $fromrepo ) {
@@ -102,17 +96,17 @@ class StoreBatchTest extends MediaWikiIntegrationTestCase {
 		}
 		// This should work because we're allowed to overwrite
 		$f = $this->storeit( $fn, $infn, FileRepo::OVERWRITE );
-		$this->assertStatusGood( $f, 'We should be allowed to overwrite' );
+		$this->assertStatusOK( $f, 'We should be allowed to overwrite' );
 		$this->assertSame( 0, $f->failCount, "counts wrong {$f->successCount} {$f->failCount}" );
 		$this->assertSame( 1, $f->successCount, "counts wrong {$f->successCount} {$f->failCount}" );
 		// This should fail because we're overwriting.
 		$f = $this->storeit( $fn, $infn, 0 );
-		$this->assertStatusError( 'backend-fail-alreadyexists', $f, 'We should not be allowed to overwrite' );
+		$this->assertStatusNotOK( $f, 'We should not be allowed to overwrite' );
 		$this->assertSame( 1, $f->failCount, "counts wrong {$f->successCount} {$f->failCount}" );
 		$this->assertSame( 0, $f->successCount, "counts wrong {$f->successCount} {$f->failCount}" );
 		// This should succeed because we're overwriting the same content.
 		$f = $this->storeit( $fn, $infn, FileRepo::OVERWRITE_SAME );
-		$this->assertStatusGood( $f, 'We should be able to overwrite the same content' );
+		$this->assertStatusOK( $f, 'We should be able to overwrite the same content' );
 		$this->assertSame( 0, $f->failCount, "counts wrong {$f->successCount} {$f->failCount}" );
 		$this->assertSame( 1, $f->successCount, "counts wrong {$f->successCount} {$f->failCount}" );
 		// This should fail because we're overwriting different content.
@@ -121,13 +115,13 @@ class StoreBatchTest extends MediaWikiIntegrationTestCase {
 			$otherfn = $f->value;
 		}
 		$f = $this->storeit( $fn, $otherfn, FileRepo::OVERWRITE_SAME );
-		$this->assertStatusError( 'backend-fail-notsame', $f, 'We should not be allowed to overwrite different content' );
+		$this->assertStatusNotOK( $f, 'We should not be allowed to overwrite different content' );
 		$this->assertSame( 1, $f->failCount, "counts wrong {$f->successCount} {$f->failCount}" );
 		$this->assertSame( 0, $f->successCount, "counts wrong {$f->successCount} {$f->failCount}" );
 	}
 
 	/**
-	 * @covers \FileRepo::store
+	 * @covers FileRepo::store
 	 */
 	public function teststore() {
 		global $IP;

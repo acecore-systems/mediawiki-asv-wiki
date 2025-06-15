@@ -19,13 +19,8 @@
  * @ingroup RevisionDelete
  */
 
-use MediaWiki\Api\ApiResult;
-use MediaWiki\Html\Html;
-use MediaWiki\Linker\Linker;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\RevisionList\RevisionListBase;
-use MediaWiki\SpecialPage\SpecialPage;
-use Wikimedia\Rdbms\IConnectionProvider;
+use MediaWiki\Revision\RevisionRecord;
 
 /**
  * Item class for an oldimage table row
@@ -35,12 +30,10 @@ class RevDelFileItem extends RevDelItem {
 	protected $list;
 	/** @var OldLocalFile */
 	protected $file;
-	protected IConnectionProvider $dbProvider;
 
 	public function __construct( RevisionListBase $list, $row ) {
 		parent::__construct( $list, $row );
 		$this->file = static::initFile( $list, $row );
-		$this->dbProvider = MediaWikiServices::getInstance()->getConnectionProvider();
 	}
 
 	/**
@@ -118,16 +111,16 @@ class RevDelFileItem extends RevDelItem {
 		}
 
 		# Do the database operations
-		$dbw = $this->dbProvider->getPrimaryDatabase();
-		$dbw->newUpdateQueryBuilder()
-			->update( 'oldimage' )
-			->set( [ 'oi_deleted' => $bits ] )
-			->where( [
+		$dbw = wfGetDB( DB_PRIMARY );
+		$dbw->update( 'oldimage',
+			[ 'oi_deleted' => $bits ],
+			[
 				'oi_name' => $this->row->oi_name,
 				'oi_timestamp' => $this->row->oi_timestamp,
 				'oi_deleted' => $this->getBits()
-			] )
-			->caller( __METHOD__ )->execute();
+			],
+			__METHOD__
+		);
 
 		return (bool)$dbw->affectedRows();
 	}
@@ -197,8 +190,7 @@ class RevDelFileItem extends RevDelItem {
 	 */
 	protected function getComment() {
 		if ( $this->file->userCan( File::DELETED_COMMENT, $this->list->getAuthority() ) ) {
-			$block = MediaWikiServices::getInstance()->getCommentFormatter()
-				->formatBlock( $this->file->getDescription() );
+			$block = Linker::commentBlock( $this->file->getDescription() );
 		} else {
 			$block = ' ' . $this->list->msg( 'rev-deleted-comment' )->escaped();
 		}
@@ -231,8 +223,8 @@ class RevDelFileItem extends RevDelItem {
 			'width' => $file->getWidth(),
 			'height' => $file->getHeight(),
 			'size' => $file->getSize(),
-			'userhidden' => (bool)$file->isDeleted( File::DELETED_USER ),
-			'commenthidden' => (bool)$file->isDeleted( File::DELETED_COMMENT ),
+			'userhidden' => (bool)$file->isDeleted( RevisionRecord::DELETED_USER ),
+			'commenthidden' => (bool)$file->isDeleted( RevisionRecord::DELETED_COMMENT ),
 			'contenthidden' => (bool)$this->isDeleted(),
 		];
 		if ( !$this->isDeleted() ) {

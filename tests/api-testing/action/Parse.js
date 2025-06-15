@@ -2,7 +2,7 @@
 
 const { action, assert, utils } = require( 'api-testing' );
 
-describe( 'The parse action', () => {
+describe( 'The parse action', function () {
 	let alice;
 	const pageTitle = utils.title( 'Parsing_' );
 	const edits = {};
@@ -43,7 +43,7 @@ describe( 'The parse action', () => {
                     '== Two =='
 			} );
 
-			assert.match( result.parse.text[ '*' ], /id="toc"|property="mw:PageProp\/toc"/ );
+			assert.include( result.parse.text[ '*' ], 'id="toc"' );
 		} );
 
 		it( 'supports __NOTOC__', async () => {
@@ -56,7 +56,7 @@ describe( 'The parse action', () => {
                     '== Four =='
 			} );
 
-			assert.notMatch( result.parse.text[ '*' ], /id="toc"|property="mw:PageProp\/toc"/ );
+			assert.notInclude( result.parse.text[ '*' ], 'id="toc"' );
 		} );
 	} );
 
@@ -67,7 +67,7 @@ describe( 'The parse action', () => {
 				text: 'This is {{PAGENAMEE}}'
 			} );
 
-			assert.include( result.parse.text[ '*' ], `This is ${ pageTitle }` );
+			assert.include( result.parse.text[ '*' ], `This is ${pageTitle}` );
 		} );
 		it( 'supports {{REVISIONID}} and {{REVISIONUSER}} via parameters', async () => {
 			const result = await alice.action( 'parse', {
@@ -78,7 +78,7 @@ describe( 'The parse action', () => {
 
 			assert.include(
 				result.parse.text[ '*' ],
-				`This is ${ edits.pageCreation.newrevid } by ${ edits.pageCreation.param_user }`
+				`This is ${edits.pageCreation.newrevid} by ${edits.pageCreation.param_user}`
 			);
 		} );
 		it( 'supports {{REVISIONID}} and {{REVISIONUSER}} of a saved revision', async () => {
@@ -94,7 +94,7 @@ describe( 'The parse action', () => {
 
 			assert.include(
 				result.parse.text[ '*' ],
-				`This is ${ anotherEdit.newrevid } by ${ anotherEdit.param_user }`
+				`This is ${anotherEdit.newrevid} by ${anotherEdit.param_user}`
 			);
 		} );
 	} );
@@ -110,7 +110,7 @@ describe( 'The parse action', () => {
 		it( 'supports optional parameters', async () => {
 			const result = await alice.action( 'parse', {
 				title: pageTitle,
-				text: `Say: {{${ templateTitle }}}`
+				text: `Say: {{${templateTitle}}}`
 			} );
 
 			assert.include( result.parse.text[ '*' ], 'Say: Hello world!' );
@@ -119,7 +119,7 @@ describe( 'The parse action', () => {
 		it( 'supports positional parameters', async () => {
 			const result = await alice.action( 'parse', {
 				title: pageTitle,
-				text: `Say: {{${ templateTitle }|you}}`
+				text: `Say: {{${templateTitle}|you}}`
 			} );
 
 			assert.include( result.parse.text[ '*' ], 'Say: Hello you!' );
@@ -128,7 +128,7 @@ describe( 'The parse action', () => {
 		it( 'supports named parameters', async () => {
 			const result = await alice.action( 'parse', {
 				title: pageTitle,
-				text: `Say: {{${ templateTitle }|greeting=Ciao}}`
+				text: `Say: {{${templateTitle}|greeting=Ciao}}`
 			} );
 
 			assert.include( result.parse.text[ '*' ], 'Say: Ciao world!' );

@@ -28,13 +28,9 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\StubObject\StubGlobalUser;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
+use MediaWiki\MediaWikiServices;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script to delete a batch of pages.
@@ -86,10 +82,10 @@ class DeleteBatch extends Maintenance {
 			$this->fatalError( "Unable to read file, exiting" );
 		}
 
-		$services = $this->getServiceContainer();
+		$services = MediaWikiServices::getInstance();
+		$lbFactory = $services->getDBLoadBalancerFactory();
 		$wikiPageFactory = $services->getWikiPageFactory();
 		$repoGroup = $services->getRepoGroup();
-		$delPageFactory = $services->getDeletePageFactory();
 
 		# Handle each entry
 		for ( $linenum = 1; !feof( $file ); $linenum++ ) {
@@ -127,11 +123,18 @@ class DeleteBatch extends Maintenance {
 				}
 			}
 			$page = $wikiPageFactory->newFromTitle( $target );
-			$delPage = $delPageFactory->newDeletePage( $page, $user );
-			$status = $delPage
-				->forceImmediate( true )
-				->deleteUnsafe( $reason );
-
+			$error = '';
+			$status = $page->doDeleteArticleReal(
+				$reason,
+				$user,
+				false,
+				null,
+				$error,
+				null,
+				[],
+				'delete',
+				true
+			);
 			if ( $status->isOK() ) {
 				$this->output( " Deleted!\n" );
 			} else {
@@ -141,12 +144,10 @@ class DeleteBatch extends Maintenance {
 			if ( $interval ) {
 				sleep( $interval );
 			}
-			$this->waitForReplication();
+			$lbFactory->waitForReplication();
 		}
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = DeleteBatch::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

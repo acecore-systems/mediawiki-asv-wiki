@@ -8,17 +8,13 @@ namespace MediaWiki\User\TempUser;
  * @since 1.39
  */
 class PlainNumericSerialMapping implements SerialMapping {
-	/** @var int */
-	private $offset;
-
 	/**
 	 * @param array $config
 	 */
 	public function __construct( $config ) {
-		$this->offset = $config['offset'] ?? 0;
 	}
 
 	public function getSerialIdForIndex( int $index ): string {
-		return (string)( $index + $this->offset );
+		return (string)$index;
 	}
 }

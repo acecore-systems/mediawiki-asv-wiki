@@ -1,16 +1,11 @@
 <?php
 
-namespace Wikimedia\Tests\Rdbms;
-
-use InvalidArgumentException;
-use MediaWikiCoversValidator;
-use PHPUnit\Framework\TestCase;
 use Wikimedia\Rdbms\DatabaseDomain;
 
 /**
- * @covers \Wikimedia\Rdbms\DatabaseDomain
+ * @covers Wikimedia\Rdbms\DatabaseDomain
  */
-class DatabaseDomainTest extends TestCase {
+class DatabaseDomainTest extends PHPUnit\Framework\TestCase {
 
 	use MediaWikiCoversValidator;
 
@@ -108,6 +103,7 @@ class DatabaseDomainTest extends TestCase {
 
 	/**
 	 * @dataProvider provideEquals
+	 * @covers Wikimedia\Rdbms\DatabaseDomain::equals
 	 */
 	public function testEquals( $id, $db, $schema, $prefix ) {
 		$fromId = DatabaseDomain::newFromId( $id );
@@ -122,6 +118,9 @@ class DatabaseDomainTest extends TestCase {
 		$this->assertTrue( $fromId->equals( $constructed ), 'compare newId to constructed' );
 	}
 
+	/**
+	 * @covers Wikimedia\Rdbms\DatabaseDomain::newUnspecified
+	 */
 	public function testNewUnspecified() {
 		$domain = DatabaseDomain::newUnspecified();
 		$this->assertInstanceOf( DatabaseDomain::class, $domain );
@@ -158,6 +157,7 @@ class DatabaseDomainTest extends TestCase {
 
 	/**
 	 * @dataProvider provideIsCompatible
+	 * @covers Wikimedia\Rdbms\DatabaseDomain::isCompatible
 	 */
 	public function testIsCompatible( $id, $db, $schema, $prefix, $transitive ) {
 		$compareIdObj = DatabaseDomain::newFromId( $id );
@@ -185,6 +185,7 @@ class DatabaseDomainTest extends TestCase {
 
 	/**
 	 * @dataProvider provideIsCompatible2
+	 * @covers Wikimedia\Rdbms\DatabaseDomain::isCompatible
 	 */
 	public function testIsCompatible2( $id, $db, $schema, $prefix ) {
 		$compareIdObj = DatabaseDomain::newFromId( $id );
@@ -206,6 +207,9 @@ class DatabaseDomainTest extends TestCase {
 		DatabaseDomain::newFromId( '-schema-prefix' );
 	}
 
+	/**
+	 * @covers Wikimedia\Rdbms\DatabaseDomain::isUnspecified
+	 */
 	public function testIsUnspecified() {
 		$domain = new DatabaseDomain( null, null, '' );
 		$this->assertTrue( $domain->isUnspecified() );

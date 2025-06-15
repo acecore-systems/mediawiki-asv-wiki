@@ -75,11 +75,6 @@ local function test_getContent()
 		mw.title.new( 'ScribuntoTestNonExistingPage' ):getContent()
 end
 
-local function test_content()
-	return mw.title.new( 'ScribuntoTestPage' ).content,
-		mw.title.new( 'ScribuntoTestNonExistingPage' ).content
-end
-
 local function test_redirectTarget()
 	local targets = {}
 	local titles = {
@@ -100,14 +95,6 @@ end
 local function test_getCurrentTitle_fragment()
 	mw.title.getCurrentTitle().fragment = 'bad'
 	return mw.title.getCurrentTitle().fragment
-end
-
-local function test_pageLang()
-	local l = mw.title.getCurrentTitle().pageLang
-	if l:getCode() ~= mw.language.getContentLanguage():getCode() then
-		return 'error'
-	end
-	return 'did not error'
 end
 
 -- Tests
@@ -226,7 +213,7 @@ local tests = {
 	},
 	{ name = '.isTalkPage', func = prop_foreach,
 		args = { 'isTalkPage' },
-		expect = { false, false, nil, true, false, true, true }
+		expect = { false, false, false, true, false, true, true }
 	},
 	{ name = '.isSubpage', func = prop_foreach,
 		args = { 'isSubpage' },
@@ -277,15 +264,7 @@ local tests = {
 	},
 	{ name = '.subjectNsText', func = prop_foreach,
 		args = { 'subjectNsText' },
-		expect = { '', 'Module', nil, '', '', 'Module', 'Module' }
-	},
-	{ name = '.canTalk', func = prop_foreach,
-		args = { 'canTalk' },
-		expect = { true, true, nil, true, true, true, true }
-	},
-	{ name = '.talkNsText', func = prop_foreach,
-		args = { 'talkNsText' },
-		expect = { 'Talk', 'Module talk', nil, 'Talk', 'Talk', 'Module talk', 'Module talk' }
+		expect = { '', 'Module', '', '', '', 'Module', 'Module' }
 	},
 	{ name = '.fragment', func = prop_foreach,
 		args = { 'fragment' },
@@ -417,13 +396,6 @@ local tests = {
 		}
 	},
 
-	{ name = '.content', func = test_content,
-		expect = {
-			'{{int:mainpage}}<includeonly>...</includeonly><noinclude>...</noinclude>',
-			false,
-		}
-	},
-
 	{ name = '.redirectTarget', func = test_redirectTarget, type = 'ToString',
 		expect = { 'ScribuntoTestTarget', false, false }
 	},
@@ -442,9 +414,6 @@ local tests = {
 	},
 	{ name = "fragments don't leak via getCurrentTitle()", func = test_getCurrentTitle_fragment,
 		expect = { '' }
-	},
-	{ name = "sample page language returns current content language", func = test_pageLang,
-		expect = { 'did not error' }
 	},
 }
 

@@ -1,14 +1,7 @@
 <?php
 
-namespace MediaWiki\Extension\Scribunto\Tests\Engines\LuaCommon;
-
-use Exception;
-use Iterator;
-use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LuaEngine;
-use MediaWiki\Title\Title;
-
-class LuaDataProvider implements Iterator {
-	/** @var LuaEngine|null */
+class Scribunto_LuaDataProvider implements Iterator {
+	/** @var Scribunto_LuaEngine|null */
 	protected $engine = null;
 	/** @var mixed|null */
 	protected $exports = null;
@@ -16,7 +9,7 @@ class LuaDataProvider implements Iterator {
 	protected $key = 1;
 
 	/**
-	 * @param LuaEngine $engine
+	 * @param Scribunto_LuaEngine $engine
 	 * @param string $moduleName
 	 */
 	public function __construct( $engine, $moduleName ) {
@@ -66,7 +59,7 @@ class LuaDataProvider implements Iterator {
 	 * @return mixed Test result
 	 */
 	public function run( $key ) {
-		[ $ret ] = $this->engine->getInterpreter()->callFunction( $this->exports['run'], $key );
+		list( $ret ) = $this->engine->getInterpreter()->callFunction( $this->exports['run'], $key );
 		return $ret;
 	}
 }

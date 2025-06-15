@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel TextStyleAnnotation class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -29,7 +29,7 @@ ve.dm.TextStyleAnnotation.static.name = 'textStyle';
 ve.dm.TextStyleAnnotation.static.matchTagNames = [];
 
 ve.dm.TextStyleAnnotation.static.toDataElement = function ( domElements, converter ) {
-	const nodeName = converter.isFromClipboard() ? this.matchTagNames[ 0 ] : domElements[ 0 ].nodeName.toLowerCase();
+	var nodeName = converter.isFromClipboard() ? this.matchTagNames[ 0 ] : domElements[ 0 ].nodeName.toLowerCase();
 	return {
 		type: this.name,
 		attributes: {
@@ -39,7 +39,7 @@ ve.dm.TextStyleAnnotation.static.toDataElement = function ( domElements, convert
 };
 
 ve.dm.TextStyleAnnotation.static.toDomElements = function ( dataElement, doc ) {
-	const nodeName = ve.getProp( dataElement, 'attributes', 'nodeName' );
+	var nodeName = ve.getProp( dataElement, 'attributes', 'nodeName' );
 
 	return [ doc.createElement( nodeName || this.matchTagNames[ 0 ] ) ];
 };

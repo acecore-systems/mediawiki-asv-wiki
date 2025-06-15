@@ -6,7 +6,7 @@ use MediaWiki\ResourceLoader\VueComponentParser;
 
 /**
  * @group ResourceLoader
- * @covers \MediaWiki\ResourceLoader\VueComponentParser
+ * @covers VueComponentParser
  */
 class VueComponentParserTest extends \PHPUnit\Framework\TestCase {
 	/**

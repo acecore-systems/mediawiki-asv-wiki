@@ -20,31 +20,17 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
-use MediaWiki\CommentFormatter\CommentFormatter;
-use MediaWiki\Content\Content;
 use MediaWiki\Content\IContentHandlerFactory;
 use MediaWiki\Content\Renderer\ContentRenderer;
 use MediaWiki\Content\Transform\ContentTransformer;
-use MediaWiki\Content\WikitextContent;
-use MediaWiki\Context\DerivativeContext;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Parser\Parser;
-use MediaWiki\Parser\ParserFactory;
-use MediaWiki\Parser\ParserOptions;
 use MediaWiki\Revision\RevisionAccessException;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\RevisionStore;
 use MediaWiki\Revision\SlotRecord;
 use MediaWiki\Revision\SlotRoleRegistry;
-use MediaWiki\Title\Title;
-use MediaWiki\User\TempUser\TempUserCreator;
-use MediaWiki\User\UserFactory;
-use MediaWiki\User\UserNameUtils;
-use stdClass;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\TypeDef\EnumDef;
 use Wikimedia\ParamValidator\TypeDef\IntegerDef;
@@ -66,53 +52,17 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 	private const IS_DELETED = 1; // Whether the field is revision-deleted
 	private const CANNOT_VIEW = 2; // Whether the user cannot view the field due to revdel
 
-	private const LIMIT_PARSE = 1;
-
 	// endregion
 
-	/** @var int|string|null */
-	protected $limit;
-	/** @var int|string|null */
-	protected $diffto;
-	/** @var string|null */
-	protected $difftotext;
-	/** @var bool */
-	protected $difftotextpst;
-	/** @var int|string|null */
-	protected $expandTemplates;
-	/** @var bool */
-	protected $generateXML;
-	/** @var int|string|null */
-	protected $section;
-	/** @var bool */
-	protected $parseContent;
-	/** @var bool */
-	protected $fetchContent;
-	/** @var string */
-	protected $contentFormat;
-	protected bool $setParsedLimit = true;
-	protected ?array $slotRoles = null;
-	/** @var string[] */
-	protected $slotContentFormats;
-	/** @var bool */
-	protected $needSlots;
+	protected $limit, $diffto, $difftotext, $difftotextpst, $expandTemplates, $generateXML,
+		$section, $parseContent, $fetchContent, $contentFormat, $setParsedLimit = true,
+		$slotRoles = null, $needSlots;
 
-	protected bool $fld_ids = false;
-	protected bool $fld_flags = false;
-	protected bool $fld_timestamp = false;
-	protected bool $fld_size = false;
-	protected bool $fld_slotsize = false;
-	protected bool $fld_sha1 = false;
-	protected bool $fld_slotsha1 = false;
-	protected bool $fld_comment = false;
-	protected bool $fld_parsedcomment = false;
-	protected bool $fld_user = false;
-	protected bool $fld_userid = false;
-	protected bool $fld_content = false;
-	protected bool $fld_tags = false;
-	protected bool $fld_contentmodel = false;
-	protected bool $fld_roles = false;
-	protected bool $fld_parsetree = false;
+	protected $fld_ids = false, $fld_flags = false, $fld_timestamp = false,
+		$fld_size = false, $fld_slotsize = false, $fld_sha1 = false, $fld_slotsha1 = false,
+		$fld_comment = false, $fld_parsedcomment = false, $fld_user = false, $fld_userid = false,
+		$fld_content = false, $fld_tags = false, $fld_contentmodel = false, $fld_roles = false,
+		$fld_parsetree = false;
 
 	/**
 	 * The number of uncached diffs that had to be generated for this request.
@@ -120,35 +70,47 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 	 */
 	private $numUncachedDiffs = 0;
 
-	private RevisionStore $revisionStore;
-	private IContentHandlerFactory $contentHandlerFactory;
-	private ParserFactory $parserFactory;
-	private SlotRoleRegistry $slotRoleRegistry;
-	private ContentRenderer $contentRenderer;
-	private ContentTransformer $contentTransformer;
-	private CommentFormatter $commentFormatter;
-	private TempUserCreator $tempUserCreator;
-	private UserFactory $userFactory;
-	private UserNameUtils $userNameUtils;
+	/** @var RevisionStore */
+	private $revisionStore;
+
+	/** @var IContentHandlerFactory */
+	private $contentHandlerFactory;
+
+	/** @var ParserFactory */
+	private $parserFactory;
+
+	/** @var SlotRoleRegistry */
+	private $slotRoleRegistry;
+
+	/** @var ContentRenderer */
+	private $contentRenderer;
+
+	/** @var ContentTransformer */
+	private $contentTransformer;
 
 	/**
 	 * @since 1.37 Support injection of services
 	 * @stable to call
+	 * @param ApiQuery $queryModule
+	 * @param string $moduleName
+	 * @param string $paramPrefix
+	 * @param RevisionStore|null $revisionStore
+	 * @param IContentHandlerFactory|null $contentHandlerFactory
+	 * @param ParserFactory|null $parserFactory
+	 * @param SlotRoleRegistry|null $slotRoleRegistry
+	 * @param ContentRenderer|null $contentRenderer
+	 * @param ContentTransformer|null $contentTransformer
 	 */
 	public function __construct(
 		ApiQuery $queryModule,
-		string $moduleName,
-		string $paramPrefix = '',
-		?RevisionStore $revisionStore = null,
-		?IContentHandlerFactory $contentHandlerFactory = null,
-		?ParserFactory $parserFactory = null,
-		?SlotRoleRegistry $slotRoleRegistry = null,
-		?ContentRenderer $contentRenderer = null,
-		?ContentTransformer $contentTransformer = null,
-		?CommentFormatter $commentFormatter = null,
-		?TempUserCreator $tempUserCreator = null,
-		?UserFactory $userFactory = null,
-		?UserNameUtils $userNameUtils = null
+		$moduleName,
+		$paramPrefix = '',
+		RevisionStore $revisionStore = null,
+		IContentHandlerFactory $contentHandlerFactory = null,
+		ParserFactory $parserFactory = null,
+		SlotRoleRegistry $slotRoleRegistry = null,
+		ContentRenderer $contentRenderer = null,
+		ContentTransformer $contentTransformer = null
 	) {
 		parent::__construct( $queryModule, $moduleName, $paramPrefix );
 		// This class is part of the stable interface and
@@ -160,10 +122,6 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 		$this->slotRoleRegistry = $slotRoleRegistry ?? $services->getSlotRoleRegistry();
 		$this->contentRenderer = $contentRenderer ?? $services->getContentRenderer();
 		$this->contentTransformer = $contentTransformer ?? $services->getContentTransformer();
-		$this->commentFormatter = $commentFormatter ?? $services->getCommentFormatter();
-		$this->tempUserCreator = $tempUserCreator ?? $services->getTempUserCreator();
-		$this->userFactory = $userFactory ?? $services->getUserFactory();
-		$this->userNameUtils = $userNameUtils ?? $services->getUserNameUtils();
 	}
 
 	public function execute() {
@@ -178,7 +136,7 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 	 * @param ApiPageSet|null $resultPageSet
 	 * @return void
 	 */
-	abstract protected function run( ?ApiPageSet $resultPageSet = null );
+	abstract protected function run( ApiPageSet $resultPageSet = null );
 
 	/**
 	 * Parse the parameters into the various instance fields.
@@ -225,12 +183,6 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 						$this->encodeParamName( $p ),
 						$this->encodeParamName( 'slots' ),
 					], 'invalidparammix' );
-				}
-			}
-			$this->slotContentFormats = [];
-			foreach ( $this->slotRoles as $slotRole ) {
-				if ( isset( $params['contentformat-' . $slotRole] ) ) {
-					$this->slotContentFormats[$slotRole] = $params['contentformat-' . $slotRole];
 				}
 			}
 		}
@@ -283,15 +235,15 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 			$this->parseContent = $params['parse'];
 			if ( $this->parseContent ) {
 				// Must manually initialize unset limit
-				$this->limit ??= self::LIMIT_PARSE;
+				if ( $this->limit === null ) {
+					$this->limit = 1;
+				}
 			}
 			$this->section = $params['section'] ?? false;
 		}
 
-		$userMax = $this->parseContent ? self::LIMIT_PARSE :
-			( $smallLimit ? ApiBase::LIMIT_SML1 : ApiBase::LIMIT_BIG1 );
-		$botMax = $this->parseContent ? self::LIMIT_PARSE :
-			( $smallLimit ? ApiBase::LIMIT_SML2 : ApiBase::LIMIT_BIG2 );
+		$userMax = $this->parseContent ? 1 : ( $smallLimit ? ApiBase::LIMIT_SML1 : ApiBase::LIMIT_BIG1 );
+		$botMax = $this->parseContent ? 1 : ( $smallLimit ? ApiBase::LIMIT_SML2 : ApiBase::LIMIT_BIG2 );
 		if ( $this->limit == 'max' ) {
 			$this->limit = $this->getMain()->canApiHighLimits() ? $botMax : $userMax;
 			if ( $this->setParsedLimit ) {
@@ -373,9 +325,6 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 				if ( $this->fld_user ) {
 					$vals['user'] = $u->getName();
 				}
-				if ( $this->userNameUtils->isTemp( $u->getName() ) ) {
-					$vals['temp'] = true;
-				}
 				if ( !$u->isRegistered() ) {
 					$vals['anon'] = true;
 				}
@@ -408,7 +357,7 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 			}
 			if ( !( $revDel & self::CANNOT_VIEW ) ) {
 				try {
-					$vals['sha1'] = \Wikimedia\base_convert( $revision->getSha1(), 36, 16, 40 );
+					$vals['sha1'] = Wikimedia\base_convert( $revision->getSha1(), 36, 16, 40 );
 				} catch ( RevisionAccessException $e ) {
 					// Back compat: If there's no sha1, return empty string.
 					// @todo: Gergő says to mention T198099 as a "todo" here.
@@ -455,7 +404,7 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 				}
 
 				if ( $this->fld_parsedcomment ) {
-					$vals['parsedcomment'] = $this->commentFormatter->format(
+					$vals['parsedcomment'] = Linker::formatComment(
 						$comment, Title::newFromLinkTarget( $revision->getPageAsLinkTarget() )
 					);
 				}
@@ -538,25 +487,13 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 				// when extractDeprecatedContent() is no more.
 				if ( $content ) {
 					/** @var Content $content */
-					$model = $content->getModel();
-					$format = $this->slotContentFormats[$role] ?? $content->getDefaultFormat();
-					if ( !$content->isSupportedFormat( $format ) ) {
-						$this->addWarning( [
-							'apierror-badformat',
-							$format,
-							$model,
-							$this->msg( 'revid', $revision->getId() )
-						] );
-						$vals['slots'][$role]['badcontentformat'] = true;
-					} else {
-						$vals['slots'][$role]['contentmodel'] = $model;
-						$vals['slots'][$role]['contentformat'] = $format;
-						ApiResult::setContentValue(
-							$vals['slots'][$role],
-							'content',
-							$content->serialize( $format )
-						);
-					}
+					$vals['slots'][$role]['contentmodel'] = $content->getModel();
+					$vals['slots'][$role]['contentformat'] = $content->getDefaultFormat();
+					ApiResult::setContentValue(
+						$vals['slots'][$role],
+						'content',
+						$content->serialize()
+					);
 				}
 			}
 			ApiResult::setArrayType( $vals['slots'], 'kvp', 'role' );
@@ -588,7 +525,7 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 			}
 			if ( !( $revDel & self::CANNOT_VIEW ) ) {
 				if ( $slot->getSha1() != '' ) {
-					$vals['sha1'] = \Wikimedia\base_convert( $slot->getSha1(), 36, 16, 40 );
+					$vals['sha1'] = Wikimedia\base_convert( $slot->getSha1(), 36, 16, 40 );
 				} else {
 					$vals['sha1'] = '';
 				}
@@ -696,15 +633,13 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 				}
 			}
 			if ( $this->parseContent ) {
-				$popts = ParserOptions::newFromContext( $this->getContext() );
 				$po = $this->contentRenderer->getParserOutput(
 					$content,
 					$title,
-					$revision,
-					$popts
+					$revision->getId(),
+					ParserOptions::newFromContext( $this->getContext() )
 				);
-				// TODO T371004 move runOutputPipeline out of $parserOutput
-				$text = $po->runOutputPipeline( $popts, [] )->getContentHolderText();
+				$text = $po->getText();
 			}
 
 			if ( $text === null ) {
@@ -757,7 +692,7 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 							$difftocontent = $this->contentTransformer->preSaveTransform(
 								$difftocontent,
 								$title,
-								$this->getUserForPreview(),
+								$this->getUser(),
 								$popts
 							);
 						}
@@ -776,9 +711,6 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 					if ( !$engine->wasCacheHit() ) {
 						$this->numUncachedDiffs++;
 					}
-					foreach ( $engine->getRevisionLoadErrors() as $msg ) {
-						$this->addWarning( $msg );
-					}
 				}
 			} else {
 				$vals['diff']['notcached'] = true;
@@ -786,16 +718,6 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 		}
 
 		return $vals;
-	}
-
-	private function getUserForPreview() {
-		$user = $this->getUser();
-		if ( $this->tempUserCreator->shouldAutoCreate( $user, 'edit' ) ) {
-			return $this->userFactory->newUnsavedTempUser(
-				$this->tempUserCreator->getStashedName( $this->getRequest()->getSession() )
-			);
-		}
-		return $user;
 	}
 
 	/**
@@ -815,11 +737,11 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 	/**
 	 * @stable to override
 	 * @return array
+	 * @throws MWException
 	 */
 	public function getAllowedParams() {
 		$slotRoles = $this->slotRoleRegistry->getKnownRoles();
 		sort( $slotRoles, SORT_STRING );
-		$smallLimit = $this->getMain()->canApiHighLimits() ? ApiBase::LIMIT_SML2 : ApiBase::LIMIT_SML1;
 
 		return [
 			'prop' => [
@@ -857,11 +779,11 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 					'contentmodel' => 'apihelp-query+revisions+base-paramvalue-prop-contentmodel',
 					'comment' => 'apihelp-query+revisions+base-paramvalue-prop-comment',
 					'parsedcomment' => 'apihelp-query+revisions+base-paramvalue-prop-parsedcomment',
-					'content' => [ 'apihelp-query+revisions+base-paramvalue-prop-content', $smallLimit ],
+					'content' => 'apihelp-query+revisions+base-paramvalue-prop-content',
 					'tags' => 'apihelp-query+revisions+base-paramvalue-prop-tags',
 					'roles' => 'apihelp-query+revisions+base-paramvalue-prop-roles',
 					'parsetree' => [ 'apihelp-query+revisions+base-paramvalue-prop-parsetree',
-						CONTENT_MODEL_WIKITEXT, $smallLimit ],
+						CONTENT_MODEL_WIKITEXT ],
 				],
 				EnumDef::PARAM_DEPRECATED_VALUES => [
 					'parsetree' => true,
@@ -873,18 +795,12 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 				ParamValidator::PARAM_ISMULTI => true,
 				ParamValidator::PARAM_ALL => true,
 			],
-			'contentformat-{slot}' => [
-				ApiBase::PARAM_TEMPLATE_VARS => [ 'slot' => 'slots' ],
-				ApiBase::PARAM_HELP_MSG => 'apihelp-query+revisions+base-param-contentformat-slot',
-				ParamValidator::PARAM_TYPE => $this->contentHandlerFactory->getAllContentFormats(),
-			],
 			'limit' => [
 				ParamValidator::PARAM_TYPE => 'limit',
 				IntegerDef::PARAM_MIN => 1,
 				IntegerDef::PARAM_MAX => ApiBase::LIMIT_BIG1,
 				IntegerDef::PARAM_MAX2 => ApiBase::LIMIT_BIG2,
-				ApiBase::PARAM_HELP_MSG => [ 'apihelp-query+revisions+base-param-limit',
-					$smallLimit, self::LIMIT_PARSE ],
+				ApiBase::PARAM_HELP_MSG => 'apihelp-query+revisions+base-param-limit',
 			],
 			'expandtemplates' => [
 				ParamValidator::PARAM_DEFAULT => false,
@@ -898,18 +814,18 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 			],
 			'parse' => [
 				ParamValidator::PARAM_DEFAULT => false,
-				ApiBase::PARAM_HELP_MSG => [ 'apihelp-query+revisions+base-param-parse', self::LIMIT_PARSE ],
+				ApiBase::PARAM_HELP_MSG => 'apihelp-query+revisions+base-param-parse',
 				ParamValidator::PARAM_DEPRECATED => true,
 			],
 			'section' => [
 				ApiBase::PARAM_HELP_MSG => 'apihelp-query+revisions+base-param-section',
 			],
 			'diffto' => [
-				ApiBase::PARAM_HELP_MSG => [ 'apihelp-query+revisions+base-param-diffto', $smallLimit ],
+				ApiBase::PARAM_HELP_MSG => 'apihelp-query+revisions+base-param-diffto',
 				ParamValidator::PARAM_DEPRECATED => true,
 			],
 			'difftotext' => [
-				ApiBase::PARAM_HELP_MSG => [ 'apihelp-query+revisions+base-param-difftotext', $smallLimit ],
+				ApiBase::PARAM_HELP_MSG => 'apihelp-query+revisions+base-param-difftotext',
 				ParamValidator::PARAM_DEPRECATED => true,
 			],
 			'difftotextpst' => [
@@ -925,6 +841,3 @@ abstract class ApiQueryRevisionsBase extends ApiQueryGeneratorBase {
 		];
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiQueryRevisionsBase::class, 'ApiQueryRevisionsBase' );

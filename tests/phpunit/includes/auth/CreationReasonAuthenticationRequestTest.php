@@ -1,8 +1,6 @@
 <?php
 
-namespace MediaWiki\Tests\Auth;
-
-use MediaWiki\Auth\CreationReasonAuthenticationRequest;
+namespace MediaWiki\Auth;
 
 /**
  * @group AuthManager
@@ -14,7 +12,7 @@ class CreationReasonAuthenticationRequestTest extends AuthenticationRequestTestC
 		return new CreationReasonAuthenticationRequest();
 	}
 
-	public static function provideLoadFromSubmission() {
+	public function provideLoadFromSubmission() {
 		return [
 			'Empty request' => [
 				[],

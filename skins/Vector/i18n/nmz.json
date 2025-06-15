@@ -17,9 +17,5 @@
 	"vector-view-view": "Kaal",
 	"vector-more-actions": "Jeengu",
 	"vector-searchsuggest-containing": "Bag wadii iban <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
-	"vector-toc-label": "L'nin gwɛɛt",
-	"vector-toc-beginning": "Baɦdgm",
-	"vector-page-tools-label": "Ŋmɛɛg̈b want",
-	"vector-page-tools-general-label": "Biilgo",
-	"vector-unpin-element-label": "kpɛɦdr"
+	"vector-toc-beginning": "Baɦdgm"
 }

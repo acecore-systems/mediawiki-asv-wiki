@@ -13,8 +13,7 @@ use Skin;
  */
 interface SkinAfterBottomScriptsHook {
 	/**
-	 * This hook is called in OutputPage::getBottomScripts() and allows to add extra html at the
-	 * end of bottom scripts section
+	 * This hook is called at the end of Skin::bottomScripts().
 	 *
 	 * @since 1.35
 	 *

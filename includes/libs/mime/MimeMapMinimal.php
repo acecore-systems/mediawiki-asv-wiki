@@ -21,13 +21,13 @@
 namespace Wikimedia\Mime;
 
 /**
- * Built-in MIME types that cannot be overridden by site configuration.
+ * MimeMapMinimal defines a core set of MIME types that cannot be overridden by
+ * configuration.
  *
- * This class exists for backward compatibility only. New MIME types must be
+ * This class exists for backward compatibility ONLY. New MIME types should be
  * added to MimeMap instead.
  *
  * @internal
- * @ingroup Mime
  */
 class MimeMapMinimal {
 	public const MIME_EXTENSIONS = [

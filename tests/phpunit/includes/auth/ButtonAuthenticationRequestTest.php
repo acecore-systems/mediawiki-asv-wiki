@@ -1,8 +1,6 @@
 <?php
 
-namespace MediaWiki\Tests\Auth;
-
-use MediaWiki\Auth\ButtonAuthenticationRequest;
+namespace MediaWiki\Auth;
 
 /**
  * @group AuthManager
@@ -24,7 +22,7 @@ class ButtonAuthenticationRequestTest extends AuthenticationRequestTestCase {
 		];
 	}
 
-	public static function provideLoadFromSubmission() {
+	public function provideLoadFromSubmission() {
 		return [
 			'Empty request' => [
 				[ 'name' => 'foo', 'label' => 'bar', 'help' => 'baz' ],
@@ -69,6 +67,5 @@ class ButtonAuthenticationRequestTest extends AuthenticationRequestTestCase {
 
 // Dynamic properties from the testLoadFromSubmission not working in php8.2
 class ButtonAuthenticationRequestForLoadFromSubmission extends ButtonAuthenticationRequest {
-	/** @var string */
 	public $foo;
 }

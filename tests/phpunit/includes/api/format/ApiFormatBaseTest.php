@@ -1,25 +1,15 @@
 <?php
 
-namespace MediaWiki\Tests\Api\Format;
-
-use MediaWiki\Api\ApiBase;
-use MediaWiki\Api\ApiFormatBase;
-use MediaWiki\Api\ApiMain;
-use MediaWiki\Context\RequestContext;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Request\FauxRequest;
-use PHPUnit\Framework\MockObject\MockObject;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\TestingAccessWrapper;
 
 /**
  * @group API
- * @group Database
- * @covers \MediaWiki\Api\ApiFormatBase
+ * @covers ApiFormatBase
  */
 class ApiFormatBaseTest extends ApiFormatTestBase {
 
-	/** @inheritDoc */
 	protected $printerName = 'mockbase';
 
 	protected function setUp(): void {
@@ -31,7 +21,7 @@ class ApiFormatBaseTest extends ApiFormatTestBase {
 	 * @param ApiMain|null $main
 	 * @param string $format
 	 * @param array $methods
-	 * @return ApiFormatBase|MockObject
+	 * @return ApiFormatBase|\PHPUnit\Framework\MockObject\MockObject
 	 */
 	public function getMockFormatter( ?ApiMain $main, $format, $methods = [] ) {
 		if ( $main === null ) {
@@ -276,7 +266,7 @@ class ApiFormatBaseTest extends ApiFormatTestBase {
 		);
 	}
 
-	public static function provideApiFrameOptions() {
+	public function provideApiFrameOptions() {
 		yield 'Override ApiFrameOptions to DENY' => [ 'DENY', 'DENY' ];
 		yield 'Override ApiFrameOptions to SAMEORIGIN' => [ 'SAMEORIGIN', 'SAMEORIGIN' ];
 		yield 'Override ApiFrameOptions to false' => [ false, null ];

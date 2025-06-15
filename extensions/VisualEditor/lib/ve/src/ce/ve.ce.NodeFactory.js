@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable NodeFactory class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -30,7 +30,7 @@ OO.inheritClass( ve.ce.NodeFactory, OO.Factory );
  * @throws {Error} Unknown node type
  */
 ve.ce.NodeFactory.prototype.getDescription = function ( node ) {
-	const type = node.constructor.static.name;
+	var type = node.constructor.static.name;
 	if ( Object.prototype.hasOwnProperty.call( this.registry, type ) ) {
 		return this.registry[ type ].static.getDescription( node );
 	}
@@ -59,7 +59,7 @@ ve.ce.NodeFactory.prototype.splitNodeOnEnter = function ( type ) {
  * @throws {Error} Unknown object name
  */
 ve.ce.NodeFactory.prototype.createFromModel = function ( model ) {
-	let type = model.getType();
+	var type = model.getType();
 	if ( ve.dm.nodeFactory.isMetaData( type ) ) {
 		// Metadata never has an explicit view representation, so a generic
 		// ve.ce.MetaItem should be fine

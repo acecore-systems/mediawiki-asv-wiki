@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface MWSyntaxHighlightInspector class.
  *
- * @copyright VisualEditor Team and others
+ * @copyright 2011-2015 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -10,7 +10,7 @@
  *
  * @class
  * @extends ve.ui.MWLiveExtensionInspector
- * @mixes ve.ui.MWSyntaxHighlightWindow
+ * @mixins ve.ui.MWSyntaxHighlightWindow
  *
  * @constructor
  * @param {Object} [config] Configuration options
@@ -60,7 +60,7 @@ ve.ui.MWSyntaxHighlightInspector.prototype.initialize = function () {
  */
 ve.ui.MWSyntaxHighlightInspector.prototype.getReadyProcess = function ( data ) {
 	// Parent process
-	const process = ve.ui.MWSyntaxHighlightInspector.super.prototype.getReadyProcess.call( this, data );
+	var process = ve.ui.MWSyntaxHighlightInspector.super.prototype.getReadyProcess.call( this, data );
 	// Mixin process
 	return ve.ui.MWSyntaxHighlightWindow.prototype.getReadyProcess.call( this, data, process );
 };
@@ -70,11 +70,11 @@ ve.ui.MWSyntaxHighlightInspector.prototype.getReadyProcess = function ( data ) {
  */
 ve.ui.MWSyntaxHighlightInspector.prototype.getSetupProcess = function ( data ) {
 	// Parent process
-	const process = ve.ui.MWSyntaxHighlightInspector.super.prototype.getSetupProcess.call( this, data );
+	var process = ve.ui.MWSyntaxHighlightInspector.super.prototype.getSetupProcess.call( this, data );
 	// Mixin process
-	return ve.ui.MWSyntaxHighlightWindow.prototype.getSetupProcess.call( this, data, process ).next( () => {
+	return ve.ui.MWSyntaxHighlightWindow.prototype.getSetupProcess.call( this, data, process ).next( function () {
 		this.language.on( 'change', this.onChangeHandler );
-	} );
+	}, this );
 };
 
 /**
@@ -82,11 +82,11 @@ ve.ui.MWSyntaxHighlightInspector.prototype.getSetupProcess = function ( data ) {
  */
 ve.ui.MWSyntaxHighlightInspector.prototype.getTeardownProcess = function ( data ) {
 	// Parent process
-	const process = ve.ui.MWSyntaxHighlightInspector.super.prototype.getTeardownProcess.call( this, data );
+	var process = ve.ui.MWSyntaxHighlightInspector.super.prototype.getTeardownProcess.call( this, data );
 	// Mixin process
-	return ve.ui.MWSyntaxHighlightWindow.prototype.getTeardownProcess.call( this, data, process ).first( () => {
+	return ve.ui.MWSyntaxHighlightWindow.prototype.getTeardownProcess.call( this, data, process ).first( function () {
 		this.language.off( 'change', this.onChangeHandler );
-	} );
+	}, this );
 };
 
 /**

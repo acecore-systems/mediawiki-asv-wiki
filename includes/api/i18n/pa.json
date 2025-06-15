@@ -41,7 +41,6 @@
 	"apihelp-feedrecentchanges-param-hideminor": "ਛੋਟੀਆਂ ਤਬਦੀਲੀਆਂ ਨੂੰ ਲੁਕਾਓ।",
 	"apihelp-feedrecentchanges-param-hidebots": "ਬੋਟਾਂ ਵੱਲੋਂ ਕੀਤੀਆਂ ਤਬਦੀਲੀਆਂ ਨੂੰ ਲੁਕਾਓ।",
 	"apihelp-feedrecentchanges-param-hideanons": "ਅਗਿਆਤ ਵਰਤੋਂਕਾਰਾਂ ਵੱਲੋਂ ਕੀਤੀਆਂ ਤਬਦੀਲੀਆਂ ਨੂੰ ਲੁਕਾਓ।",
-	"apihelp-feedrecentchanges-param-hideanons-temp": "ਅਗਿਆਤ ਵਰਤੋਂਕਾਰਾਂ ਅਤੇ ਅਸਥਾਈ ਖਾਤਿਆਂ ਵੱਲੋਂ ਕੀਤੀਆਂ ਤਬਦੀਲੀਆਂ ਨੂੰ ਲੁਕਾਓ।",
 	"apihelp-feedrecentchanges-param-hidepatrolled": "ਗਸ਼ਤ ਕੀਤੀਆਂ ਤਬਦੀਲੀਆਂ ਨੂੰ ਲੁਕਾਓ।",
 	"apihelp-feedrecentchanges-param-hidemyself": "ਮੌਜੂਦਾ ਵਰਤੋਂਕਾਰ ਵੱਲੋਂ ਕੀਤੀਆਂ ਤਬਦੀਲੀਆਂ ਨੂੰ ਲੁਕਾਓ।",
 	"apihelp-feedrecentchanges-example-simple": "ਹਾਲੀਆ ਤਬਦੀਲੀਆਂ ਵਿਖਾਓ।",

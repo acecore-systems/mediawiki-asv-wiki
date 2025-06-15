@@ -21,11 +21,6 @@
  * @ingroup FileBackend
  */
 
-namespace Wikimedia\FileBackend\FileOps;
-
-use StatusValue;
-use Wikimedia\FileBackend\FileBackend;
-
 /**
  * Move a file from one storage path to another in the backend.
  * Parameters for this operation are outlined in FileBackend::doOperations().
@@ -39,19 +34,18 @@ class MoveFileOp extends FileOp {
 		];
 	}
 
-	protected function doPrecheck(
-		FileStatePredicates $opPredicates,
-		FileStatePredicates $batchPredicates
-	) {
+	protected function doPrecheck( array &$predicates ) {
 		$status = StatusValue::newGood();
 
 		// Check source file existence
-		$srcExists = $this->resolveFileExistence( $this->params['src'], $opPredicates );
+		$srcExists = $this->fileExists( $this->params['src'], $predicates );
 		if ( $srcExists === false ) {
 			if ( $this->getParam( 'ignoreMissingSource' ) ) {
-				$this->noOp = true; // no-op
+				$this->cancelled = true; // no-op
 				// Update file existence predicates (cache 404s)
-				$batchPredicates->assumeFileDoesNotExist( $this->params['src'] );
+				$predicates[self::ASSUMED_EXISTS][$this->params['src']] = false;
+				$predicates[self::ASSUMED_SIZE][$this->params['src']] = false;
+				$predicates[self::ASSUMED_SHA1][$this->params['src']] = false;
 
 				return $status; // nothing to do
 			} else {
@@ -65,25 +59,17 @@ class MoveFileOp extends FileOp {
 			return $status;
 		}
 		// Check if an incompatible destination file exists
-		$srcSize = function () use ( $opPredicates ) {
-			static $size = null;
-			$size ??= $this->resolveFileSize( $this->params['src'], $opPredicates );
-			return $size;
-		};
-		$srcSha1 = function () use ( $opPredicates ) {
-			static $sha1 = null;
-			$sha1 ??= $this->resolveFileSha1Base36( $this->params['src'], $opPredicates );
-			return $sha1;
-		};
-		$status->merge( $this->precheckDestExistence( $opPredicates, $srcSize, $srcSha1 ) );
+		$status->merge( $this->precheckDestExistence( $predicates ) );
 		$this->params['dstExists'] = $this->destExists; // see FileBackendStore::setFileCache()
 
 		// Update file existence predicates if the operation is expected to be allowed to run
 		if ( $status->isOK() ) {
-			$batchPredicates->assumeFileExists( $this->params['dst'], $srcSize, $srcSha1 );
-			if ( $this->params['src'] !== $this->params['dst'] ) {
-				$batchPredicates->assumeFileDoesNotExist( $this->params['src'] );
-			}
+			$predicates[self::ASSUMED_EXISTS][$this->params['src']] = false;
+			$predicates[self::ASSUMED_SIZE][$this->params['src']] = false;
+			$predicates[self::ASSUMED_SHA1][$this->params['src']] = false;
+			$predicates[self::ASSUMED_EXISTS][$this->params['dst']] = true;
+			$predicates[self::ASSUMED_SIZE][$this->params['dst']] = $this->sourceSize;
+			$predicates[self::ASSUMED_SHA1][$this->params['dst']] = $this->sourceSha1;
 		}
 
 		return $status; // safe to call attempt()
@@ -122,6 +108,3 @@ class MoveFileOp extends FileOp {
 		return [ $this->params['src'], $this->params['dst'] ];
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( MoveFileOp::class, 'MoveFileOp' );

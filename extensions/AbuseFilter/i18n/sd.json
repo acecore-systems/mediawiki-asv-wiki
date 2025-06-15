@@ -72,8 +72,8 @@
 	"abusefilter-edit-disallow-actions": "عملَ:",
 	"abusefilter-block-user": "کاتيدار واپرائيندڙن تي بندش وجهو",
 	"abusefilter-edit-tools": "اوزار:",
-	"abusefilter-edit-builder-vars-removedlines": "سنوار ۾ ھٽايل سٽون ($1)",
-	"abusefilter-edit-builder-vars-summary": "تَتُ/سبب سنواريو ($1)",
+	"abusefilter-edit-builder-vars-removedlines": "سنوار ۾ ھٽايل سٽون",
+	"abusefilter-edit-builder-vars-summary": "تَتُ/سبب سنواريو",
 	"abusefilter-filter-log": "ڇاڻين ۾ تازيون تبديليون",
 	"abusefilter-history-hidden": "لڪل",
 	"abusefilter-history-comments": "تبصرا",
@@ -89,15 +89,5 @@
 	"abusefilter-log-name": "غلط-استعمال ڇاڻي لاگ",
 	"abusefilter-log-noresults": "نتيجا ناھن",
 	"abusefilter-diff-title": "ورزنن وچ ۾ تفاوت",
-	"abusefilter-diff-item": "جزو",
-	"blockedexternaldomains": "بندش وڌل ٻاھريون ڊومينس",
-	"abusefilter-blocked-domains-title": "بندش وڌل ٻاھريون ڊومينس",
-	"abusefilter-blocked-domains-notes": "نوٽس",
-	"abusefilter-blocked-domains-add-submit": "اماڻيو",
-	"abusefilter-blocked-domains-domain-header": "ڊومين",
-	"abusefilter-blocked-domains-notes-header": "نوٽس",
-	"right-abusefilter-modify-blocked-external-domains": "سرجيو يا تبديل ڪريو جنھن کان ٻاھرين ڊومينس کي ڳنڍڻ کان روڪيو ويو آھي",
-	"action-abusefilter-modify-blocked-external-domains": "سرجيو يا تبديل ڪريو جنھن کان ٻاھرين ڊومينس کي ڳنڍڻ کان روڪيو ويو آھي",
-	"right-abusefilter-bypass-blocked-external-domains": "بندش وڌل ٻاھرين ڊومينس کي باءِ پاس ڪريو",
-	"action-abusefilter-bypass-blocked-external-domains": "بندش وڌل ٻاھرين ڊومين کي باءِ پاس ڪريو"
+	"abusefilter-diff-item": "جزو"
 }

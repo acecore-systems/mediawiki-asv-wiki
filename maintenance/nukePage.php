@@ -23,12 +23,7 @@
  * @author Rob Church <robchur@gmail.com>
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
-
-use MediaWiki\Deferred\SiteStatsUpdate;
-use MediaWiki\Title\Title;
 
 /**
  * Maintenance script that erases a page record from the database.
@@ -47,7 +42,7 @@ class NukePage extends Maintenance {
 		$name = $this->getArg( 0 );
 		$delete = $this->hasOption( 'delete' );
 
-		$dbw = $this->getPrimaryDB();
+		$dbw = $this->getDB( DB_PRIMARY );
 		$this->beginTransaction( $dbw, __METHOD__ );
 
 		# Get page ID
@@ -62,27 +57,22 @@ class NukePage extends Maintenance {
 			# Get corresponding revisions
 			$this->output( "Searching for revisions..." );
 
-			$revs = $dbw->newSelectQueryBuilder()
-				->select( 'rev_id' )
-				->from( 'revision' )
-				->where( [ 'rev_page' => $id ] )
-				->caller( __METHOD__ )->fetchFieldValues();
+			$revs = $dbw->selectFieldValues(
+				'revision',
+				'rev_id',
+				[ 'rev_page' => $id ],
+				__METHOD__
+			);
 			$count = count( $revs );
 			$this->output( "found $count.\n" );
 
 			# Delete the page record and associated recent changes entries
 			if ( $delete ) {
 				$this->output( "Deleting page record..." );
-				$dbw->newDeleteQueryBuilder()
-					->deleteFrom( 'page' )
-					->where( [ 'page_id' => $id ] )
-					->caller( __METHOD__ )->execute();
+				$dbw->delete( 'page', [ 'page_id' => $id ], __METHOD__ );
 				$this->output( "done.\n" );
 				$this->output( "Cleaning up recent changes..." );
-				$dbw->newDeleteQueryBuilder()
-					->deleteFrom( 'recentchanges' )
-					->where( [ 'rc_cur_id' => $id ] )
-					->caller( __METHOD__ )->execute();
+				$dbw->delete( 'recentchanges', [ 'rc_cur_id' => $id ], __METHOD__ );
 				$this->output( "done.\n" );
 			}
 
@@ -116,19 +106,14 @@ class NukePage extends Maintenance {
 	}
 
 	public function deleteRevisions( $ids ) {
-		$dbw = $this->getPrimaryDB();
+		$dbw = $this->getDB( DB_PRIMARY );
 		$this->beginTransaction( $dbw, __METHOD__ );
 
-		$dbw->newDeleteQueryBuilder()
-			->deleteFrom( 'revision' )
-			->where( [ 'rev_id' => $ids ] )
-			->caller( __METHOD__ )->execute();
+		$dbw->delete( 'revision', [ 'rev_id' => $ids ], __METHOD__ );
 
 		$this->commitTransaction( $dbw, __METHOD__ );
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = NukePage::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

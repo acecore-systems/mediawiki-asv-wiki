@@ -1,15 +1,8 @@
 <?php
 
-use MediaWiki\HookContainer\HookRunner;
-use MediaWiki\Html\Html;
-use MediaWiki\Language\Language;
-use MediaWiki\Linker\Linker;
 use MediaWiki\Linker\LinkRenderer;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Parser\Parser;
-use MediaWiki\Parser\Sanitizer;
-use MediaWiki\Title\Title;
 use Wikimedia\Assert\Assert;
 
 /**
@@ -71,9 +64,9 @@ class TraditionalImageGallery extends ImageGalleryBase {
 
 		$parserOutput->addModules( $this->getModules() );
 		$parserOutput->addModuleStyles( [ 'mediawiki.page.gallery.styles' ] );
-		$output = Html::openElement( 'ul', $attribs );
+		$output = Xml::openElement( 'ul', $attribs );
 		if ( $this->mCaption ) {
-			$output .= "\n\t" . Html::rawElement( 'li', [ 'class' => 'gallerycaption' ], $this->mCaption );
+			$output .= "\n\t<li class='gallerycaption'>{$this->mCaption}</li>";
 		}
 
 		if ( $this->mShowFilename ) {
@@ -90,7 +83,6 @@ class TraditionalImageGallery extends ImageGalleryBase {
 		$lang = $this->getRenderLang();
 		$enableLegacyMediaDOM =
 			$this->getConfig()->get( MainConfigNames::ParserEnableLegacyMediaDOM );
-		$hookRunner = new HookRunner( MediaWikiServices::getInstance()->getHookContainer() );
 
 		# Output each image...
 		foreach ( $this->mImages as [ $nt, $text, $alt, $link, $handlerOpts, $loading, $imageOptions ] ) {
@@ -103,11 +95,11 @@ class TraditionalImageGallery extends ImageGalleryBase {
 				if ( $resolveFilesViaParser ) {
 					# Give extensions a chance to select the file revision for us
 					$options = [];
-					$hookRunner->onBeforeParserFetchFileAndTitle(
+					Hooks::runner()->onBeforeParserFetchFileAndTitle(
 						// @phan-suppress-next-line PhanTypeMismatchArgument Type mismatch on pass-by-ref args
 						$this->mParser, $nt, $options, $descQuery );
 					# Fetch and register the file (file title may be different via hooks)
-					[ $img, $nt ] = $this->mParser->fetchFileAndTitle( $nt, $options );
+					list( $img, $nt ) = $this->mParser->fetchFileAndTitle( $nt, $options );
 				} else {
 					$img = $repoGroup->findFile( $nt );
 				}
@@ -143,7 +135,7 @@ class TraditionalImageGallery extends ImageGalleryBase {
 						);
 						$label = $thumb->toText();
 					} else {
-						$label = $alt ?? '';
+						$label = '';
 					}
 					$thumbhtml = Linker::makeBrokenImageLinkObj(
 						$nt, $label, '', '', '', false, $transformOptions, $currentExists
@@ -151,14 +143,9 @@ class TraditionalImageGallery extends ImageGalleryBase {
 					$thumbhtml = Html::rawElement( 'span', [ 'typeof' => $rdfaType ], $thumbhtml );
 				}
 
-				$thumbhtml = "\n\t\t\t" . Html::rawElement(
-					'div',
-					[
-						'class' => 'thumb',
-						'style' => 'height: ' . ( $this->getThumbPadding() + $this->mHeights ) . 'px;'
-					],
-					$thumbhtml
-				);
+				$thumbhtml = "\n\t\t\t" . '<div class="thumb" style="height: '
+					. ( $this->getThumbPadding() + $this->mHeights ) . 'px;">'
+					. $thumbhtml . '</div>';
 
 				if ( !$img && $resolveFilesViaParser ) {
 					$this->mParser->addTrackingCategory( 'broken-file-category' );
@@ -172,22 +159,14 @@ class TraditionalImageGallery extends ImageGalleryBase {
 					$imageParameters = [
 						'desc-link' => true,
 						'desc-query' => $descQuery,
-						'alt' => $alt ?? '',
+						'alt' => $alt,
 						'custom-url-link' => $link
 					];
 				} else {
-					$params = [];
-					// An empty alt indicates an image is not a key part of the
-					// content and that non-visual browsers may omit it from
-					// rendering.  Only set the parameter if it's explicitly
-					// requested.
-					if ( $alt !== null ) {
-						$params['alt'] = $alt;
-					}
-					$params['title'] = $imageOptions['title'];
-					if ( !$enableLegacyMediaDOM ) {
-						$params['img-class'] = 'mw-file-element';
-					}
+					$params = [
+						'alt' => $alt,
+						'title' => $imageOptions['title'],
+					];
 					$imageParameters = Linker::getImageLinkMTOParams(
 						$imageOptions, $descQuery, $this->mParser
 					) + $params;
@@ -252,7 +231,7 @@ class TraditionalImageGallery extends ImageGalleryBase {
 			}
 			$meta = $lang->semicolonList( $meta );
 			if ( $meta ) {
-				$meta .= Html::rawElement( 'br', [] ) . "\n";
+				$meta .= "<br />\n";
 			}
 
 			$textlink = $this->mShowFilename ?
@@ -264,18 +243,16 @@ class TraditionalImageGallery extends ImageGalleryBase {
 			$gbWidth = $this->getGBWidthOverwrite( $thumb ) ?: $this->getGBWidth( $thumb ) . 'px';
 			# Weird double wrapping (the extra div inside the li) needed due to FF2 bug
 			# Can be safely removed if FF2 falls completely out of existence
-			$output .= "\n\t\t" .
-			Html::rawElement(
-				'li',
-				[ 'class' => 'gallerybox', 'style' => 'width: ' . $gbWidth ],
-				( $enableLegacyMediaDOM ? Html::openElement( 'div', [ 'style' => 'width: ' . $gbWidth ] ) : '' )
-					. $thumbhtml
-					. $galleryText
-					. "\n\t\t"
-					. ( $enableLegacyMediaDOM ? Html::closeElement( 'div' ) : '' )
-			);
+			$output .= "\n\t\t" . '<li class="gallerybox" style="width: '
+				. $gbWidth . '">'
+				. ( $enableLegacyMediaDOM ? '<div style="width: ' . $gbWidth . '">' : '' )
+				. $thumbhtml
+				. $galleryText
+				. "\n\t\t"
+				. ( $enableLegacyMediaDOM ? '</div>' : '' )
+				. "</li>";
 		}
-		$output .= "\n" . Html::closeElement( 'ul' );
+		$output .= "\n</ul>";
 
 		return $output;
 	}
@@ -309,7 +286,14 @@ class TraditionalImageGallery extends ImageGalleryBase {
 	 * @return string
 	 */
 	protected function wrapGalleryText( $galleryText, $thumb ) {
-		return "\n\t\t\t" . Html::rawElement( 'div', [ 'class' => "gallerytext" ], $galleryText );
+		# ATTENTION: The newline after <div class="gallerytext"> is needed to
+		# accommodate htmltidy which in version 4.8.6 generated crackpot html in
+		# its absence, see: https://phabricator.wikimedia.org/T3765
+		# -Ævar
+
+		return "\n\t\t\t" . '<div class="gallerytext">' . "\n"
+			. $galleryText
+			. "\n\t\t\t</div>";
 	}
 
 	/**

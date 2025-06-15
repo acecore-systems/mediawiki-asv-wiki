@@ -1,23 +1,35 @@
 <?php
 
 /**
- * @covers \WebPHandler
+ * @covers WebPHandler
  */
 class WebPHandlerTest extends MediaWikiIntegrationTestCase {
+
+	/** @var string */
+	private $tempFileName;
+
+	protected function setUp(): void {
+		parent::setUp();
+		// Allocated file for testing
+		$this->tempFileName = tempnam( wfTempDir(), 'WEBP' );
+	}
+
+	protected function tearDown(): void {
+		unlink( $this->tempFileName );
+		parent::tearDown();
+	}
 
 	/**
 	 * @dataProvider provideTestExtractMetaData
 	 */
 	public function testExtractMetaData( $header, $expectedResult ) {
-		$tempFileName = $this->getNewTempFile();
-
 		// Put header into file
-		file_put_contents( $tempFileName, $header );
+		file_put_contents( $this->tempFileName, $header );
 
-		$this->assertEquals( $expectedResult, WebPHandler::extractMetadata( $tempFileName ) );
+		$this->assertEquals( $expectedResult, WebPHandler::extractMetadata( $this->tempFileName ) );
 	}
 
-	public static function provideTestExtractMetaData() {
+	public function provideTestExtractMetaData() {
 		return [
 			// Files from https://developers.google.com/speed/webp/gallery2
 			[ "\x52\x49\x46\x46\x90\x68\x01\x00\x57\x45\x42\x50\x56\x50\x38\x4C\x83\x68\x01\x00\x2F\x8F\x01\x4B\x10\x8D\x38\x6C\xDB\x46\x92\xE0\xE0\x82\x7B\x6C",
@@ -75,7 +87,7 @@ class WebPHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertEquals( $expectedResult, WebPHandler::extractMetadata( $filename ) );
 	}
 
-	public static function provideTestWithFileExtractMetaData() {
+	public function provideTestWithFileExtractMetaData() {
 		return [
 			[ __DIR__ . '/../../data/media/2_webp_ll.webp',
 				[
@@ -104,7 +116,7 @@ class WebPHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertEquals( $expectedResult, $handler->getSizeAndMetadata( null, $path ) );
 	}
 
-	public static function provideTestGetSizeAndMetadata() {
+	public function provideTestGetSizeAndMetadata() {
 		return [
 			// Public domain files from https://developers.google.com/speed/webp/gallery2
 			[
@@ -119,7 +131,7 @@ class WebPHandlerTest extends MediaWikiIntegrationTestCase {
 						'width' => 386,
 						'height' => 395,
 						'metadata' => [
-							'_MW_WEBP_VERSION' => 2,
+							'_MW_WEBP_VERSION' => 1,
 						],
 					],
 				]
@@ -134,7 +146,7 @@ class WebPHandlerTest extends MediaWikiIntegrationTestCase {
 						'width' => 386,
 						'height' => 395,
 						'metadata' => [
-							'_MW_WEBP_VERSION' => 2,
+							'_MW_WEBP_VERSION' => 1,
 						],
 					],
 				]
@@ -151,137 +163,9 @@ class WebPHandlerTest extends MediaWikiIntegrationTestCase {
 						'width' => 300,
 						'height' => 225,
 						'metadata' => [
-							'_MW_WEBP_VERSION' => 2,
+							'_MW_WEBP_VERSION' => 1,
 						],
 					],
-				]
-			],
-			[
-				__DIR__ . '/../../data/media/exif.webp',
-				[
-					'width' => 40,
-					'height' => 10,
-					'metadata' => [
-						'compression' => 'lossy',
-						'animated' => false,
-						'transparency' => false,
-						'width' => 40,
-						'height' => 10,
-						'metadata' => [
-							'_MW_WEBP_VERSION' => 2,
-						],
-						'media-metadata' => [
-							'GPSLatitude' => 88.51805555555555,
-							'GPSLongitude' => -21.12357,
-							'GPSAltitude' => -3.1415926530119025,
-							'GPSDOP' => '5/1',
-							'GPSVersionID' => '2.2.0.0'
-						]
-					]
-				]
-			],
-			// Using non-standard "Exif\0\0" prefix
-			[
-				__DIR__ . '/../../data/media/exif-prefix.webp',
-				[
-					'width' => 40,
-					'height' => 10,
-					'metadata' => [
-						'compression' => 'lossy',
-						'animated' => false,
-						'transparency' => false,
-						'width' => 40,
-						'height' => 10,
-						'metadata' => [
-							'_MW_WEBP_VERSION' => 2,
-						],
-						'media-metadata' => [
-							'GPSLatitude' => 88.51805555555555,
-							'GPSLongitude' => -21.12357,
-							'GPSAltitude' => -3.1415926530119025,
-							'GPSDOP' => '5/1',
-							'GPSVersionID' => '2.2.0.0'
-						]
-					]
-				]
-			],
-			// Using standard "xmp " fourcc
-			[
-				__DIR__ . '/../../data/media/xmp.webp',
-				[
-					'width' => 420,
-					'height' => 300,
-					'metadata' => [
-						'compression' => 'lossy',
-						'animated' => false,
-						'transparency' => false,
-						'width' => 420,
-						'height' => 300,
-						'metadata' => [
-							'_MW_WEBP_VERSION' => 2,
-						],
-						'media-metadata' => [
-							'ImageDescription' => [
-								'x-default' => 'An example image',
-								'en' => 'right translation',
-								'_type' => 'lang'
-							]
-						]
-					]
-				]
-			],
-			// Using the "xmp\0" fourcc (not standard "xmp ").
-			[
-				__DIR__ . '/../../data/media/xmp-null.webp',
-				[
-					'width' => 420,
-					'height' => 300,
-					'metadata' => [
-						'compression' => 'lossy',
-						'animated' => false,
-						'transparency' => false,
-						'width' => 420,
-						'height' => 300,
-						'metadata' => [
-							'_MW_WEBP_VERSION' => 2,
-						],
-						'media-metadata' => [
-							'ImageDescription' => [
-								'x-default' => 'Image with XMPnull byte fourcc',
-								'en' => 'right translation',
-								'_type' => 'lang'
-							]
-						]
-					]
-				]
-			],
-			// Containing both XMP and Exif
-			[
-				__DIR__ . '/../../data/media/xmp-exif.webp',
-				[
-					'width' => 420,
-					'height' => 300,
-					'metadata' => [
-						'compression' => 'lossy',
-						'animated' => false,
-						'transparency' => false,
-						'width' => 420,
-						'height' => 300,
-						'metadata' => [
-							'_MW_WEBP_VERSION' => 2,
-						],
-						'media-metadata' => [
-							'ImageDescription' => [
-								'x-default' => 'right(iptc)',
-								'en' => 'right translation',
-								'_type' => 'lang'
-							],
-							'XResolution' => '72/1',
-							'YResolution' => '72/1',
-							'ResolutionUnit' => 2,
-							'YCbCrPositioning' => 1,
-						]
-					]
 				]
 			],
 
@@ -304,7 +188,7 @@ class WebPHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertEquals( 'image/webp', $mime->guessMimeType( $path, false ) );
 	}
 
-	public static function provideTestGetMimeType() {
+	public function provideTestGetMimeType() {
 		return [
 				// Public domain files from https://developers.google.com/speed/webp/gallery2
 				[ __DIR__ . '/../../data/media/2_webp_a.webp' ],

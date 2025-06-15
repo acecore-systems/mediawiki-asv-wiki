@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface LinkAnnotationWidget class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -38,9 +38,10 @@ OO.inheritClass( ve.ui.LinkAnnotationWidget, OO.ui.Widget );
 /* Events */
 
 /**
+ * @event change
+ *
  * A change event is emitted when the annotation value of the input changes.
  *
- * @event ve.ui.LinkAnnotationWidget#change
  * @param {ve.dm.LinkAnnotation|null} annotation
  */
 
@@ -54,7 +55,7 @@ OO.inheritClass( ve.ui.LinkAnnotationWidget, OO.ui.Widget );
  * @return {ve.dm.LinkAnnotation|null} Link annotation
  */
 ve.ui.LinkAnnotationWidget.static.getAnnotationFromText = function ( value ) {
-	const href = value.trim();
+	var href = value.trim();
 
 	// Keep annotation in sync with value
 	if ( href === '' ) {
@@ -118,20 +119,22 @@ ve.ui.LinkAnnotationWidget.prototype.setDisabled = function () {
  * @param {string} value New input value
  */
 ve.ui.LinkAnnotationWidget.prototype.onTextChange = function ( value ) {
+	var widget = this;
+
 	// RTL/LTR check
 	// TODO: Make this work properly
 	if ( document.body.classList.contains( 'rtl' ) ) {
-		const isExt = ve.init.platform.getExternalLinkUrlProtocolsRegExp().test( value.trim() );
+		var isExt = ve.init.platform.getExternalLinkUrlProtocolsRegExp().test( value.trim() );
 		// If URL is external, flip to LTR. Otherwise, set back to RTL
 		this.getTextInputWidget().setDir( isExt ? 'ltr' : 'rtl' );
 	}
 
 	this.getTextInputWidget().getValidity()
-		.done( () => {
-			this.setAnnotation( this.constructor.static.getAnnotationFromText( value ), true );
+		.done( function () {
+			widget.setAnnotation( widget.constructor.static.getAnnotationFromText( value ), true );
 		} )
-		.fail( () => {
-			this.setAnnotation( null, true );
+		.fail( function () {
+			widget.setAnnotation( null, true );
 		} );
 };
 
@@ -144,7 +147,6 @@ ve.ui.LinkAnnotationWidget.prototype.onTextChange = function ( value ) {
  * @param {boolean} [fromText] Annotation was generated from text input
  * @return {ve.ui.LinkAnnotationWidget}
  * @chainable
- * @fires ve.ui.LinkAnnotationWidget#change
  */
 ve.ui.LinkAnnotationWidget.prototype.setAnnotation = function ( annotation, fromText ) {
 	if ( ve.compare(

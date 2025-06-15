@@ -11,7 +11,7 @@ namespace Wikimedia\WRStats;
 class WRStatsWriter {
 	/** @var StatsStore */
 	private $store;
-	/** @var array<string,MetricSpec> */
+	/** @var MetricSpec[] */
 	private $metricSpecs;
 	/** @var float[][] Values indexed by TTL and storage key */
 	private $queuedValues = [];
@@ -21,9 +21,10 @@ class WRStatsWriter {
 	private $prefixComponents;
 
 	/**
-	 * @internal Use WRStatsFactory::createWriter instead
+	 * @internal
+	 *
 	 * @param StatsStore $store
-	 * @param array<string,array> $specs
+	 * @param array $specs
 	 * @param string|string[] $prefix
 	 */
 	public function __construct( StatsStore $store, $specs, $prefix ) {
@@ -48,9 +49,9 @@ class WRStatsWriter {
 	 */
 	public function incr( $name, ?EntityKey $entity = null, $value = 1 ) {
 		$metricSpec = $this->metricSpecs[$name] ?? null;
-		$entity ??= new LocalEntityKey;
+		$entity = $entity ?? new LocalEntityKey;
 		if ( $metricSpec === null ) {
-			throw new WRStatsError( "Unrecognised metric \"$name\"" );
+			throw new WRStatsError( __METHOD__ . ": Unrecognised metric \"$name\"" );
 		}
 		$res = $metricSpec->resolution;
 		$scaledValue = $value / $res;
@@ -96,7 +97,9 @@ class WRStatsWriter {
 	 * @return float|int
 	 */
 	private function now() {
-		$this->now ??= microtime( true );
+		if ( $this->now === null ) {
+			$this->now = microtime( true );
+		}
 		return $this->now;
 	}
 
@@ -125,7 +128,7 @@ class WRStatsWriter {
 	 *   components. The default is the empty local entity.
 	 */
 	public function resetAll( ?array $entities = null ) {
-		$entities ??= [ new LocalEntityKey ];
+		$entities = $entities ?? [ new LocalEntityKey ];
 		$this->queuedValues = [];
 		$keys = [];
 		foreach ( $this->metricSpecs as $name => $metricSpec ) {

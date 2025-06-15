@@ -2,8 +2,6 @@
 
 use MediaWiki\Deferred\LinksUpdate\LinksDeletionUpdate;
 use MediaWiki\Deferred\LinksUpdate\LinksUpdate;
-use MediaWiki\Parser\ParserOutput;
-use MediaWiki\Title\TitleValue;
 
 /**
  * @covers \MediaWiki\Deferred\LinksUpdate\LinksDeletionUpdate
@@ -27,25 +25,37 @@ use MediaWiki\Title\TitleValue;
  */
 class LinksDeletionUpdateTest extends MediaWikiLangTestCase {
 	public function testUpdate() {
+		$this->tablesUsed = array_merge( $this->tablesUsed,
+			[
+				'interwiki',
+				'page_props',
+				'pagelinks',
+				'categorylinks',
+				'langlinks',
+				'externallinks',
+				'imagelinks',
+				'templatelinks',
+				'iwlinks',
+				'recentchanges',
+			]
+		);
+
 		$res = $this->insertPage( 'Source' );
 		$id = $res['id'];
 		$title = $res['title'];
 		$wikiPage = $this->getServiceContainer()->getWikiPageFactory()->newFromTitle( $title );
 
 		$po = new ParserOutput();
-		$po->addCategory( new TitleValue( NS_CATEGORY, 'Cat' ), 'cat' );
+		$po->addCategory( 'Cat', 'cat' );
 		$po->addExternalLink( 'https://en.wikipedia.org/' );
-		$po->addImage( new TitleValue( NS_FILE, 'Wiki.png' ) );
+		$po->addImage( 'Wiki.png' );
 		$po->addLink( new TitleValue( 0, 'foo', '', 'iwprefix' ) );
-		$po->addLanguageLink( new TitleValue( 0, 'Francais', '', 'fr' ) );
+		$po->addLanguageLink( 'fr:Francais' );
 		$po->addLink( new TitleValue( 0, 'Target' ) );
-		$po->setNumericPageProperty( 'int', 1 );
+		$po->setPageProperty( 'int', 1 );
 		$po->addTemplate( new TitleValue( NS_TEMPLATE, '!' ), 1, 1 );
 
 		$linksUpdate = new LinksUpdate( $title, $po, false );
-		$linksUpdate->setTransactionTicket(
-			$this->getServiceContainer()->getConnectionProvider()->getEmptyTransactionTicket( __METHOD__ )
-		);
 		$linksUpdate->doUpdate();
 
 		$tables = [
@@ -59,26 +69,15 @@ class LinksDeletionUpdateTest extends MediaWikiLangTestCase {
 			'templatelinks' => 'tl_from',
 		];
 		foreach ( $tables as $table => $fromField ) {
-			$res = $this->getDb()->newSelectQueryBuilder()
-				->select( [ 1 ] )
-				->from( $table )
-				->where( [ $fromField => $id ] )
-				->caller( __METHOD__ )->fetchResultSet();
+			$res = $this->db->select( $table, [ 1 ], [ $fromField => $id ], __METHOD__ );
 			$this->assertSame( 1, $res->numRows(), "Number of rows in table $table" );
 		}
 
 		$linksDeletionUpdate = new LinksDeletionUpdate( $wikiPage, $id );
-		$linksDeletionUpdate->setTransactionTicket(
-			$this->getServiceContainer()->getConnectionProvider()->getEmptyTransactionTicket( __METHOD__ )
-		);
 		$linksDeletionUpdate->doUpdate();
 
 		foreach ( $tables as $table => $fromField ) {
-			$res = $this->getDb()->newSelectQueryBuilder()
-				->select( [ 1 ] )
-				->from( $table )
-				->where( [ $fromField => $id ] )
-				->caller( __METHOD__ )->fetchResultSet();
+			$res = $this->db->select( $table, [ 1 ], [ $fromField => $id ], __METHOD__ );
 			$this->assertSame( 0, $res->numRows(), "Number of rows in table $table" );
 		}
 	}

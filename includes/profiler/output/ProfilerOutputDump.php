@@ -25,7 +25,6 @@
  * @since 1.25
  */
 class ProfilerOutputDump extends ProfilerOutput {
-	/** @var string */
 	protected $suffix = ".xhprof";
 
 	/**

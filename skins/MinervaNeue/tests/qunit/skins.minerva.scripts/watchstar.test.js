@@ -1,40 +1,38 @@
-/* eslint-disable no-jquery/no-class-state */
 ( function () {
-	const watchstar = require( 'skins.minerva.scripts/watchstar.js' );
-	const toggleClasses = watchstar.test.toggleClasses;
-	const WATCHED_CLASS = watchstar.test.WATCHED_ICON_CLASS;
-	const TEMP_WATCHED_CLASS = watchstar.test.TEMP_WATCHED_ICON_CLASS;
-	const UNWATCHED_CLASS = watchstar.test.UNWATCHED_ICON_CLASS;
+	var watchstar = require( '../../../resources/skins.minerva.scripts/watchstar.js' ),
+		toggleClasses = watchstar.test.toggleClasses,
+		WATCHED_CLASS = [ 'watched', 'mw-ui-icon-wikimedia-unStar-progressive' ],
+		TEMP_WATCHED_CLASS = [ 'temp-watched', 'mw-ui-icon-wikimedia-halfStar-progressive' ],
+		UNWATCHED_CLASS = 'mw-ui-icon-wikimedia-star-base20';
 
 	QUnit.module( 'Minerva Watchstar' );
 
-	function createElemWithClass( cssClass, iconClass ) {
-		const $icon = $( '<span>' ).addClass( `minerva-icon ${ iconClass }` );
-		return $( '<div>' ).addClass( cssClass ).append( $icon );
+	function createElemWithClass( cssClass ) {
+		return $( '<div/>' ).addClass( cssClass );
 	}
 
-	QUnit.test( 'toggleClasses() from watched to unwatched', ( assert ) => {
-		const $elem = createElemWithClass( WATCHED_CLASS );
+	QUnit.test( 'toggleClasses() from watched to unwatched', function ( assert ) {
+		var $elem = createElemWithClass( WATCHED_CLASS );
 		toggleClasses( $elem, false );
-		assert.true( $elem.find( '.minerva-icon' ).hasClass( UNWATCHED_CLASS ) );
+		assert.deepEqual( $elem.attr( 'class' ), UNWATCHED_CLASS );
 	} );
 
-	QUnit.test( 'toggleClasses() from unwatched to watched', ( assert ) => {
-		const $elem = createElemWithClass( UNWATCHED_CLASS );
+	QUnit.test( 'toggleClasses() from unwatched to watched', function ( assert ) {
+		var $elem = createElemWithClass( UNWATCHED_CLASS );
 		toggleClasses( $elem, true, null );
-		assert.true( $elem.find( '.minerva-icon' ).hasClass( WATCHED_CLASS ) );
+		assert.deepEqual( $elem.attr( 'class' ).split( /\s+/ ), WATCHED_CLASS );
 	} );
 
-	QUnit.test( 'toggleClasses() from unwatched to temp watched', ( assert ) => {
-		const $elem = createElemWithClass( UNWATCHED_CLASS );
+	QUnit.test( 'toggleClasses() from unwatched to temp watched', function ( assert ) {
+		var $elem = createElemWithClass( UNWATCHED_CLASS );
 		toggleClasses( $elem, true, 'expiry' );
-		assert.true( $elem.find( '.minerva-icon' ).hasClass( TEMP_WATCHED_CLASS ) );
+		assert.deepEqual( $elem.attr( 'class' ).split( /\s+/ ), TEMP_WATCHED_CLASS );
 	} );
 
-	QUnit.test( 'toggleClasses() from temp watched to watched', ( assert ) => {
-		const $elem = createElemWithClass( TEMP_WATCHED_CLASS );
+	QUnit.test( 'toggleClasses() from temp watched to watched', function ( assert ) {
+		var $elem = createElemWithClass( TEMP_WATCHED_CLASS );
 		toggleClasses( $elem, true, null );
-		assert.true( $elem.find( '.minerva-icon' ).hasClass( WATCHED_CLASS ) );
+		assert.deepEqual( $elem.attr( 'class' ).split( /\s+/ ), WATCHED_CLASS );
 	} );
 
 }() );

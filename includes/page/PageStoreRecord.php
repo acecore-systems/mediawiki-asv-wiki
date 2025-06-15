@@ -20,7 +20,7 @@
 
 namespace MediaWiki\Page;
 
-use MediaWiki\Utils\MWTimestamp;
+use MWTimestamp;
 use stdClass;
 use Wikimedia\Assert\Assert;
 
@@ -28,8 +28,6 @@ use Wikimedia\Assert\Assert;
  * Immutable data record representing an editable page on a wiki.
  *
  * Corresponds to a row in the page table.
- *
- * @see https://www.mediawiki.org/wiki/Manual:Modeling_pages
  *
  * @since 1.36
  */
@@ -62,7 +60,7 @@ class PageStoreRecord extends PageIdentityValue implements ExistingPageRecord {
 	 * The $row object must provide all fields listed in PageStoreRecord::REQUIRED_FIELDS.
 	 *
 	 * @param stdClass $row A row from the page table
-	 * @param string|false $wikiId The Id of the wiki this page belongs to,
+	 * @param string|bool $wikiId The Id of the wiki this page belongs to,
 	 *        or self::LOCAL for the local wiki.
 	 */
 	public function __construct( stdClass $row, $wikiId ) {
@@ -98,7 +96,7 @@ class PageStoreRecord extends PageIdentityValue implements ExistingPageRecord {
 	/**
 	 * The ID of the page'S latest revision.
 	 *
-	 * @param string|false $wikiId
+	 * @param bool $wikiId
 	 *
 	 * @return int
 	 */

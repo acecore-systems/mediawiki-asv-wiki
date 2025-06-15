@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:DoubleRedirects
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,48 +18,46 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
-
-namespace MediaWiki\Specials;
-
 use MediaWiki\Cache\LinkBatchFactory;
 use MediaWiki\Content\IContentHandlerFactory;
-use MediaWiki\Html\Html;
-use MediaWiki\SpecialPage\QueryPage;
-use MediaWiki\Title\Title;
-use Skin;
-use stdClass;
-use Wikimedia\Rdbms\IConnectionProvider;
 use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\ILoadBalancer;
 use Wikimedia\Rdbms\IResultWrapper;
 
 /**
- * List of redirects to another redirecting page.
- *
- * The software will by default not follow double redirects, to prevent loops.
- * Editors are encouraged to fix these, and can discover them via this page.
+ * A special page listing redirects to redirecting page.
+ * The software will automatically not follow double redirects, to prevent loops.
  *
  * @ingroup SpecialPage
  */
 class SpecialDoubleRedirects extends QueryPage {
 
-	private IContentHandlerFactory $contentHandlerFactory;
-	private LinkBatchFactory $linkBatchFactory;
+	/** @var IContentHandlerFactory */
+	private $contentHandlerFactory;
+
+	/** @var LinkBatchFactory */
+	private $linkBatchFactory;
+
+	/** @var IDatabase */
+	private $dbr;
 
 	/**
 	 * @param IContentHandlerFactory $contentHandlerFactory
 	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 */
 	public function __construct(
 		IContentHandlerFactory $contentHandlerFactory,
 		LinkBatchFactory $linkBatchFactory,
-		IConnectionProvider $dbProvider
+		ILoadBalancer $loadBalancer
 	) {
 		parent::__construct( 'DoubleRedirects' );
 		$this->contentHandlerFactory = $contentHandlerFactory;
 		$this->linkBatchFactory = $linkBatchFactory;
-		$this->setDatabaseProvider( $dbProvider );
+		$this->setDBLoadBalancer( $loadBalancer );
+		$this->dbr = $loadBalancer->getConnectionRef( ILoadBalancer::DB_REPLICA );
 	}
 
 	public function isExpensive() {
@@ -107,7 +107,10 @@ class SpecialDoubleRedirects extends QueryPage {
 				// This isn't an optimization, it is required for correct results,
 				// otherwise a non-double redirect like Bar -> w:Foo will show up
 				// like "Bar -> Foo -> w:Foo".
-				'ra.rd_interwiki' => '',
+
+				// Need to check both NULL and "" for some reason,
+				// apparently either can be stored for non-iw entries.
+				'ra.rd_interwiki IS NULL OR ra.rd_interwiki = ' . $this->dbr->addQuotes( '' ),
 
 				'pb.page_namespace = ra.rd_namespace',
 				'pb.page_title = ra.rd_title',
@@ -152,10 +155,12 @@ class SpecialDoubleRedirects extends QueryPage {
 					$result->namespace,
 					$result->title
 				);
-				$deep = $this->getDatabaseProvider()->getReplicaDatabase()->newSelectQueryBuilder()
-					->queryInfo( $qi )
-					->caller( __METHOD__ )
-					->fetchRow();
+				$deep = $this->dbr->selectRow(
+					$qi['tables'],
+					$qi['fields'],
+					$qi['conds'],
+					__METHOD__
+				);
 			}
 		}
 
@@ -184,28 +189,22 @@ class SpecialDoubleRedirects extends QueryPage {
 			$edit = '';
 		}
 
-		$arrow = $this->getLanguage()->getArrow();
-		$contentLanguage = $this->getContentLanguage();
-		$bdiAttrs = [
-			'dir' => $contentLanguage->getDir(),
-			'lang' => $contentLanguage->getHtmlCode(),
-		];
-		$linkA = Html::rawElement( 'bdi', $bdiAttrs, $linkRenderer->makeKnownLink(
+		$linkA = $linkRenderer->makeKnownLink(
 			$titleA,
 			null,
 			[],
 			[ 'redirect' => 'no' ]
-		) );
+		);
 
 		$titleB = Title::makeTitle( $deep->b_namespace, $deep->b_title );
 		// We show fragment, but don't link to it, as it probably doesn't exist anymore.
 		$titleBFrag = Title::makeTitle( $deep->b_namespace, $deep->b_title, $deep->b_fragment );
-		$linkB = Html::rawElement( 'bdi', $bdiAttrs, $linkRenderer->makeKnownLink(
+		$linkB = $linkRenderer->makeKnownLink(
 			$titleB,
 			$titleBFrag->getFullText(),
 			[],
 			[ 'redirect' => 'no' ]
-		) );
+		);
 
 		$titleC = Title::makeTitle(
 			$deep->c_namespace,
@@ -213,11 +212,12 @@ class SpecialDoubleRedirects extends QueryPage {
 			$deep->c_fragment,
 			$deep->c_interwiki
 		);
-		$linkC = Html::rawElement( 'bdi', $bdiAttrs,
-			$linkRenderer->makeKnownLink( $titleC, $titleC->getFullText() )
-		);
+		$linkC = $linkRenderer->makeKnownLink( $titleC, $titleC->getFullText() );
 
-		return ( "{$linkA} {$edit} {$arrow} {$linkB} {$arrow} {$linkC}" );
+		$lang = $this->getLanguage();
+		$arr = $lang->getArrow() . $lang->getDirMark();
+
+		return ( "{$linkA} {$edit} {$arr} {$linkB} {$arr} {$linkC}" );
 	}
 
 	public function execute( $par ) {
@@ -258,6 +258,3 @@ class SpecialDoubleRedirects extends QueryPage {
 		return 'maintenance';
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialDoubleRedirects::class, 'SpecialDoubleRedirects' );

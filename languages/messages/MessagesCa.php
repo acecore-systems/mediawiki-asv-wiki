@@ -1,6 +1,8 @@
 <?php
 /** Catalan (català)
  *
+ * To improve a translation please visit https://translatewiki.net
+ *
  * @file
  * @ingroup Languages
  */
@@ -95,7 +97,6 @@ $specialPageAliases = [
 	'Randomredirect'            => [ 'Redirecció_aleatòria' ],
 	'Recentchanges'             => [ 'Canvis_recents' ],
 	'Recentchangeslinked'       => [ 'Seguiment' ],
-	'Renameuser'                => [ 'Reanomena_usuari' ],
 	'Revisiondelete'            => [ 'Esborra_versió' ],
 	'Search'                    => [ 'Cerca' ],
 	'Shortpages'                => [ 'Pàgines_curtes' ],
@@ -170,7 +171,7 @@ $magicWords = [
 	'img_top'                   => [ '1', 'dalt', 'top' ],
 	'img_upright'               => [ '1', 'redreçat', 'upright', 'redreçat=$1', 'upright=$1', 'redreçat $1', 'upright $1' ],
 	'img_width'                 => [ '1', '$1px' ],
-	'language'                  => [ '0', '#IDIOMA', '#LLENGUA', '#LANGUAGE' ],
+	'language'                  => [ '0', '#IDIOMA:', '#LLENGUA:', '#LANGUAGE:' ],
 	'localday'                  => [ '1', 'DIALOCAL', 'LOCALDAY' ],
 	'localday2'                 => [ '1', 'DIALOCAL2', 'LOCALDAY2' ],
 	'localdayname'              => [ '1', 'NOMDIALOCAL', 'LOCALDAYNAME' ],

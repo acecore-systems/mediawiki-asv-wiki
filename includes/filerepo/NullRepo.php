@@ -32,10 +32,7 @@ class NullRepo extends FileRepo {
 	public function __construct( $info ) {
 	}
 
-	/**
-	 * @return never
-	 */
 	protected function assertWritableRepo() {
-		throw new LogicException( static::class . ': write operations are not supported.' );
+		throw new MWException( static::class . ': write operations are not supported.' );
 	}
 }

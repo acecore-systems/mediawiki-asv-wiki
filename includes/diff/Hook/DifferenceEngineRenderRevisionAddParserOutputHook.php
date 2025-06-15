@@ -3,8 +3,8 @@
 namespace MediaWiki\Diff\Hook;
 
 use DifferenceEngine;
-use MediaWiki\Output\OutputPage;
-use MediaWiki\Parser\ParserOutput;
+use OutputPage;
+use ParserOutput;
 use WikiPage;
 
 /**

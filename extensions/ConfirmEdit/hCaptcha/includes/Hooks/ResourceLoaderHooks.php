@@ -4,7 +4,7 @@ declare( strict_types=1 );
 
 namespace MediaWiki\Extension\ConfirmEdit\hCaptcha\Hooks;
 
-use MediaWiki\Config\Config;
+use Config;
 use MediaWiki\ResourceLoader as RL;
 
 class ResourceLoaderHooks {

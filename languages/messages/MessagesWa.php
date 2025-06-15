@@ -1,6 +1,8 @@
 <?php
 /** Walloon (walon)
  *
+ * To improve a translation please visit https://translatewiki.net
+ *
  * @file
  * @ingroup Languages
  *
@@ -30,11 +32,7 @@ $datePreferenceMigrationMap = [
 $defaultDateFormat = 'dmy';
 
 $dateFormats = [
-	# See LanguageWa.php for specification for the 'dmy' format
-
-	'walloon short time' => 'H:i',
-	'walloon short date' => 'd/m/Y',
-	'walloon short both' => 'd/m/Y "a" H:i',
+	'walloon short time' => 'H:i'
 ];
 
 $namespaceNames = [

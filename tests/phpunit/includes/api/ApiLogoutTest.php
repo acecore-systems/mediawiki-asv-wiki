@@ -1,15 +1,11 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
-use MediaWiki\User\User;
-
 /**
  * @group API
  * @group Database
  * @group medium
  *
- * @covers \MediaWiki\Api\ApiLogout
+ * @covers ApiLogout
  */
 class ApiLogoutTest extends ApiTestCase {
 
@@ -26,27 +22,13 @@ class ApiLogoutTest extends ApiTestCase {
 	public function testUserLogoutBadToken() {
 		$user = $this->getTestSysop()->getUser();
 
-		$this->expectApiErrorCode( 'badtoken' );
+		$this->setExpectedApiException( 'apierror-badtoken' );
 		try {
 			$token = 'invalid token';
 			$this->doUserLogout( $token, $user );
 		} finally {
 			$this->assertTrue( $user->isRegistered(), 'not logged out' );
 		}
-	}
-
-	public function testUserLogoutAlreadyLoggedOut() {
-		$user = $this->getServiceContainer()->getUserFactory()->newAnonymous( '1.2.3.4' );
-
-		$this->assertFalse( $user->isRegistered() );
-		$token = $this->getUserCsrfTokenFromApi( $user );
-		$response = $this->doUserLogout( $token, $user )[0];
-		$this->assertFalse( $user->isRegistered() );
-
-		$this->assertArrayEquals(
-			[ 'warnings' => [ 'logout' => [ 'warnings' => 'You must be logged in.' ] ] ],
-			$response
-		);
 	}
 
 	public function testUserLogout() {

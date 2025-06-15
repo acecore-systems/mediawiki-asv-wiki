@@ -2,9 +2,9 @@
 
 namespace MediaWiki\Search;
 
-use MediaWiki\Category\Category;
-use MediaWiki\Parser\ParserOutput;
-use MediaWiki\Title\Title;
+use Category;
+use ParserOutput;
+use Title;
 
 /**
  * Extracts data from ParserOutput for indexing in the search engine.
@@ -66,7 +66,7 @@ class ParserOutputSearchDataExtractor {
 		$outgoingLinks = [];
 
 		foreach ( $parserOutput->getLinks() as $linkedNamespace => $namespaceLinks ) {
-			foreach ( $namespaceLinks as $linkedDbKey => $_ ) {
+			foreach ( array_keys( $namespaceLinks ) as $linkedDbKey ) {
 				$outgoingLinks[] =
 					Title::makeTitle( $linkedNamespace, $linkedDbKey )->getPrefixedDBkey();
 			}
@@ -85,7 +85,7 @@ class ParserOutputSearchDataExtractor {
 		$templates = [];
 
 		foreach ( $parserOutput->getTemplates() as $tNS => $templatesInNS ) {
-			foreach ( $templatesInNS as $tDbKey => $_ ) {
+			foreach ( array_keys( $templatesInNS ) as $tDbKey ) {
 				$templateTitle = Title::makeTitle( $tNS, $tDbKey );
 				$templates[] = $templateTitle->getPrefixedText();
 			}

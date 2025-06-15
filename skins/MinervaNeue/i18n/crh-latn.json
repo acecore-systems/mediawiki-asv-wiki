@@ -6,6 +6,7 @@
 			"Zolgoyo"
 		]
 	},
+	"minerva-talk-add-topic": "Mevzu qoş",
 	"mobile-frontend-editor-edit": "Deñiştir",
 	"mobile-frontend-editor-redlink-leave": "Yoq, sağ oluñız.",
 	"mobile-frontend-history": "Bu saifeniñ deñiştirilme tarihını köster.",
@@ -22,5 +23,8 @@
 	"mobile-frontend-talk-back-to-page": "“$1” saifesine keri qayt.",
 	"mobile-frontend-talk-back-to-userpage": "“{{GENDER:$1|$1}}” qullanıcı saifesine keri qayt.",
 	"mobile-frontend-user-page-member-since": "$1 {{GENDER:$2|qoşuldı}}",
-	"minerva-page-actions-editfull": "Bütün saifeni deñiştir"
+	"minerva-talk-explained": "Azırda laf etilgen mevzular",
+	"minerva-talk-explained-empty": "Mına muzakere saifesinde mevzu yoq.",
+	"minerva-talk-full-page": "Viki saifesi kibi oqu",
+	"minerva-talk-reply-success": "Cevap berildi."
 }

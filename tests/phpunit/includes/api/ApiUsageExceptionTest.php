@@ -1,15 +1,7 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
-use MediaWiki\Api\ApiMessage;
-use MediaWiki\Api\ApiUsageException;
-use MediaWiki\Message\Message;
-use MediaWikiIntegrationTestCase;
-use StatusValue;
-
 /**
- * @covers \MediaWiki\Api\ApiUsageException
+ * @covers ApiUsageException
  */
 class ApiUsageExceptionTest extends MediaWikiIntegrationTestCase {
 

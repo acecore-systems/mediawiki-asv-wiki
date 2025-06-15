@@ -19,13 +19,9 @@
  * @ingroup Maintenance
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
-use MediaWiki\Title\Title;
-use Wikimedia\Diff\Diff;
-use Wikimedia\Diff\UnifiedDiffFormatter;
+use MediaWiki\MediaWikiServices;
 
 /**
  * @ingroup Maintenance
@@ -41,35 +37,33 @@ class CompareParserCache extends Maintenance {
 	public function execute() {
 		$pages = $this->getOption( 'maxpages' );
 
-		$dbr = $this->getReplicaDB();
+		$dbr = $this->getDB( DB_REPLICA );
 
 		$totalsec = 0.0;
 		$scanned = 0;
 		$withcache = 0;
 		$withdiff = 0;
-		$services = $this->getServiceContainer();
+		$services = MediaWikiServices::getInstance();
 		$parserCache = $services->getParserCache();
 		$renderer = $services->getRevisionRenderer();
 		$wikiPageFactory = $services->getWikiPageFactory();
 		while ( $pages-- > 0 ) {
-			$row = $dbr->newSelectQueryBuilder()
+			$row = $dbr->selectRow( 'page',
 				// @todo Title::selectFields() or Title::getQueryInfo() or something
-				->select( [
-					'page_namespace',
-					'page_title',
-					'page_id',
-					'page_len',
-					'page_is_redirect',
-					'page_latest',
-				] )
-				->from( 'page' )
-				->where( [
+				[
+					'page_namespace', 'page_title', 'page_id',
+					'page_len', 'page_is_redirect', 'page_latest',
+				],
+				[
 					'page_namespace' => $this->getOption( 'namespace' ),
 					'page_is_redirect' => 0,
-					$dbr->expr( 'page_random', '>=', wfRandom() ),
-				] )
-				->orderBy( 'page_random' )
-				->caller( __METHOD__ )->fetchRow();
+					'page_random >= ' . wfRandom()
+				],
+				__METHOD__,
+				[
+					'ORDER BY' => 'page_random',
+				]
+			);
 
 			if ( !$row ) {
 				continue;
@@ -80,6 +74,7 @@ class CompareParserCache extends Maintenance {
 			$page = $wikiPageFactory->newFromTitle( $title );
 			$revision = $page->getRevisionRecord();
 			$parserOptions = $page->makeParserOptions( 'canonical' );
+
 			$parserOutputOld = $parserCache->get( $page, $parserOptions );
 
 			if ( $parserOutputOld ) {
@@ -94,10 +89,8 @@ class CompareParserCache extends Maintenance {
 
 				$this->output( "Found cache entry found for '{$title->getPrefixedText()}'..." );
 
-				$oldHtml = trim( preg_replace( '#<!-- .+-->#Us', '',
-					$parserOutputOld->getRawText() ) );
-				$newHtml = trim( preg_replace( '#<!-- .+-->#Us', '',
-					$parserOutputNew->getRawText() ) );
+				$oldHtml = trim( preg_replace( '#<!-- .+-->#Us', '', $parserOutputOld->getText() ) );
+				$newHtml = trim( preg_replace( '#<!-- .+-->#Us', '', $parserOutputNew->getText() ) );
 				$diffs = new Diff( explode( "\n", $oldHtml ), explode( "\n", $newHtml ) );
 				$formatter = new UnifiedDiffFormatter();
 				$unifiedDiff = $formatter->format( $diffs );
@@ -121,7 +114,5 @@ class CompareParserCache extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = CompareParserCache::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

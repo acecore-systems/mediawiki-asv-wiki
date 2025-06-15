@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Wantedtemplates
+ *
  * Copyright © 2008, Danny B.
  * Based on SpecialWantedcategories.php by Ævar Arnfjörð Bjarmason <avarab@gmail.com>
  * makeWlhLink() taken from SpecialMostlinkedtemplates by Rob Church <robchur@gmail.com>
@@ -20,44 +22,43 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- */
-
-namespace MediaWiki\Specials;
-
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Linker\LinksMigration;
-use MediaWiki\SpecialPage\WantedQueryPage;
-use Wikimedia\Rdbms\IConnectionProvider;
-
-/**
- * List of the most wanted templates
- *
  * @ingroup SpecialPage
  * @author Danny B.
  */
+
+use MediaWiki\Cache\LinkBatchFactory;
+use MediaWiki\Linker\LinksMigration;
+use Wikimedia\Rdbms\ILoadBalancer;
+
+/**
+ * A querypage to list the most wanted templates
+ *
+ * @ingroup SpecialPage
+ */
 class SpecialWantedTemplates extends WantedQueryPage {
 
-	private LinksMigration $linksMigration;
+	/** @var LinksMigration */
+	private $linksMigration;
 
 	/**
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param LinkBatchFactory $linkBatchFactory
 	 * @param LinksMigration $linksMigration
 	 */
 	public function __construct(
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		LinkBatchFactory $linkBatchFactory,
 		LinksMigration $linksMigration
 	) {
 		parent::__construct( 'Wantedtemplates' );
-		$this->setDatabaseProvider( $dbProvider );
+		$this->setDBLoadBalancer( $loadBalancer );
 		$this->setLinkBatchFactory( $linkBatchFactory );
 		$this->linksMigration = $linksMigration;
 	}
 
 	public function getQueryInfo() {
 		$queryInfo = $this->linksMigration->getQueryInfo( 'templatelinks' );
-		[ $ns, $title ] = $this->linksMigration->getTitleFields( 'templatelinks' );
+		list( $ns, $title ) = $this->linksMigration->getTitleFields( 'templatelinks' );
 		return [
 			'tables' => array_merge( $queryInfo['tables'], [ 'page' ] ),
 			'fields' => [
@@ -66,7 +67,7 @@ class SpecialWantedTemplates extends WantedQueryPage {
 				'value' => 'COUNT(*)'
 			],
 			'conds' => [
-				'page_title' => null,
+				'page_title IS NULL',
 				$ns => NS_TEMPLATE
 			],
 			'options' => [ 'GROUP BY' => [ $ns, $title ] ],
@@ -82,9 +83,3 @@ class SpecialWantedTemplates extends WantedQueryPage {
 		return 'maintenance';
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialWantedTemplates::class, 'SpecialWantedTemplates' );

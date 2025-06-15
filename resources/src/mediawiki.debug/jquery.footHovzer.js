@@ -1,8 +1,9 @@
 /**
  * @private
+ * @class jQuery.plugin.footHovzer
  */
 ( function () {
-	let $hovzer, footHovzer = null, $spacer;
+	var $hovzer, footHovzer, $spacer;
 
 	function getHovzer() {
 		if ( $hovzer === undefined ) {
@@ -14,12 +15,12 @@
 	/**
 	 * Utility to stack stuff in an overlay fixed on the bottom of the page.
 	 *
-	 * @example
-	 * var hovzer = $.getFootHovzer();
-	 * hovzer.$.append( $myCollection );
-	 * hovzer.update();
+	 * Usage:
 	 *
-	 * @private
+	 *     var hovzer = $.getFootHovzer();
+	 *     hovzer.$.append( $myCollection );
+	 *     hovzer.update();
+	 *
 	 * @static
 	 * @inheritable
 	 * @return {jQuery.footHovzer}
@@ -43,14 +44,16 @@
 		 * Update dimensions of stack to account for changes in the subtree.
 		 */
 		update: function () {
-			const $body = $( document.body );
+			var $body;
+
+			$body = $( document.body );
 
 			if ( $spacer === undefined ) {
 				$spacer = $( '<div>' ).attr( 'id', 'jquery-foot-hovzer-spacer' );
 				$spacer.appendTo( $body );
 			}
 			// Ensure CSS is applied by browser before using .outerHeight()
-			setTimeout( () => {
+			setTimeout( function () {
 				$spacer.css( 'height', getHovzer().outerHeight( /* includeMargin = */ true ) );
 			}, 0 );
 		}
@@ -58,7 +61,7 @@
 
 	/**
 	 * @class jQuery
-	 * @mixes jQuery.plugin.footHovzer
+	 * @mixins jQuery.plugin.footHovzer
 	 */
 
 }() );

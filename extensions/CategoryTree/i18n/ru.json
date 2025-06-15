@@ -6,9 +6,9 @@
 			"Kaganer",
 			"Lockal",
 			"Okras",
-			"Pacha Tchernof",
 			"Putnik",
 			"Александр Сигачёв",
+			"Pacha Tchernof",
 			"Yurina Tatiana"
 		]
 	},
@@ -39,6 +39,5 @@
 	"categorytree-no-pages": "нет статей и подкатегорий",
 	"categorytree-not-found": "Категория «$1» не найдена.",
 	"categorytree-error": "Ошибка загрузки данных.",
-	"categorytree-retry": "Пожалуйста, подождите и попробуйте ещё раз.",
-	"categorytree-onlyroot-message": "[https://phabricator.wikimedia.org/T290062 T290062]: Параметр <code>onlyroot</code> является устаревшим. Вместо него используйте <code>depth=\"0\"</code>."
+	"categorytree-retry": "Пожалуйста, подождите и попробуйте ещё раз."
 }

@@ -3,7 +3,7 @@
 namespace MediaWiki\Api\Hook;
 
 // phpcs:disable Squiz.Classes.ValidClassName.NotCamelCaps
-use MediaWiki\Api\ApiMain;
+use ApiMain;
 use Throwable;
 
 /**

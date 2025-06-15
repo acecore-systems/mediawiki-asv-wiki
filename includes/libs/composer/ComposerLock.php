@@ -1,7 +1,5 @@
 <?php
 
-namespace Wikimedia\Composer;
-
 /**
  * Reads a composer.lock file and provides accessors to get
  * its hash and what is installed

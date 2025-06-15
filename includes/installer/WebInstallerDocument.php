@@ -19,8 +19,6 @@
  * @ingroup Installer
  */
 
-namespace MediaWiki\Installer;
-
 abstract class WebInstallerDocument extends WebInstallerPage {
 
 	/**

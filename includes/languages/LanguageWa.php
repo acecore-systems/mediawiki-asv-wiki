@@ -18,8 +18,6 @@
  * @file
  */
 
-use MediaWiki\Language\Language;
-
 /**
  * Walloon (Walon)
  *
@@ -35,20 +33,34 @@ class LanguageWa extends Language {
 	 * "<day> di <monthname>" for months starting by a consoun, and
 	 * "<day> d' <monthname>" for months starting with a vowel
 	 *
-	 * @inheritDoc
+	 * @param string $ts
+	 * @param bool $adj
+	 * @param bool $format
+	 * @param bool $tc
+	 * @return string
 	 */
-	public function date( $ts, $adj = false, $format = true, $timecorrection = false ) {
-		$datePreference = $this->dateFormat( $format );
-		if ( $datePreference == 'ISO 8601' || $datePreference == 'walloon short' ) {
-			return parent::date( $ts, $adj, $format, $timecorrection );
-		}
-
+	public function date( $ts, $adj = false, $format = true, $tc = false ) {
 		$ts = wfTimestamp( TS_MW, $ts );
 		if ( $adj ) {
-			$ts = $this->userAdjust( $ts, $timecorrection );
+			$ts = $this->userAdjust( $ts, $tc );
+		}
+		$datePreference = $this->dateFormat( $format );
+
+		# ISO (YYYY-mm-dd) format
+		# we also output this format for YMD (eg: 2001 January 15)
+		if ( $datePreference == 'ISO 8601' ) {
+			$d = substr( $ts, 0, 4 ) . '-' . substr( $ts, 4, 2 ) . '-' . substr( $ts, 6, 2 );
+			return $d;
 		}
 
-		# Walloon 'dmy' format
+		# dd/mm/YYYY format
+		if ( $datePreference == 'walloon short' ) {
+			$d = substr( $ts, 6, 2 ) . '/' . substr( $ts, 4, 2 ) . '/' . substr( $ts, 0, 4 );
+			return $d;
+		}
+
+		# Walloon format
+		# we output this in all other cases
 		$m = (int)substr( $ts, 4, 2 );
 		$n = (int)substr( $ts, 6, 2 );
 		if ( $n == 1 ) {
@@ -67,14 +79,20 @@ class LanguageWa extends Language {
 		return $d;
 	}
 
+	/**
+	 * @param string $ts
+	 * @param bool $adj
+	 * @param bool $format
+	 * @param bool $tc
+	 * @return string
+	 */
 	public function timeanddate( $ts, $adj = false, $format = true, $tc = false ) {
 		$datePreference = $this->dateFormat( $format );
-		if ( $datePreference == 'ISO 8601' || $datePreference == 'walloon short' ) {
+		if ( $datePreference == 'ISO 8601' ) {
 			return parent::timeanddate( $ts, $adj, $format, $tc );
+		} else {
+			return $this->date( $ts, $adj, $format, $tc ) . ' a ' .
+				$this->time( $ts, $adj, $format, $tc );
 		}
-
-		# Walloon 'dmy' format
-		return $this->date( $ts, $adj, $format, $tc ) . ' a ' .
-			$this->time( $ts, $adj, $format, $tc );
 	}
 }

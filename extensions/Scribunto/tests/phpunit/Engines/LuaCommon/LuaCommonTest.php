@@ -1,22 +1,18 @@
 <?php
 
-namespace MediaWiki\Extension\Scribunto\Tests\Engines\LuaCommon;
-
-use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LuaError;
 use MediaWiki\Extension\Scribunto\ScribuntoException;
-use MediaWiki\Title\Title;
 
 /**
  * @covers \MediaWiki\Extension\Scribunto\ScribuntoEngineBase
- * @covers \MediaWiki\Extension\Scribunto\Engines\LuaCommon\LuaEngine
+ * @covers Scribunto_LuaEngine
  * @covers \MediaWiki\Extension\Scribunto\Engines\LuaStandalone\LuaStandaloneEngine
  * @covers \MediaWiki\Extension\Scribunto\Engines\LuaSandbox\LuaSandboxEngine
- * @covers \MediaWiki\Extension\Scribunto\Engines\LuaCommon\LuaInterpreter
+ * @covers Scribunto_LuaInterpreter
  * @covers \MediaWiki\Extension\Scribunto\Engines\LuaStandalone\LuaStandaloneInterpreter
  * @covers \MediaWiki\Extension\Scribunto\Engines\LuaSandbox\LuaSandboxInterpreter
  * @group Database
  */
-class LuaCommonTest extends LuaEngineTestBase {
+class Scribunto_LuaCommonTest extends Scribunto_LuaEngineTestBase {
 	/** @inheritDoc */
 	protected static $moduleName = 'CommonTests';
 
@@ -67,11 +63,11 @@ class LuaCommonTest extends LuaEngineTestBase {
 			static function ( $engine, &$libs ) {
 				$libs += [
 					'CommonTestsLib' => [
-						'class' => LuaCommonTestsLibrary::class,
+						'class' => Scribunto_LuaCommonTestsLibrary::class,
 						'deferLoad' => true,
 					],
 					'CommonTestsFailLib' => [
-						'class' => LuaCommonTestsFailLibrary::class,
+						'class' => Scribunto_LuaCommonTestsFailLibrary::class,
 						'deferLoad' => true,
 					],
 				];
@@ -119,7 +115,7 @@ class LuaCommonTest extends LuaEngineTestBase {
 	public function testNoLeakedGlobals() {
 		$interpreter = $this->getEngine()->getInterpreter();
 
-		[ $actualGlobals ] = $interpreter->callFunction(
+		list( $actualGlobals ) = $interpreter->callFunction(
 			$interpreter->loadString(
 				'local t = {} for k in pairs( _G ) do t[#t+1] = k end return t',
 				'getglobals'
@@ -127,7 +123,7 @@ class LuaCommonTest extends LuaEngineTestBase {
 		);
 
 		$leakedGlobals = array_diff( $actualGlobals, self::$allowedGlobals );
-		$this->assertCount( 0, $leakedGlobals,
+		$this->assertEmpty( $leakedGlobals,
 			'The following globals are leaked: ' . implode( ' ', $leakedGlobals )
 		);
 	}
@@ -522,7 +518,7 @@ class LuaCommonTest extends LuaEngineTestBase {
 				}',
 			] + $args );
 			$this->fail( "Expected LuaError not thrown for nonexistent parser function" );
-		} catch ( LuaError $err ) {
+		} catch ( Scribunto_LuaError $err ) {
 			$this->assertSame(
 				'Lua error: callParserFunction: function "thisDoesNotExist" was not found.',
 				$err->getMessage(),
@@ -702,7 +698,7 @@ class LuaCommonTest extends LuaEngineTestBase {
 		$this->assertEquals( '1 2', $text, "Volatile wikitext was not cached" );
 	}
 
-	public static function provideVolatileCaching() {
+	public function provideVolatileCaching() {
 		return [
 			[ 'preprocess' ],
 			[ 'extensionTag' ],

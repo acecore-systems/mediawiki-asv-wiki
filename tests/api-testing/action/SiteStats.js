@@ -2,7 +2,7 @@
 
 const { action, assert, utils, wiki } = require( 'api-testing' );
 
-describe( "Testing site statistics' edits value", () => {
+describe( "Testing site statistics' edits value", function () {
 	const siteStatsParams = {
 		meta: 'siteinfo',
 		siprop: 'statistics'

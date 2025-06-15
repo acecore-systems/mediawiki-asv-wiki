@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface MWTargetWidget class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -14,10 +14,17 @@
  *
  * @constructor
  * @param {Object} config
- * @param {string[]} [config.surfaceClasses] Surface classes to apply
+ * @cfg {string[]} [surfaceClasses] Surface classes to apply
  */
 ve.ui.MWTargetWidget = function VeUiMWTargetWidget( config ) {
 	this.surfaceClasses = ve.copy( config.surfaceClasses ) || [];
+
+	// HACK: T287733
+	// This assumes the target widget is being shown outside of vector-body, otherwise this
+	// will apply the class a second time and cause problems.
+	if ( mw.config.get( 'skin' ) === 'vector' || mw.config.get( 'skin' ) === 'vector-2022' ) {
+		this.surfaceClasses.push( 'vector-body' );
+	}
 
 	// Parent constructor
 	ve.ui.MWTargetWidget.super.apply( this, arguments );

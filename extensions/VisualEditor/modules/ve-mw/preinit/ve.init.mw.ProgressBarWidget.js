@@ -1,7 +1,7 @@
 /*!
  * VisualEditor progress bar widget
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -33,15 +33,15 @@ mw.libs.ve.ProgressBarWidget = function VeUiMwProgressBarWidget() {
 };
 
 mw.libs.ve.ProgressBarWidget.prototype.setLoadingProgress = function ( target, duration ) {
-	const $bar = this.$bar.stop();
+	var $bar = this.$bar.stop();
 	$bar.css( 'transition', 'width ' + duration + 'ms ease-in' );
-	setTimeout( () => {
+	setTimeout( function () {
 		$bar.css( 'width', target + '%' );
 	} );
 };
 
 mw.libs.ve.ProgressBarWidget.prototype.incrementLoadingProgress = function () {
-	const step = this.progressSteps[ this.progressStep ];
+	var step = this.progressSteps[ this.progressStep ];
 	if ( step ) {
 		this.setLoadingProgress( step[ 0 ], step[ 1 ] );
 		this.progressStep++;

@@ -10,11 +10,8 @@ namespace MediaWiki\Rest;
  * Unlike PSR-7, the container is mutable.
  */
 class HeaderContainer {
-	/** @var array[] */
 	private $headerLists = [];
-	/** @var string[] */
 	private $headerLines = [];
-	/** @var string[] */
 	private $headerNames = [];
 
 	/**
@@ -29,7 +26,7 @@ class HeaderContainer {
 		$this->headerNames = [];
 		foreach ( $headers as $name => $value ) {
 			$this->headerNames[ strtolower( $name ) ] = $name;
-			[ $valueParts, $valueLine ] = $this->convertToListAndString( $value );
+			list( $valueParts, $valueLine ) = $this->convertToListAndString( $value );
 			$this->headerLines[$name] = $valueLine;
 			$this->headerLists[$name] = $valueParts;
 		}
@@ -72,7 +69,7 @@ class HeaderContainer {
 	 * @param string|string[] $value
 	 */
 	public function setHeader( $name, $value ) {
-		[ $valueParts, $valueLine ] = $this->convertToListAndString( $value );
+		list( $valueParts, $valueLine ) = $this->convertToListAndString( $value );
 		$lowerName = strtolower( $name );
 		$origName = $this->headerNames[$lowerName] ?? null;
 		if ( $origName !== null ) {
@@ -91,7 +88,7 @@ class HeaderContainer {
 	 * @param string|string[] $value
 	 */
 	public function addHeader( $name, $value ) {
-		[ $valueParts, $valueLine ] = $this->convertToListAndString( $value );
+		list( $valueParts, $valueLine ) = $this->convertToListAndString( $value );
 		$lowerName = strtolower( $name );
 		$origName = $this->headerNames[$lowerName] ?? null;
 		if ( $origName === null ) {

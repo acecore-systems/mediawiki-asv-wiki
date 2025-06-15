@@ -16,31 +16,14 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
-use ChangeTagsList;
-use ErrorPageError;
-use LogEventsList;
-use LogPage;
-use MediaWiki\ChangeTags\ChangeTagsStore;
-use MediaWiki\CommentStore\CommentStore;
-use MediaWiki\Html\Html;
 use MediaWiki\Permissions\PermissionManager;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\SpecialPage\UnlistedSpecialPage;
-use MediaWiki\Status\Status;
-use MediaWiki\Title\Title;
-use MediaWiki\Xml\Xml;
-use MediaWiki\Xml\XmlSelect;
-use RevisionDeleter;
-use UserBlockedError;
 
 /**
- * Add or remove change tags to individual revisions.
- *
- * A lot of this was copied out of SpecialRevisiondelete.
+ * Special page for adding and removing change tags to individual revisions.
+ * A lot of this is copied out of SpecialRevisiondelete.
  *
  * @ingroup SpecialPage
  * @since 1.25
@@ -67,19 +50,18 @@ class SpecialEditTags extends UnlistedSpecialPage {
 	/** @var string */
 	private $reason;
 
-	private PermissionManager $permissionManager;
-	private ChangeTagsStore $changeTagsStore;
+	/** @var PermissionManager */
+	private $permissionManager;
 
 	/**
 	 * @inheritDoc
 	 *
 	 * @param PermissionManager $permissionManager
 	 */
-	public function __construct( PermissionManager $permissionManager, ChangeTagsStore $changeTagsStore ) {
+	public function __construct( PermissionManager $permissionManager ) {
 		parent::__construct( 'EditTags', 'changetags' );
 
 		$this->permissionManager = $permissionManager;
-		$this->changeTagsStore = $changeTagsStore;
 	}
 
 	public function doesWrites() {
@@ -97,7 +79,7 @@ class SpecialEditTags extends UnlistedSpecialPage {
 		$this->setHeaders();
 		$this->outputHeader();
 
-		$output->addModules( [ 'mediawiki.misc-authed-curate' ] );
+		$output->addModules( [ 'mediawiki.special.edittags' ] );
 		$output->addModuleStyles( [
 			'mediawiki.interface.helpers.styles',
 			'mediawiki.special'
@@ -279,19 +261,19 @@ class SpecialEditTags extends UnlistedSpecialPage {
 		$out->wrapWikiMsg( '<p>$1</p>', "tags-edit-{$this->typeName}-explanation" );
 
 		// Show form
-		$form = Html::openElement( 'form', [ 'method' => 'post',
+		$form = Xml::openElement( 'form', [ 'method' => 'post',
 				'action' => $this->getPageTitle()->getLocalURL( [ 'action' => 'submit' ] ),
 				'id' => 'mw-revdel-form-revisions' ] ) .
 			Xml::fieldset( $this->msg( "tags-edit-{$this->typeName}-legend",
 				count( $this->ids ) )->text() ) .
 			$this->buildCheckBoxes() .
-			Html::openElement( 'table' ) .
+			Xml::openElement( 'table' ) .
 			"<tr>\n" .
 				'<td class="mw-label">' .
-					Html::label( $this->msg( 'tags-edit-reason' )->text(), 'wpReason' ) .
+					Xml::label( $this->msg( 'tags-edit-reason' )->text(), 'wpReason' ) .
 				'</td>' .
 				'<td class="mw-input">' .
-					Html::element( 'input', [ 'name' => 'wpReason', 'size' => 60, 'value' => $this->reason,
+					Xml::input( 'wpReason', 60, $this->reason, [
 						'id' => 'wpReason',
 						// HTML maxlength uses "UTF-16 code units", which means that characters outside BMP
 						// (e.g. emojis) count for two each. This limit is overridden in JS to instead count
@@ -302,17 +284,17 @@ class SpecialEditTags extends UnlistedSpecialPage {
 			"</tr><tr>\n" .
 				'<td></td>' .
 				'<td class="mw-submit">' .
-					Html::submitButton( $this->msg( "tags-edit-{$this->typeName}-submit",
+					Xml::submitButton( $this->msg( "tags-edit-{$this->typeName}-submit",
 						$numRevisions )->text(), [ 'name' => 'wpSubmit' ] ) .
 				'</td>' .
 			"</tr>\n" .
-			Html::closeElement( 'table' ) .
+			Xml::closeElement( 'table' ) .
 			Html::hidden( 'wpEditToken', $this->getUser()->getEditToken() ) .
 			Html::hidden( 'target', $this->targetObj->getPrefixedText() ) .
 			Html::hidden( 'type', $this->typeName ) .
 			Html::hidden( 'ids', implode( ',', $this->ids ) ) .
-			Html::closeElement( 'fieldset' ) . "\n" .
-			Html::closeElement( 'form' ) . "\n";
+			Xml::closeElement( 'fieldset' ) . "\n" .
+			Xml::closeElement( 'form' ) . "\n";
 
 		$out->addHTML( $form );
 	}
@@ -359,19 +341,16 @@ class SpecialEditTags extends UnlistedSpecialPage {
 			$html = '<table id="mw-edittags-tags-selector-multi"><tr><td>';
 			$tagSelect = $this->getTagSelect( [], $this->msg( 'tags-edit-add' )->plain() );
 			$html .= '<p>' . $tagSelect[0] . '</p>' . $tagSelect[1] . '</td><td>';
-			$html .= Html::element( 'p', [], $this->msg( 'tags-edit-remove' )->plain() );
-			$html .= Html::element( 'input', [
-				'type' => 'checkbox', 'name' => 'wpRemoveAllTags', 'value' => '1',
-				'id' => 'mw-edittags-remove-all'
-			] ) . '&nbsp;'
-				. Html::label( $this->msg( 'tags-edit-remove-all-tags' )->plain(), 'mw-edittags-remove-all' );
+			$html .= Xml::element( 'p', null, $this->msg( 'tags-edit-remove' )->plain() );
+			$html .= Xml::checkLabel( $this->msg( 'tags-edit-remove-all-tags' )->plain(),
+				'wpRemoveAllTags', 'mw-edittags-remove-all' );
 			$i = 0; // used for generating checkbox IDs only
 			foreach ( $tags as $tag ) {
-				$id = 'mw-edittags-remove-' . $i++;
-				$html .= Html::element( 'br' ) . "\n" . Html::element( 'input', [
-					'type' => 'checkbox', 'name' => 'wpTagsToRemove[]', 'value' => $tag,
-					'class' => 'mw-edittags-remove-checkbox', 'id' => $id,
-				] ) . '&nbsp;' . Html::label( $tag, $id );
+				$html .= Xml::element( 'br' ) . "\n" . Xml::checkLabel( $tag,
+					'wpTagsToRemove[]', 'mw-edittags-remove-' . $i++, false, [
+						'value' => $tag,
+						'class' => 'mw-edittags-remove-checkbox',
+					] );
 			}
 		}
 
@@ -389,7 +368,7 @@ class SpecialEditTags extends UnlistedSpecialPage {
 	 *
 	 * @param array $selectedTags The tags that should be preselected in the
 	 * list. Any tags in this list, but not in the list returned by
-	 * ChangeTagsStore::listExplicitlyDefinedTags, will be appended to the <select>
+	 * ChangeTags::listExplicitlyDefinedTags, will be appended to the <select>
 	 * element.
 	 * @param string $label The text of a <label> to precede the <select>
 	 * @return array HTML <label> element at index 0, HTML <select> element at
@@ -397,13 +376,13 @@ class SpecialEditTags extends UnlistedSpecialPage {
 	 */
 	protected function getTagSelect( $selectedTags, $label ) {
 		$result = [];
-		$result[0] = Html::label( $label, 'mw-edittags-tag-list' );
+		$result[0] = Xml::label( $label, 'mw-edittags-tag-list' );
 
 		$select = new XmlSelect( 'wpTagList[]', 'mw-edittags-tag-list', $selectedTags );
 		$select->setAttribute( 'multiple', 'multiple' );
 		$select->setAttribute( 'size', '8' );
 
-		$tags = $this->changeTagsStore->listExplicitlyDefinedTags();
+		$tags = ChangeTags::listExplicitlyDefinedTags();
 		$tags = array_unique( array_merge( $tags, $selectedTags ) );
 
 		// Values of $tags are also used as <option> labels
@@ -427,7 +406,10 @@ class SpecialEditTags extends UnlistedSpecialPage {
 		}
 
 		// Evaluate incoming request data
-		$tagList = $request->getArray( 'wpTagList' ) ?? [];
+		$tagList = $request->getArray( 'wpTagList' );
+		if ( $tagList === null ) {
+			$tagList = [];
+		}
 		$existingTags = $request->getVal( 'wpExistingTags' );
 		if ( $existingTags === null || $existingTags === '' ) {
 			$existingTags = [];
@@ -441,7 +423,7 @@ class SpecialEditTags extends UnlistedSpecialPage {
 			if ( $request->getBool( 'wpRemoveAllTags' ) ) {
 				$tagsToRemove = $existingTags;
 			} else {
-				$tagsToRemove = $request->getArray( 'wpTagsToRemove', [] );
+				$tagsToRemove = $request->getArray( 'wpTagsToRemove' );
 			}
 		} else {
 			// single revision selected
@@ -472,7 +454,7 @@ class SpecialEditTags extends UnlistedSpecialPage {
 	 */
 	protected function success() {
 		$out = $this->getOutput();
-		$out->setPageTitleMsg( $this->msg( 'actioncomplete' ) );
+		$out->setPageTitle( $this->msg( 'actioncomplete' ) );
 		$out->addHTML(
 			Html::successBox( $out->msg( 'tags-edit-success' )->parse() )
 		);
@@ -488,7 +470,7 @@ class SpecialEditTags extends UnlistedSpecialPage {
 	 */
 	protected function failure( $status ) {
 		$out = $this->getOutput();
-		$out->setPageTitleMsg( $this->msg( 'actionfailed' ) );
+		$out->setPageTitle( $this->msg( 'actionfailed' ) );
 		$out->addHTML(
 			Html::errorBox(
 				$out->parseAsContent(
@@ -500,13 +482,10 @@ class SpecialEditTags extends UnlistedSpecialPage {
 	}
 
 	public function getDescription() {
-		return $this->msg( 'tags-edit-title' );
+		return $this->msg( 'tags-edit-title' )->text();
 	}
 
 	protected function getGroupName() {
 		return 'pagetools';
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialEditTags::class, 'SpecialEditTags' );

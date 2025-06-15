@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Extension\Nuke\Hooks;
 
-use MediaWiki\Title\Title;
+use Title;
 
 interface NukeDeletePageHook {
 

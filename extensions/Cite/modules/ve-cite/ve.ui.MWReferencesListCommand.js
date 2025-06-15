@@ -1,5 +1,3 @@
-'use strict';
-
 /*!
  * VisualEditor UserInterface MediaWiki ReferencesListCommand class.
  *
@@ -13,8 +11,10 @@
  * If a references list node is selected, opens the dialog to edit it.
  * Otherwise inserts the references list for the default group.
  *
- * @constructor
+ * @class
  * @extends ve.ui.Command
+ *
+ * @constructor
  */
 ve.ui.MWReferencesListCommand = function VeUiMWReferencesListCommand() {
 	// Parent constructor
@@ -31,13 +31,12 @@ OO.inheritClass( ve.ui.MWReferencesListCommand, ve.ui.Command );
 /* Methods */
 
 /**
- * @override
+ * @inheritdoc
  */
 ve.ui.MWReferencesListCommand.prototype.execute = function ( surface ) {
-	const fragment = surface.getModel().getFragment();
-	const selectedNode = fragment.getSelectedNode();
-	const isReflistNodeSelected = selectedNode &&
-		selectedNode instanceof ve.dm.MWReferencesListNode;
+	var fragment = surface.getModel().getFragment(),
+		selectedNode = fragment.getSelectedNode(),
+		isReflistNodeSelected = selectedNode && selectedNode instanceof ve.dm.MWReferencesListNode;
 
 	if ( isReflistNodeSelected ) {
 		return surface.execute( 'window', 'open', 'referencesList' );

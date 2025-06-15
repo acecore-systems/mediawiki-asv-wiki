@@ -1,13 +1,5 @@
 <?php
 
-namespace MediaWiki\Tests\Site;
-
-use MediaWiki\Site\DBSiteStore;
-use MediaWiki\Site\MediaWikiSite;
-use MediaWiki\Site\Site;
-use MediaWiki\Site\SiteList;
-use MediaWikiIntegrationTestCase;
-
 /**
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,11 +33,14 @@ class DBSiteStoreTest extends MediaWikiIntegrationTestCase {
 	 * @return DBSiteStore
 	 */
 	private function newDBSiteStore() {
-		return new DBSiteStore( $this->getServiceContainer()->getConnectionProvider() );
+		// NOTE: Use the real DB load balancer for now. Eventually, the test framework should
+		// provide a LoadBalancer that is safe to use in unit tests.
+		$lb = $this->getServiceContainer()->getDBLoadBalancer();
+		return new DBSiteStore( $lb );
 	}
 
 	/**
-	 * @covers \MediaWiki\Site\DBSiteStore::getSites
+	 * @covers DBSiteStore::getSites
 	 */
 	public function testGetSites() {
 		$expectedSites = TestSites::getSites();
@@ -72,7 +67,7 @@ class DBSiteStoreTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Site\DBSiteStore::saveSites
+	 * @covers DBSiteStore::saveSites
 	 */
 	public function testSaveSites() {
 		$store = $this->newDBSiteStore();
@@ -105,10 +100,9 @@ class DBSiteStoreTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Site\DBSiteStore::reset
+	 * @covers DBSiteStore::reset
 	 */
 	public function testReset() {
-		TestSites::insertIntoDb();
 		$store1 = $this->newDBSiteStore();
 		$store2 = $this->newDBSiteStore();
 
@@ -118,7 +112,7 @@ class DBSiteStoreTest extends MediaWikiIntegrationTestCase {
 
 		// Clear actual data. Will purge the external cache and reset the internal
 		// cache in $store1, but not the internal cache in store2.
-		$store1->clear();
+		$this->assertTrue( $store1->clear() );
 
 		// check: $store2 should have a stale cache now
 		$this->assertNotNull( $store2->getSite( 'enwiki' ) );
@@ -132,11 +126,11 @@ class DBSiteStoreTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Site\DBSiteStore::clear
+	 * @covers DBSiteStore::clear
 	 */
 	public function testClear() {
 		$store = $this->newDBSiteStore();
-		$store->clear();
+		$this->assertTrue( $store->clear() );
 
 		$site = $store->getSite( 'enwiki' );
 		$this->assertNull( $site );
@@ -146,7 +140,7 @@ class DBSiteStoreTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Site\DBSiteStore::getSites
+	 * @covers DBSiteStore::getSites
 	 */
 	public function testGetSitesDefaultOrder() {
 		$store = $this->newDBSiteStore();

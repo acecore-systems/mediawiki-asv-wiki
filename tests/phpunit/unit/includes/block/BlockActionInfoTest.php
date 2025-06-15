@@ -7,7 +7,8 @@ use MediaWiki\Block\BlockActionInfo;
  * @coversDefaultClass \MediaWiki\Block\BlockActionInfo
  */
 class BlockActionInfoTest extends MediaWikiUnitTestCase {
-	private BlockActionInfo $blockActionInfo;
+	/** @var BlockActionInfo */
+	private $blockActionInfo;
 
 	protected function setUp(): void {
 		parent::setUp();

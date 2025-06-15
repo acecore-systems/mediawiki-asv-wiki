@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Ancientpages
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,19 +18,12 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
-use HtmlArmor;
 use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Language\ILanguageConverter;
 use MediaWiki\Languages\LanguageConverterFactory;
-use MediaWiki\SpecialPage\QueryPage;
-use MediaWiki\Title\NamespaceInfo;
-use MediaWiki\Title\Title;
-use Skin;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * Implements Special:Ancientpages
@@ -37,24 +32,27 @@ use Wikimedia\Rdbms\IConnectionProvider;
  */
 class SpecialAncientPages extends QueryPage {
 
-	private NamespaceInfo $namespaceInfo;
-	private ILanguageConverter $languageConverter;
+	/** @var NamespaceInfo */
+	private $namespaceInfo;
+
+	/** @var ILanguageConverter */
+	private $languageConverter;
 
 	/**
 	 * @param NamespaceInfo $namespaceInfo
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param LinkBatchFactory $linkBatchFactory
 	 * @param LanguageConverterFactory $languageConverterFactory
 	 */
 	public function __construct(
 		NamespaceInfo $namespaceInfo,
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		LinkBatchFactory $linkBatchFactory,
 		LanguageConverterFactory $languageConverterFactory
 	) {
 		parent::__construct( 'Ancientpages' );
 		$this->namespaceInfo = $namespaceInfo;
-		$this->setDatabaseProvider( $dbProvider );
+		$this->setDBLoadBalancer( $loadBalancer );
 		$this->setLinkBatchFactory( $linkBatchFactory );
 		$this->languageConverter = $languageConverterFactory->getLanguageConverter( $this->getContentLanguage() );
 	}
@@ -110,7 +108,7 @@ class SpecialAncientPages extends QueryPage {
 
 	/**
 	 * @param Skin $skin
-	 * @param \stdClass $result Result row
+	 * @param stdClass $result Result row
 	 * @return string
 	 */
 	public function formatResult( $skin, $result ) {
@@ -130,6 +128,3 @@ class SpecialAncientPages extends QueryPage {
 		return 'maintenance';
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialAncientPages::class, 'SpecialAncientPages' );

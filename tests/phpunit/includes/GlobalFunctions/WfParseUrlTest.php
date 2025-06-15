@@ -36,7 +36,6 @@ class WfParseUrlTest extends MediaWikiIntegrationTestCase {
 			'https://',
 			'file://',
 			'mailto:',
-			'news:',
 		] );
 	}
 

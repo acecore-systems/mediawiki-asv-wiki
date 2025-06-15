@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable MWTableNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -10,7 +10,7 @@
  *
  * @class
  * @extends ve.ce.TableNode
- * @mixes ve.ce.ClassAttributeNode
+ * @mixins ve.ce.ClassAttributeNode
  *
  * @constructor
  * @param {ve.dm.MWTableNode} model Model to observe
@@ -72,6 +72,10 @@ ve.ce.MWTableNode.prototype.destroy = function () {
  * @private
  */
 ve.ce.MWTableNode.prototype.updateSortableHeaders = function () {
+	var
+		view = this,
+		cellModels, cellViews;
+
 	if ( !this.model ) {
 		// Fired after teardown due to debounce
 		return;
@@ -90,10 +94,14 @@ ve.ce.MWTableNode.prototype.updateSortableHeaders = function () {
 		// ends up saving this change, it will be loaded anyway to render the real sortable table.
 		mw.loader.load( 'jquery.tablesorter' );
 
-		const cellModels = this.getTablesorterHeaderCells();
-		const cellViews = cellModels.map( ( cellModel ) => this.getNodeFromOffset( cellModel.getOffset() - this.model.getOffset() ) );
+		cellModels = this.getTablesorterHeaderCells();
+		cellViews = cellModels.map( function ( cellModel ) {
+			return view.getNodeFromOffset( cellModel.getOffset() - view.model.getOffset() );
+		} );
 
-		this.$sortableHeaders = $( cellViews.map( ( cell ) => cell.$element[ 0 ] ) ).not( '.unsortable' );
+		this.$sortableHeaders = $( cellViews.map( function ( cell ) {
+			return cell.$element[ 0 ];
+		} ) ).not( '.unsortable' );
 	} else {
 		this.$sortableHeaders = $( [] );
 	}
@@ -113,19 +121,25 @@ ve.ce.MWTableNode.prototype.updateSortableHeaders = function () {
  * @return {ve.dm.TableCellNode[]}
  */
 ve.ce.MWTableNode.prototype.getTablesorterHeaderCells = function () {
-	const matrix = this.model.getMatrix();
+	var
+		matrix = this.model.getMatrix(),
+		longestRow = [],
+		longestRowLength = 0,
+		i, l, matrixCells, isAllHeaders, rowLength, cellModels;
 
-	let longestRow = [];
-	let longestRowLength = 0;
-	for ( let i = 0, l = matrix.getRowCount(); i < l; i++ ) {
-		const matrixCells = matrix.getRow( i );
-		const cellModels = OO.unique( matrixCells.map( ( matrixCell ) => matrixCell && matrixCell.getOwner().node ) );
-		const isAllHeaders = cellModels.every( ( cellModel ) => cellModel && cellModel.getAttribute( 'style' ) === 'header' );
+	for ( i = 0, l = matrix.getRowCount(); i < l; i++ ) {
+		matrixCells = matrix.getRow( i );
+		cellModels = OO.unique( matrixCells.map( function ( matrixCell ) {
+			return matrixCell && matrixCell.getOwner().node;
+		} ) );
+		isAllHeaders = cellModels.every( function ( cellModel ) {
+			return cellModel && cellModel.getAttribute( 'style' ) === 'header';
+		} );
 		if ( !isAllHeaders ) {
 			// This is the end of table head (thead), stop looking further
 			break;
 		}
-		const rowLength = cellModels.length;
+		rowLength = cellModels.length;
 		if ( rowLength >= longestRowLength ) {
 			longestRowLength = rowLength;
 			longestRow = cellModels;

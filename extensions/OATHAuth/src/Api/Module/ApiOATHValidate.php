@@ -18,12 +18,13 @@
 
 namespace MediaWiki\Extension\OATHAuth\Api\Module;
 
-use MediaWiki\Api\ApiBase;
-use MediaWiki\Api\ApiResult;
+use ApiBase;
+use ApiResult;
+use FormatJson;
 use MediaWiki\Extension\OATHAuth\IModule;
-use MediaWiki\Json\FormatJson;
-use MediaWiki\Logger\LoggerFactory;
+use MediaWiki\Extension\OATHAuth\Module\TOTP;
 use MediaWiki\MediaWikiServices;
+use User;
 use Wikimedia\ParamValidator\ParamValidator;
 
 /**
@@ -34,19 +35,20 @@ use Wikimedia\ParamValidator\ParamValidator;
  */
 class ApiOATHValidate extends ApiBase {
 	public function execute() {
-		$this->requirePostedParameters( [ 'token', 'data' ] );
-		// messages used: right-oathauth-api-all, action-oathauth-api-all,
-		$this->checkUserRightsAny( 'oathauth-api-all' );
+		// Be extra paranoid about the data that is sent
+		$this->requireAtLeastOneParameter( $this->extractRequestParams(), 'totp', 'data' );
+		$this->requirePostedParameters( [ 'token', 'data', 'totp' ] );
 
 		$params = $this->extractRequestParams();
 		if ( $params['user'] === null ) {
-			$user = $this->getUser();
-		} else {
-			$user = MediaWikiServices::getInstance()->getUserFactory()
-				->newFromName( $params['user'] );
-			if ( $user === null ) {
-				$this->dieWithError( 'noname' );
-			}
+			$params['user'] = $this->getUser()->getName();
+		}
+
+		$this->checkUserRightsAny( 'oathauth-api-all' );
+
+		$user = User::newFromName( $params['user'] );
+		if ( $user === false ) {
+			$this->dieWithError( 'noname' );
 		}
 
 		// Don't increase pingLimiter, just check for limit exceeded.
@@ -58,35 +60,32 @@ class ApiOATHValidate extends ApiBase {
 			ApiResult::META_BC_BOOLS => [ 'enabled', 'valid' ],
 			'enabled' => false,
 			'valid' => false,
+			'module' => ''
 		];
 
-		if ( $user->isNamed() ) {
+		if ( !$user->isAnon() ) {
 			$userRepo = MediaWikiServices::getInstance()->getService( 'OATHUserRepository' );
 			$authUser = $userRepo->findByUser( $user );
 			if ( $authUser ) {
 				$module = $authUser->getModule();
 				if ( $module instanceof IModule ) {
 					$data = [];
-					$decoded = FormatJson::decode( $params['data'], true );
-					if ( is_array( $decoded ) ) {
-						$data = $decoded;
+					if ( isset( $params['totp'] ) ) {
+						// Legacy
+						if ( $module instanceof TOTP ) {
+							$data = [
+								'token' => $params['totp']
+							];
+						}
+					} else {
+						$decoded = FormatJson::decode( $params['data'], true );
+						if ( is_array( $decoded ) ) {
+							$data = $decoded;
+						}
 					}
-
 					$result['enabled'] = $module->isEnabled( $authUser );
 					$result['valid'] = $module->verify( $authUser, $data ) !== false;
-
-					if ( !$result['valid'] ) {
-						// Increase rate limit counter for failed request
-						$user->pingLimiter( 'badoath' );
-
-						LoggerFactory::getInstance( 'authentication' )->info(
-							'OATHAuth user {user} failed OTP token/recovery code from {clientip}',
-							[
-								'user'     => $user,
-								'clientip' => $user->getRequest()->getIP(),
-							]
-						);
-					}
+					$result['module'] = $module->getName();
 				}
 			}
 		}
@@ -94,12 +93,10 @@ class ApiOATHValidate extends ApiBase {
 		$this->getResult()->addValue( null, $this->getModuleName(), $result );
 	}
 
-	/** @inheritDoc */
 	public function isInternal() {
 		return true;
 	}
 
-	/** @inheritDoc */
 	public function needsToken() {
 		return 'csrf';
 	}
@@ -112,9 +109,12 @@ class ApiOATHValidate extends ApiBase {
 			'user' => [
 				ParamValidator::PARAM_TYPE => 'user',
 			],
-			'data' => [
+			'totp' => [
 				ParamValidator::PARAM_TYPE => 'string',
-				ParamValidator::PARAM_REQUIRED => true,
+				ParamValidator::PARAM_DEPRECATED => true
+			],
+			'data' => [
+				ParamValidator::PARAM_TYPE => 'string'
 			]
 		];
 	}
@@ -124,8 +124,10 @@ class ApiOATHValidate extends ApiBase {
 	 */
 	protected function getExamplesMessages() {
 		return [
-			'action=oathvalidate&data={"token":"123456"}&token=123ABC'
+			'action=oathvalidate&totp=123456&token=123ABC'
 				=> 'apihelp-oathvalidate-example-1',
+			'action=oathvalidate&user=Example&totp=123456&token=123ABC'
+				=> 'apihelp-oathvalidate-example-2',
 			'action=oathvalidate&user=Example&data={"token":"123456"}&token=123ABC'
 				=> 'apihelp-oathvalidate-example-3',
 		];

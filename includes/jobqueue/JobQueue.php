@@ -1,5 +1,7 @@
 <?php
 /**
+ * Job queue base code.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,25 +18,14 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @defgroup JobQueue JobQueue
  */
-
 use Liuggio\StatsdClient\Factory\StatsdDataFactoryInterface;
-use MediaWiki\JobQueue\JobFactory;
-use MediaWiki\MediaWikiServices;
-use Wikimedia\ObjectCache\WANObjectCache;
 use Wikimedia\RequestTimeout\TimeoutException;
-use Wikimedia\Stats\NullStatsdDataFactory;
 use Wikimedia\UUID\GlobalIdGenerator;
 
 /**
- * @defgroup JobQueue JobQueue
- *
- *
- * See [the architecture doc](@ref jobqueuearch) for more information.
- */
-
-/**
- * Base class for queueing and running background jobs from a storage backend.
+ * Class to handle enqueueing and running of background jobs
  *
  * See [the architecture doc](@ref jobqueuearch) for more information.
  *
@@ -53,7 +44,7 @@ abstract class JobQueue {
 	protected $claimTTL;
 	/** @var int Maximum number of times to try a job */
 	protected $maxTries;
-	/** @var string|false Read only rationale (or false if r/w) */
+	/** @var string|bool Read only rationale (or false if r/w) */
 	protected $readOnlyReason;
 	/** @var StatsdDataFactoryInterface */
 	protected $stats;
@@ -66,13 +57,9 @@ abstract class JobQueue {
 	/** @var bool */
 	protected $typeAgnostic;
 
-	private JobFactory $jobFactory;
+	protected const QOS_ATOMIC = 1; // integer; "all-or-nothing" job insertions
 
-	/* Bit flag for "all-or-nothing" job insertions */
-	protected const QOS_ATOMIC = 1;
-
-	/* Seconds to remember root jobs (28 days) */
-	protected const ROOTJOB_TTL = 28 * 24 * 3600;
+	protected const ROOTJOB_TTL = 2419200; // integer; seconds to remember root jobs (28 days)
 
 	/**
 	 * @stable to call
@@ -115,8 +102,6 @@ abstract class JobQueue {
 		if ( $this->typeAgnostic ) {
 			$this->type = 'default';
 		}
-
-		$this->jobFactory = MediaWikiServices::getInstance()->getJobFactory();
 	}
 
 	/**
@@ -171,6 +156,15 @@ abstract class JobQueue {
 	}
 
 	/**
+	 * @return string Wiki ID
+	 * @deprecated since 1.33 (hard deprecated since 1.37)
+	 */
+	final public function getWiki() {
+		wfDeprecated( __METHOD__, '1.33' );
+		return WikiMap::getWikiIdFromDbDomain( $this->domain );
+	}
+
+	/**
 	 * @return string Job type that this queue handles
 	 */
 	final public function getType() {
@@ -217,7 +211,7 @@ abstract class JobQueue {
 	}
 
 	/**
-	 * @return string|false Read-only rational or false if r/w
+	 * @return string|bool Read-only rational or false if r/w
 	 * @since 1.27
 	 */
 	public function getReadOnlyReason() {
@@ -401,7 +395,7 @@ abstract class JobQueue {
 	 * Outside callers should use JobQueueGroup::pop() instead of this function.
 	 *
 	 * @throws JobQueueError
-	 * @return RunnableJob|false Returns false if there are no jobs
+	 * @return RunnableJob|bool Returns false if there are no jobs
 	 */
 	final public function pop() {
 		$this->assertNotReadOnly();
@@ -425,7 +419,7 @@ abstract class JobQueue {
 
 	/**
 	 * @see JobQueue::pop()
-	 * @return RunnableJob|false
+	 * @return RunnableJob|bool
 	 */
 	abstract protected function doPop();
 
@@ -479,7 +473,6 @@ abstract class JobQueue {
 	 *
 	 * This does nothing for certain queue classes.
 	 *
-	 * @internal For use within JobQueue only
 	 * @param IJobSpecification $job
 	 * @throws JobQueueError
 	 * @return bool
@@ -634,7 +627,7 @@ abstract class JobQueue {
 	 * This does not include jobs that are currently acquired or delayed.
 	 * Note: results may be stale if the queue is concurrently modified.
 	 *
-	 * @return Iterator<RunnableJob>
+	 * @return Iterator
 	 * @throws JobQueueError
 	 */
 	abstract public function getAllQueuedJobs();
@@ -644,7 +637,7 @@ abstract class JobQueue {
 	 * Note: results may be stale if the queue is concurrently modified.
 	 *
 	 * @stable to override
-	 * @return Iterator<RunnableJob>
+	 * @return Iterator
 	 * @throws JobQueueError
 	 * @since 1.22
 	 */
@@ -659,7 +652,7 @@ abstract class JobQueue {
 	 * will be returned due to jobs being acknowledged and deleted
 	 *
 	 * @stable to override
-	 * @return Iterator<RunnableJob>
+	 * @return Iterator
 	 * @throws JobQueueError
 	 * @since 1.26
 	 */
@@ -671,7 +664,7 @@ abstract class JobQueue {
 	 * Get an iterator to traverse over all abandoned jobs in this queue
 	 *
 	 * @stable to override
-	 * @return Iterator<RunnableJob>
+	 * @return Iterator
 	 * @throws JobQueueError
 	 * @since 1.25
 	 */
@@ -743,7 +736,8 @@ abstract class JobQueue {
 	 * @return Job
 	 */
 	protected function factoryJob( $command, $params ) {
-		return $this->jobFactory->newJob( $command, $params );
+		// @TODO: dependency inject this as a callback
+		return Job::factory( $command, $params );
 	}
 
 	/**

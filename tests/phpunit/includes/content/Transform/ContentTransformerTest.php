@@ -1,17 +1,10 @@
 <?php
 
-use MediaWiki\Content\WikitextContent;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Parser\ParserOptions;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
 
-/**
- * @covers \MediaWiki\Content\Transform\ContentTransformer
- */
 class ContentTransformerTest extends MediaWikiIntegrationTestCase {
 
-	public static function preSaveTransformProvider() {
+	public function preSaveTransformProvider() {
 		return [
 			[
 				new WikitextContent( 'Test ~~~' ),
@@ -21,13 +14,14 @@ class ContentTransformerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
+	 * @covers MediaWiki\Content\Transform\ContentTransformer::preSaveTransform
 	 *
 	 * @dataProvider preSaveTransformProvider
 	 */
 	public function testPreSaveTransform( $content, $expectedContainText ) {
 		$this->overrideConfigValue( MainConfigNames::LanguageCode, 'en' );
 		$services = $this->getServiceContainer();
-		$title = Title::makeTitle( NS_MAIN, 'Test' );
+		$title = Title::newFromText( 'Test' );
 		$user = new User();
 		$user->setName( "127.0.0.1" );
 		$options = ParserOptions::newFromUser( $user );
@@ -36,7 +30,7 @@ class ContentTransformerTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expectedContainText, $newContent->serialize() );
 	}
 
-	public static function preloadTransformProvider() {
+	public function preloadTransformProvider() {
 		return [
 			[
 				new WikitextContent( '{{Foo}}<noinclude> censored</noinclude> information <!-- is very secret -->' ),
@@ -46,11 +40,13 @@ class ContentTransformerTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
+	 * @covers MediaWiki\Content\Transform\ContentTransformer::preloadTransform
+	 *
 	 * @dataProvider preloadTransformProvider
 	 */
 	public function testPreloadTransform( $content, $expectedContainText ) {
 		$services = $this->getServiceContainer();
-		$title = Title::makeTitle( NS_MAIN, 'Test' );
+		$title = Title::newFromText( 'Test' );
 		$options = ParserOptions::newFromAnon();
 
 		$newContent = $services->getContentTransformer()->preloadTransform( $content, $title, $options );

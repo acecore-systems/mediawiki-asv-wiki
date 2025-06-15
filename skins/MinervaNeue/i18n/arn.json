@@ -1,10 +1,10 @@
 {
 	"@metadata": {
 		"authors": [
-			"Cuatro Remos",
 			"Fiestoforo",
 			"Manke ruLpa",
-			"Ndołkah"
+			"Ndołkah",
+			"Cuatro Remos"
 		]
 	},
 	"mobile-frontend-editor-edit": "Kümeelün",
@@ -17,5 +17,6 @@
 	"mobile-frontend-main-menu-settings": "Trürümün",
 	"mobile-frontend-pageaction-edit-tooltip": "Kümeelün tüfachi tapülh ñi wünengechi trokiñ.",
 	"mobile-frontend-placeholder": "Kintun {{SITENAME}} mew",
-	"mobile-frontend-random-button": "Chem Rume"
+	"mobile-frontend-random-button": "Chem Rume",
+	"minerva-talk-full-page": "Chilcatun chum tapül mew wiki"
 }

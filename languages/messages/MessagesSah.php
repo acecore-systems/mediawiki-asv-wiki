@@ -1,6 +1,8 @@
 <?php
 /** Sakha (Yakut, саха)
  *
+ * To improve a translation please visit https://translatewiki.net
+ *
  * @file
  * @ingroup Languages
  *
@@ -211,7 +213,7 @@ $magicWords = [
 	'img_width'                 => [ '1', '$1пкс', '$1px' ],
 	'index'                     => [ '1', '__ИНДЕКС__', '__INDEX__' ],
 	'int'                       => [ '0', 'ИС:', 'INT:' ],
-	'language'                  => [ '0', '#ТЫЛ', '#LANGUAGE' ],
+	'language'                  => [ '0', '#ТЫЛ:', '#LANGUAGE:' ],
 	'lc'                        => [ '0', 'КЫРА_БУУКУБАННАН:', 'LC:' ],
 	'lcfirst'                   => [ '0', 'БАСТАКЫ_БУУКУБА_КЫРА:', 'LCFIRST:' ],
 	'localday'                  => [ '1', 'ОЛОХТООХ_КҮН', 'LOCALDAY' ],

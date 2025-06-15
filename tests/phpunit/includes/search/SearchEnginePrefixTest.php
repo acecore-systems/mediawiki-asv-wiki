@@ -1,7 +1,6 @@
 <?php
 
 use MediaWiki\MainConfigNames;
-use MediaWiki\Title\Title;
 
 /**
  * @group Search
@@ -65,7 +64,7 @@ class SearchEnginePrefixTest extends MediaWikiLangTestCase {
 		$this->search->setNamespaces( [] );
 	}
 
-	protected function searchProvision( ?array $results = null ) {
+	protected function searchProvision( array $results = null ) {
 		if ( $results === null ) {
 			$this->overrideConfigValue( MainConfigNames::Hooks, [] );
 		} else {
@@ -135,11 +134,11 @@ class SearchEnginePrefixTest extends MediaWikiLangTestCase {
 				'results' => [
 					'Special:ActiveUsers',
 					'Special:AllMessages',
-					'Special:AllPages',
+					'Special:AllMyUploads',
 				],
 				// Third result when testing offset
 				'offsetresult' => [
-					'Special:AncientPages',
+					'Special:AllPages',
 				],
 			] ],
 			[ [
@@ -159,6 +158,7 @@ class SearchEnginePrefixTest extends MediaWikiLangTestCase {
 				'Special page name',
 				'query' => 'Special:EditWatchlist',
 				'results' => [
+					'Special:EditWatchlist',
 				],
 			] ],
 			[ [
@@ -181,7 +181,7 @@ class SearchEnginePrefixTest extends MediaWikiLangTestCase {
 
 	/**
 	 * @dataProvider provideSearch
-	 * @covers \SearchEngine::defaultPrefixSearch
+	 * @covers SearchEngine::defaultPrefixSearch
 	 */
 	public function testSearch( array $case ) {
 		$this->search->setLimitOffset( 3 );
@@ -199,7 +199,7 @@ class SearchEnginePrefixTest extends MediaWikiLangTestCase {
 
 	/**
 	 * @dataProvider provideSearch
-	 * @covers \SearchEngine::defaultPrefixSearch
+	 * @covers SearchEngine::defaultPrefixSearch
 	 */
 	public function testSearchWithOffset( array $case ) {
 		$this->search->setLimitOffset( 3, 1 );
@@ -294,7 +294,7 @@ class SearchEnginePrefixTest extends MediaWikiLangTestCase {
 				],
 			] ],
 			[ [
-				"Exact match should override already found match if " .
+				"Exact match shouldn't override already found match if " .
 					"both exact match and found match are redirect",
 				'provision' => [
 					// Another redirect to the same target as the exact match
@@ -306,7 +306,7 @@ class SearchEnginePrefixTest extends MediaWikiLangTestCase {
 				'results' => [
 					// Found redirect is pulled to the top and exact match isn't
 					// added
-					'Redirect TEST2',
+					'Redirect test2',
 					'Redirect Test2 Worse Result',
 				],
 			] ],
@@ -348,7 +348,7 @@ class SearchEnginePrefixTest extends MediaWikiLangTestCase {
 
 	/**
 	 * @dataProvider provideSearchBackend
-	 * @covers \PrefixSearch::searchBackend
+	 * @covers PrefixSearch::searchBackend
 	 */
 	public function testSearchBackend( array $case ) {
 		$search = $this->mockSearchWithResults( $case['provision'] );
@@ -365,7 +365,7 @@ class SearchEnginePrefixTest extends MediaWikiLangTestCase {
 		);
 	}
 
-	public static function paginationProvider() {
+	public function paginationProvider() {
 		$res = [ 'Example', 'Example Bar', 'Example Foo', 'Example Foo/Bar' ];
 		return [
 			'With less than requested results no pagination' => [
@@ -382,7 +382,7 @@ class SearchEnginePrefixTest extends MediaWikiLangTestCase {
 
 	/**
 	 * @dataProvider paginationProvider
-	 * @covers \SearchSuggestionSet::hasMoreResults
+	 * @covers SearchSuggestionSet::hasMoreResults
 	 */
 	public function testPagination( $hasMoreResults, $provision ) {
 		$search = $this->mockSearchWithResults( $provision );
@@ -392,7 +392,7 @@ class SearchEnginePrefixTest extends MediaWikiLangTestCase {
 	}
 
 	private function mockSearchWithResults( $titleStrings, $limit = 3 ) {
-		$search = $this->getMockBuilder( SearchEngine::class )
+		$search = $stub = $this->getMockBuilder( SearchEngine::class )
 			->onlyMethods( [ 'completionSearchBackend' ] )->getMock();
 
 		$return = SearchSuggestionSet::fromStrings( $titleStrings );

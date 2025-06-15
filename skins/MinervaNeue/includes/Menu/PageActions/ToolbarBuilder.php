@@ -20,38 +20,70 @@
 
 namespace MediaWiki\Minerva\Menu\PageActions;
 
+use ExtensionRegistry;
 use MediaWiki\Config\ServiceOptions;
-use MediaWiki\Context\IContextSource;
 use MediaWiki\Minerva\LanguagesHelper;
 use MediaWiki\Minerva\Menu\Entries\IMenuEntry;
 use MediaWiki\Minerva\Menu\Entries\LanguageSelectorEntry;
 use MediaWiki\Minerva\Menu\Entries\SingleMenuEntry;
 use MediaWiki\Minerva\Menu\Group;
+use MediaWiki\Minerva\MinervaUI;
 use MediaWiki\Minerva\Permissions\IMinervaPagePermissions;
 use MediaWiki\Minerva\SkinOptions;
+use MediaWiki\Minerva\Skins\SkinMinerva;
 use MediaWiki\Minerva\Skins\SkinUserPageHelper;
-use MediaWiki\Registration\ExtensionRegistry;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
 use MediaWiki\User\UserIdentity;
 use MediaWiki\Watchlist\WatchlistManager;
+use MessageLocalizer;
+use MWException;
 use SpecialMobileHistory;
+use SpecialPage;
+use Title;
+use User;
 
 class ToolbarBuilder {
 
-	/** @var Title Article title user is currently browsing */
-	private Title $title;
-	/** @var User Currently logged in user */
-	private User $user;
-	private IContextSource $context;
-	private IMinervaPagePermissions $permissions;
-	private SkinOptions $skinOptions;
-	private SkinUserPageHelper $relevantUserPageHelper;
-	private LanguagesHelper $languagesHelper;
-	/** @var bool Correlates to $wgWatchlistExpiry feature flag. */
-	private bool $watchlistExpiryEnabled;
-	private WatchlistManager $watchlistManager;
+	/**
+	 * @var User Currently logged in user
+	 */
+	private $user;
+	/**
+	 * @var Title Article title user is currently browsing
+	 */
+	private $title;
+	/**
+	 * @var MessageLocalizer Message localizer to generate localized texts
+	 */
+	private $messageLocalizer;
+	/**
+	 * @var IMinervaPagePermissions
+	 */
+	private $permissions;
+
+	/**
+	 * @var SkinOptions
+	 */
+	private $skinOptions;
+
+	/**
+	 * @var SkinUserPageHelper
+	 */
+	private $relevantUserPageHelper;
+
+	/**
+	 * @var LanguagesHelper
+	 */
+	private $languagesHelper;
+
+	/**
+	 * @var bool Correlates to $wgWatchlistExpiry feature flag.
+	 */
+	private $watchlistExpiryEnabled;
+
+	/**
+	 * @var WatchlistManager
+	 */
+	private $watchlistManager;
 
 	/**
 	 * ServiceOptions needed.
@@ -64,7 +96,7 @@ class ToolbarBuilder {
 	 * Build Group containing icons for toolbar
 	 * @param Title $title Article title user is currently browsing
 	 * @param User $user Currently logged in user
-	 * @param IContextSource $context
+	 * @param MessageLocalizer $msgLocalizer Message localizer to generate localized texts
 	 * @param IMinervaPagePermissions $permissions Minerva permissions system
 	 * @param SkinOptions $skinOptions
 	 * @param SkinUserPageHelper $relevantUserPageHelper User Page helper. The
@@ -78,7 +110,7 @@ class ToolbarBuilder {
 	public function __construct(
 		Title $title,
 		User $user,
-		IContextSource $context,
+		MessageLocalizer $msgLocalizer,
 		IMinervaPagePermissions $permissions,
 		SkinOptions $skinOptions,
 		SkinUserPageHelper $relevantUserPageHelper,
@@ -88,7 +120,7 @@ class ToolbarBuilder {
 	) {
 		$this->title = $title;
 		$this->user = $user;
-		$this->context = $context;
+		$this->messageLocalizer = $msgLocalizer;
 		$this->permissions = $permissions;
 		$this->skinOptions = $skinOptions;
 		$this->relevantUserPageHelper = $relevantUserPageHelper;
@@ -98,11 +130,10 @@ class ToolbarBuilder {
 	}
 
 	/**
-	 * @param array $actions
-	 * @param array $views
 	 * @return Group
+	 * @throws MWException
 	 */
-	public function getGroup( array $actions, array $views ): Group {
+	public function getGroup(): Group {
 		$group = new Group( 'p-views' );
 		$permissions = $this->permissions;
 		$userPageOrUserTalkPageWithOverflowMode = $this->skinOptions->get( SkinOptions::TOOLBAR_SUBMENU )
@@ -112,47 +143,32 @@ class ToolbarBuilder {
 			IMinervaPagePermissions::SWITCH_LANGUAGE ) ) {
 			$group->insertEntry( new LanguageSelectorEntry(
 				$this->title,
-				$this->languagesHelper->doesTitleHasLanguagesOrVariants(
-					$this->context->getOutput(),
-					$this->title
-				),
-				$this->context,
+				$this->languagesHelper->doesTitleHasLanguagesOrVariants( $this->title ),
+				$this->messageLocalizer,
 				true
 			) );
 		}
 
-		$watchKey = $key = isset( $actions['unwatch'] ) ? 'unwatch' : 'watch';
-		// The watchstar is typically not shown to anonymous users but it is in Minerva.
-		$watchData = $actions[ $watchKey ] ?? [
-			'icon' => 'star',
-			'class' => '',
-			'href' => $this->getLoginUrl( [ 'returnto' => $this->title ] ),
-			'text' => $this->context->msg( 'watch' ),
-		];
-		if ( $permissions->isAllowed( IMinervaPagePermissions::WATCHABLE ) && $watchData ) {
-			$group->insertEntry( $this->createWatchPageAction( $watchKey, $watchData ) );
+		if ( $permissions->isAllowed( IMinervaPagePermissions::WATCH ) ) {
+			$group->insertEntry( $this->createWatchPageAction() );
 		}
 
-		$historyView = $views[ 'history'] ?? [];
-		if ( $historyView && $permissions->isAllowed( IMinervaPagePermissions::HISTORY ) ) {
-			$group->insertEntry( $this->getHistoryPageAction( $historyView ) );
+		if ( $permissions->isAllowed( IMinervaPagePermissions::HISTORY ) ) {
+			$group->insertEntry( $this->getHistoryPageAction() );
 		}
 
-		$user = $this->relevantUserPageHelper->getPageUser();
+		$isUserPage = $this->relevantUserPageHelper->isUserPage();
 		$isUserPageAccessible = $this->relevantUserPageHelper->isUserPageAccessibleToCurrentUser();
-		if ( $user && $isUserPageAccessible ) {
+		if ( $isUserPage && $isUserPageAccessible ) {
 			// T235681: Contributions icon should be added to toolbar on user pages
 			// and user talk pages for all users
+			$user = $this->relevantUserPageHelper->getPageUser();
 			$group->insertEntry( $this->createContributionsPageAction( $user ) );
 		}
 
-		// We want the edit icon/action(s) always to be the last element on the toolbar list
+		// We want the edit icon/action always to be the last element on the toolbar list
 		if ( $permissions->isAllowed( IMinervaPagePermissions::CONTENT_EDIT ) ) {
-			foreach ( $views as $key => $viewData ) {
-				if ( in_array( $key, [ 've-edit', 'viewsource', 'edit' ] ) ) {
-					$group->insertEntry( $this->createEditPageAction( $key, $viewData ) );
-				}
-			}
+			$group->insertEntry( $this->createEditPageAction() );
 		}
 		return $group;
 	}
@@ -165,7 +181,7 @@ class ToolbarBuilder {
 	 * @return IMenuEntry
 	 */
 	protected function createContributionsPageAction( UserIdentity $user ): IMenuEntry {
-		$label = $this->context->msg( 'mobile-frontend-user-page-contributions' );
+		$label = $this->messageLocalizer->msg( 'mobile-frontend-user-page-contributions' );
 
 		$entry = new SingleMenuEntry(
 			'page-actions-contributions',
@@ -173,7 +189,9 @@ class ToolbarBuilder {
 			SpecialPage::getTitleFor( 'Contributions', $user->getName() )->getLocalURL() );
 		$entry->setTitle( $label )
 			->trackClicks( 'contributions' )
-			->setIcon( 'userContributions' );
+			->setIcon( 'userContributions', 'element',
+				'mw-ui-icon-with-label-desktop'
+			);
 
 		return $entry;
 	}
@@ -182,26 +200,33 @@ class ToolbarBuilder {
 	 * Creates the "edit" page action: the well-known pencil icon that, when tapped, will open an
 	 * editor with the lead section loaded.
 	 *
-	 * @param string $key
-	 * @param array $editAction
 	 * @return IMenuEntry An edit page actions menu entry
+	 * @throws MWException
+	 * @throws \Exception
 	 */
-	protected function createEditPageAction( string $key, array $editAction ): IMenuEntry {
+	protected function createEditPageAction(): IMenuEntry {
 		$title = $this->title;
 
-		$id = $editAction['single-id'] ?? 'ca-edit';
+		$editArgs = [ 'action' => 'edit' ];
+		if ( $title->isWikitextPage() ) {
+			// If the content model is wikitext we'll default to editing the lead section.
+			// Full wikitext editing is hard on mobile devices.
+			$editArgs['section'] = SkinMinerva::LEAD_SECTION_NUMBER;
+		}
+
+		$editOrCreate = $this->permissions->isAllowed( IMinervaPagePermissions::EDIT_OR_CREATE );
+
 		$entry = new SingleMenuEntry(
-			'page-actions-' . $key,
-			$editAction['text'],
-			$editAction['href'],
+			'page-actions-edit',
+			$this->messageLocalizer->msg( 'mobile-frontend-editor-edit' )->escaped(),
+			$title->getLocalURL( $editArgs ),
 			'edit-page'
 		);
-		$iconFallback = $key === 'viewsource' ? 'editLock' : 'edit';
-		$icon = $editAction['icon'] ?? $iconFallback;
-		$entry->setIcon( $icon )
-			->trackClicks( $key )
-			->setTitle( $this->context->msg( 'tooltip-' . $id ) )
-			->setNodeID( $id );
+		$entry->setIcon( $editOrCreate ? 'edit-base20' : 'editLock-base20',
+			'element', 'mw-ui-icon-with-label-desktop', 'wikimedia' )
+			->trackClicks( 'edit' )
+			->setTitle( $this->messageLocalizer->msg( 'mobile-frontend-pageaction-edit-tooltip' ) )
+			->setNodeID( 'ca-edit' );
 		return $entry;
 	}
 
@@ -210,40 +235,66 @@ class ToolbarBuilder {
 	 * add the page to or remove the page from the user's watchlist; or, if the user is logged out,
 	 * will direct the user's UA to Special:Login.
 	 *
-	 * @param string $watchKey either watch or unwatch
-	 * @param array $watchData
 	 * @return IMenuEntry An watch/unwatch page actions menu entry
+	 * @throws MWException
 	 */
-	protected function createWatchPageAction( string $watchKey, array $watchData ): IMenuEntry {
+	protected function createWatchPageAction(): IMenuEntry {
+		$isWatched = $this->user->isRegistered() &&
+			$this->watchlistManager->isWatched( $this->user, $this->title );
+		$isTempWatched = $this->watchlistExpiryEnabled &&
+			$isWatched &&
+			$this->watchlistManager->isTempWatched( $this->user, $this->title );
+		$newModeToSet = $isWatched ? 'unwatch' : 'watch';
+		$href = $this->user->isRegistered()
+			? $this->title->getLocalURL( [ 'action' => $newModeToSet ] )
+			: $this->getLoginUrl( [ 'returnto' => $this->title ] );
+
+		if ( $isWatched ) {
+			$msg = $this->messageLocalizer->msg( 'unwatch' );
+			$icon = $isTempWatched ? 'halfStar-progressive' : 'unStar-progressive';
+		} else {
+			$msg = $this->messageLocalizer->msg( 'watch' );
+			$icon = 'star-base20';
+		}
+
+		$iconClass = MinervaUI::iconClass(
+			$icon,
+			'element',
+			'mw-ui-icon-with-label-desktop watch-this-article',
+			'wikimedia'
+		);
+
+		if ( $isTempWatched ) {
+			$iconClass .= ' temp-watched';
+		} elseif ( $isWatched ) {
+			$iconClass .= ' watched';
+		}
+
 		$entry = new SingleMenuEntry(
 			'page-actions-watch',
-			$watchData['text'],
-			$watchData['href'],
-			$watchData[ 'class' ],
-			$this->permissions->isAllowed( IMinervaPagePermissions::WATCH )
+			$msg->text(),
+			$href,
+			$iconClass . ' mw-watchlink'
 		);
-		$icon = $watchData['icon'] ?? '';
-		return $entry->trackClicks( $watchKey )
-			->setIcon( $icon )
-			->setTitle( $this->context->msg( $watchKey ) )
+		return $entry->trackClicks( $newModeToSet )
+			->setTitle( $msg )
 			->setNodeID( 'ca-watch' );
 	}
 
 	/**
 	 * Creates a history action: An icon that links to the mobile history page.
 	 *
-	 * @param array $historyAction
 	 * @return IMenuEntry A menu entry object that represents a map of HTML attributes
 	 * and a 'text' property to be used with the pageActionMenu.mustache template.
+	 * @throws MWException
 	 */
-	protected function getHistoryPageAction( array $historyAction ): IMenuEntry {
+	protected function getHistoryPageAction(): IMenuEntry {
 		$entry = new SingleMenuEntry(
 			'page-actions-history',
-			$historyAction['text'],
-			$historyAction['href'],
+			$this->messageLocalizer->msg( 'minerva-page-actions-history' )->escaped(),
+			$this->getHistoryUrl( $this->title )
 		);
-		$icon = $historyAction['icon'] ?? 'history';
-		$entry->setIcon( $icon )
+		$entry->setIcon( 'history-base20', 'element', 'mw-ui-icon-with-label-desktop', 'wikimedia' )
 			->trackClicks( 'history' );
 		return $entry;
 	}
@@ -254,8 +305,9 @@ class ToolbarBuilder {
 	 * FIXME: temporary duplicated code, same as SkinMinerva::getHistoryUrl()
 	 * @param Title $title The Title object of the page being viewed
 	 * @return string
+	 * @throws MWException
 	 */
-	protected function getHistoryUrl( Title $title ): string {
+	protected function getHistoryUrl( Title $title ) {
 		return ExtensionRegistry::getInstance()->isLoaded( 'MobileFrontend' ) &&
 			   SpecialMobileHistory::shouldUseSpecialHistory( $title, $this->user ) ?
 			SpecialPage::getTitleFor( 'History', $title )->getLocalURL() :
@@ -266,8 +318,9 @@ class ToolbarBuilder {
 	 * Prepares a url to the Special:UserLogin with query parameters
 	 * @param array $query
 	 * @return string
+	 * @throws MWException
 	 */
-	private function getLoginUrl( $query ): string {
+	private function getLoginUrl( $query ) {
 		return SpecialPage::getTitleFor( 'Userlogin' )->getLocalURL( $query );
 	}
 }

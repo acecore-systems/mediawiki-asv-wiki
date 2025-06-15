@@ -2,27 +2,24 @@
 
 namespace MediaWiki\Tests\Rest\Handler;
 
-use MediaWiki\Api\ApiUsageException;
-use MediaWiki\Config\HashConfig;
-use MediaWiki\Content\WikitextContent;
-use MediaWiki\MainConfigNames;
-use MediaWiki\Message\Message;
+use ApiUsageException;
+use HashConfig;
+use MediaWiki\Content\IContentHandlerFactory;
 use MediaWiki\Rest\Handler\CreationHandler;
 use MediaWiki\Rest\LocalizedHttpException;
 use MediaWiki\Rest\RequestData;
 use MediaWiki\Revision\MutableRevisionRecord;
 use MediaWiki\Revision\RevisionLookup;
 use MediaWiki\Revision\SlotRecord;
-use MediaWiki\Session\Token;
-use MediaWiki\Status\Status;
 use MediaWiki\Tests\Unit\DummyServicesTrait;
 use MediaWikiIntegrationTestCase;
 use MockTitleTrait;
 use PHPUnit\Framework\MockObject\MockObject;
-use Wikimedia\Message\DataMessageValue;
+use Status;
 use Wikimedia\Message\MessageValue;
 use Wikimedia\Message\ParamType;
 use Wikimedia\Message\ScalarParam;
+use WikitextContent;
 
 /**
  * @covers \MediaWiki\Rest\Handler\CreationHandler
@@ -34,17 +31,22 @@ class CreationHandlerTest extends MediaWikiIntegrationTestCase {
 
 	private function newHandler( $resultData, $throwException = null, $csrfSafe = false ) {
 		$config = new HashConfig( [
-			MainConfigNames::RightsUrl => 'https://creativecommons.org/licenses/by-sa/4.0/',
-			MainConfigNames::RightsText => 'CC-BY-SA 4.0'
+			'RightsUrl' => 'https://creativecommons.org/licenses/by-sa/4.0/',
+			'RightsText' => 'CC-BY-SA 4.0'
 		] );
 
-		// Claims that wikitext and plaintext are defined, but trying to get the actual
-		// content handlers would break
-		$contentHandlerFactory = $this->getDummyContentHandlerFactory( [
-			CONTENT_MODEL_WIKITEXT => true,
-			CONTENT_MODEL_TEXT => true,
-		] );
+		/** @var IContentHandlerFactory|MockObject $contentHandlerFactory */
+		$contentHandlerFactory =
+			$this->createNoOpMock( IContentHandlerFactory::class, [ 'isDefinedModel' ] );
 
+		$contentHandlerFactory
+			->method( 'isDefinedModel' )
+			->willReturnMap( [
+				[ CONTENT_MODEL_WIKITEXT, true ],
+				[ CONTENT_MODEL_TEXT, true ],
+			] );
+
+		// DummyServicesTrait::getDummyMediaWikiTitleCodec
 		$titleCodec = $this->getDummyMediaWikiTitleCodec();
 
 		/** @var RevisionLookup|MockObject $revisionLookup */
@@ -79,10 +81,9 @@ class CreationHandlerTest extends MediaWikiIntegrationTestCase {
 		return $handler;
 	}
 
-	public static function provideExecute() {
+	public function provideExecute() {
 		// NOTE: Prefix hard coded in a fake for Router::getRouteUrl() in HandlerTestTrait
 		$baseUrl = 'https://wiki.example.com/rest/v1/page/';
-		$token = strval( new Token( 'TOKEN', '' ) );
 
 		yield "create with token" => [
 			[ // Request data received by CreationHandler
@@ -91,7 +92,7 @@ class CreationHandlerTest extends MediaWikiIntegrationTestCase {
 					'Content-Type' => 'application/json',
 				],
 				'bodyContents' => json_encode( [
-					'token' => $token,
+					'token' => 'TOKEN',
 					'title' => 'Foo',
 					'source' => 'Lorem Ipsum',
 					'comment' => 'Testing'
@@ -131,8 +132,7 @@ class CreationHandlerTest extends MediaWikiIntegrationTestCase {
 				'source' => 'Content of revision 371707'
 			],
 			$baseUrl . 'Foo',
-			false,
-			true,
+			false
 		];
 
 		yield "create with model" => [
@@ -184,8 +184,7 @@ class CreationHandlerTest extends MediaWikiIntegrationTestCase {
 				'source' => 'Content of revision 371707'
 			],
 			$baseUrl . 'Talk:Foo',
-			true,
-			false,
+			true
 		];
 
 		yield "create without token" => [
@@ -237,8 +236,7 @@ class CreationHandlerTest extends MediaWikiIntegrationTestCase {
 				'source' => 'Content of revision 371707'
 			],
 			$baseUrl . 'Foo%2Fbar',
-			true,
-			false,
+			true
 		];
 
 		yield "create with space" => [
@@ -288,8 +286,7 @@ class CreationHandlerTest extends MediaWikiIntegrationTestCase {
 				'source' => 'Content of revision 371707'
 			],
 			$baseUrl . 'Foo_(ba%2Br)',
-			true,
-			false
+			true
 		];
 	}
 
@@ -302,20 +299,13 @@ class CreationHandlerTest extends MediaWikiIntegrationTestCase {
 		$actionResult,
 		$expectedResponse,
 		$expectedRedirect,
-		$csrfSafe,
-		$hasToken
+		$csrfSafe
 	) {
 		$request = new RequestData( $requestData );
 
 		$handler = $this->newHandler( $actionResult, null, $csrfSafe );
 
-		$session = $this->getSession( $csrfSafe );
-
-		$session->method( 'hasToken' )->willReturn( $hasToken );
-
-		$session->method( 'getToken' )->willReturn( new Token( 'TOKEN', '' ) );
-
-		$response = $this->executeHandler( $handler, $request, [], [], [], [], null, $session );
+		$response = $this->executeHandler( $handler, $request, [], [], [], [], null, $csrfSafe );
 
 		$this->assertSame( 201, $response->getStatusCode() );
 		$this->assertSame(
@@ -347,7 +337,7 @@ class CreationHandlerTest extends MediaWikiIntegrationTestCase {
 		}
 	}
 
-	public static function provideBodyValidation() {
+	public function provideBodyValidation() {
 		yield "missing source field" => [
 			[ // Request data received by CreationHandler
 				'method' => 'POST',
@@ -361,10 +351,7 @@ class CreationHandlerTest extends MediaWikiIntegrationTestCase {
 					'content_model' => CONTENT_MODEL_WIKITEXT,
 				] ),
 			],
-			MessageValue::new( 'rest-body-validation-error', [
-				DataMessageValue::new( 'paramvalidator-missingparam', [], 'missingparam' )
-					->plaintextParams( 'source' )
-			] ),
+			new MessageValue( 'rest-missing-body-field', [ 'source' ] ),
 		];
 		yield "missing comment field" => [
 			[ // Request data received by CreationHandler
@@ -379,10 +366,7 @@ class CreationHandlerTest extends MediaWikiIntegrationTestCase {
 					'content_model' => CONTENT_MODEL_WIKITEXT,
 				] ),
 			],
-			MessageValue::new( 'rest-body-validation-error', [
-				DataMessageValue::new( 'paramvalidator-missingparam', [], 'missingparam' )
-					->plaintextParams( 'comment' )
-			] ),
+			new MessageValue( 'rest-missing-body-field', [ 'comment' ] ),
 		];
 		yield "missing title field" => [
 			[ // Request data received by CreationHandler
@@ -397,10 +381,7 @@ class CreationHandlerTest extends MediaWikiIntegrationTestCase {
 					'content_model' => CONTENT_MODEL_WIKITEXT,
 				] ),
 			],
-			MessageValue::new( 'rest-body-validation-error', [
-				DataMessageValue::new( 'paramvalidator-missingparam', [], 'missingparam' )
-					->plaintextParams( 'title' )
-			] ),
+			new MessageValue( 'rest-missing-body-field', [ 'title' ] ),
 		];
 	}
 
@@ -421,7 +402,7 @@ class CreationHandlerTest extends MediaWikiIntegrationTestCase {
 		$this->assertEquals( $expectedMessage, $exception->getMessageValue() );
 	}
 
-	public static function provideHeaderValidation() {
+	public function provideHeaderValidation() {
 		yield "bad content type" => [
 			[ // Request data received by CreationHandler
 				'method' => 'POST',
@@ -455,7 +436,7 @@ class CreationHandlerTest extends MediaWikiIntegrationTestCase {
 	/*
 	 * FIXME: Status::newFatal invokes MediaWikiServices, which is not allowed in a dataProvider.
 	 */
-	public static function provideErrorMapping() {
+	public function provideErrorMapping() {
 		yield "missingtitle" => [
 			new ApiUsageException( null, Status::newFatal( 'apierror-missingtitle' ) ),
 			new LocalizedHttpException( new MessageValue( 'apierror-missingtitle' ), 404 ),
@@ -479,7 +460,7 @@ class CreationHandlerTest extends MediaWikiIntegrationTestCase {
 		yield "badtoken" => [
 			new ApiUsageException(
 				null,
-				Status::newFatal( 'apierror-badtoken', Message::plaintextParam( 'BAD' ) )
+				Status::newFatal( 'apierror-badtoken', [ 'plaintext' => 'BAD' ] )
 			),
 			new LocalizedHttpException(
 				new MessageValue(

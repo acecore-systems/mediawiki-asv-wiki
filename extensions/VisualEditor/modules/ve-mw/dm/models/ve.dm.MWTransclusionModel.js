@@ -1,50 +1,37 @@
 /*!
  * VisualEditor DataModel MWTransclusionModel class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
-/**
- * Object literal
- *
- * @class ve.dm.MWTransclusionPartInstruction
- * @private
- */
-/**
- * @property {ve.dm.MWTransclusionPartModel} [remove]
- * @property {ve.dm.MWTransclusionPartModel} [add]
- * @property {number} [index]
- * @property {jQuery.Deferred} [deferred]
- */
-
 ( function () {
-	const hasOwn = Object.hasOwnProperty,
+	var hasOwn = Object.hasOwnProperty,
 		specCache = {};
 
 	/**
 	 * Represents a MediaWiki transclusion, i.e. a sequence of one or more template invocations that
 	 * strictly belong to each other (e.g. because they are unbalanced), possibly mixed with raw
-	 * wikitext snippets. These individual "parts" are subclasses of ve.dm.MWTransclusionPartModel.
+	 * wikitext snippets. These individual "parts" are subclasses of
+	 * {@see ve.dm.MWTransclusionPartModel}.
 	 *
 	 * @class
-	 * @mixes OO.EventEmitter
+	 * @mixins OO.EventEmitter
 	 *
 	 * @constructor
 	 * @param {ve.dm.Document} doc Document to use associate with API requests
+	 * @property {ve.dm.MWTransclusionPartModel[]} parts
+	 * @property {number} uid
+	 * @property {jQuery.Promise[]} templateDataApiRequests Currently running API requests. The only
+	 *  reason to keep these around is to be able to abort them earlier when the template dialog
+	 *  closes or resets.
+	 * @property {Object[]} changeQueue
 	 */
 	ve.dm.MWTransclusionModel = function VeDmMWTransclusionModel( doc ) {
 		// Mixin constructors
 		OO.EventEmitter.call( this );
 
-		/**
-		 * @property {ve.dm.MWTransclusionPartModel[]} parts
-		 * @property {number} uid
-		 * @property {jQuery.Promise[]} templateDataApiRequests Currently running API requests. The only
-		 *  reason to keep these around is to be able to abort them earlier when the template dialog
-		 *  closes or resets.
-		 * @property {Object[]} changeQueue
-		 */
+		// Properties
 		this.doc = doc;
 		this.parts = [];
 		this.uid = 0;
@@ -62,7 +49,7 @@
 	 * Emitted when a part is added, removed, replaced (e.g. a placeholder with an actual template),
 	 * or an existing part changed position.
 	 *
-	 * @event ve.dm.MWTransclusionPartInstruction#replace
+	 * @event replace
 	 * @param {ve.dm.MWTransclusionPartModel|null} removed Removed part
 	 * @param {ve.dm.MWTransclusionPartModel|null} added Added or moved part
 	 * @param {number} [newPosition] Position the part was added or moved to
@@ -71,7 +58,7 @@
 	/**
 	 * Emitted when anything changed, including any changes in the content of the parts.
 	 *
-	 * @event ve.dm.MWTransclusionPartInstruction#change
+	 * @event change
 	 */
 
 	/* Methods */
@@ -89,16 +76,17 @@
 	 *   forceType was specified this will be instant.
 	 */
 	ve.dm.MWTransclusionModel.prototype.insertTransclusionNode = function ( surfaceFragment, forceType ) {
-		const deferred = ve.createDeferred(),
+		var model = this,
+			deferred = ve.createDeferred(),
 			baseNodeClass = ve.dm.MWTransclusionNode;
 
-		const insertNode = ( isInline, generatedContents ) => {
-			const type = isInline ? baseNodeClass.static.inlineType : baseNodeClass.static.blockType,
+		function insertNode( isInline, generatedContents ) {
+			var type = isInline ? baseNodeClass.static.inlineType : baseNodeClass.static.blockType,
 				data = [
 					{
 						type: type,
 						attributes: {
-							mw: this.getPlainObject()
+							mw: model.getPlainObject()
 						}
 					},
 					{ type: '/' + type }
@@ -107,16 +95,16 @@
 			// If we just fetched the generated contents, put them in the store
 			// so we don't do a duplicate API call later.
 			if ( generatedContents ) {
-				const nodeClass = ve.dm.modelRegistry.lookup( type );
-				const store = surfaceFragment.getDocument().getStore();
-				const hash = OO.getHash( [ nodeClass.static.getHashObjectForRendering( data[ 0 ] ), undefined ] );
+				var nodeClass = ve.dm.modelRegistry.lookup( type );
+				var store = surfaceFragment.getDocument().getStore();
+				var hash = OO.getHash( [ nodeClass.static.getHashObjectForRendering( data[ 0 ] ), undefined ] );
 				store.hash( generatedContents, hash );
 			}
 
 			surfaceFragment.insertContent( data );
 
 			deferred.resolve();
-		};
+		}
 
 		if ( forceType ) {
 			insertNode( forceType === 'inline' );
@@ -125,11 +113,11 @@
 				baseNodeClass.static.getWikitext( this.getPlainObject() ),
 				true,
 				surfaceFragment.getDocument()
-			).then( ( response ) => {
+			).then( function ( response ) {
 				if ( ve.getProp( response, 'visualeditor', 'result' ) === 'success' ) {
 					// This method is only ever run by a client, so it is okay to use jQuery
 					// eslint-disable-next-line no-undef
-					let contentNodes = $.parseHTML( response.visualeditor.content, surfaceFragment.getDocument().getHtmlDocument() ) || [];
+					var contentNodes = $.parseHTML( response.visualeditor.content, surfaceFragment.getDocument().getHtmlDocument() ) || [];
 					contentNodes = ve.ce.MWTransclusionNode.static.filterRendering( contentNodes );
 					insertNode(
 						baseNodeClass.static.isHybridInline( contentNodes, ve.dm.converter ),
@@ -139,7 +127,7 @@
 					// Request failed - just assume inline
 					insertNode( true );
 				}
-			}, () => {
+			}, function () {
 				insertNode( true );
 			} );
 		}
@@ -153,7 +141,7 @@
 	 * @param {ve.dm.MWTransclusionNode} node Transclusion node to update
 	 */
 	ve.dm.MWTransclusionModel.prototype.updateTransclusionNode = function ( surfaceModel, node ) {
-		const obj = this.getPlainObject();
+		var obj = this.getPlainObject();
 
 		if ( obj !== null ) {
 			surfaceModel.getLinearFragment( node.getOuterRange(), true )
@@ -171,7 +159,7 @@
 	 * @return {jQuery.Promise} Promise, resolved when spec is loaded
 	 */
 	ve.dm.MWTransclusionModel.prototype.load = function ( data ) {
-		const promises = [];
+		var promises = [];
 
 		// Convert single part format to multi-part format
 		// Parsoid doesn't use this format any more, but we accept it for backwards compatibility
@@ -180,17 +168,18 @@
 		}
 
 		if ( Array.isArray( data.parts ) ) {
-			for ( let i = 0; i < data.parts.length; i++ ) {
-				const part = data.parts[ i ];
+			for ( var i = 0; i < data.parts.length; i++ ) {
+				var part = data.parts[ i ];
+				var deferred;
 				if ( part.template ) {
-					const deferred = ve.createDeferred();
+					deferred = ve.createDeferred();
 					promises.push( deferred.promise() );
 					this.changeQueue.push( {
 						add: ve.dm.MWTemplateModel.newFromData( this, part.template ),
 						deferred: deferred
 					} );
 				} else if ( typeof part === 'string' ) {
-					const deferred = ve.createDeferred();
+					deferred = ve.createDeferred();
 					promises.push( deferred.promise() );
 					this.changeQueue.push( {
 						add: new ve.dm.MWTransclusionContentModel( this, part ),
@@ -208,29 +197,29 @@
 	 * Process one or more queue items.
 	 *
 	 * @private
-	 * @param {ve.dm.MWTransclusionPartInstruction[]} queue List of objects containing parts to add and optionally
-	 * indexes to add them at, if no index is given parts will be added at the end
-	 * @fires ve.dm.MWTransclusionPartInstruction#replace For each item added
-	 * @fires ve.dm.MWTransclusionPartInstruction#change
+	 * @param {Object[]} queue List of objects containing parts to add and optionally indexes to add
+	 *  them at, if no index is given parts will be added at the end
+	 * @fires replace For each item added
+	 * @fires change
 	 */
 	ve.dm.MWTransclusionModel.prototype.resolveChangeQueue = function ( queue ) {
-		const resolveQueue = [];
+		var resolveQueue = [];
 
-		for ( let i = 0; i < queue.length; i++ ) {
-			const item = queue[ i ];
-			let remove = 0;
+		for ( var i = 0; i < queue.length; i++ ) {
+			var item = queue[ i ],
+				remove = 0;
 
 			if ( item.add instanceof ve.dm.MWTemplateModel ) {
-				const title = item.add.getTemplateDataQueryTitle();
+				var title = item.add.getTemplateDataQueryTitle();
 				if ( hasOwn.call( specCache, title ) && specCache[ title ] ) {
 					item.add.getSpec().setTemplateData( specCache[ title ] );
 				}
 			}
 
 			// Use specified index
-			let index = item.index;
+			var index = item.index;
 			// Auto-remove if already existing, preserving index
-			const existing = this.parts.indexOf( item.add );
+			var existing = this.parts.indexOf( item.add );
 			if ( existing !== -1 ) {
 				this.removePart( item.add );
 				if ( index && existing + 1 < index ) {
@@ -270,7 +259,7 @@
 		// We need to go back and resolve the deferreds after emitting change.
 		// Otherwise we get silly situations like a single change event being
 		// guaranteed after the transclusion loaded promise gets resolved.
-		resolveQueue.forEach( ( queueItem ) => {
+		resolveQueue.forEach( function ( queueItem ) {
 			queueItem.resolve();
 		} );
 	};
@@ -279,23 +268,23 @@
 	 * @private
 	 */
 	ve.dm.MWTransclusionModel.prototype.processChangeQueue = function () {
-		const templateNamespaceId = mw.config.get( 'wgNamespaceIds' ).template,
+		var templateNamespaceId = mw.config.get( 'wgNamespaceIds' ).template,
 			titles = [];
 
 		if ( !this.changeQueue.length ) {
 			return;
 		}
 
-		const queue = this.changeQueue.slice();
+		var queue = this.changeQueue.slice();
 
 		// Clear shared queue for future calls
 		this.changeQueue.length = 0;
 
 		// Get unique list of template titles that aren't already loaded
-		for ( let i = 0; i < queue.length; i++ ) {
-			const item = queue[ i ];
+		for ( var i = 0; i < queue.length; i++ ) {
+			var item = queue[ i ];
 			if ( item.add instanceof ve.dm.MWTemplateModel ) {
-				const title = item.add.getTemplateDataQueryTitle(),
+				var title = item.add.getTemplateDataQueryTitle(),
 					mwTitle = title ? mw.Title.newFromText( title, templateNamespaceId ) : null;
 				if (
 					// Skip titles that don't have a resolvable href
@@ -322,11 +311,11 @@
 	/**
 	 * @private
 	 * @param {string[]} titles
-	 * @param {ve.dm.MWTransclusionPartInstruction[]} queue
+	 * @param {Object[]} queue
 	 * @return {jQuery.Promise}
 	 */
 	ve.dm.MWTransclusionModel.prototype.callTemplateDataApi = function ( titles, queue ) {
-		const xhr = ve.init.target.getContentApi( this.doc ).get( {
+		var xhr = ve.init.target.getContentApi( this.doc ).get( {
 			action: 'templatedata',
 			titles: titles,
 			lang: mw.config.get( 'wgUserLanguage' ),
@@ -343,7 +332,7 @@
 	/**
 	 * @private
 	 * @param {Object} [data]
-	 * @param {Object.<number,ve.dm.MWTemplatePageMetadata>} [data.pages]
+	 * @param {Object.<number,Object>} [data.pages]
 	 */
 	ve.dm.MWTransclusionModel.prototype.cacheTemplateDataApiResponse = function ( data ) {
 		if ( !data || !data.pages ) {
@@ -351,13 +340,13 @@
 		}
 
 		// Keep spec data on hand for future use
-		for ( const id in data.pages ) {
-			const title = data.pages[ id ].title;
+		for ( var id in data.pages ) {
+			var title = data.pages[ id ].title;
 
 			if ( data.pages[ id ].missing ) {
 				// Remember templates that don't exist in the link cache
 				// { title: { missing: true|false }
-				const missingTitle = {};
+				var missingTitle = {};
 				missingTitle[ title ] = { missing: true };
 				ve.init.platform.linkCache.setMissing( missingTitle );
 			} else if ( data.pages[ id ].notemplatedata && !OO.isPlainObject( data.pages[ id ].params ) ) {
@@ -370,13 +359,13 @@
 		}
 
 		// Follow redirects
-		const aliasMap = data.redirects || [];
+		var aliasMap = data.redirects || [];
 		// Follow MW's normalisation
 		if ( data.normalized ) {
 			ve.batchPush( aliasMap, data.normalized );
 		}
 		// Cross-reference aliased titles.
-		for ( let i = 0; i < aliasMap.length; i++ ) {
+		for ( var i = 0; i < aliasMap.length; i++ ) {
 			// Only define the alias if the target exists, otherwise
 			// we create a new property with an invalid "undefined" value.
 			if ( hasOwn.call( specCache, aliasMap[ i ].to ) ) {
@@ -391,14 +380,14 @@
 	 */
 	ve.dm.MWTransclusionModel.prototype.markRequestAsDone = function ( apiPromise ) {
 		// Prune completed request
-		const index = this.templateDataApiRequests.indexOf( apiPromise );
+		var index = this.templateDataApiRequests.indexOf( apiPromise );
 		if ( index !== -1 ) {
 			this.templateDataApiRequests.splice( index, 1 );
 		}
 	};
 
 	ve.dm.MWTransclusionModel.prototype.abortAllApiRequests = function () {
-		for ( let i = 0; i < this.templateDataApiRequests.length; i++ ) {
+		for ( var i = 0; i < this.templateDataApiRequests.length; i++ ) {
 			this.templateDataApiRequests[ i ].abort();
 		}
 		this.templateDataApiRequests.length = 0;
@@ -410,11 +399,11 @@
 	 * @return {Object|null} Plain object representation, or null if empty
 	 */
 	ve.dm.MWTransclusionModel.prototype.getPlainObject = function () {
-		const parts = [];
+		var parts = [];
 
-		for ( let i = 0; i < this.parts.length; i++ ) {
-			const part = this.parts[ i ];
-			const serialization = part.serialize();
+		for ( var i = 0; i < this.parts.length; i++ ) {
+			var part = this.parts[ i ];
+			var serialization = part.serialize();
 			if ( serialization !== undefined && serialization !== '' ) {
 				parts.push( serialization );
 			}
@@ -441,7 +430,7 @@
 	 * @return {jQuery.Promise} Promise, resolved when part is added
 	 */
 	ve.dm.MWTransclusionModel.prototype.replacePart = function ( remove, add ) {
-		const deferred = ve.createDeferred();
+		var deferred = ve.createDeferred();
 		if (
 			!( remove instanceof ve.dm.MWTransclusionPartModel ) ||
 			!( add instanceof ve.dm.MWTransclusionPartModel )
@@ -466,7 +455,7 @@
 	 * @return {jQuery.Promise} Promise, resolved when part is added
 	 */
 	ve.dm.MWTransclusionModel.prototype.addPart = function ( part, index ) {
-		const deferred = ve.createDeferred();
+		var deferred = ve.createDeferred();
 		if ( !( part instanceof ve.dm.MWTransclusionPartModel ) ) {
 			throw new Error( 'Invalid transclusion part' );
 		}
@@ -481,10 +470,10 @@
 
 	/**
 	 * @param {ve.dm.MWTransclusionPartModel} part
-	 * @fires ve.dm.MWTransclusionPartInstruction#replace
+	 * @fires replace
 	 */
 	ve.dm.MWTransclusionModel.prototype.removePart = function ( part ) {
-		const index = this.parts.indexOf( part );
+		var index = this.parts.indexOf( part );
 		if ( index !== -1 ) {
 			this.parts.splice( index, 1 );
 			part.disconnect( this );
@@ -496,7 +485,9 @@
 	 * @return {boolean} True if the transclusion is literally empty or contains only placeholders
 	 */
 	ve.dm.MWTransclusionModel.prototype.isEmpty = function () {
-		return this.parts.every( ( part ) => part instanceof ve.dm.MWTemplatePlaceholderModel );
+		return this.parts.every( function ( part ) {
+			return part instanceof ve.dm.MWTemplatePlaceholderModel;
+		} );
 	};
 
 	/**
@@ -529,9 +520,9 @@
 
 		// For ids from ve.dm.MWParameterModel, compare against the part id
 		// of the parameter instead of the entire model id (e.g. "part_1" instead of "part_1/foo").
-		const partId = id.split( '/', 1 )[ 0 ];
+		var partId = id.split( '/', 1 )[ 0 ];
 
-		for ( let i = 0; i < this.parts.length; i++ ) {
+		for ( var i = 0; i < this.parts.length; i++ ) {
 			if ( this.parts[ i ].getId() === partId ) {
 				return this.parts[ i ];
 			}
@@ -547,18 +538,18 @@
 	 * @return {number} Page index of model
 	 */
 	ve.dm.MWTransclusionModel.prototype.getIndex = function ( model ) {
-		const parts = this.parts;
+		var parts = this.parts,
+			index = 0;
 
-		let index = 0;
-		for ( let i = 0; i < parts.length; i++ ) {
-			const part = parts[ i ];
+		for ( var i = 0; i < parts.length; i++ ) {
+			var part = parts[ i ];
 			if ( part === model ) {
 				return index;
 			}
 			index++;
 			if ( part instanceof ve.dm.MWTemplateModel ) {
-				const names = part.getOrderedParameterNames();
-				for ( let j = 0; j < names.length; j++ ) {
+				var names = part.getOrderedParameterNames();
+				for ( var j = 0; j < names.length; j++ ) {
 					if ( part.getParameter( names[ j ] ) === model ) {
 						return index;
 					}
@@ -573,7 +564,7 @@
 	 * Add missing required and suggested parameters to each transclusion.
 	 */
 	ve.dm.MWTransclusionModel.prototype.addPromptedParameters = function () {
-		this.parts.forEach( ( part ) => {
+		this.parts.forEach( function ( part ) {
 			if ( part instanceof ve.dm.MWTemplateModel ) {
 				part.addPromptedParameters();
 			}
@@ -584,7 +575,9 @@
 	 * @return {boolean} True if any transclusion part contains meaningful, non-default user input
 	 */
 	ve.dm.MWTransclusionModel.prototype.containsValuableData = function () {
-		return this.parts.some( ( part ) => part.containsValuableData() );
+		return this.parts.some( function ( part ) {
+			return part.containsValuableData();
+		} );
 	};
 
 	/**

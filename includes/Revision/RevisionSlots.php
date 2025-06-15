@@ -22,7 +22,7 @@
 
 namespace MediaWiki\Revision;
 
-use MediaWiki\Content\Content;
+use Content;
 use Wikimedia\Assert\Assert;
 use Wikimedia\NonSerializable\NonSerializableTrait;
 
@@ -196,7 +196,7 @@ class RevisionSlots {
 		$slots = $this->getPrimarySlots();
 		ksort( $slots );
 
-		if ( !$slots ) {
+		if ( empty( $slots ) ) {
 			return SlotRecord::base36Sha1( '' );
 		}
 

@@ -1,8 +1,5 @@
 <?php
 
-use MediaWiki\Content\WikitextContent;
-use MediaWiki\Title\Title;
-
 /**
  * @group Database
  */
@@ -13,14 +10,13 @@ class ArticleTablesTest extends MediaWikiLangTestCase {
 	 * templatelinks based on the user language when {{int:}} is used, only the
 	 * content language.
 	 *
-	 * @covers \MediaWiki\Title\Title::getTemplateLinksFrom
-	 * @covers \MediaWiki\Title\Title::getLinksFrom
+	 * @covers Title::getTemplateLinksFrom
+	 * @covers Title::getLinksFrom
 	 */
 	public function testTemplatelinksUsesContentLanguage() {
-		$title = Title::makeTitle( NS_MAIN, 'T16404' );
-		$wikiPageFactory = $this->getServiceContainer()->getWikiPageFactory();
-		$page = $wikiPageFactory->newFromTitle( $title );
-		$user = $this->getTestUser()->getUser();
+		$title = Title::newFromText( 'T16404' );
+		$page = WikiPage::factory( $title );
+		$user = new User();
 		$this->overrideUserPermissions( $user, [ 'createpage', 'edit', 'purge' ] );
 		$this->setContentLang( 'es' );
 		$this->setUserLang( 'fr' );
@@ -33,7 +29,7 @@ class ArticleTablesTest extends MediaWikiLangTestCase {
 		$templates1 = $title->getTemplateLinksFrom();
 
 		$this->setUserLang( 'de' );
-		$page = $wikiPageFactory->newFromTitle( $title ); // In order to force the re-rendering of the same wikitext
+		$page = WikiPage::factory( $title ); // In order to force the re-rendering of the same wikitext
 
 		// We need an edit, a purge is not enough to regenerate the tables
 		$page->doUserEditContent(

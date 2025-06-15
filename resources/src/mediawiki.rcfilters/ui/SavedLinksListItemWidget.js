@@ -1,21 +1,21 @@
 /**
- * Quick links menu option widget.
+ * Quick links menu option widget
  *
  * @class mw.rcfilters.ui.SavedLinksListItemWidget
- * @ignore
  * @extends OO.ui.Widget
  *
+ * @constructor
  * @param {mw.rcfilters.dm.SavedQueryItemModel} model View model
  * @param {Object} [config] Configuration object
- * @param {jQuery} [config.$overlay] A jQuery object serving as overlay for popups
+ * @cfg {jQuery} [$overlay] A jQuery object serving as overlay for popups
  */
-const SavedLinksListItemWidget = function MwRcfiltersUiSavedLinksListWidget( model, config ) {
+var SavedLinksListItemWidget = function MwRcfiltersUiSavedLinksListWidget( model, config ) {
 	config = config || {};
 
 	this.model = model;
 
 	// Parent
-	SavedLinksListItemWidget.super.call( this, Object.assign( {
+	SavedLinksListItemWidget.parent.call( this, $.extend( {
 		data: this.model.getID(),
 		label: this.model.getLabel(),
 		title: this.model.getLabel()
@@ -80,7 +80,7 @@ const SavedLinksListItemWidget = function MwRcfiltersUiSavedLinksListWidget( mod
 	this.$icon.on( { click: this.onDefaultIconClick.bind( this ) } );
 
 	// Prevent clicks on interactive elements from closing the parent menu
-	this.buttonMenu.$element.add( this.$icon ).on( 'mousedown', ( e ) => {
+	this.buttonMenu.$element.add( this.$icon ).on( 'mousedown', function ( e ) {
 		e.stopPropagation();
 	} );
 
@@ -123,26 +123,23 @@ OO.inheritClass( SavedLinksListItemWidget, OO.ui.MenuOptionWidget );
 /* Events */
 
 /**
- * The delete option was selected for this item.
- *
  * @event delete
- * @ignore
+ *
+ * The delete option was selected for this item
  */
 
 /**
- * The 'make default' option was selected for this item.
- *
  * @event default
  * @param {boolean} default Item is default
- * @ignore
+ *
+ * The 'make default' option was selected for this item
  */
 
 /**
- * The label has been edited.
- *
  * @event edit
  * @param {string} newLabel New label for the query
- * @ignore
+ *
+ * The label has been edited
  */
 
 /* Methods */
@@ -185,7 +182,7 @@ SavedLinksListItemWidget.prototype.onDefaultIconClick = function () {
  * @fires default
  */
 SavedLinksListItemWidget.prototype.onMenuChoose = function ( item ) {
-	const action = item.getData();
+	var action = item.getData();
 
 	if ( action === 'edit' ) {
 		this.toggleEdit( true );
@@ -200,7 +197,7 @@ SavedLinksListItemWidget.prototype.onMenuChoose = function ( item ) {
  * Respond to input keyup event, this is the way to intercept 'escape' key
  *
  * @param {jQuery.Event} e Event data
- * @return {boolean|undefined} false
+ * @return {boolean} false
  */
 SavedLinksListItemWidget.prototype.onInputKeyup = function ( e ) {
 	if ( e.which === OO.ui.Keys.ESCAPE ) {
@@ -239,7 +236,7 @@ SavedLinksListItemWidget.prototype.onInputChange = function ( value ) {
  * @fires edit
  */
 SavedLinksListItemWidget.prototype.save = function () {
-	const value = this.editInput.getValue().trim();
+	var value = this.editInput.getValue().trim();
 
 	if ( value ) {
 		this.emit( 'edit', value );

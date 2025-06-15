@@ -4,14 +4,14 @@ const assert = require( 'assert' ),
 	Api = require( 'wdio-mediawiki/Api' ),
 	MathPage = require( '../pageobjects/math.page' );
 
-describe( 'Math', () => {
+describe( 'Math', function () {
 	let bot;
 
 	before( async () => {
 		bot = await Api.bot();
 	} );
 
-	it( 'should work for addition', async () => {
+	it( 'should work for addition', async function () {
 
 		// page should have random name
 		const pageName = Math.random().toString();
@@ -22,7 +22,7 @@ describe( 'Math', () => {
 		await MathPage.openTitle( pageName );
 
 		// check if the page displays the image
-		assert( await MathPage.mathml.isExisting() );
+		assert( await MathPage.img.isExisting() );
 
 	} );
 

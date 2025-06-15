@@ -2,12 +2,12 @@
 
 namespace MediaWiki\Extension\AbuseFilter\EditBox;
 
-use LogicException;
+use BadMethodCallException;
 use MediaWiki\Extension\AbuseFilter\AbuseFilterPermissionManager;
 use MediaWiki\Extension\AbuseFilter\KeywordsManager;
-use MediaWiki\Output\OutputPage;
 use MediaWiki\Permissions\Authority;
 use MessageLocalizer;
+use OutputPage;
 
 /**
  * Factory for EditBoxBuilder objects
@@ -61,14 +61,14 @@ class EditBoxBuilderFactory {
 	 * @param MessageLocalizer $messageLocalizer
 	 * @param Authority $authority
 	 * @param OutputPage $output
-	 * @return PlainEditBoxBuilder
+	 * @return PlainEditBoxBuiler
 	 */
 	public function newPlainBoxBuilder(
 		MessageLocalizer $messageLocalizer,
 		Authority $authority,
 		OutputPage $output
-	): PlainEditBoxBuilder {
-		return new PlainEditBoxBuilder(
+	): PlainEditBoxBuiler {
+		return new PlainEditBoxBuiler(
 			$this->afPermManager,
 			$this->keywordsManager,
 			$messageLocalizer,
@@ -81,17 +81,17 @@ class EditBoxBuilderFactory {
 	 * @param MessageLocalizer $messageLocalizer
 	 * @param Authority $authority
 	 * @param OutputPage $output
-	 * @return AceEditBoxBuilder
+	 * @return AceEditBoxBuiler
 	 */
 	public function newAceBoxBuilder(
 		MessageLocalizer $messageLocalizer,
 		Authority $authority,
 		OutputPage $output
-	): AceEditBoxBuilder {
+	): AceEditBoxBuiler {
 		if ( !$this->isCodeEditorLoaded ) {
-			throw new LogicException( 'Cannot create Ace box without CodeEditor' );
+			throw new BadMethodCallException( 'Cannot create Ace box without CodeEditor' );
 		}
-		return new AceEditBoxBuilder(
+		return new AceEditBoxBuiler(
 			$this->afPermManager,
 			$this->keywordsManager,
 			$messageLocalizer,

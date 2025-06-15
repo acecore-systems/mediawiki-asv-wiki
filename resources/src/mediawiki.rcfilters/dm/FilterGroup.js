@@ -1,47 +1,45 @@
-const FilterItem = require( './FilterItem.js' ),
-	utils = require( '../utils.js' );
+var FilterItem = require( './FilterItem.js' ),
+	FilterGroup;
 
 /**
- * View model for a filter group.
+ * View model for a filter group
  *
  * @class mw.rcfilters.dm.FilterGroup
- * @ignore
- * @mixes OO.EventEmitter
- * @mixes OO.EmitterList
+ * @mixins OO.EventEmitter
+ * @mixins OO.EmitterList
  *
+ * @constructor
  * @param {string} name Group name
  * @param {Object} [config] Configuration options
- * @param {string} [config.type='send_unselected_if_any'] Group type
- * @param {string} [config.view='default'] Name of the display group this group
+ * @cfg {string} [type='send_unselected_if_any'] Group type
+ * @cfg {string} [view='default'] Name of the display group this group
  *  is a part of.
- * @param {boolean} [config.sticky] This group is 'sticky'. It is synchronized
+ * @cfg {boolean} [sticky] This group is 'sticky'. It is synchronized
  *  with a preference, does not participate in Saved Queries, and is
  *  not shown in the active filters area.
- * @param {string} [config.title] Group title
- * @param {boolean} [config.hidden] This group is hidden from the regular menu views
+ * @cfg {string} [title] Group title
+ * @cfg {boolean} [hidden] This group is hidden from the regular menu views
  *  and the active filters area.
- * @param {boolean} [config.allowArbitrary] Allows for an arbitrary value to be added to the
+ * @cfg {boolean} [allowArbitrary] Allows for an arbitrary value to be added to the
  *  group from the URL, even if it wasn't initially set up.
- * @param {number} [config.range] An object defining minimum and maximum values for numeric
+ * @cfg {number} [range] An object defining minimum and maximum values for numeric
  *  groups. { min: x, max: y }
- * @param {number} [config.minValue] Minimum value for numeric groups
- * @param {string} [config.separator='|'] Value separator for 'string_options' groups
- * @param {boolean} [config.supportsAll=true] For 'string_options' groups, whether the magic 'all' value
- *  is understood to mean all options are selected.
- * @param {boolean} [config.active] Group is active
- * @param {boolean} [config.fullCoverage] This filters in this group collectively cover all results
- * @param {Object} [config.conflicts] Defines the conflicts for this filter group
- * @param {string|Object} [config.labelPrefixKey] An i18n key defining the prefix label for this
+ * @cfg {number} [minValue] Minimum value for numeric groups
+ * @cfg {string} [separator='|'] Value separator for 'string_options' groups
+ * @cfg {boolean} [active] Group is active
+ * @cfg {boolean} [fullCoverage] This filters in this group collectively cover all results
+ * @cfg {Object} [conflicts] Defines the conflicts for this filter group
+ * @cfg {string|Object} [labelPrefixKey] An i18n key defining the prefix label for this
  *  group. If the prefix has 'invert' state, the parameter is expected to be an object
  *  with 'default' and 'inverted' as keys.
- * @param {Object} [config.whatsThis] Defines the messages that should appear for the 'what's this' popup
- * @param {string} [config.whatsThis.header] The header of the whatsThis popup message
- * @param {string} [config.whatsThis.body] The body of the whatsThis popup message
- * @param {string} [config.whatsThis.url] The url for the link in the whatsThis popup message
- * @param {string} [config.whatsThis.linkMessage] The text for the link in the whatsThis popup message
- * @param {boolean} [config.visible=true] The visibility of the group
+ * @cfg {Object} [whatsThis] Defines the messages that should appear for the 'what's this' popup
+ * @cfg {string} [whatsThis.header] The header of the whatsThis popup message
+ * @cfg {string} [whatsThis.body] The body of the whatsThis popup message
+ * @cfg {string} [whatsThis.url] The url for the link in the whatsThis popup message
+ * @cfg {string} [whatsThis.linkMessage] The text for the link in the whatsThis popup message
+ * @cfg {boolean} [visible=true] The visibility of the group
  */
-const FilterGroup = function MwRcfiltersDmFilterGroup( name, config ) {
+FilterGroup = function MwRcfiltersDmFilterGroup( name, config ) {
 	config = config || {};
 
 	// Mixin constructor
@@ -57,7 +55,6 @@ const FilterGroup = function MwRcfiltersDmFilterGroup( name, config ) {
 	this.allowArbitrary = !!config.allowArbitrary;
 	this.numericRange = config.range;
 	this.separator = config.separator || '|';
-	this.supportsAll = config.supportsAll === undefined ? true : !!config.supportsAll;
 	this.labelPrefixKey = config.labelPrefixKey;
 	this.visible = config.visible === undefined ? true : !!config.visible;
 
@@ -83,10 +80,9 @@ OO.mixinClass( FilterGroup, OO.EmitterList );
 /* Events */
 
 /**
- * Group state has been updated.
- *
  * @event update
- * @ignore
+ *
+ * Group state has been updated
  */
 
 /* Methods */
@@ -98,40 +94,42 @@ OO.mixinClass( FilterGroup, OO.EmitterList );
  * @param {string|Object} [groupDefault] Definition of the group default
  */
 FilterGroup.prototype.initializeFilters = function ( filterDefinition, groupDefault ) {
-	let defaultParam;
-	const supersetMap = {},
+	var defaultParam,
+		supersetMap = {},
 		model = this,
 		items = [];
 
-	filterDefinition.forEach( ( filter ) => {
+	filterDefinition.forEach( function ( filter ) {
 		// Instantiate an item
-		const filterItem = new FilterItem( filter.name, model, {
-			group: model.getName(),
-			label: filter.label || filter.name,
-			description: filter.description || '',
-			labelPrefixKey: model.labelPrefixKey,
-			cssClass: filter.cssClass,
-			helpLink: filter.helpLink,
-			identifiers: filter.identifiers,
-			defaultHighlightColor: filter.defaultHighlightColor
-		} );
+		var subsetNames = [],
+			filterItem = new FilterItem( filter.name, model, {
+				group: model.getName(),
+				label: filter.label || filter.name,
+				description: filter.description || '',
+				labelPrefixKey: model.labelPrefixKey,
+				cssClass: filter.cssClass,
+				identifiers: filter.identifiers,
+				defaultHighlightColor: filter.defaultHighlightColor
+			} );
 
 		if ( filter.subset ) {
-			filter.subset = filter.subset.map( ( el ) => el.filter );
+			filter.subset = filter.subset.map( function ( el ) {
+				return el.filter;
+			} );
 
-			const subsetNames = [];
+			subsetNames = [];
 
-			filter.subset.forEach( ( subsetFilterName ) => {
+			filter.subset.forEach( function ( subsetFilterName ) {
 				// Subsets (unlike conflicts) are always inside the same group
 				// We can re-map the names of the filters we are getting from
 				// the subsets with the group prefix
-				const subsetName = model.getPrefixedName( subsetFilterName );
+				var subsetName = model.getPrefixedName( subsetFilterName );
 				// For convenience, we should store each filter's "supersets" -- these are
 				// the filters that have that item in their subset list. This will just
 				// make it easier to go through whether the item has any other items
 				// that affect it (and are selected) at any given time
 				supersetMap[ subsetName ] = supersetMap[ subsetName ] || [];
-				utils.addArrayElementsUnique(
+				mw.rcfilters.utils.addArrayElementsUnique(
 					supersetMap[ subsetName ],
 					filterItem.getName()
 				);
@@ -166,7 +164,7 @@ FilterGroup.prototype.initializeFilters = function ( filterDefinition, groupDefa
 	this.addItems( items );
 
 	// Now that we have all items, we can apply the superset map
-	this.getItems().forEach( ( filterItem ) => {
+	this.getItems().forEach( function ( filterItem ) {
 		filterItem.setSuperset( supersetMap[ filterItem.getName() ] );
 	} );
 
@@ -176,13 +174,15 @@ FilterGroup.prototype.initializeFilters = function ( filterDefinition, groupDefa
 		// Store the default parameter group state
 		// For this group, the parameter is group name and value is the names
 		// of selected items
-		this.defaultParams[ this.getName() ] = utils.normalizeParamOptions(
+		this.defaultParams[ this.getName() ] = mw.rcfilters.utils.normalizeParamOptions(
 			// Current values
 			groupDefault ?
 				groupDefault.split( this.getSeparator() ) :
 				[],
 			// Legal values
-			this.getItems().map( ( item ) => item.getParamName() )
+			this.getItems().map( function ( item ) {
+				return item.getParamName();
+			} )
 		).join( this.getSeparator() );
 	} else if ( this.getType() === 'single_option' ) {
 		defaultParam = groupDefault !== undefined ?
@@ -194,22 +194,21 @@ FilterGroup.prototype.initializeFilters = function ( filterDefinition, groupDefa
 	}
 
 	// add highlights to defaultParams
-	this.getItems().forEach( ( filterItem ) => {
+	this.getItems().forEach( function ( filterItem ) {
 		if ( filterItem.isHighlighted() ) {
 			this.defaultParams[ filterItem.getName() + '_color' ] = filterItem.getHighlightColor();
 		}
-	} );
+	}.bind( this ) );
 
 	// Store default filter state based on default params
 	this.defaultFilters = this.getFilterRepresentation( this.getDefaultParams() );
 
 	// Check for filters that should be initially selected by their default value
 	if ( this.isSticky() ) {
-		const defaultFilters = this.defaultFilters;
-		for ( const filterName in defaultFilters ) {
-			const filterValue = defaultFilters[ filterName ];
+		// eslint-disable-next-line no-jquery/no-each-util
+		$.each( this.defaultFilters, function ( filterName, filterValue ) {
 			model.getItemByName( filterName ).toggleSelected( filterValue );
-		}
+		} );
 	}
 
 	// Verify that single_option group has at least one item selected
@@ -235,8 +234,8 @@ FilterGroup.prototype.initializeFilters = function ( filterDefinition, groupDefa
  */
 FilterGroup.prototype.onFilterItemUpdate = function ( item ) {
 	// Update state
-	let changed = false;
-	const active = this.areAnySelected(),
+	var changed = false,
+		active = this.areAnySelected(),
 		model = this;
 
 	if ( this.getType() === 'single_option' ) {
@@ -254,12 +253,12 @@ FilterGroup.prototype.onFilterItemUpdate = function ( item ) {
 			// This should only happen if the item given
 			// is the one that is selected, so unselect
 			// all items that is not it
-			this.findSelectedItems().forEach( ( itemModel ) => {
+			this.findSelectedItems().forEach( function ( itemModel ) {
 				// Note that in case the given item is actually
 				// not selected, this loop will end up unselecting
 				// all items, which would trigger the case above
 				// when the last item is unselected anyways
-				const selected = itemModel.getName() === item.getName() &&
+				var selected = itemModel.getName() === item.getName() &&
 					item.isSelected();
 
 				itemModel.toggleSelected( selected );
@@ -387,21 +386,21 @@ FilterGroup.prototype.hasWhatsThis = function () {
  * Conflict object is set up by filter name keys and conflict
  * definition.
  *
- * @example
- * [
- *     {
- *         filterName: {
- *             filter: filterName,
- *             group: group1
+ *     @example
+ *     [
+ *         {
+ *             filterName: {
+ *                 filter: filterName,
+ *                 group: group1
+ *             }
+ *         },
+ *         {
+ *             filterName2: {
+ *                 filter: filterName2,
+ *                 group: group2
+ *             }
  *         }
- *     },
- *     {
- *         filterName2: {
- *             filter: filterName2,
- *             group: group2
- *         }
- *     }
- * ]
+ *     ]
  *
  * @return {Object} Conflict definition
  */
@@ -439,7 +438,9 @@ FilterGroup.prototype.existsInConflicts = function ( filterItem ) {
  * @return {boolean} Any items in the group are selected
  */
 FilterGroup.prototype.areAnySelected = function () {
-	return this.getItems().some( ( filterItem ) => filterItem.isSelected() );
+	return this.getItems().some( function ( filterItem ) {
+		return filterItem.isSelected();
+	} );
 };
 
 /**
@@ -448,10 +449,10 @@ FilterGroup.prototype.areAnySelected = function () {
  * @return {boolean} All items are selected
  */
 FilterGroup.prototype.areAllSelected = function () {
-	const selected = [],
+	var selected = [],
 		unselected = [];
 
-	this.getItems().forEach( ( filterItem ) => {
+	this.getItems().forEach( function ( filterItem ) {
 		if ( filterItem.isSelected() ) {
 			selected.push( filterItem );
 		} else {
@@ -464,20 +465,25 @@ FilterGroup.prototype.areAllSelected = function () {
 	}
 
 	// check if every unselected is a subset of a selected
-	return unselected.every( ( unselectedFilterItem ) => selected.some( ( selectedFilterItem ) => selectedFilterItem.existsInSubset( unselectedFilterItem.getName() ) ) );
+	return unselected.every( function ( unselectedFilterItem ) {
+		return selected.some( function ( selectedFilterItem ) {
+			return selectedFilterItem.existsInSubset( unselectedFilterItem.getName() );
+		} );
+	} );
 };
 
 /**
  * Get all selected items in this group
  *
- * @ignore
  * @param {mw.rcfilters.dm.FilterItem} [excludeItem] Item to exclude from the list
  * @return {mw.rcfilters.dm.FilterItem[]} Selected items
  */
 FilterGroup.prototype.findSelectedItems = function ( excludeItem ) {
-	const excludeName = ( excludeItem && excludeItem.getName() ) || '';
+	var excludeName = ( excludeItem && excludeItem.getName() ) || '';
 
-	return this.getItems().filter( ( item ) => item.getName() !== excludeName && item.isSelected() );
+	return this.getItems().filter( function ( item ) {
+		return item.getName() !== excludeName && item.isSelected();
+	} );
 };
 
 /**
@@ -487,14 +493,16 @@ FilterGroup.prototype.findSelectedItems = function ( excludeItem ) {
  * @return {boolean} All selected items are in conflict with this item
  */
 FilterGroup.prototype.areAllSelectedInConflictWith = function ( filterItem ) {
-	const selectedItems = this.findSelectedItems( filterItem );
+	var selectedItems = this.findSelectedItems( filterItem );
 
 	return selectedItems.length > 0 &&
 		(
 			// The group as a whole is in conflict with this item
 			this.existsInConflicts( filterItem ) ||
 			// All selected items are in conflict individually
-			selectedItems.every( ( selectedFilter ) => selectedFilter.existsInConflicts( filterItem ) )
+			selectedItems.every( function ( selectedFilter ) {
+				return selectedFilter.existsInConflicts( filterItem );
+			} )
 		);
 };
 
@@ -505,13 +513,15 @@ FilterGroup.prototype.areAllSelectedInConflictWith = function ( filterItem ) {
  * @return {boolean} Any of the selected items are in conflict with this item
  */
 FilterGroup.prototype.areAnySelectedInConflictWith = function ( filterItem ) {
-	const selectedItems = this.findSelectedItems( filterItem );
+	var selectedItems = this.findSelectedItems( filterItem );
 
 	return selectedItems.length > 0 && (
 		// The group as a whole is in conflict with this item
 		this.existsInConflicts( filterItem ) ||
 		// Any selected items are in conflict individually
-		selectedItems.some( ( selectedFilter ) => selectedFilter.existsInConflicts( filterItem ) )
+		selectedItems.some( function ( selectedFilter ) {
+			return selectedFilter.existsInConflicts( filterItem );
+		} )
 	);
 };
 
@@ -524,31 +534,33 @@ FilterGroup.prototype.areAnySelectedInConflictWith = function ( filterItem ) {
  * @return {Object} Parameter representation
  */
 FilterGroup.prototype.getParamRepresentation = function ( filterRepresentation ) {
-	let areAnySelected = false;
-	const buildFromCurrentState = !filterRepresentation,
+	var values,
+		areAnySelected = false,
+		buildFromCurrentState = !filterRepresentation,
 		defaultFilters = this.getDefaultFilters(),
 		result = {},
 		model = this,
 		filterParamNames = {},
 		getSelectedParameter = function ( filters ) {
-			const selected = [];
+			var item,
+				selected = [];
 
 			// Find if any are selected
 			// eslint-disable-next-line no-jquery/no-each-util
-			$.each( filters, ( name, value ) => {
+			$.each( filters, function ( name, value ) {
 				if ( value ) {
 					selected.push( name );
 				}
 			} );
 
-			const item = model.getItemByName( selected[ 0 ] );
+			item = model.getItemByName( selected[ 0 ] );
 			return ( item && item.getParamName() ) || '';
 		};
 
 	filterRepresentation = filterRepresentation || {};
 
 	// Create or complete the filterRepresentation definition
-	this.getItems().forEach( ( item ) => {
+	this.getItems().forEach( function ( item ) {
 		// Map filter names to their parameter names
 		filterParamNames[ item.getName() ] = item.getParamName();
 
@@ -584,7 +596,7 @@ FilterGroup.prototype.getParamRepresentation = function ( filterRepresentation )
 
 		// Go over the items and define the correct values
 		// eslint-disable-next-line no-jquery/no-each-util
-		$.each( filterRepresentation, ( name, value ) => {
+		$.each( filterRepresentation, function ( name, value ) {
 			// We must store all parameter values as strings '0' or '1'
 			if ( model.getType() === 'send_unselected_if_any' ) {
 				result[ filterParamNames[ name ] ] = areAnySelected ?
@@ -599,18 +611,17 @@ FilterGroup.prototype.getParamRepresentation = function ( filterRepresentation )
 			}
 		} );
 	} else if ( this.getType() === 'string_options' ) {
-		const values = [];
+		values = [];
 
 		// eslint-disable-next-line no-jquery/no-each-util
-		$.each( filterRepresentation, ( name, value ) => {
+		$.each( filterRepresentation, function ( name, value ) {
 			// Collect values
 			if ( value ) {
 				values.push( filterParamNames[ name ] );
 			}
 		} );
 
-		result[ this.getName() ] = this.getSupportsAll() &&
-				values.length === Object.keys( filterRepresentation ).length ?
+		result[ this.getName() ] = ( values.length === Object.keys( filterRepresentation ).length ) ?
 			'all' : values.join( this.getSeparator() );
 	} else if ( this.getType() === 'single_option' ) {
 		result[ this.getName() ] = getSelectedParameter( filterRepresentation );
@@ -630,9 +641,9 @@ FilterGroup.prototype.getParamRepresentation = function ( filterRepresentation )
  * @return {Object} Filter representation
  */
 FilterGroup.prototype.getFilterRepresentation = function ( paramRepresentation ) {
-	let areAnySelected,
-		oneWasSelected = false;
-	const defaultParams = this.getDefaultParams(),
+	var areAnySelected, paramValues, item, currentValue,
+		oneWasSelected = false,
+		defaultParams = this.getDefaultParams(),
 		expandedParams = $.extend( true, {}, paramRepresentation ),
 		model = this,
 		paramToFilterMap = {},
@@ -652,8 +663,8 @@ FilterGroup.prototype.getFilterRepresentation = function ( paramRepresentation )
 		this.getType() === 'any_value'
 	) {
 		// Go over param representation; map and check for selections
-		this.getItems().forEach( ( filterItem ) => {
-			const paramName = filterItem.getParamName();
+		this.getItems().forEach( function ( filterItem ) {
+			var paramName = filterItem.getParamName();
 
 			expandedParams[ paramName ] = paramRepresentation[ paramName ] || '0';
 			paramToFilterMap[ paramName ] = filterItem;
@@ -664,8 +675,8 @@ FilterGroup.prototype.getFilterRepresentation = function ( paramRepresentation )
 		} );
 
 		// eslint-disable-next-line no-jquery/no-each-util
-		$.each( expandedParams, ( paramName, paramValue ) => {
-			const filterItem = paramToFilterMap[ paramName ];
+		$.each( expandedParams, function ( paramName, paramValue ) {
+			var filterItem = paramToFilterMap[ paramName ];
 
 			if ( model.getType() === 'send_unselected_if_any' ) {
 				// Flip the definition between the parameter
@@ -684,23 +695,28 @@ FilterGroup.prototype.getFilterRepresentation = function ( paramRepresentation )
 			}
 		} );
 	} else if ( this.getType() === 'string_options' ) {
-		const currentValue = paramRepresentation[ this.getName() ] || '';
+		currentValue = paramRepresentation[ this.getName() ] || '';
 
 		// Normalize the given parameter values
-		const paramValues = utils.normalizeParamOptions(
+		paramValues = mw.rcfilters.utils.normalizeParamOptions(
 			// Given
 			currentValue.split(
 				this.getSeparator()
 			),
 			// Allowed values
-			this.getItems().map( ( filterItem ) => filterItem.getParamName() ),
-			this.getSupportsAll()
+			this.getItems().map( function ( filterItem ) {
+				return filterItem.getParamName();
+			} )
 		);
 		// Translate the parameter values into a filter selection state
-		this.getItems().forEach( ( filterItem ) => {
-			// If the parameter is set to 'all', set all filters to true
+		this.getItems().forEach( function ( filterItem ) {
+			// All true (either because all values are written or the term 'all' is written)
+			// is the same as all filters set to true
 			result[ filterItem.getName() ] = (
-				this.getSupportsAll() && paramValues.length === 1 && paramValues[ 0 ] === 'all'
+				// If it is the word 'all'
+				paramValues.length === 1 && paramValues[ 0 ] === 'all' ||
+				// All values are written
+				paramValues.length === model.getItemCount()
 			) ?
 				true :
 				// Otherwise, the filter is selected only if it appears in the parameter values
@@ -708,8 +724,8 @@ FilterGroup.prototype.getFilterRepresentation = function ( paramRepresentation )
 		} );
 	} else if ( this.getType() === 'single_option' ) {
 		// There is parameter that fits a single filter and if not, get the default
-		this.getItems().forEach( ( filterItem ) => {
-			const selected = filterItem.getParamName() === paramRepresentation[ model.getName() ];
+		this.getItems().forEach( function ( filterItem ) {
+			var selected = filterItem.getParamName() === paramRepresentation[ model.getName() ];
 
 			result[ filterItem.getName() ] = selected;
 			oneWasSelected = oneWasSelected || selected;
@@ -718,11 +734,11 @@ FilterGroup.prototype.getFilterRepresentation = function ( paramRepresentation )
 
 	// Go over result and make sure all filters are represented.
 	// If any filters are missing, they will get a falsey value
-	this.getItems().forEach( ( filterItem ) => {
+	this.getItems().forEach( function ( filterItem ) {
 		if ( result[ filterItem.getName() ] === undefined ) {
 			result[ filterItem.getName() ] = this.getFalsyValue();
 		}
-	} );
+	}.bind( this ) );
 
 	// Make sure that at least one option is selected in
 	// single_option groups, no matter what path was taken
@@ -733,7 +749,7 @@ FilterGroup.prototype.getFilterRepresentation = function ( paramRepresentation )
 		this.getType() === 'single_option' &&
 		!oneWasSelected
 	) {
-		let item = this.getItems()[ 0 ];
+		item = this.getItems()[ 0 ];
 		if ( defaultParams[ this.getName() ] ) {
 			item = this.getItemByParamName( defaultParams[ this.getName() ] );
 		}
@@ -745,7 +761,7 @@ FilterGroup.prototype.getFilterRepresentation = function ( paramRepresentation )
 };
 
 /**
- * @return {any} The appropriate falsy value for this group type
+ * @return {*} The appropriate falsy value for this group type
  */
 FilterGroup.prototype.getFalsyValue = function () {
 	return this.getType() === 'any_value' ? '' : false;
@@ -757,9 +773,9 @@ FilterGroup.prototype.getFalsyValue = function () {
  * @return {Object} Selected state
  */
 FilterGroup.prototype.getSelectedState = function () {
-	const state = {};
+	var state = {};
 
-	this.getItems().forEach( ( filterItem ) => {
+	this.getItems().forEach( function ( filterItem ) {
 		state[ filterItem.getName() ] = filterItem.getValue();
 	} );
 
@@ -769,12 +785,13 @@ FilterGroup.prototype.getSelectedState = function () {
 /**
  * Get item by its filter name
  *
- * @ignore
  * @param {string} filterName Filter name
  * @return {mw.rcfilters.dm.FilterItem} Filter item
  */
 FilterGroup.prototype.getItemByName = function ( filterName ) {
-	return this.getItems().filter( ( item ) => item.getName() === filterName )[ 0 ];
+	return this.getItems().filter( function ( item ) {
+		return item.getName() === filterName;
+	} )[ 0 ];
 };
 
 /**
@@ -783,7 +800,7 @@ FilterGroup.prototype.getItemByName = function ( filterName ) {
  * @param {string} paramName Filter parameter name
  */
 FilterGroup.prototype.selectItemByParamName = function ( paramName ) {
-	this.getItems().forEach( ( item ) => {
+	this.getItems().forEach( function ( item ) {
 		item.toggleSelected( item.getParamName() === String( paramName ) );
 	} );
 };
@@ -791,12 +808,13 @@ FilterGroup.prototype.selectItemByParamName = function ( paramName ) {
 /**
  * Get item by its parameter name
  *
- * @ignore
  * @param {string} paramName Parameter name
  * @return {mw.rcfilters.dm.FilterItem} Filter item
  */
 FilterGroup.prototype.getItemByParamName = function ( paramName ) {
-	return this.getItems().filter( ( item ) => item.getParamName() === String( paramName ) )[ 0 ];
+	return this.getItems().filter( function ( item ) {
+		return item.getParamName() === String( paramName );
+	} )[ 0 ];
 };
 
 /**
@@ -865,15 +883,6 @@ FilterGroup.prototype.getTitle = function () {
  */
 FilterGroup.prototype.getSeparator = function () {
 	return this.separator;
-};
-
-/**
- * Check whether the group supports the magic 'all' value to indicate that all values are selected.
- *
- * @return {boolean} Group supports the magic 'all' value
- */
-FilterGroup.prototype.getSupportsAll = function () {
-	return this.supportsAll;
 };
 
 /**
@@ -954,7 +963,7 @@ FilterGroup.prototype.isVisible = function () {
  * @param {mw.rcfilters.dm.ItemModel[]} visibleItems An array of visible items
  */
 FilterGroup.prototype.setVisibleItems = function ( visibleItems ) {
-	this.getItems().forEach( ( itemModel ) => {
+	this.getItems().forEach( function ( itemModel ) {
 		itemModel.toggleVisible( visibleItems.indexOf( itemModel ) !== -1 );
 	} );
 };

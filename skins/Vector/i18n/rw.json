@@ -2,8 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"RebecaRwanda",
-			"RebeccaRwanda",
-			"Vogone"
+			"Vogone",
+			"RebeccaRwanda"
 		]
 	},
 	"vector-languages": "Indimi",
@@ -17,10 +17,5 @@
 	"vector-view-history": "Reba amateka",
 	"vector-view-view": "Soma",
 	"vector-more-actions": "Ibindi",
-	"vector-feature-custom-font-size-name": "Inyandiko",
-	"skin-theme-name": "Ibara",
-	"vector-toc-label": "Ibirimo",
-	"vector-toc-beginning": "Itangiriro",
-	"vector-page-tools-label": "Ibikoresho",
-	"vector-unpin-element-label": "Hisha"
+	"vector-toc-beginning": "Itangiriro"
 }

@@ -1,11 +1,8 @@
 <?php
 
-namespace Wikimedia\Tests\WRStats;
+namespace Wikimedia\WRStats;
 
 use PHPUnit\Framework\TestCase;
-use Wikimedia\WRStats\ArrayStatsStore;
-use Wikimedia\WRStats\GlobalEntityKey;
-use Wikimedia\WRStats\WRStatsWriter;
 
 /**
  * @covers \Wikimedia\WRStats\WRStatsWriter

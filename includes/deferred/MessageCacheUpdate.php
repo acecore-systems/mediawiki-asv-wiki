@@ -20,8 +20,6 @@
  * @file
  */
 
-namespace MediaWiki\Deferred;
-
 use MediaWiki\MediaWikiServices;
 use Wikimedia\Assert\Assert;
 
@@ -61,6 +59,3 @@ class MessageCacheUpdate implements DeferrableUpdate, MergeableUpdate {
 		}
 	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( MessageCacheUpdate::class, 'MessageCacheUpdate' );

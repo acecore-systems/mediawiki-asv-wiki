@@ -1,16 +1,5 @@
-const pako = require( '../../lib/pako/pako_deflate.js' );
+var pako = require( '../../lib/pako/pako_deflate.es5.js' );
 
-/**
- * Convert a byte stream to base64 text.
- * Before using load the mediawiki.deflate ResourceLoader module.
- *
- * @example
- * return mw.loader.using( 'mediawiki.deflate' ).then( function () {
- *    return mw.deflate( html );
- * } );
- * @param {string} data
- * @return {string}
- */
 mw.deflate = function ( data ) {
 	return 'rawdeflate,' + bytesToBase64( pako.deflateRaw( data, { level: 5 } ) );
 };
@@ -26,7 +15,7 @@ mw.deflate = function ( data ) {
  *
  * @type {Array}
  */
-const base64abc = [
+var base64abc = [
 	'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
 	'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
 	'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
@@ -36,8 +25,7 @@ const base64abc = [
 
 function bytesToBase64( bytes ) {
 	/* eslint-disable no-bitwise */
-	let result = '', i;
-	const l = bytes.length;
+	var result = '', i, l = bytes.length;
 	for ( i = 2; i < l; i += 3 ) {
 		result += base64abc[ bytes[ i - 2 ] >> 2 ];
 		result += base64abc[ ( ( bytes[ i - 2 ] & 0x03 ) << 4 ) | ( bytes[ i - 1 ] >> 4 ) ];

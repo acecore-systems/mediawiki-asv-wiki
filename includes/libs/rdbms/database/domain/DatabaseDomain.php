@@ -20,7 +20,6 @@
 namespace Wikimedia\Rdbms;
 
 use InvalidArgumentException;
-use Stringable;
 
 /**
  * Class to handle database/schema/prefix specifications for IDatabase
@@ -39,7 +38,7 @@ use Stringable;
  *
  * @ingroup Database
  */
-class DatabaseDomain implements Stringable {
+class DatabaseDomain {
 	/** @var string|null */
 	private $database;
 	/** @var string|null */
@@ -85,10 +84,7 @@ class DatabaseDomain implements Stringable {
 			throw new InvalidArgumentException( "Domain must be a string or " . __CLASS__ );
 		}
 
-		$parts = explode( '-', $domain );
-		foreach ( $parts as &$part ) {
-			$part = strtr( $part, [ '?h' => '-', '??' => '?' ] );
-		}
+		$parts = array_map( [ __CLASS__, 'decode' ], explode( '-', $domain ) );
 
 		$schema = null;
 		$prefix = '';
@@ -96,9 +92,9 @@ class DatabaseDomain implements Stringable {
 		if ( count( $parts ) == 1 ) {
 			$database = $parts[0];
 		} elseif ( count( $parts ) == 2 ) {
-			[ $database, $prefix ] = $parts;
+			list( $database, $prefix ) = $parts;
 		} elseif ( count( $parts ) == 3 ) {
-			[ $database, $schema, $prefix ] = $parts;
+			list( $database, $schema, $prefix ) = $parts;
 		} else {
 			throw new InvalidArgumentException( "Domain '$domain' has too few or too many parts." );
 		}
@@ -203,7 +199,9 @@ class DatabaseDomain implements Stringable {
 	 * @return string
 	 */
 	public function getId(): string {
-		$this->equivalentString ??= $this->convertToString();
+		if ( $this->equivalentString === null ) {
+			$this->equivalentString = $this->convertToString();
+		}
 
 		return $this->equivalentString;
 	}
@@ -225,10 +223,50 @@ class DatabaseDomain implements Stringable {
 			$parts[] = $this->prefix;
 		}
 
-		foreach ( $parts as &$part ) {
-			$part = strtr( $part, [ '-' => '?h', '?' => '??' ] );
+		return implode( '-', array_map( [ __CLASS__, 'encode' ], $parts ) );
+	}
+
+	private static function encode( $decoded ) {
+		$encoded = '';
+
+		$length = strlen( $decoded );
+		for ( $i = 0; $i < $length; ++$i ) {
+			$char = $decoded[$i];
+			if ( $char === '-' ) {
+				$encoded .= '?h';
+			} elseif ( $char === '?' ) {
+				$encoded .= '??';
+			} else {
+				$encoded .= $char;
+			}
 		}
-		return implode( '-', $parts );
+
+		return $encoded;
+	}
+
+	private static function decode( $encoded ) {
+		$decoded = '';
+
+		$length = strlen( $encoded );
+		for ( $i = 0; $i < $length; ++$i ) {
+			$char = $encoded[$i];
+			if ( $char === '?' ) {
+				$nextChar = $encoded[$i + 1] ?? null;
+				if ( $nextChar === 'h' ) {
+					$decoded .= '-';
+					++$i;
+				} elseif ( $nextChar === '?' ) {
+					$decoded .= '?';
+					++$i;
+				} else {
+					$decoded .= $char;
+				}
+			} else {
+				$decoded .= $char;
+			}
+		}
+
+		return $decoded;
 	}
 
 	/**

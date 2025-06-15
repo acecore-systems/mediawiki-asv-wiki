@@ -1,13 +1,14 @@
-/**
-* UserLinks
-* All links and menus that appear in the header,
-* at the top of the page, after the search bar.
-*/
+@import '../../common/variables.less';
+@import '../../common/mixins.less';
+@import 'mediawiki.mixins.less';
+@import 'mediawiki.ui/variables.less';
+
+@font-size-user-links: unit( 14 / @font-size-browser, em ); // Equals `0.875em`.
+// Applies to links in the overflow menu that do not have the .mw-ui-button class.
+@overflow-link-margin: 0 8px;
 
 /**
- * Top-most container that holds ALL menus in the user links section
- * (horizontal menus and dropdowns)
- * Logged-in and logged-out.
+ * Container that holds both the horizontal menu and dropdown menus.
  */
 .vector-user-links {
 	display: flex;
@@ -15,95 +16,113 @@
 	position: relative;
 	justify-content: flex-end;
 	flex-shrink: 1;
+	font-size: @font-size-user-links;
 
-	// Spacing for all top-level menu icons.
-	.mw-list-item,
-	.vector-dropdown-label {
-		margin: 0 @spacing-25;
+	.mw-ui-button {
+		// FIXME: Overrides mw-ui-button's `display: inline-block` property so that
+		// the text in the button is vertically centered. `.mw-ui-button` sets a
+		// min-height to the button, but should also vertically center the
+		// button's children.
+		display: flex;
+		align-items: center;
 	}
-	// Reset margins on items inside dropdowns.
-	.vector-dropdown-content .mw-list-item {
+
+	.mw-list-item {
 		margin: 0;
 	}
 }
 
 /**
- * Container that holds just the dropdown user menu (displays "..." when logged out).
- * Logged-in and logged-out.
+ * Both logged-in and logged-out dropdown menus.
  */
 .vector-user-menu {
-	.vector-dropdown-content {
-		.mixin-vector-dropdown-content-flip();
+	.vector-menu-content {
+		left: auto;
+		right: 0;
+		min-width: 200px;
 	}
 
-	// Used to hide collapsible items inside the dropdown menu
-	// as well as the dropdown menu itself when the menu is empty
-	&.user-links-collapsible-item,
 	.user-links-collapsible-item {
-		@media ( min-width: @min-width-breakpoint-tablet ) {
-			display: none;
-		}
-
-		&--none {
+		@media ( min-width: @min-width-tablet ) {
 			display: none;
 		}
 	}
 }
 
 /**
- * Container that holds all menus except the user menu (.vector-user-menu).
- * Logged-in and logged-out.
+ * Horizontal links menu - logged in and logged out.
  */
-.vector-user-links-main {
-	display: flex;
-	align-items: center;
-
+// TODO: Remove vector-user-menu-more after I371bb11903d8cdd8f0da89266fcf549050c0da8c has been in prod for a week
+.vector-user-menu-more,
+.vector-user-menu-overflow {
 	.vector-menu-content-list {
 		display: flex;
 		align-items: center;
-		font-size: @font-size-small;
+	}
+
+	// Add margin to links that don't have the .mw-ui-button or related icon classes.
+	a:not( .mw-ui-button ):not( .mw-echo-notifications-badge  ) {
+		margin: 0 8px;
 	}
 
 	.user-links-collapsible-item {
-		@media ( max-width: @max-width-breakpoint-mobile ) {
+		@media ( max-width: @max-width-mobile ) {
 			display: none;
 		}
 	}
 }
 
 /**
- * Logged-in dropdown user menu.
+ * Logged-in dropdown menu
  */
-.vector-user-menu-logged-in .vector-dropdown-label {
-	.mixin-vector-arrowed-dropdown-toggle();
+.vector-user-menu-logged-in {
+	.vector-menu-heading {
+		// override user menu (.mw-ui-icon) fixed width,
+		// so chevron beside icon is visible.
+		width: auto;
+
+		// and override again to ensure the user icon is 20px wide.
+		&:before {
+			width: auto;
+		}
+	}
 }
 
 /**
- * Logged-out dropdown user menu items- Special treatment for special links.
+ * Dropdown menu items- Special treatment for special links.
  */
-#p-user-menu-anon-editor .vector-menu-heading {
-	display: block;
 
-	a::before {
+// Anon editor notice i.e. "Pages for logged out editors".
+.vector-user-menu-anon-editor {
+	.mixin-vector-dropdown-menu-item();
+	color: @color-base--subtle;
+
+	a:before {
 		content: '@{msg-parentheses-start}';
 	}
 
-	a::after {
+	a:after {
 		content: '@{msg-parentheses-end}';
 	}
 }
 
-/**
- * Logged-in user-page link in personal (overflow) menu.
- */
-#pt-userpage-2 {
-	max-width: unit( 155 / @font-size-browser / @font-size-small, em );
-	overflow: hidden;
-	text-overflow: ellipsis;
+// Login link.
+.vector-user-menu-login {
+	border-bottom: @border-width-base @border-style-base @colorGray14;
+}
 
-	a:not( .mw-selflink ) {
+// Logout link
+.vector-user-menu-logout {
+	border-top: @border-width-base @border-style-base @colorGray14;
+}
+
+//User-page link in personal (overflow) menu.
+#pt-userpage-2 {
+	max-width: unit( 155 / @font-size-browser / @font-size-user-links, em );
+
+	a {
 		// T312157 Override redlink (.new) color for non-existant userpage
-		color: @color-progressive;
+		color: @color-primary;
 	}
 
 	span {
@@ -112,7 +131,7 @@
 
 	// T287522#7295558: Increase the max-width of the username when viewport
 	// allows for it.
-	@media ( min-width: @min-width-breakpoint-desktop-wide ) {
-		max-width: unit( 200 / @font-size-browser / @font-size-small, em );
+	@media ( min-width: @min-width-desktop-wide ) {
+		max-width: unit( 200 / @font-size-browser / @font-size-user-links, em );
 	}
 }

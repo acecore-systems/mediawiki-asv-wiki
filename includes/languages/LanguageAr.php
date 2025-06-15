@@ -1,5 +1,4 @@
 <?php
-
 /**
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,9 +19,6 @@
  * @author Niklas Laxström
  */
 
-use MediaWiki\Language\Language;
-use MediaWiki\Languages\Data\NormalizeAr;
-
 /**
  * Arabic (العربية) specific code.
  *
@@ -40,6 +36,7 @@ class LanguageAr extends Language {
 	 */
 	public function normalize( $s ) {
 		$s = parent::normalize( $s );
-		return $this->transformUsingPairFile( NormalizeAr::class, $s );
+		$s = $this->transformUsingPairFile( MediaWiki\Languages\Data\NormalizeAr::class, $s );
+		return $s;
 	}
 }

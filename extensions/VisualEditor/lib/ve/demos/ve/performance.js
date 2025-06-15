@@ -1,23 +1,23 @@
 /*!
  * VisualEditor performance tests
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 ( function () {
 	/* eslint-disable no-jquery/no-global-selector */
-	const $instance = $( '.ve-instance' ),
+	var $instance = $( '.ve-instance' ),
 		$output = $( '.ve-demo-output' );
 
 	/* eslint-enable no-jquery/no-global-selector */
 	// Set up the platform and wait for i18n messages to load
 	new ve.init.sa.Platform( ve.messagePaths ).getInitializedPromise()
-		.fail( () => {
+		.fail( function () {
 			$instance.text( 'Sorry, this browser is not supported.' );
 		} )
-		.done( () => {
+		.done( function () {
 			// Create the target
-			const target = new ve.init.sa.Target();
+			var target = new ve.init.sa.Target();
 
 			// Append the target to the document
 			$instance.append( target.$element );
@@ -25,28 +25,28 @@
 			$.ajax( {
 				url: 'pages/very long.html',
 				dataType: 'text'
-			} ).done( ( html ) => {
-				let htmlDomTimes = 0, domDmTimes = 0, dmDomTimes = 0, txTimes = 0;
-				const n = 50,
+			} ).done( function ( html ) {
+				var htmlDomTimes = 0, domDmTimes = 0, dmDomTimes = 0, txTimes = 0,
+					n = 50,
 					config = { lang: $.i18n().locale, dir: $( document.body ).css( 'direction' ) };
 
-				for ( let i = 0; i <= n; i++ ) {
-					let t0 = performance.now();
-					let dom = ve.createDocumentFromHtml( html );
+				for ( var i = 0; i <= n; i++ ) {
+					var t0 = performance.now();
+					var dom = ve.createDocumentFromHtml( html );
 					htmlDomTimes += performance.now() - t0;
 
 					t0 = performance.now();
-					const dmDoc = ve.dm.converter.getModelFromDom( dom, config );
+					var dmDoc = ve.dm.converter.getModelFromDom( dom, config );
 					domDmTimes += performance.now() - t0;
 
-					const dmSurface = new ve.dm.Surface( dmDoc );
+					var dmSurface = new ve.dm.Surface( dmDoc );
 
 					t0 = performance.now();
 					dom = ve.dm.converter.getDomFromModel( dmDoc, config );
 					dmDomTimes += performance.now() - t0;
 
 					t0 = performance.now();
-					for ( let j = 0; j < 10; j++ ) {
+					for ( var j = 0; j < 10; j++ ) {
 						dmSurface.getLinearFragment( new ve.Range( 1 ) ).insertContent( 'hello' ).annotateContent( 'set', 'textStyle/bold' );
 					}
 					txTimes += performance.now() - t0;

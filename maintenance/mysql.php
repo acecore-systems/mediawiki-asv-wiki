@@ -23,14 +23,11 @@
  * @ingroup Maintenance
  */
 
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Shell\Shell;
-use Wikimedia\FileBackend\FSFile\TempFSFile;
 use Wikimedia\IPUtils;
-use Wikimedia\Rdbms\ServerInfo;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * @ingroup Maintenance
@@ -42,21 +39,11 @@ class MysqlMaintenance extends Maintenance {
 			"Non-option arguments will be passed through to mysql." );
 		$this->addOption( 'write', 'Connect to the primary database', false, false );
 		$this->addOption( 'group', 'Specify query group', false, true );
-		$this->addOption( 'host', 'Connect to a known MySQL server', false, true );
-		$this->addOption( 'raw-host',
-			'Connect directly to a specific MySQL server, even if not known to MediaWiki '
-				. 'via wgLBFactoryConf (e.g. parser cache or depooled host). '
-				. 'Credentails will be chosen based on --cluster and --wikidb.',
-			false,
-			true
-		);
+		$this->addOption( 'host', 'Connect to a specific MySQL server', false, true );
 		$this->addOption( 'list-hosts', 'List the available DB hosts', false, false );
 		$this->addOption( 'cluster', 'Use an external cluster by name', false, true );
 		$this->addOption( 'wikidb',
-			'The database wiki ID to use if not the current one',
-			false,
-			true
-		);
+			'The database wiki ID to use if not the current one', false, true );
 
 		// Fake argument for help message
 		$this->addArg( '-- mysql_option ...', 'Options to pass to mysql', false );
@@ -64,9 +51,7 @@ class MysqlMaintenance extends Maintenance {
 
 	public function execute() {
 		$dbName = $this->getOption( 'wikidb', false );
-		$lbf = $this->getServiceContainer()->getDBLoadBalancerFactory();
-
-		// Pick LB
+		$lbf = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
 		if ( $this->hasOption( 'cluster' ) ) {
 			try {
 				$lb = $lbf->getExternalLB( $this->getOption( 'cluster' ) );
@@ -76,8 +61,6 @@ class MysqlMaintenance extends Maintenance {
 		} else {
 			$lb = $lbf->getMainLB( $dbName );
 		}
-
-		// List hosts, or pick host
 		if ( $this->hasOption( 'list-hosts' ) ) {
 			$serverCount = $lb->getServerCount();
 			for ( $index = 0; $index < $serverCount; ++$index ) {
@@ -97,31 +80,24 @@ class MysqlMaintenance extends Maintenance {
 				$this->fatalError( "Error: Host not configured: \"$host\"" );
 			}
 		} elseif ( $this->hasOption( 'write' ) ) {
-			$index = ServerInfo::WRITER_INDEX;
+			$index = $lb->getWriterIndex();
 		} else {
 			$group = $this->getOption( 'group', false );
-			$index = $lb->getReaderIndex( $group );
+			$index = $lb->getReaderIndex( $group, $dbName );
 			if ( $index === false && $group ) {
 				// retry without the group; it may not exist
-				$index = $lb->getReaderIndex( false );
+				$index = $lb->getReaderIndex( false, $dbName );
 			}
 			if ( $index === false ) {
 				$this->fatalError( 'Error: unable to get reader index' );
 			}
 		}
+
 		if ( $lb->getServerType( $index ) !== 'mysql' ) {
 			$this->fatalError( 'Error: this script only works with MySQL/MariaDB' );
 		}
 
-		$serverInfo = $lb->getServerInfo( $index );
-		// Override host. This uses the server info of the host determined
-		// by the other options for the purposes of user/password.
-		if ( $this->hasOption( 'raw-host' ) ) {
-			$host = $this->getOption( 'raw-host' );
-			$serverInfo = [ 'host' => $host ] + $serverInfo;
-		}
-
-		$this->runMysql( $serverInfo, $dbName );
+		$this->runMysql( $lb->getServerInfo( $index ), $dbName );
 	}
 
 	/**
@@ -146,7 +122,7 @@ class MysqlMaintenance extends Maintenance {
 			2 => STDERR,
 		];
 
-		// Split host and port as in DatabaseMySQL::mysqlConnect()
+		// Split host and port as in DatabaseMysqli::mysqlConnect()
 		$realServer = $info['host'];
 		$hostAndPort = IPUtils::splitHostAndPort( $realServer );
 		$socket = false;
@@ -159,7 +135,7 @@ class MysqlMaintenance extends Maintenance {
 		} elseif ( substr_count( $realServer, ':' ) == 1 ) {
 			// If we have a colon and something that's not a port number
 			// inside the hostname, assume it's the socket location
-			[ $realServer, $socket ] = explode( ':', $realServer, 2 );
+			list( $realServer, $socket ) = explode( ':', $realServer, 2 );
 		}
 
 		if ( $dbName === false ) {
@@ -181,7 +157,7 @@ class MysqlMaintenance extends Maintenance {
 			$args[] = "--port={$port}";
 		}
 
-		$args = array_merge( $args, $this->getArgs() );
+		$args = array_merge( $args, $this->mArgs );
 
 		// Ignore SIGINT if possible, otherwise the wrapper terminates when the user presses
 		// ctrl-C to kill a query.
@@ -204,7 +180,5 @@ class MysqlMaintenance extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = MysqlMaintenance::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

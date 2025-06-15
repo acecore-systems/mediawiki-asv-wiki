@@ -1,15 +1,18 @@
 /**
+ * @private
+ * @class mw.plugin.page.ready
+ */
+/**
  * Enable checkboxes to be checked or unchecked in a row by clicking one,
  * holding shift and clicking another one.
  *
  * @method checkboxShift
- * @memberof module:mediawiki.page.ready
  * @param {jQuery} $box
  */
 module.exports = function ( $box ) {
-	let prev;
+	var prev;
 	// When our boxes are clicked..
-	$box.on( 'click', ( e ) => {
+	$box.on( 'click', function ( e ) {
 		// And one has been clicked before...
 		if ( prev && e.shiftKey ) {
 			// Check or uncheck this one and all in-between checkboxes,
@@ -20,12 +23,9 @@ module.exports = function ( $box ) {
 					Math.max( $box.index( prev ), $box.index( e.target ) ) + 1
 				)
 				.filter( function () {
-					return !this.disabled && this.checked !== e.target.checked;
+					return !this.disabled;
 				} )
-				.prop( 'checked', e.target.checked )
-				// Since the state change is a consequence of direct user action,
-				// fire the 'change' event (see T313077).
-				.trigger( 'change' );
+				.prop( 'checked', e.target.checked );
 		}
 		// Either way, remember this as the last clicked one
 		prev = e.target;

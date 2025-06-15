@@ -3,9 +3,9 @@
 		"authors": [
 			"Aalam",
 			"Babanwalia",
-			"Cabal",
+			"ਪ੍ਰਚਾਰਕ",
 			"Kuldeepburjbhalaike",
-			"ਪ੍ਰਚਾਰਕ"
+			"Cabal"
 		]
 	},
 	"config-desc": "ਮੀਡੀਆਵਿਕੀ ਲਈ ਇੰਸਟਾਲਰ",
@@ -111,7 +111,6 @@
 	"config-help-tooltip": "ਫੈਲਾਉਣ ਲਈ ਕਲਿੱਕ ਕਰੋ",
 	"config-nofile": "ਫਾਇਲ \" $1 \" ਲੱਭੀ ਨਹੀਂ ਜਾ ਸਕੀ ਹੈ। ਕੀ ਇਸਨੂੰ ਮਿਟਾ ਦਿੱਤਾ ਗਿਆ ਹੈ?",
 	"config-extensions-requires": "$1 ($2 ਦੀ ਲੋਡ਼ ਹੈ)",
-	"config-ext-skins-more-info": "ਹੋਰ ਜਾਣਕਾਰੀ",
 	"mainpagetext": "<strong>ਮੀਡੀਆਵਿਕੀ ਨੂੰ ਸਥਾਪਿਤ ਕੀਤਾ ਗਿਆ ਹੈ।</strong>",
 	"mainpagedocfooter": "ਵਿਕੀ ਸੌਫਟਵੇਅਰ ਦੀ ਵਰਤੋਂ ਕਰਨ ਬਾਰੇ ਜਾਣਕਾਰੀ ਲਈ [https://www.mediawiki.org/wiki/Special:MyLanguage/Help:Contents ਵਰਤੋਂਕਾਰ ਦਸਤੀ] ਦੀ ਸਲਾਹ ਲਓ।\n\n== ਸ਼ੁਰੂਆਤ ਕਰਨੀ ==\n* [ https://www.mediawiki.org/wiki/Special:MyLanguage/Manual:Configuration_settings ਬਣਤਰ ਤਰਜੀਹਾਂ ਦੀ ਸੂਚੀ]\n* [https://www.mediawiki.org/wiki/Special:MyLanguage/Manual:FAQ ਮੀਡੀਆਵਿਕੀ ਆਮ ਸੁਆਲ] \n* [https://lists.wikimedia.org/postorius/lists/mediawiki-announce.lists.wikimedia.org/ ਮੀਡੀਆਵਿਕੀ ਜਾਰੀ ਡਾਕ ਸੂਚੀਆਂ]\n* [https://www.mediawiki.org/wiki /Special:MyLanguage/Localisation#Translation_resources ਆਪਣੀ ਭਾਸ਼ਾ ਲਈ ਮੀਡੀਆਵਿਕੀ ਦਾ ਸਥਾਨੀਕਰਨ ਕਰੋ]\n* [https://www.mediawiki.org/wiki/Special:MyLanguage/Manual:Combating_spam ਸਿੱਖੋ ਕਿ ਆਪਣੀ ਵਿਕੀ 'ਤੇ ਸਪੈਮ ਦਾ ਮੁਕਾਬਲਾ ਕਿਵੇਂ ਕਰਨਾ ਹੈ]"
 }

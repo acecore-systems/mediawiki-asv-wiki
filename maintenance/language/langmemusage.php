@@ -22,10 +22,9 @@
  */
 
 use MediaWiki\Languages\LanguageNameUtils;
+use MediaWiki\MediaWikiServices;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/../Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script that tries to get the memory usage for each language file.
@@ -50,14 +49,14 @@ class LangMemUsage extends Maintenance {
 		$this->output( "Base memory usage: $memstart\n" );
 
 		$languages = array_keys(
-			$this->getServiceContainer()
+			MediaWikiServices::getInstance()
 				->getLanguageNameUtils()
 				->getLanguageNames( LanguageNameUtils::AUTONYMS, LanguageNameUtils::SUPPORTED )
 		);
 		sort( $languages );
 
 		foreach ( $languages as $langcode ) {
-			$this->getServiceContainer()->getLanguageFactory()->getLanguage( $langcode );
+			MediaWikiServices::getInstance()->getLanguageFactory()->getLanguage( $langcode );
 			$memstep = memory_get_usage();
 			$this->output( sprintf( "%12s: %d\n", $langcode, ( $memstep - $memlast ) ) );
 			$memlast = $memstep;
@@ -69,7 +68,5 @@ class LangMemUsage extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = LangMemUsage::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

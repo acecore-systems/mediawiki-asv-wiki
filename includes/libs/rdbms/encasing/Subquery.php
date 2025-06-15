@@ -20,12 +20,10 @@
 
 namespace Wikimedia\Rdbms;
 
-use Stringable;
-
 /**
  * @ingroup Database
  */
-class Subquery implements Stringable {
+class Subquery {
 	/** @var string */
 	private $sql;
 

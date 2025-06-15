@@ -2,7 +2,6 @@
 	"@metadata": {
 		"authors": [
 			"Als-Holder",
-			"Brettchenweber",
 			"Church of emacs",
 			"Geitost",
 			"Kghbln",
@@ -11,7 +10,8 @@
 			"Purodha",
 			"Raimond Spekking",
 			"Tobi 406",
-			"Umherirrender"
+			"Umherirrender",
+			"Brettchenweber"
 		]
 	},
 	"interwiki": "Interwikidaten verwalten",

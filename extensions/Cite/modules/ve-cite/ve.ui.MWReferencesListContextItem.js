@@ -1,5 +1,3 @@
-'use strict';
-
 /*!
  * VisualEditor MWReferencesListContextItem class.
  *
@@ -10,11 +8,13 @@
 /**
  * Context item for a MWReferencesList.
  *
- * @constructor
+ * @class
  * @extends ve.ui.LinearContextItem
- * @param {ve.ui.LinearContext} context Context the item is in
- * @param {ve.dm.Model} model Model the item is related to
- * @param {Object} [config]
+ *
+ * @constructor
+ * @param {ve.ui.Context} context Context item is in
+ * @param {ve.dm.Model} model Model item is related to
+ * @param {Object} config Configuration options
  */
 ve.ui.MWReferencesListContextItem = function VeUiMWReferencesListContextItem() {
 	// Parent constructor
@@ -41,12 +41,10 @@ ve.ui.MWReferencesListContextItem.static.modelClasses = [ ve.dm.MWReferencesList
 
 ve.ui.MWReferencesListContextItem.static.commandName = 'referencesList';
 
-ve.ui.MWReferencesListContextItem.static.embeddable = false;
-
 /* Methods */
 
 /**
- * @override
+ * @inheritdoc
  */
 ve.ui.MWReferencesListContextItem.prototype.renderBody = function () {
 	this.$body.append(
@@ -62,10 +60,10 @@ ve.ui.MWReferencesListContextItem.prototype.renderBody = function () {
 };
 
 /**
- * @override
+ * @inheritdoc
  */
 ve.ui.MWReferencesListContextItem.prototype.getDescription = function () {
-	const group = this.model.getAttribute( 'refGroup' );
+	var group = this.model.getAttribute( 'refGroup' );
 
 	return group ?
 		ve.msg( 'cite-ve-dialog-referenceslist-contextitem-description-named', group ) :

@@ -1,17 +1,8 @@
 @import '../../minerva.less/minerva.variables.less';
 @import '../../minerva.less/minerva.mixins.less';
 @import 'mediawiki.mixins.less';
-@import 'toc.less';
-@import 'page-issues/styles.less';
-@import 'Toolbar.less';
 
-.minerva-icon--download {
-	.cdx-mixin-css-icon( @cdx-icon-download, @color-subtle );
-}
-
-.minerva-icon--listBullet {
-	.cdx-mixin-css-icon( @cdx-icon-list-bullet, @color-subtle );
-}
+@animationDuration: 0.3s;
 
 .mw-mf-page-center__mask {
 	position: absolute;
@@ -20,8 +11,8 @@
 	right: 0;
 	opacity: 0;
 	bottom: 0;
-	background: @opaque;
-	z-index: @z-index-above-content;
+	background: @semiTransparent;
+	z-index: @z-indexAboveContent;
 	// don't use display: none because it's not animatable
 	visibility: hidden;
 	transition: opacity @transition-duration-base ease-in-out;
@@ -34,24 +25,39 @@
 	}
 }
 
-// Last modified bar styles
-a.last-modified-bar.active {
-	background-color: @background-color-progressive;
-	color: @color-inverted-fixed !important;
-
-	.last-modified-text-accent,
-	a {
-		color: @color-inverted-fixed;
+// Flip the arrow in table of contents when toggled
+.toctogglecheckbox:checked ~ .toctitle .mw-ui-icon:last-child {
+	&:before {
+		transform: rotate( -180deg );
 	}
+}
 
-	.minerva-icon {
-		background-color: @color-inverted-fixed;
+// Last modified bar styles
+.last-modified-bar {
+	&.active {
+		background-color: @lastModifiedBarActiveBackgroundColor;
+		color: #fff;
+
+		.last-modified-text-accent,
+		a {
+			color: #fff;
+		}
 	}
 }
 
 // Used by last modified bar and in MobileFrontend (i.e. MobileSpecialPageFeed.php, ImageCarousel.js)
 .truncated-text {
 	.text-overflow( @visible: false );
+}
+
+@-webkit-keyframes fadeInImage {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
 }
 
 @keyframes fadeInImage {
@@ -67,5 +73,5 @@ a.last-modified-bar.active {
 // When the image has loaded transition background color and image opacity
 // for a fade-in effect
 img.image-lazy-loaded {
-	animation: fadeInImage 300ms ease-in;
+	animation: fadeInImage @animationDuration ease-in;
 }

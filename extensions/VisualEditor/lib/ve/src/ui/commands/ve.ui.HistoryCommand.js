@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface HistoryCommand class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -36,7 +36,7 @@ OO.inheritClass( ve.ui.HistoryCommand, ve.ui.Command );
  * @inheritdoc
  */
 ve.ui.HistoryCommand.prototype.isExecutable = function ( fragment ) {
-	const surface = fragment.getSurface();
+	var surface = fragment.getSurface();
 
 	// Parent method
 	return ve.ui.HistoryCommand.super.prototype.isExecutable.apply( this, arguments ) &&

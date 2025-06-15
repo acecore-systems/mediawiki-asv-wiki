@@ -2,8 +2,6 @@
 	"@metadata": {
 		"authors": [
 			"Beginneruser",
-			"Darafsh",
-			"Ebrahim",
 			"Ebraminio",
 			"Huji",
 			"Iriman",
@@ -13,7 +11,9 @@
 			"MohammadtheEditor",
 			"Reza1615",
 			"Wayiran",
-			"فلورانس"
+			"فلورانس",
+			"Darafsh",
+			"Ebrahim"
 		]
 	},
 	"fancycaptcha-desc": "تولید‌کنندۀ Fancy CAPTCHA برای تأیید ویرایش",

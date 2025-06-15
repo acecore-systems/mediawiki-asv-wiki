@@ -1,12 +1,12 @@
-@import 'mediawiki.skin.variables.less';
+@import 'mediawiki.ui/variables.less';
 @import 'mediawiki.mixins.less';
 
 .mw-apisandbox-toolbar {
-	background: @background-color-base;
+	background: #fff;
 	.position-sticky();
 	top: 0;
 	padding: 0.5em 0;
-	box-shadow: @box-shadow-drop-small;
+	box-shadow: 0 2px 0 0 rgba( 0, 0, 0, 0.1 );
 	text-align: right;
 	z-index: 1;
 }
@@ -51,7 +51,7 @@
 }
 
 .mw-apisandbox-help-field {
-	border-bottom: @border-subtle;
+	border-bottom: 1px solid rgba( 0, 0, 0, 0.1 );
 	padding-bottom: 12px;
 
 	&:last-child {
@@ -98,7 +98,9 @@
 .mw-apisandbox-textInputCode .oo-ui-inputWidget-input {
 	font-family: monospace, monospace;
 	font-size: 0.8125em;
+	/* stylelint-disable-next-line plugin/no-unsupported-browser-features */
 	-moz-tab-size: 4;
+	/* stylelint-disable-next-line plugin/no-unsupported-browser-features */
 	tab-size: 4;
 }
 
@@ -128,7 +130,7 @@
 .apihelp-deprecated,
 .apihelp-internal {
 	font-weight: bold;
-	color: @color-error;
+	color: #d33;
 }
 /* stylelint-enable selector-class-pattern */
 
@@ -138,6 +140,6 @@
 
 .oo-ui-menuOptionWidget .mw-apisandbox-flag {
 	line-height: 1.42857143em;
-	color: @color-subtle;
+	color: @color-base--subtle;
 	float: right;
 }

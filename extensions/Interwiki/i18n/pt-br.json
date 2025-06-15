@@ -1,7 +1,6 @@
 {
 	"@metadata": {
 		"authors": [
-			"555",
 			"Cainamarques",
 			"Dianakc",
 			"Eduardo Addad de Oliveira",
@@ -11,7 +10,8 @@
 			"Giro720",
 			"Jaideraf",
 			"Luckas",
-			"Luckas Blade"
+			"Luckas Blade",
+			555
 		]
 	},
 	"interwiki": "Ver e editar dados de interwikis",

@@ -23,21 +23,19 @@
 
 namespace MediaWiki\Session;
 
+use BagOStuff;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use SessionHandlerInterface;
 use Wikimedia\AtEase\AtEase;
-use Wikimedia\ObjectCache\BagOStuff;
-use Wikimedia\PhpSessionSerializer;
 
 /**
  * Adapter for PHP's session handling
  * @ingroup Session
  * @since 1.27
  */
-class PHPSessionHandler implements SessionHandlerInterface {
+class PHPSessionHandler implements \SessionHandlerInterface {
 	/** @var PHPSessionHandler */
 	protected static $instance = null;
 
@@ -134,16 +132,17 @@ class PHPSessionHandler implements SessionHandlerInterface {
 			AtEase::suppressWarnings();
 
 			// Tell PHP not to mess with cookies itself
+			// @phan-suppress-next-line PhanTypeMismatchArgumentInternal Scalar okay with php8.1
 			ini_set( 'session.use_cookies', 0 );
 
 			// T124510: Disable automatic PHP session related cache headers.
-			// MediaWiki adds its own headers and the default PHP behavior may
+			// MediaWiki adds it's own headers and the default PHP behavior may
 			// set headers such as 'Pragma: no-cache' that cause problems with
 			// some user agents.
 			session_cache_limiter( '' );
 
 			// Also set a serialization handler
-			PhpSessionSerializer::setSerializeHandler();
+			\Wikimedia\PhpSessionSerializer::setSerializeHandler();
 
 			// Register this as the save handler, and register an appropriate
 			// shutdown function.
@@ -171,7 +170,7 @@ class PHPSessionHandler implements SessionHandlerInterface {
 			$this->manager = $manager;
 			$this->store = $store;
 			$this->logger = $logger;
-			PhpSessionSerializer::setLogger( $this->logger );
+			\Wikimedia\PhpSessionSerializer::setLogger( $this->logger );
 		}
 	}
 
@@ -230,7 +229,7 @@ class PHPSessionHandler implements SessionHandlerInterface {
 
 		$data = iterator_to_array( $session );
 		$this->sessionFieldCache[$id] = $data;
-		return (string)PhpSessionSerializer::encode( $data );
+		return (string)\Wikimedia\PhpSessionSerializer::encode( $data );
 	}
 
 	/**
@@ -259,12 +258,12 @@ class PHPSessionHandler implements SessionHandlerInterface {
 				__METHOD__ . ': Session "{session}" cannot be loaded, skipping write.',
 				[
 					'session' => $id,
-				] );
+			] );
 			return true;
 		}
 
 		// First, decode the string PHP handed us
-		$data = PhpSessionSerializer::decode( $dataStr );
+		$data = \Wikimedia\PhpSessionSerializer::decode( $dataStr );
 		if ( $data === null ) {
 			// @codeCoverageIgnoreStart
 			return false;
@@ -308,10 +307,10 @@ class PHPSessionHandler implements SessionHandlerInterface {
 		}
 		// Anything deleted in $_SESSION and unchanged in Session should be deleted too
 		// (but not if $_SESSION can't represent it at all)
-		PhpSessionSerializer::setLogger( new NullLogger() );
+		\Wikimedia\PhpSessionSerializer::setLogger( new NullLogger() );
 		foreach ( $cache as $key => $value ) {
 			if ( !array_key_exists( $key, $data ) && $session->exists( $key ) &&
-				PhpSessionSerializer::encode( [ $key => true ] )
+				\Wikimedia\PhpSessionSerializer::encode( [ $key => true ] )
 			) {
 				if ( $value === $session->get( $key ) ) {
 					// Unchanged in Session, delete it
@@ -325,7 +324,7 @@ class PHPSessionHandler implements SessionHandlerInterface {
 				}
 			}
 		}
-		PhpSessionSerializer::setLogger( $this->logger );
+		\Wikimedia\PhpSessionSerializer::setLogger( $this->logger );
 
 		// Save and update cache if anything changed
 		if ( $changed ) {
@@ -376,7 +375,8 @@ class PHPSessionHandler implements SessionHandlerInterface {
 		if ( self::$instance !== $this ) {
 			throw new \UnexpectedValueException( __METHOD__ . ': Wrong instance called!' );
 		}
-		$this->store->deleteObjectsExpiringBefore( wfTimestampNow() );
+		$before = date( 'YmdHis', time() );
+		$this->store->deleteObjectsExpiringBefore( $before );
 		return true;
 	}
 }

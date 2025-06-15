@@ -1,7 +1,7 @@
 /*!
  * VisualEditor MWAlienAnnotationContextItem class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2021 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -11,9 +11,9 @@
  * @extends ve.ui.MWAnnotationContextItem
  *
  * @constructor
- * @param {ve.ui.LinearContext} context Context the item is in
- * @param {ve.dm.Model} model Model the item is related to
- * @param {Object} [config]
+ * @param {ve.ui.Context} context Context item is in
+ * @param {ve.dm.Model} model Model item is related to
+ * @param {Object} config Configuration options
  */
 ve.ui.MWAlienAnnotationContextItem = function VeUiMWAlienAnnotationContextItem() {
 	// Parent constructor
@@ -35,7 +35,7 @@ ve.ui.MWAlienAnnotationContextItem.static.modelClasses = [
 /* Methods */
 
 ve.ui.MWAlienAnnotationContextItem.prototype.getLabelMessage = function () {
-	const type = this.model.getAttribute( 'type' );
+	var type = this.model.getAttribute( 'type' );
 	if ( type.indexOf( '/End', type.length - 4 ) !== -1 ) {
 		return mw.message( 'visualeditor-annotations-default-end' ).text();
 	} else {
@@ -44,7 +44,7 @@ ve.ui.MWAlienAnnotationContextItem.prototype.getLabelMessage = function () {
 };
 
 ve.ui.MWAlienAnnotationContextItem.prototype.getDescriptionMessage = function () {
-	const type = this.model.getAttribute( 'type' );
+	var type = this.model.getAttribute( 'type' );
 	if ( type.indexOf( '/End', type.length - 4 ) !== -1 ) {
 		return '';
 	}

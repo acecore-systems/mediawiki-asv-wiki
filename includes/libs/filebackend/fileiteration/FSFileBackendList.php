@@ -19,16 +19,6 @@
  * @ingroup FileBackend
  */
 
-namespace Wikimedia\FileBackend\FileIteration;
-
-use DirectoryIterator;
-use FilesystemIterator;
-use Iterator;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
-use UnexpectedValueException;
-use Wikimedia\FileBackend\FileBackendError;
-
 /**
  * Wrapper around RecursiveDirectoryIterator/DirectoryIterator that
  * catches exception or does any custom behavior that we may want.
@@ -181,6 +171,3 @@ abstract class FSFileBackendList implements Iterator {
 		return strtr( substr( $path, $this->suffixStart ), '\\', '/' );
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( FSFileBackendList::class, 'FSFileBackendList' );

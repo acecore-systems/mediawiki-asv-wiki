@@ -2,8 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"Apundung",
-			"IHLubis",
 			"Simartampua",
+			"IHLubis",
 			"Veracious"
 		]
 	},
@@ -20,10 +20,5 @@
 	"vector-view-view": "Baca",
 	"vector-more-actions": "Lainna",
 	"vector-searchsuggest-containing": "Jalaki tompat na marisi <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
-	"vector-toc-label": "isi",
-	"vector-toc-beginning": "lobi parjolo",
-	"vector-main-menu-label": "manu na paling utamo",
-	"vector-page-tools-label": "Peralatan",
-	"vector-page-tools-general-label": "Umum",
-	"vector-unpin-element-label": "onjabkon"
+	"vector-toc-beginning": "lobi parjolo"
 }

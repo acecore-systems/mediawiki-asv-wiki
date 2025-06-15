@@ -1,22 +1,22 @@
 /*!
  * VisualEditor DataModel SourceConverter tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.dm.SourceConverter' );
 
 /* Tests */
 
-QUnit.test( 'conversion', ( assert ) => {
-	const cases = [
+QUnit.test( 'conversion', function ( assert ) {
+	var cases = [
 		{
 			msg: 'Simple text with language options',
 			text: 'foo',
 			textFromDataRange: 'foo\n',
 			data: [
 				{ type: 'paragraph' },
-				...'foo',
+				'f', 'o', 'o',
 				{ type: '/paragraph' }
 			],
 			options: {
@@ -30,12 +30,12 @@ QUnit.test( 'conversion', ( assert ) => {
 			textFromDataRange: 'foo \n\n\tbar\n\n',
 			data: [
 				{ type: 'paragraph' },
-				...'foo ',
+				'f', 'o', 'o', ' ',
 				{ type: '/paragraph' },
 				{ type: 'paragraph' },
 				{ type: '/paragraph' },
 				{ type: 'paragraph' },
-				...'\tbar',
+				'\t', 'b', 'a', 'r',
 				{ type: '/paragraph' },
 				{ type: 'paragraph' },
 				{ type: '/paragraph' }
@@ -47,27 +47,27 @@ QUnit.test( 'conversion', ( assert ) => {
 			textFromDataRange: 'asd\nasd\nasd\nasd\n',
 			data: [
 				{ type: 'paragraph' },
-				...'asd',
+				'a', 's', 'd',
 				{ type: '/paragraph' },
 				{ type: 'paragraph' },
-				...'asd',
+				'a', 's', 'd',
 				{ type: '/paragraph' },
 				{ type: 'paragraph' },
-				...'asd',
+				'a', 's', 'd',
 				{ type: '/paragraph' },
 				{ type: 'paragraph' },
-				...'asd',
+				'a', 's', 'd',
 				{ type: '/paragraph' }
 			],
 			textRoundtrip: 'asd\nasd\nasd\nasd'
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
-		const doc = ve.dm.sourceConverter.getModelFromSourceText( caseItem.text, caseItem.options );
+	cases.forEach( function ( caseItem ) {
+		var doc = ve.dm.sourceConverter.getModelFromSourceText( caseItem.text, caseItem.options );
 		assert.deepEqual(
 			doc.data.data,
-			[ ...caseItem.data, { type: 'internalList' }, { type: '/internalList' } ],
+			[].concat( caseItem.data, [ { type: 'internalList' }, { type: '/internalList' } ] ),
 			caseItem.msg + ': getModelFromSourceText (data)'
 		);
 		if ( caseItem.options ) {

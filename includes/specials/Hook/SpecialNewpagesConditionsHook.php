@@ -2,8 +2,8 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\Html\FormOptions;
-use MediaWiki\Pager\NewPagesPager;
+use FormOptions;
+use NewPagesPager;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

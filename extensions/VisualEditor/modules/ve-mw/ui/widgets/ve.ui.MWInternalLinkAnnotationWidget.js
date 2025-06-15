@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface MWInternalLinkAnnotationWidget class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -29,13 +29,13 @@ OO.inheritClass( ve.ui.MWInternalLinkAnnotationWidget, ve.ui.LinkAnnotationWidge
  * @inheritdoc
  */
 ve.ui.MWInternalLinkAnnotationWidget.static.getAnnotationFromText = function ( value ) {
-	const trimmed = value.trim(),
+	var trimmed = value.trim(),
 		title = mw.Title.newFromText( trimmed );
 
 	if ( !title ) {
 		return null;
 	}
-	return ve.dm.MWInternalLinkAnnotation.static.newFromTitle( title );
+	return ve.dm.MWInternalLinkAnnotation.static.newFromTitle( title, trimmed );
 };
 
 /**
@@ -54,14 +54,13 @@ ve.ui.MWInternalLinkAnnotationWidget.static.getTextFromAnnotation = function ( a
  * @return {OO.ui.TextInputWidget} Text input widget
  */
 ve.ui.MWInternalLinkAnnotationWidget.prototype.createInputWidget = function ( config ) {
-	const input = new mw.widgets.TitleSearchWidget( ve.extendObject( {
+	var input = new mw.widgets.TitleSearchWidget( ve.extendObject( {
 		icon: 'search',
 		excludeCurrentPage: true,
 		showImages: mw.config.get( 'wgVisualEditorConfig' ).usePageImages,
 		showDescriptions: mw.config.get( 'wgVisualEditorConfig' ).usePageDescriptions,
 		showDisambigsLast: true,
 		showInterwikis: true,
-		searchFragments: true,
 		addQueryInput: false,
 		api: ve.init.target.getContentApi(),
 		cache: ve.init.platform.linkCache
@@ -96,7 +95,7 @@ ve.ui.MWInternalLinkAnnotationWidget.prototype.getTextInputWidget = function () 
  * @inheritdoc
  */
 ve.ui.MWInternalLinkAnnotationWidget.prototype.onTextChange = function ( value ) {
-	const htmlDoc = this.getElementDocument(),
+	var htmlDoc = this.getElementDocument(),
 		namespacesWithSubpages = mw.config.get( 'wgVisualEditorConfig' ).namespacesWithSubpages,
 		basePageObj = mw.Title.newFromText( mw.config.get( 'wgRelevantPageName' ) );
 	// Specific thing we want to check: has a valid URL for an internal page
@@ -104,7 +103,7 @@ ve.ui.MWInternalLinkAnnotationWidget.prototype.onTextChange = function ( value )
 	// page title. This has to happen /here/ because a URL can reference a
 	// valid page while not being a valid Title (e.g. if it contains a "%").
 	if ( ve.init.platform.getExternalLinkUrlProtocolsRegExp().test( value ) ) {
-		const targetData = mw.libs.ve.getTargetDataFromHref(
+		var targetData = mw.libs.ve.getTargetDataFromHref(
 			value,
 			htmlDoc
 		);

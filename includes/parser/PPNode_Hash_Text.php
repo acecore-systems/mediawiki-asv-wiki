@@ -19,17 +19,11 @@
  * @ingroup Parser
  */
 
-namespace MediaWiki\Parser;
-
-use InvalidArgumentException;
-use LogicException;
-use Stringable;
-
 /**
  * @ingroup Parser
  */
 // phpcs:ignore Squiz.Classes.ValidClassName.NotCamelCaps
-class PPNode_Hash_Text implements Stringable, PPNode {
+class PPNode_Hash_Text implements PPNode {
 
 	/** @var string */
 	public $value;
@@ -46,10 +40,10 @@ class PPNode_Hash_Text implements Stringable, PPNode {
 	 * @param int $index
 	 */
 	public function __construct( array $store, $index ) {
-		if ( !is_scalar( $store[$index] ) ) {
-			throw new InvalidArgumentException( __CLASS__ . ' given object instead of string' );
-		}
 		$this->value = $store[$index];
+		if ( !is_scalar( $this->value ) ) {
+			throw new MWException( __CLASS__ . ' given object instead of string' );
+		}
 		$this->store = $store;
 		$this->index = $index;
 	}
@@ -88,19 +82,16 @@ class PPNode_Hash_Text implements Stringable, PPNode {
 
 	public function splitArg() {
 		// @phan-suppress-previous-line PhanPluginNeverReturnMethod
-		throw new LogicException( __METHOD__ . ': not supported' );
+		throw new MWException( __METHOD__ . ': not supported' );
 	}
 
 	public function splitExt() {
 		// @phan-suppress-previous-line PhanPluginNeverReturnMethod
-		throw new LogicException( __METHOD__ . ': not supported' );
+		throw new MWException( __METHOD__ . ': not supported' );
 	}
 
 	public function splitHeading() {
 		// @phan-suppress-previous-line PhanPluginNeverReturnMethod
-		throw new LogicException( __METHOD__ . ': not supported' );
+		throw new MWException( __METHOD__ . ': not supported' );
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( PPNode_Hash_Text::class, 'PPNode_Hash_Text' );

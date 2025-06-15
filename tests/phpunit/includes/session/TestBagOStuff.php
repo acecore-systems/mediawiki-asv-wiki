@@ -1,11 +1,10 @@
 <?php
 
-namespace MediaWiki\Tests\Session;
+namespace MediaWiki\Session;
 
-use MediaWiki\MainConfigNames;
+use CachedBagOStuff;
+use HashBagOStuff;
 use MediaWiki\MediaWikiServices;
-use Wikimedia\ObjectCache\CachedBagOStuff;
-use Wikimedia\ObjectCache\HashBagOStuff;
 
 /**
  * BagOStuff with utility functions for MediaWiki\\Session\\* testing
@@ -56,7 +55,7 @@ class TestBagOStuff extends CachedBagOStuff {
 	 * @param array|mixed $blob Session metadata and data
 	 */
 	public function setRawSession( $id, $blob ) {
-		$expiry = MediaWikiServices::getInstance()->getMainConfig()->get( MainConfigNames::ObjectCacheSessionExpiry );
+		$expiry = MediaWikiServices::getInstance()->getMainConfig()->get( 'ObjectCacheSessionExpiry' );
 		$this->set( $this->makeKey( 'MWSession', $id ), $blob, $expiry );
 	}
 
@@ -84,6 +83,3 @@ class TestBagOStuff extends CachedBagOStuff {
 	}
 
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( TestBagOStuff::class, 'MediaWiki\\Session\\TestBagOStuff' );

@@ -19,12 +19,8 @@
  * @ingroup RevisionDelete
  */
 
-use MediaWiki\Api\ApiResult;
-use MediaWiki\Linker\Linker;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Revision\RevisionRecord;
-use MediaWiki\RevisionList\RevisionListBase;
-use MediaWiki\Xml\Xml;
 
 /**
  * Item class for a live revision table row
@@ -103,31 +99,32 @@ class RevDelRevisionItem extends RevDelItem {
 	public function setBits( $bits ) {
 		$revRecord = $this->getRevisionRecord();
 
-		$dbw = MediaWikiServices::getInstance()->getConnectionProvider()->getPrimaryDatabase();
+		$dbw = wfGetDB( DB_PRIMARY );
 		// Update revision table
-		$dbw->newUpdateQueryBuilder()
-			->update( 'revision' )
-			->set( [ 'rev_deleted' => $bits ] )
-			->where( [
+		$dbw->update( 'revision',
+			[ 'rev_deleted' => $bits ],
+			[
 				'rev_id' => $revRecord->getId(),
 				'rev_page' => $revRecord->getPageId(),
 				'rev_deleted' => $this->getBits() // cas
-			] )
-			->caller( __METHOD__ )->execute();
-
+			],
+			__METHOD__
+		);
 		if ( !$dbw->affectedRows() ) {
 			// Concurrent fail!
 			return false;
 		}
 		// Update recentchanges table
-		$dbw->newUpdateQueryBuilder()
-			->update( 'recentchanges' )
-			->set( [
+		$dbw->update( 'recentchanges',
+			[
 				'rc_deleted' => $bits,
 				'rc_patrolled' => RecentChange::PRC_AUTOPATROLLED
-			] )
-			->where( [ 'rc_this_oldid' => $revRecord->getId() ] )
-			->caller( __METHOD__ )->execute();
+			],
+			[
+				'rc_this_oldid' => $revRecord->getId(), // condition
+			],
+			__METHOD__
+		);
 
 		return true;
 	}
@@ -200,8 +197,7 @@ class RevDelRevisionItem extends RevDelItem {
 			->rawParams( $this->getDiffLink() )->escaped();
 		$revlink = $this->getRevisionLink();
 		$userlink = Linker::revUserLink( $revRecord );
-		$comment = MediaWikiServices::getInstance()->getCommentFormatter()
-			->formatRevision( $revRecord, $this->list->getAuthority() );
+		$comment = Linker::revComment( $revRecord );
 		if ( $this->isDeleted() ) {
 			$class = Linker::getRevisionDeletedClass( $revRecord );
 			$revlink = "<span class=\"$class\">$revlink</span>";
@@ -210,7 +206,7 @@ class RevDelRevisionItem extends RevDelItem {
 		$attribs = [];
 		$tags = $this->getTags();
 		if ( $tags ) {
-			[ $tagSummary, $classes ] = ChangeTags::formatSummaryRow(
+			list( $tagSummary, $classes ) = ChangeTags::formatSummaryRow(
 				$tags,
 				'revisiondelete',
 				$this->list->getContext()

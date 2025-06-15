@@ -2,43 +2,37 @@
 
 namespace MediaWiki\Extension\AbuseFilter\View;
 
+use DeferredUpdates;
+use Html;
+use HTMLForm;
+use IContextSource;
 use LogEventsList;
 use LogPage;
 use ManualLogEntry;
-use MediaWiki\Context\IContextSource;
-use MediaWiki\Deferred\DeferredUpdates;
 use MediaWiki\Extension\AbuseFilter\AbuseFilterPermissionManager;
 use MediaWiki\Extension\AbuseFilter\Pager\AbuseLogPager;
-use MediaWiki\Html\Html;
-use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\Linker\LinkRenderer;
 use MediaWiki\MediaWikiServices;
-use Wikimedia\Rdbms\LBFactory;
+use Xml;
 
 class HideAbuseLog extends AbuseFilterView {
-
-	/** @var LBFactory */
-	private $lbFactory;
 
 	/** @var int[] */
 	private $hideIDs;
 
 	/**
-	 * @param LBFactory $lbFactory
 	 * @param AbuseFilterPermissionManager $afPermManager
 	 * @param IContextSource $context
 	 * @param LinkRenderer $linkRenderer
 	 * @param string $basePageName
 	 */
 	public function __construct(
-		LBFactory $lbFactory,
 		AbuseFilterPermissionManager $afPermManager,
 		IContextSource $context,
 		LinkRenderer $linkRenderer,
 		string $basePageName
 	) {
 		parent::__construct( $afPermManager, $context, $linkRenderer, $basePageName, [] );
-		$this->lbFactory = $lbFactory;
 		$this->hideIDs = array_keys( $this->getRequest()->getArray( 'hideids', [] ) );
 	}
 
@@ -76,7 +70,6 @@ class HideAbuseLog extends AbuseFilterView {
 			return;
 		}
 
-		$output->addModuleStyles( 'mediawiki.interface.helpers.styles' );
 		$output->wrapWikiMsg(
 			"<strong>$1</strong>",
 			[
@@ -84,11 +77,11 @@ class HideAbuseLog extends AbuseFilterView {
 				$this->getLanguage()->formatNum( count( $this->hideIDs ) )
 			]
 		);
-		$output->addHTML( Html::rawElement( 'ul', [ 'class' => 'plainlinks' ], $pager->getBody() ) );
+		$output->addHTML( Xml::tags( 'ul', [ 'class' => 'plainlinks' ], $pager->getBody() ) );
 
 		$hideReasonsOther = $this->msg( 'revdelete-reasonotherlist' )->text();
 		$hideReasons = $this->msg( 'revdelete-reason-dropdown-suppress' )->inContentLanguage()->text();
-		$hideReasons = Html::listDropdownOptions( $hideReasons, [ 'other' => $hideReasonsOther ] );
+		$hideReasons = Xml::listDropDownOptions( $hideReasons, [ 'other' => $hideReasonsOther ] );
 
 		$formInfo = [
 			'showorhide' => [
@@ -112,7 +105,7 @@ class HideAbuseLog extends AbuseFilterView {
 			],
 		];
 
-		$actionURL = $this->getTitle( 'hide' )->getLocalURL( [ 'hideids' => array_fill_keys( $this->hideIDs, 1 ) ] );
+		$actionURL = $this->getTitle( 'hide' )->getFullURL( [ 'hideids' => array_fill_keys( $this->hideIDs, 1 ) ] );
 		HTMLForm::factory( 'ooui', $formInfo, $this->getContext() )
 			->setAction( $actionURL )
 			->setWrapperLegend( $this->msg( 'abusefilter-log-hide-legend' )->text() )
@@ -145,27 +138,24 @@ class HideAbuseLog extends AbuseFilterView {
 	 */
 	public function saveHideForm( array $fields ) {
 		// Determine which rows actually have to be changed
-		$dbw = $this->lbFactory->getPrimaryDatabase();
+		$dbw = wfGetDB( DB_PRIMARY );
 		$newValue = $fields['showorhide'] === 'hide' ? 1 : 0;
-		$actualIDs = $dbw->newSelectQueryBuilder()
-			->select( 'afl_id' )
-			->from( 'abuse_filter_log' )
-			->where( [
-				'afl_id' => $this->hideIDs,
-				$dbw->expr( 'afl_deleted', '!=', $newValue ),
-			] )
-			->caller( __METHOD__ )
-			->fetchFieldValues();
+		$actualIDs = $dbw->selectFieldValues(
+			'abuse_filter_log',
+			'afl_id',
+			[ 'afl_id' => $this->hideIDs, "afl_deleted != $newValue" ],
+			__METHOD__
+		);
 		if ( !count( $actualIDs ) ) {
 			return [ 'abusefilter-log-hide-no-change' ];
 		}
 
-		$dbw->newUpdateQueryBuilder()
-			->update( 'abuse_filter_log' )
-			->set( [ 'afl_deleted' => $newValue ] )
-			->where( [ 'afl_id' => $actualIDs ] )
-			->caller( __METHOD__ )
-			->execute();
+		$dbw->update(
+			'abuse_filter_log',
+			[ 'afl_deleted' => $newValue ],
+			[ 'afl_id' => $actualIDs ],
+			__METHOD__
+		);
 
 		// Log in a DeferredUpdates to avoid potential flood
 		DeferredUpdates::addCallableUpdate( function () use ( $fields, $actualIDs ) {

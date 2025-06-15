@@ -20,10 +20,7 @@
  * @file
  */
 
-namespace MediaWiki\Config;
-
-use ArrayIterator;
-use Traversable;
+use MediaWiki\Config\IterableConfig;
 
 /**
  * A Config instance which stores all settings as a member variable
@@ -107,6 +104,3 @@ class HashConfig implements Config, MutableConfig, IterableConfig {
 		$this->settings = [];
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( HashConfig::class, 'HashConfig' );

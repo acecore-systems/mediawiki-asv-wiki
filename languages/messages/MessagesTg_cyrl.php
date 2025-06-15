@@ -1,6 +1,8 @@
 <?php
 /** Tajik (Cyrillic script) (тоҷикӣ)
  *
+ * To improve a translation please visit https://translatewiki.net
+ *
  * @file
  * @ingroup Languages
  *
@@ -200,7 +202,7 @@ $magicWords = [
 	'img_width'                 => [ '1', '$1пкс', '$1px' ],
 	'index'                     => [ '1', '__ИНДЕКС__', '__INDEX__' ],
 	'int'                       => [ '0', 'ДАРУН:', 'INT:' ],
-	'language'                  => [ '0', '#ЗАБОН', '#LANGUAGE' ],
+	'language'                  => [ '0', '#ЗАБОН:', '#LANGUAGE:' ],
 	'lc'                        => [ '0', 'БО_ҲАРФҲОИ_ХУРД:', 'LC:' ],
 	'lcfirst'                   => [ '0', 'ҲАРФИ_АВВАЛ_ХУРД:', 'LCFIRST:' ],
 	'localday'                  => [ '1', 'РӮЗИ_МАҲАЛЛӢ', 'LOCALDAY' ],

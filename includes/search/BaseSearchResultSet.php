@@ -72,7 +72,7 @@ abstract class BaseSearchResultSet implements ISearchResultSet {
 
 	/**
 	 * Frees the result set, if applicable.
-	 * @deprecated since 1.34; noop
+	 * @deprecated noop since 1.34
 	 */
 	public function free() {
 	}

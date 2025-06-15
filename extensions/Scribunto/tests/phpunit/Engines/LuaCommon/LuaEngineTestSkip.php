@@ -1,10 +1,6 @@
 <?php
 
-namespace MediaWiki\Extension\Scribunto\Tests\Engines\LuaCommon;
-
-use PHPUnit\Framework\TestCase;
-
-class LuaEngineTestSkip extends TestCase {
+class Scribunto_LuaEngineTestSkip extends PHPUnit\Framework\TestCase {
 	/** @var string */
 	private $className;
 	/** @var string */

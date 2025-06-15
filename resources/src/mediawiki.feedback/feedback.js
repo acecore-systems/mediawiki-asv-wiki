@@ -8,52 +8,48 @@
  */
 ( function () {
 
-	const FeedbackDialog = require( './FeedbackDialog.js' );
+	var FeedbackDialog = require( './FeedbackDialog.js' );
 
 	/**
-	 * @classdesc Obtain feedback from users. Functionality is provided
-	 * by the mediawiki.feedback ResourceLoader module.
-	 *
 	 * This is a way of getting simple feedback from users. It's useful
-	 * for testing new features — users can give you feedback without
+	 * for testing new features -- users can give you feedback without
 	 * the difficulty of opening a whole new talk page. For this reason,
 	 * it also tends to collect a wider range of both positive and negative
 	 * comments. However you do need to tend to the feedback page. It will
 	 * get long relatively quickly, and you often get multiple messages
 	 * reporting the same issue.
 	 *
-	 * It takes the form of an element on your page which, when clicked, opens
-	 * a small dialog box. Submitting that dialog box appends its contents to a
+	 * It takes the form of thing on your page which, when clicked, opens a small
+	 * dialog box. Submitting that dialog box appends its contents to a
 	 * wiki page that you specify, as a new section.
 	 *
 	 * This feature works with any content model that defines a
-	 * {@link mw.messagePoster.MessagePoster}.
+	 * `mw.messagePoster.MessagePoster`.
 	 *
-	 * ```
-	 * // Minimal usage example
-	 * mw.loader.using( 'mediawiki.feedback').then(() => {
+	 * Minimal usage example:
+	 *
 	 *     var feedback = new mw.Feedback();
 	 *     $( '#myButton' ).click( function () { feedback.launch(); } );
-	 * });
-	 * ```
-	 * You can also launch the feedback form with a prefilled subject and body.
-	 * See the docs for the {@link mw.Feedback#launch launch() method}.
 	 *
-	 * @class mw.Feedback
+	 * You can also launch the feedback form with a prefilled subject and body.
+	 * See the docs for the #launch() method.
+	 *
+	 * @class
 	 * @constructor
-	 * @description Create an instance of `mw.Feedback`.
 	 * @param {Object} [config] Configuration object
-	 * @param {mw.Title} [config.title="Feedback"] The title of the page where you collect
+	 * @cfg {mw.Title} [title="Feedback"] The title of the page where you collect
 	 *  feedback.
-	 * @param {string} [config.apiUrl] api.php URL if the feedback page is on another wiki
-	 * @param {string} [config.dialogTitleMessageKey="feedback-dialog-title"] Message key for the
+	 * @cfg {string} [apiUrl] api.php URL if the feedback page is on another wiki
+	 * @cfg {string} [dialogTitleMessageKey="feedback-dialog-title"] Message key for the
 	 *  title of the dialog box
-	 * @param {mw.Uri|string} [config.bugsLink="//phabricator.wikimedia.org/maniphest/task/edit/form/1/"] URL where
+	 * @cfg {mw.Uri|string} [bugsLink="//phabricator.wikimedia.org/maniphest/task/edit/form/1/"] URL where
 	 *  bugs can be posted
-	 * @param {boolean} [config.showUseragentCheckbox=false] Show a Useragent agreement checkbox as part of the form.
-	 * @param {boolean} [config.useragentCheckboxMandatory=false] Make the Useragent checkbox mandatory.
-	 * @param {string|jQuery} [config.useragentCheckboxMessage] Supply a custom message for the useragent checkbox.
-	 *  Defaults to the {@link mw.Message} 'feedback-terms'.
+	 * @cfg {mw.Uri|string} [bugsListLink="//phabricator.wikimedia.org/maniphest/query/advanced"] URL
+	 *  where bugs can be listed
+	 * @cfg {boolean} [showUseragentCheckbox=false] Show a Useragent agreement checkbox as part of the form.
+	 * @cfg {boolean} [useragentCheckboxMandatory=false] Make the Useragent checkbox mandatory.
+	 * @cfg {string|jQuery} [useragentCheckboxMessage] Supply a custom message for the useragent checkbox.
+	 *  defaults to the message 'feedback-terms'.
 	 */
 	mw.Feedback = function MwFeedback( config ) {
 		config = config || {};
@@ -68,6 +64,7 @@
 
 		// Links
 		this.bugsTaskSubmissionLink = config.bugsLink || '//phabricator.wikimedia.org/maniphest/task/edit/form/1/';
+		this.bugsTaskListLink = config.bugsListLink || '//phabricator.wikimedia.org/maniphest/query/advanced';
 
 		// Terms of use
 		this.useragentCheckboxShow = !!config.showUseragentCheckbox;
@@ -84,9 +81,8 @@
 
 	/**
 	 * mw.Feedback Dialog
-	 * See FeedbackDialog.js for documentation
 	 *
-	 * @ignore
+	 * @class
 	 */
 	mw.Feedback.Dialog = FeedbackDialog;
 
@@ -108,11 +104,13 @@
 	 * @param {string} feedbackPageUrl
 	 */
 	mw.Feedback.prototype.onDialogSubmit = function ( status, feedbackPageName, feedbackPageUrl ) {
+		var dialogConfig;
+
 		if ( status !== 'submitted' ) {
 			return;
 		}
 
-		const dialogConfig = {
+		dialogConfig = {
 			title: mw.msg( 'feedback-thanks-title' ),
 			message: $( '<span>' ).msg(
 				'feedback-thanks',
@@ -157,7 +155,7 @@
 				this.constructor.static.dialog,
 				this.thankYouDialog
 			] );
-			$( OO.ui.getTeleportTarget() )
+			$( document.body )
 				.append( this.constructor.static.windowManager.$element );
 		}
 		// Open the dialog
@@ -174,6 +172,7 @@
 					title: this.feedbackPageTitle,
 					dialogTitleMessageKey: this.dialogTitleMessageKey,
 					bugsTaskSubmissionLink: this.bugsTaskSubmissionLink,
+					bugsTaskListLink: this.bugsTaskListLink,
 					useragentCheckbox: {
 						show: this.useragentCheckboxShow,
 						mandatory: this.useragentCheckboxMandatory,

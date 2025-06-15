@@ -1,13 +1,14 @@
 {
 	"@metadata": {
 		"authors": [
-			"Ideophagous",
 			"Reda Benkhadra",
-			"SADIQUI"
+			"SADIQUI",
+			"Ideophagous"
 		]
 	},
 	"minerva-last-modified-date": "التبديل اللخر ف $1، ف $2",
 	"minerva-watchlist-cta": "حضي هاد الصفحة و جميع التبديلات فيها.",
+	"minerva-talk-add-topic": "زيد موضوع",
 	"mobile-frontend-cookies-required": "راه لكوكيز ضروريين على ود تبدال الموض د العرض. عافاك فعّلهم و عاود جرّب.",
 	"mobile-frontend-editor-edit": "بدّل",
 	"minerva-download": "طيليشارجي PDF",
@@ -39,5 +40,6 @@
 	"mobile-frontend-talk-back-to-userpage": "رجع للصفحة د الخدايمي ديال \"{{GENDER:$1|$1}}\".",
 	"mobile-frontend-user-page-member-since": "{{GENDER:$1|دخل|دخلات}} هادي $1",
 	"minerva-page-actions-overflow": "زيد عاد",
+	"minerva-talk-explained-empty": "ماكاينش نيقاشات فهاد صفحة.",
 	"skinname-minerva": "مينيرڤانيو"
 }

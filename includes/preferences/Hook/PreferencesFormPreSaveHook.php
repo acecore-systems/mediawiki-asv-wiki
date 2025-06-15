@@ -2,8 +2,8 @@
 
 namespace MediaWiki\Preferences\Hook;
 
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\User\User;
+use HTMLForm;
+use User;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

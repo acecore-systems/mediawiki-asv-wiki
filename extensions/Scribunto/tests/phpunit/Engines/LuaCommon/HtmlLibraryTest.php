@@ -1,13 +1,6 @@
 <?php
 
-namespace MediaWiki\Extension\Scribunto\Tests\Engines\LuaCommon;
-
-use MediaWiki\Parser\Parser;
-
-/**
- * @covers \MediaWiki\Extension\Scribunto\Engines\LuaCommon\HtmlLibrary
- */
-class HtmlLibraryTest extends LuaEngineUnitTestBase {
+class Scribunto_LuaHtmlLibraryTest extends Scribunto_LuaEngineUnitTestBase {
 	/** @inheritDoc */
 	protected static $moduleName = 'HtmlLibraryTests';
 

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel DatetimeAnnotation class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -31,13 +31,13 @@ ve.dm.DatetimeAnnotation.static.matchTagNames = [ 'time' ];
 
 ve.dm.DatetimeAnnotation.static.toDataElement = function ( domElements ) {
 	// Parent method
-	const dataElement = ve.dm.DatetimeAnnotation.super.static.toDataElement.apply( this, arguments );
+	var dataElement = ve.dm.DatetimeAnnotation.super.static.toDataElement.apply( this, arguments );
 	dataElement.attributes.datetime = domElements[ 0 ].getAttribute( 'datetime' );
 	return dataElement;
 };
 
 ve.dm.DatetimeAnnotation.static.toDomElements = function ( dataElement, doc ) {
-	const domElement = doc.createElement( 'time' );
+	var domElement = doc.createElement( 'time' );
 	if ( dataElement.attributes.datetime ) {
 		// If it's null, don't bother creating a blank attribute; <time> alone is valid
 		domElement.setAttribute( 'datetime', dataElement.attributes.datetime );

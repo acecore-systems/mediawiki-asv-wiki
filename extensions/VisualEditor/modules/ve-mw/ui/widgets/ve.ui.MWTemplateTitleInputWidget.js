@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface MWTemplateTitleInputWidget class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -16,9 +16,9 @@
  *
  * @constructor
  * @param {Object} [config] Configuration options
- * @param {number} [config.namespace] Namespace to prepend to queries. Defaults to template namespace.
- * @param {boolean} [config.showDescriptions] Show template descriptions from the TemplateData API
- * @param {mw.Api} [config.api]
+ * @cfg {number} [namespace] Namespace to prepend to queries. Defaults to template namespace.
+ * @cfg {boolean} [showDescriptions] Show template descriptions from the TemplateData API
+ * @cfg {mw.Api} [api]
  */
 ve.ui.MWTemplateTitleInputWidget = function VeUiMWTemplateTitleInputWidget( config ) {
 	config = ve.extendObject( {}, {
@@ -56,7 +56,7 @@ OO.inheritClass( ve.ui.MWTemplateTitleInputWidget, mw.widgets.TitleInputWidget )
 
 // @inheritdoc mw.widgets.TitleWidget
 ve.ui.MWTemplateTitleInputWidget.prototype.getApiParams = function ( query ) {
-	const params = ve.ui.MWTemplateTitleInputWidget.super.prototype.getApiParams.call( this, query );
+	var params = ve.ui.MWTemplateTitleInputWidget.super.prototype.getApiParams.call( this, query );
 
 	// TODO: This should stay as a feature flag for 3rd-parties to fallback to prefixsearch
 	if ( mw.config.get( 'wgVisualEditorConfig' ).cirrusSearchLookup ) {
@@ -69,8 +69,15 @@ ve.ui.MWTemplateTitleInputWidget.prototype.getApiParams = function ( query ) {
 		// Adding the asterisk to emulate a prefix search behavior. It does not make sense in all
 		// cases though. We're limiting it to be add only of the term ends with a letter or numeric
 		// character.
-		// eslint-disable-next-line es-x/no-regexp-unicode-property-escapes, prefer-regex-literals
-		const endsWithAlpha = new RegExp( '[\\p{L}\\p{N}]$', 'u' );
+		var endsWithAlpha;
+		try {
+			// TODO: Convert to literal when IE11 compatibility was dropped
+			// eslint-disable-next-line prefer-regex-literals
+			endsWithAlpha = new RegExp( '[0-9a-z\\p{L}\\p{N}]$', 'iu' );
+		} catch ( e ) {
+			// TODO: Remove when IE11 compatibility was dropped
+			endsWithAlpha = /[0-9a-z\xC0-\uFFFF]$/i;
+		}
 		if ( endsWithAlpha.test( params.gsrsearch ) ) {
 			params.gsrsearch += '*';
 		}
@@ -86,32 +93,33 @@ ve.ui.MWTemplateTitleInputWidget.prototype.getApiParams = function ( query ) {
 
 // @inheritdoc mw.widgets.TitleInputWidget
 ve.ui.MWTemplateTitleInputWidget.prototype.getLookupRequest = function () {
-	let promise = ve.ui.MWTemplateTitleInputWidget.super.prototype.getLookupRequest.call( this );
+	var widget = this,
+		originalResponse,
+		templateDataMessage = mw.message( 'templatedata-doc-subpage' ),
+		templateDataInstalled = templateDataMessage.exists(),
+		templateDocPageFragment = '/' + templateDataMessage.text(),
+		promise = ve.ui.MWTemplateTitleInputWidget.super.prototype.getLookupRequest.call( this );
+
 	if ( mw.config.get( 'wgVisualEditorConfig' ).cirrusSearchLookup ) {
 		promise = promise
 			.then( this.addExactMatch.bind( this ) )
-			.promise( { abort: () => {} } );
+			.promise( { abort: function () {} } );
 	}
 
 	if ( !this.showTemplateDescriptions ) {
 		return promise;
 	}
 
-	const templateDataMessage = mw.message( 'templatedata-doc-subpage' ),
-		templateDataInstalled = templateDataMessage.exists(),
-		templateDocPageFragment = '/' + templateDataMessage.text();
-
-	let originalResponse;
 	return promise
-		.then( ( response ) => {
-			const redirects = ( response.query && response.query.redirects ) || [];
-			let newPages = ( response.query && response.query.pages ) || [];
+		.then( function ( response ) {
+			var redirects = ( response.query && response.query.redirects ) || [],
+				newPages = ( response.query && response.query.pages ) || [];
 
-			newPages.forEach( ( page ) => {
+			newPages.forEach( function ( page ) {
 				if ( !( 'index' in page ) ) {
 					// Watch out for cases where the index is specified on the redirect object
 					// rather than the page object.
-					for ( const j in redirects ) {
+					for ( var j in redirects ) {
 						if ( redirects[ j ].to === page.title ) {
 							page.index = redirects[ j ].index;
 							break;
@@ -120,25 +128,23 @@ ve.ui.MWTemplateTitleInputWidget.prototype.getLookupRequest = function () {
 				}
 			} );
 
-			// T54448: Filter out matches which end in /doc or as configured on-wiki
-			if ( templateDataInstalled ) {
-				newPages = newPages.filter(
-					// Can't use String.endsWith() as that's ES6.
-					// page.title.endsWith( templateDocPageFragment )
-					( page ) => page.title.slice( -templateDocPageFragment.length ) !== templateDocPageFragment
-				);
-			}
-
 			// Ensure everything goes into the order defined by the page's index key
-			newPages.sort( ( a, b ) => {
-				// T366299: Avoid unstable sort.
-				if ( a.index === undefined || b.index === undefined ) {
-					return 0;
-				}
+			newPages.sort( function ( a, b ) {
 				return a.index - b.index;
 			} );
 
-			const titles = newPages.map( ( page ) => page.title );
+			// T54448: Filter out matches which end in /doc or as configured on-wiki
+			if ( templateDataInstalled ) {
+				newPages = newPages.filter( function ( page ) {
+					// Can't use String.endsWith() as that's ES6.
+					// page.title.endsWith( templateDocPageFragment )
+					return page.title.slice( -templateDocPageFragment.length ) !== templateDocPageFragment;
+				} );
+			}
+
+			var titles = newPages.map( function ( page ) {
+				return page.title;
+			} );
 
 			ve.setProp( response, 'query', 'pages', newPages );
 			originalResponse = response; // lie!
@@ -146,38 +152,40 @@ ve.ui.MWTemplateTitleInputWidget.prototype.getLookupRequest = function () {
 			// Also get descriptions
 			// FIXME: This should go through MWTransclusionModel rather than duplicate.
 			if ( titles.length > 0 ) {
-				const xhr = this.getApi().get( {
+				var xhr = widget.getApi().get( {
 					action: 'templatedata',
 					titles: titles,
-					redirects: !!this.showRedirects,
+					redirects: !!widget.showRedirects,
 					includeMissingTitles: '1',
 					lang: mw.config.get( 'wgUserLanguage' )
 				} );
 				return xhr.promise( { abort: xhr.abort } );
 			}
 		} )
-		.then( ( templateDataResponse ) => {
-			const pages = ( templateDataResponse && templateDataResponse.pages ) || {};
+		.then( function ( templateDataResponse ) {
+			var pages = ( templateDataResponse && templateDataResponse.pages ) || {};
 			// Look for descriptions and cache them
-			for ( const i in pages ) {
-				const page = pages[ i ];
+			for ( var i in pages ) {
+				var page = pages[ i ];
 
 				if ( page.missing ) {
 					// Remember templates that don't exist in the link cache
 					// { title: { missing: true|false }
-					const missingTitle = {};
+					var missingTitle = {};
 					missingTitle[ page.title ] = { missing: true };
 					ve.init.platform.linkCache.setMissing( missingTitle );
 				} else if ( !page.notemplatedata ) {
 					// Cache descriptions
-					this.descriptions[ page.title ] = page.description;
+					widget.descriptions[ page.title ] = page.description;
 				}
 			}
 			// Return the original response
 			return originalResponse;
-		// API request failed; most likely, we're on a wiki which doesn't have TemplateData.
-		}, () => originalResponse || ve.createDeferred().reject() )
-		.promise( { abort: () => {} } );
+		}, function () {
+			// API request failed; most likely, we're on a wiki which doesn't have TemplateData.
+			return originalResponse || ve.createDeferred().reject();
+		} )
+		.promise( { abort: function () {} } );
 };
 
 /**
@@ -187,7 +195,8 @@ ve.ui.MWTemplateTitleInputWidget.prototype.getLookupRequest = function () {
  * @return {Object} Modified response
  */
 ve.ui.MWTemplateTitleInputWidget.prototype.addExactMatch = function ( response ) {
-	const query = this.getQueryValue(),
+	var widget = this,
+		query = this.getQueryValue(),
 		title = mw.Title.newFromText( query, this.namespace );
 	// No point in trying anything when the title is invalid
 	if ( !title ) {
@@ -198,49 +207,53 @@ ve.ui.MWTemplateTitleInputWidget.prototype.addExactMatch = function ( response )
 		response.query = { pages: [] };
 	}
 
-	const lowerTitle = title.getPrefixedText().toLowerCase(),
+	var lowerTitle = title.getPrefixedText().toLowerCase(),
 		metadata = response.query.redirects || [],
-		foundMatchingMetadata = metadata.some( ( redirect ) => redirect.from.toLowerCase() === lowerTitle );
+		foundMatchingMetadata = metadata.some( function ( redirect ) {
+			return redirect.from.toLowerCase() === lowerTitle;
+		} );
 	if ( foundMatchingMetadata ) {
 		// Redirects will be carefully positioned later in TitleWidget.getOptionsFromData()
 		return response;
 	}
 
 	/**
-	 * @typedef {Object} PageResponse
-	 * @memberof ve.ui.MWTemplateTitleInputWidget
-	 * @param {number} pageId Page ID
-	 * @param {number} index Page ID
-	 */
-
-	/**
-	 * @param {ve.ui.MWTemplateTitleInputWidget.PageResponse[]} pages
+	 * @param {{pageid: number}[]} pages
 	 * @param {number} pageId
 	 * @return {boolean}
 	 */
-	const containsPageId = ( pages, pageId ) => pageId && pages.some( ( page ) => page.pageid === pageId );
+	function containsPageId( pages, pageId ) {
+		return pageId && pages.some( function ( page ) {
+			return page.pageid === pageId;
+		} );
+	}
 
 	/**
-	 * @param {ve.ui.MWTemplateTitleInputWidget.PageResponse[]} pages
+	 * @param {{index: number}[]} pages
 	 * @param {Object} [newPage]
 	 */
-	const unshiftPages = ( pages, newPage ) => {
-		pages.forEach( ( page ) => {
+	function unshiftPages( pages, newPage ) {
+		pages.forEach( function ( page ) {
 			page.index++;
 		} );
 		if ( newPage && newPage.title ) {
 			newPage.index = 1;
 			pages.unshift( newPage );
-			if ( pages.length > this.limit ) {
-				pages.sort( ( a, b ) => a.index - b.index ).splice( this.limit );
+			if ( pages.length > widget.limit ) {
+				pages.sort( function ( a, b ) {
+					return a.index - b.index;
+				} ).splice( widget.limit );
 			}
 		}
-	};
+	}
 
-	const matchingRedirects = response.query.pages.filter( ( page ) => page.redirecttitle && page.redirecttitle.toLowerCase() === lowerTitle );
+	var i,
+		matchingRedirects = response.query.pages.filter( function ( page ) {
+			return page.redirecttitle && page.redirecttitle.toLowerCase() === lowerTitle;
+		} );
 	if ( matchingRedirects.length ) {
-		for ( let i = matchingRedirects.length; i--; ) {
-			const matchingRedirect = matchingRedirects[ i ];
+		for ( i = matchingRedirects.length; i--; ) {
+			var matchingRedirect = matchingRedirects[ i ];
 			// Offer redirects as separate options when the user's input is an exact match
 			unshiftPages( response.query.pages, {
 				pageid: matchingRedirect.pageid,
@@ -251,9 +264,11 @@ ve.ui.MWTemplateTitleInputWidget.prototype.addExactMatch = function ( response )
 		return response;
 	}
 
-	const matchingTitles = response.query.pages.filter( ( page ) => page.title.toLowerCase() === lowerTitle );
+	var matchingTitles = response.query.pages.filter( function ( page ) {
+		return page.title.toLowerCase() === lowerTitle;
+	} );
 	if ( matchingTitles.length ) {
-		for ( let i = matchingTitles.length; i--; ) {
+		for ( i = matchingTitles.length; i--; ) {
 			// Make sure exact matches are at the very top
 			unshiftPages( response.query.pages );
 			matchingTitles[ i ].index = 1;
@@ -269,27 +284,31 @@ ve.ui.MWTemplateTitleInputWidget.prototype.addExactMatch = function ( response )
 		gpsnamespace: this.namespace,
 		// Try to fill with prefix matches, otherwise just the top-1 prefix match
 		gpslimit: this.limit
-	} ).then( ( prefixMatches ) => {
+	} ).then( function ( prefixMatches ) {
 		// action=query returns page objects in `{ query: { pages: [] } }`, not keyed by page id
-		const pages = prefixMatches.query && prefixMatches.query.pages || [];
-		pages.sort( ( a, b ) => a.index - b.index );
-		for ( const i in pages ) {
-			const prefixMatch = pages[ i ];
+		var pages = prefixMatches.query && prefixMatches.query.pages || [];
+		pages.sort( function ( a, b ) {
+			return a.index - b.index;
+		} );
+		for ( i in pages ) {
+			var prefixMatch = pages[ i ];
 			if ( !containsPageId( response.query.pages, prefixMatch.pageid ) ) {
 				// Move prefix matches to the top, indexed from -9 to 0, relevant for e.g. {{!!}}
 				// Note: Sorting happens later in mw.widgets.TitleWidget.getOptionsFromData()
-				prefixMatch.index -= this.limit;
+				prefixMatch.index -= widget.limit;
 				response.query.pages.push( prefixMatch );
 			}
 			// Check only after the top-1 prefix match is guaranteed to be present
-			if ( response.query.pages.length >= this.limit ) {
+			if ( response.query.pages.length >= widget.limit ) {
 				break;
 			}
 		}
 		return response;
-	// Proceed with the unmodified response in case the additional API request failed
-	}, () => response )
-		.promise( { abort: () => {} } );
+	}, function () {
+		// Proceed with the unmodified response in case the additional API request failed
+		return response;
+	} )
+		.promise( { abort: function () {} } );
 };
 
 // @inheritdoc mw.widgets.TitleWidget
@@ -305,16 +324,16 @@ ve.ui.MWTemplateTitleInputWidget.prototype.getOptionWidgetData = function ( titl
 
 // @inheritdoc mw.widgets.TitleWidget
 ve.ui.MWTemplateTitleInputWidget.prototype.createOptionWidget = function ( data ) {
-	const widget = ve.ui.MWTemplateTitleInputWidget.super.prototype.createOptionWidget.call( this, data );
+	var widget = ve.ui.MWTemplateTitleInputWidget.super.prototype.createOptionWidget.call( this, data );
 
 	if ( data.redirecttitle ) {
 		// Same conditions as in mw.widgets.TitleWidget.getOptionWidgetData()
-		const title = new mw.Title( data.redirecttitle ),
+		var title = new mw.Title( data.redirecttitle ),
 			text = this.namespace !== null && this.relative ?
 				title.getRelativeText( this.namespace ) :
 				data.redirecttitle;
 
-		let $desc = widget.$element.find( '.mw-widget-titleOptionWidget-description' );
+		var $desc = widget.$element.find( '.mw-widget-titleOptionWidget-description' );
 		if ( !$desc.length ) {
 			$desc = $( '<span>' )
 				.addClass( 'mw-widget-titleOptionWidget-description' )

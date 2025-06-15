@@ -3,12 +3,12 @@
 namespace MediaWiki\Skin\Timeless;
 
 use MediaWiki\ResourceLoader\Context;
-use MediaWiki\ResourceLoader\SkinModule;
+use ResourceLoaderSkinModule;
 
 /**
  * ResourceLoader module to set some LESS variables for the skin
  */
-class TimelessVariablesModule extends SkinModule {
+class TimelessVariablesModule extends ResourceLoaderSkinModule {
 	/**
 	 * Add our LESS variables
 	 *

@@ -1,9 +1,7 @@
 <?php
 
-use MediaWiki\Deferred\TransactionRoundDefiningUpdate;
-
 /**
- * @covers \MediaWiki\Deferred\TransactionRoundDefiningUpdate
+ * @covers TransactionRoundDefiningUpdate
  */
 class TransactionRoundDefiningUpdateTest extends MediaWikiUnitTestCase {
 

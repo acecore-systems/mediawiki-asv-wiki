@@ -144,6 +144,7 @@ class RevisionQueryInfoTest extends MediaWikiIntegrationTestCase {
 					'revision',
 					'page',
 					'user',
+					'temp_rev_comment' => 'revision_comment_temp',
 					'actor_rev_user' => 'actor',
 					'comment_rev_comment' => 'comment',
 				],
@@ -160,7 +161,11 @@ class RevisionQueryInfoTest extends MediaWikiIntegrationTestCase {
 						'LEFT JOIN',
 						[ 'actor_rev_user.actor_user != 0', 'user_id = actor_rev_user.actor_user' ],
 					],
-					'comment_rev_comment' => [ 'JOIN', 'comment_rev_comment.comment_id = rev_comment_id' ],
+					'comment_rev_comment' => [
+						'JOIN',
+						'comment_rev_comment.comment_id = temp_rev_comment.revcomment_comment_id',
+					],
+					'temp_rev_comment' => [ 'JOIN', 'temp_rev_comment.revcomment_rev = rev_id' ],
 					'actor_rev_user' => [ 'JOIN', 'actor_rev_user.actor_id = rev_actor' ]
 				],
 			]
@@ -171,6 +176,7 @@ class RevisionQueryInfoTest extends MediaWikiIntegrationTestCase {
 			[
 				'tables' => [
 					'revision',
+					'temp_rev_comment' => 'revision_comment_temp',
 					'actor_rev_user' => 'actor',
 					'comment_rev_comment' => 'comment',
 				],
@@ -180,14 +186,18 @@ class RevisionQueryInfoTest extends MediaWikiIntegrationTestCase {
 					$this->getCommentQueryFields( 'rev' )
 				),
 				'joins' => [
-					'comment_rev_comment' => [ 'JOIN', 'comment_rev_comment.comment_id = rev_comment_id' ],
+					'comment_rev_comment' => [
+						'JOIN',
+						'comment_rev_comment.comment_id = temp_rev_comment.revcomment_comment_id',
+					],
+					'temp_rev_comment' => [ 'JOIN', 'temp_rev_comment.revcomment_rev = rev_id' ],
 					'actor_rev_user' => [ 'JOIN', 'actor_rev_user.actor_id = rev_actor' ],
 				]
 			]
 		];
 	}
 
-	public static function provideSlotsQueryInfo() {
+	public function provideSlotsQueryInfo() {
 		yield 'no options' => [
 			[],
 			[],

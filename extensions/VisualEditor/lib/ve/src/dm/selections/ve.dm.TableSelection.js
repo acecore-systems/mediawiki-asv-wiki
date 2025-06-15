@@ -1,7 +1,7 @@
 /*!
  * VisualEditor Table Selection class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -77,12 +77,12 @@ ve.dm.TableSelection.static.newFromHash = function ( hash ) {
  * @return {ve.dm.TableMatrixCell[]} List of table cells
  */
 ve.dm.TableSelection.static.getTableMatrixCells = function ( matrix, selectionOffsets, includePlaceholders ) {
-	const cells = [],
+	var cells = [],
 		visited = {};
 
-	for ( let row = selectionOffsets.startRow; row <= selectionOffsets.endRow; row++ ) {
-		for ( let col = selectionOffsets.startCol; col <= selectionOffsets.endCol; col++ ) {
-			let cell = matrix.getCell( row, col );
+	for ( var row = selectionOffsets.startRow; row <= selectionOffsets.endRow; row++ ) {
+		for ( var col = selectionOffsets.startCol; col <= selectionOffsets.endCol; col++ ) {
+			var cell = matrix.getCell( row, col );
 			if ( !cell ) {
 				continue;
 			}
@@ -108,19 +108,19 @@ ve.dm.TableSelection.static.getTableMatrixCells = function ( matrix, selectionOf
  * @return {ve.dm.TableSelection} Expanded table selection
  */
 ve.dm.TableSelection.prototype.expand = function ( doc ) {
-	const matrix = this.getTableNode( doc ).getMatrix(),
-		colBackwards = this.fromCol > this.toCol,
-		rowBackwards = this.fromRow > this.toRow;
-	let lastCellCount = 0,
+	var matrix = this.getTableNode( doc ).getMatrix(),
+		lastCellCount = 0,
 		startCol = Infinity,
 		startRow = Infinity,
 		endCol = -Infinity,
 		endRow = -Infinity,
+		colBackwards = this.fromCol > this.toCol,
+		rowBackwards = this.fromRow > this.toRow,
 		cells = this.getMatrixCells( doc );
 
 	while ( cells.length > lastCellCount ) {
-		for ( let i = 0; i < cells.length; i++ ) {
-			const cell = cells[ i ];
+		for ( var i = 0; i < cells.length; i++ ) {
+			var cell = cells[ i ];
 			startCol = Math.min( startCol, cell.col );
 			startRow = Math.min( startRow, cell.row );
 			endCol = Math.max( endCol, cell.col + cell.node.getColspan() - 1 );
@@ -205,9 +205,9 @@ ve.dm.TableSelection.prototype.collapseToTo = function () {
  * @param {ve.dm.Document} doc The document to which this selection applies
  */
 ve.dm.TableSelection.prototype.getRanges = function ( doc ) {
-	const ranges = [],
+	var ranges = [],
 		cells = this.getMatrixCells( doc );
-	for ( let i = 0, l = cells.length; i < l; i++ ) {
+	for ( var i = 0, l = cells.length; i < l; i++ ) {
 		ranges.push( cells[ i ].node.getRange() );
 	}
 	return ranges;
@@ -215,10 +215,11 @@ ve.dm.TableSelection.prototype.getRanges = function ( doc ) {
 
 /**
  * @inheritdoc
+ *
+ * Note that this returns the table range, and not the minimal range covering
+ * all cells, as that would be far more expensive to compute.
  */
 ve.dm.TableSelection.prototype.getCoveringRange = function () {
-	// Note that this returns the table range, and not the minimal range covering
-	// all cells, as that would be far more expensive to compute.
 	return this.tableRange;
 };
 
@@ -232,21 +233,21 @@ ve.dm.TableSelection.prototype.getCoveringRange = function () {
  * @return {ve.Range[]} Ranges
  */
 ve.dm.TableSelection.prototype.getTableSliceRanges = function ( doc ) {
-	const ranges = [],
+	var ranges = [],
 		matrix = this.getTableNode( doc ).getMatrix();
 
 	// Arrays are non-overlapping so avoid duplication
 	// by indexing by range.start
 	function pushNode( n ) {
-		const range = n.getOuterRange();
+		var range = n.getOuterRange();
 		ranges[ range.start ] = new ve.Range( range.start, range.start + 1 );
 		ranges[ range.end - 1 ] = new ve.Range( range.end - 1, range.end );
 	}
 
 	// Get the start and end tags of every parent of the cell
 	// up to and including the TableNode
-	for ( let i = this.startRow; i <= this.endRow; i++ ) {
-		let node = matrix.getRowNode( i );
+	for ( var i = this.startRow; i <= this.endRow; i++ ) {
+		var node = matrix.getRowNode( i );
 		if ( !node ) {
 			continue;
 		}
@@ -261,11 +262,11 @@ ve.dm.TableSelection.prototype.getTableSliceRanges = function ( doc ) {
 
 	return ranges
 		// Condense sparse array
-		.filter( ( r ) => r )
+		.filter( function ( r ) { return r; } )
 		// Add cell ranges
 		.concat( this.getOuterRanges( doc ) )
 		// Sort
-		.sort( ( a, b ) => a.start - b.start );
+		.sort( function ( a, b ) { return a.start - b.start; } );
 };
 
 /**
@@ -275,9 +276,9 @@ ve.dm.TableSelection.prototype.getTableSliceRanges = function ( doc ) {
  * @return {ve.Range[]} Outer ranges
  */
 ve.dm.TableSelection.prototype.getOuterRanges = function ( doc ) {
-	const ranges = [],
+	var ranges = [],
 		cells = this.getMatrixCells( doc );
-	for ( let i = 0, l = cells.length; i < l; i++ ) {
+	for ( var i = 0, l = cells.length; i < l; i++ ) {
 		ranges.push( cells[ i ].node.getOuterRange() );
 	}
 	return ranges;
@@ -310,7 +311,9 @@ ve.dm.TableSelection.prototype.getMatrixCells = function ( doc, includePlacehold
  * @return {boolean} Cells are all editable
  */
 ve.dm.TableSelection.prototype.isEditable = function ( doc ) {
-	return this.getMatrixCells( doc ).every( ( cell ) => cell.node.isCellEditable() );
+	return this.getMatrixCells( doc ).every( function ( cell ) {
+		return cell.node.isCellEditable();
+	} );
 };
 
 /**
@@ -324,7 +327,7 @@ ve.dm.TableSelection.prototype.isCollapsed = function () {
  * @inheritdoc
  */
 ve.dm.TableSelection.prototype.translateByTransaction = function ( tx ) {
-	const newRange = tx.translateRange(
+	var newRange = tx.translateRange(
 		this.tableRange,
 		// Table selections should always exclude insertions
 		true
@@ -340,7 +343,7 @@ ve.dm.TableSelection.prototype.translateByTransaction = function ( tx ) {
  * @inheritdoc
  */
 ve.dm.TableSelection.prototype.translateByTransactionWithAuthor = function ( tx, authorId ) {
-	const newRange = tx.translateRangeWithAuthor( this.tableRange, authorId );
+	var newRange = tx.translateRangeWithAuthor( this.tableRange, authorId );
 
 	if ( newRange.isCollapsed() ) {
 		return new ve.dm.NullSelection();
@@ -379,16 +382,16 @@ ve.dm.TableSelection.prototype.isMergeable = function ( doc ) {
 		return false;
 	}
 
-	const matrix = this.getTableNode( doc ).getMatrix();
+	var matrix = this.getTableNode( doc ).getMatrix();
 
-	let lastSectionNode;
+	var lastSectionNode;
 	// Check all sections are the same
-	for ( let r = this.endRow; r >= this.startRow; r-- ) {
-		const rowNode = matrix.getRowNode( r );
+	for ( var r = this.endRow; r >= this.startRow; r-- ) {
+		var rowNode = matrix.getRowNode( r );
 		if ( !rowNode ) {
 			continue;
 		}
-		const sectionNode = rowNode.findParent( ve.dm.TableSectionNode );
+		var sectionNode = rowNode.findParent( ve.dm.TableSectionNode );
 		if ( lastSectionNode && sectionNode !== lastSectionNode ) {
 			// Can't merge across sections
 			return false;
@@ -430,14 +433,14 @@ ve.dm.TableSelection.prototype.newFromAdjustment = function ( doc, fromColOffset
 		toRowOffset = fromRowOffset;
 	}
 
-	const matrix = this.getTableNode( doc ).getMatrix();
-	let wrapDir;
+	var matrix = this.getTableNode( doc ).getMatrix();
+	var wrapDir;
 
 	function adjust( mode, cell, offset ) {
-		const dir = offset > 0 ? 1 : -1;
-		let nextCell,
+		var nextCell,
 			col = cell.col,
-			row = cell.row;
+			row = cell.row,
+			dir = offset > 0 ? 1 : -1;
 
 		while ( offset !== 0 ) {
 			if ( mode === 'col' ) {
@@ -480,7 +483,7 @@ ve.dm.TableSelection.prototype.newFromAdjustment = function ( doc, fromColOffset
 		return cell;
 	}
 
-	let fromCell = matrix.getCell( this.intendedFromRow, this.intendedFromCol );
+	var fromCell = matrix.getCell( this.intendedFromRow, this.intendedFromCol );
 	if ( fromColOffset ) {
 		fromCell = adjust( 'col', fromCell, fromColOffset );
 	}
@@ -488,7 +491,7 @@ ve.dm.TableSelection.prototype.newFromAdjustment = function ( doc, fromColOffset
 		fromCell = adjust( 'row', fromCell, fromRowOffset );
 	}
 
-	let toCell = matrix.getCell( this.intendedToRow, this.intendedToCol );
+	var toCell = matrix.getCell( this.intendedToRow, this.intendedToCol );
 	if ( toColOffset ) {
 		toCell = adjust( 'col', toCell, toColOffset );
 	}
@@ -503,7 +506,7 @@ ve.dm.TableSelection.prototype.newFromAdjustment = function ( doc, fromColOffset
 		toCell = fromCell;
 	}
 
-	let selection = new this.constructor(
+	var selection = new this.constructor(
 		this.tableRange,
 		fromCell.col,
 		fromCell.row,
@@ -566,7 +569,7 @@ ve.dm.TableSelection.prototype.getColCount = function () {
  * @return {boolean} The table selection covers one or more full rows
  */
 ve.dm.TableSelection.prototype.isFullRow = function ( doc ) {
-	const matrix = this.getTableNode( doc ).getMatrix();
+	var matrix = this.getTableNode( doc ).getMatrix();
 	return this.getColCount() === matrix.getMaxColCount();
 };
 
@@ -577,7 +580,7 @@ ve.dm.TableSelection.prototype.isFullRow = function ( doc ) {
  * @return {boolean} The table selection covers one or more full columns
  */
 ve.dm.TableSelection.prototype.isFullCol = function ( doc ) {
-	const matrix = this.getTableNode( doc ).getMatrix();
+	var matrix = this.getTableNode( doc ).getMatrix();
 	return this.getRowCount() === matrix.getRowCount();
 };
 

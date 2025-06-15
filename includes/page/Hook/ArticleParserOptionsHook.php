@@ -3,7 +3,7 @@
 namespace MediaWiki\Page\Hook;
 
 use Article;
-use MediaWiki\Parser\ParserOptions;
+use ParserOptions;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

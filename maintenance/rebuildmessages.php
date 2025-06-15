@@ -19,9 +19,9 @@
  * @ingroup Maintenance
  */
 
-// @codeCoverageIgnoreStart
+use MediaWiki\MediaWikiServices;
+
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script that purges cache used by MessageCache.
@@ -36,13 +36,11 @@ class RebuildMessages extends Maintenance {
 
 	public function execute() {
 		$this->output( "Purging message cache for all languages on this wiki..." );
-		$messageCache = $this->getServiceContainer()->getMessageCache();
+		$messageCache = MediaWikiServices::getInstance()->getMessageCache();
 		$messageCache->clear();
 		$this->output( "Done\n" );
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = RebuildMessages::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

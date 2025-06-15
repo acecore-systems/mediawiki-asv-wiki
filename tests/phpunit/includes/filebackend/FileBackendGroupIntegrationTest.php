@@ -1,18 +1,13 @@
 <?php
 
-use MediaWiki\FileBackend\FileBackendGroup;
 use MediaWiki\FileBackend\LockManager\LockManagerGroupFactory;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Tests\Unit\DummyServicesTrait;
-use MediaWiki\WikiMap\WikiMap;
-use Wikimedia\ObjectCache\EmptyBagOStuff;
 
 /**
- * @coversDefaultClass \MediaWiki\FileBackend\FileBackendGroup
+ * @coversDefaultClass FileBackendGroup
  */
 class FileBackendGroupIntegrationTest extends MediaWikiIntegrationTestCase {
 	use FileBackendGroupTestTrait;
-	use DummyServicesTrait;
 
 	private static function getWikiID() {
 		return WikiMap::getCurrentWikiId();
@@ -35,7 +30,7 @@ class FileBackendGroupIntegrationTest extends MediaWikiIntegrationTestCase {
 		}
 
 		$serviceMembers = [
-			'readOnlyMode' => 'ReadOnlyMode',
+			'configuredROMode' => 'ConfiguredReadOnlyMode',
 			'srvCache' => 'LocalServerObjectCache',
 			'wanCache' => 'MainWANObjectCache',
 			'mimeAnalyzer' => 'MimeAnalyzer',
@@ -45,16 +40,11 @@ class FileBackendGroupIntegrationTest extends MediaWikiIntegrationTestCase {
 
 		foreach ( $serviceMembers as $key => $name ) {
 			if ( isset( $options[$key] ) ) {
-				if ( $key === 'readOnlyMode' ) {
-					$this->setService( $name, $this->getDummyReadOnlyMode( $options[$key] ) );
-				} else {
-					$this->setService( $name, $options[$key] );
-				}
-
+				$this->setService( $name, $options[$key] );
 			}
 		}
 
-		$this->assertSame( [],
+		$this->assertEmpty(
 			array_diff( array_keys( $options ), $globals, array_keys( $serviceMembers ) ) );
 
 		$services = $this->getServiceContainer();
@@ -62,7 +52,7 @@ class FileBackendGroupIntegrationTest extends MediaWikiIntegrationTestCase {
 		$obj = $services->getFileBackendGroup();
 
 		foreach ( $serviceMembers as $key => $name ) {
-			if ( $key === 'readOnlyMode' || $key === 'mimeAnalyzer' ) {
+			if ( $key === 'configuredROMode' || $key === 'mimeAnalyzer' ) {
 				continue;
 			}
 			$this->$key = $services->getService( $name );

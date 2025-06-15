@@ -21,19 +21,18 @@
 namespace MediaWiki\User;
 
 use CannotCreateActorException;
+use DBAccessObjectUtils;
+use ExternalUserNames;
 use InvalidArgumentException;
-use MediaWiki\Block\HideUserUtils;
 use MediaWiki\DAO\WikiAwareEntity;
-use MediaWiki\User\TempUser\TempUserConfig;
 use Psr\Log\LoggerInterface;
 use stdClass;
+use User;
 use Wikimedia\Assert\Assert;
 use Wikimedia\IPUtils;
 use Wikimedia\Rdbms\DBQueryError;
 use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\IDBAccessObject;
 use Wikimedia\Rdbms\ILoadBalancer;
-use Wikimedia\Rdbms\IReadableDatabase;
 
 /**
  * Service for interacting with the actor table.
@@ -47,47 +46,41 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 
 	private const LOCAL_CACHE_SIZE = 100;
 
-	private ILoadBalancer $loadBalancer;
-	private UserNameUtils $userNameUtils;
-	private TempUserConfig $tempUserConfig;
-	private LoggerInterface $logger;
-	private HideUserUtils $hideUserUtils;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
+
+	/** @var UserNameUtils */
+	private $userNameUtils;
+
+	/** @var LoggerInterface */
+	private $logger;
 
 	/** @var string|false */
 	private $wikiId;
 
-	private ActorCache $cache;
-
-	private bool $allowCreateIpActors;
+	/** @var ActorCache */
+	private $cache;
 
 	/**
 	 * @param ILoadBalancer $loadBalancer
 	 * @param UserNameUtils $userNameUtils
-	 * @param TempUserConfig $tempUserConfig
 	 * @param LoggerInterface $logger
-	 * @param HideUserUtils $hideUserUtils
 	 * @param string|false $wikiId
 	 */
 	public function __construct(
 		ILoadBalancer $loadBalancer,
 		UserNameUtils $userNameUtils,
-		TempUserConfig $tempUserConfig,
 		LoggerInterface $logger,
-		HideUserUtils $hideUserUtils,
 		$wikiId = WikiAwareEntity::LOCAL
 	) {
 		Assert::parameterType( [ 'string', 'false' ], $wikiId, '$wikiId' );
 
 		$this->loadBalancer = $loadBalancer;
 		$this->userNameUtils = $userNameUtils;
-		$this->tempUserConfig = $tempUserConfig;
 		$this->logger = $logger;
-		$this->hideUserUtils = $hideUserUtils;
 		$this->wikiId = $wikiId;
 
 		$this->cache = new ActorCache( self::LOCAL_CACHE_SIZE );
-
-		$this->allowCreateIpActors = !$this->tempUserConfig->isEnabled();
 	}
 
 	/**
@@ -153,7 +146,7 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 		// from ActorMigration aliases to proper join with the actor table,
 		// we should use ::newActorFromRow more, and eventually deprecate this method.
 		$userId = $userId === null ? 0 : (int)$userId;
-		$name ??= '';
+		$name = $name ?? '';
 		if ( $actorId === null ) {
 			throw new InvalidArgumentException( "Actor ID is null for {$name} and {$userId}" );
 		}
@@ -199,11 +192,11 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 	 * Find an actor by $id.
 	 *
 	 * @param int $actorId
-	 * @param IReadableDatabase $db The database connection to operate on.
+	 * @param IDatabase $db The database connection to operate on.
 	 *        The database must correspond to ActorStore's wiki ID.
 	 * @return UserIdentity|null Returns null if no actor with this $actorId exists in the database.
 	 */
-	public function getActorById( int $actorId, IReadableDatabase $db ): ?UserIdentity {
+	public function getActorById( int $actorId, IDatabase $db ): ?UserIdentity {
 		$this->checkDatabaseDomain( $db );
 
 		if ( !$actorId ) {
@@ -218,7 +211,7 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 			// The actor ID mostly comes from DB, so if we can't find an actor by ID,
 			// it's most likely due to lagged replica and not cause it doesn't actually exist.
 			// Probably we just inserted it? Try primary database.
-			$this->newSelectQueryBuilder( IDBAccessObject::READ_LATEST )
+			$this->newSelectQueryBuilder( self::READ_LATEST )
 				->caller( __METHOD__ )
 				->conds( [ 'actor_id' => $actorId ] )
 				->fetchUserIdentity();
@@ -231,10 +224,7 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 	 * @param int $queryFlags one of IDBAccessObject constants
 	 * @return UserIdentity|null
 	 */
-	public function getUserIdentityByName(
-		string $name,
-		int $queryFlags = IDBAccessObject::READ_NORMAL
-	): ?UserIdentity {
+	public function getUserIdentityByName( string $name, int $queryFlags = self::READ_NORMAL ): ?UserIdentity {
 		$normalizedName = $this->normalizeUserName( $name );
 		if ( $normalizedName === null ) {
 			return null;
@@ -254,10 +244,7 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 	 * @param int $queryFlags one of IDBAccessObject constants
 	 * @return UserIdentity|null
 	 */
-	public function getUserIdentityByUserId(
-		int $userId,
-		int $queryFlags = IDBAccessObject::READ_NORMAL
-	): ?UserIdentity {
+	public function getUserIdentityByUserId( int $userId, int $queryFlags = self::READ_NORMAL ): ?UserIdentity {
 		if ( !$userId ) {
 			return null;
 		}
@@ -304,11 +291,11 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 	 * Find the actor_id of the given $user.
 	 *
 	 * @param UserIdentity $user
-	 * @param IReadableDatabase $db The database connection to operate on.
+	 * @param IDatabase $db The database connection to operate on.
 	 *        The database must correspond to ActorStore's wiki ID.
 	 * @return int|null
 	 */
-	public function findActorId( UserIdentity $user, IReadableDatabase $db ): ?int {
+	public function findActorId( UserIdentity $user, IDatabase $db ): ?int {
 		// TODO: we want to assert this user belongs to the correct wiki,
 		// but User objects are always local and we used to use them
 		// on a non-local DB connection. We need to first deprecate this
@@ -340,11 +327,11 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 	 * Find the actor_id of the given $name.
 	 *
 	 * @param string $name
-	 * @param IReadableDatabase $db The database connection to operate on.
+	 * @param IDatabase $db The database connection to operate on.
 	 *        The database must correspond to ActorStore's wiki ID.
 	 * @return int|null
 	 */
-	public function findActorIdByName( $name, IReadableDatabase $db ): ?int {
+	public function findActorIdByName( $name, IDatabase $db ): ?int {
 		$name = $this->normalizeUserName( $name );
 		if ( $name === null ) {
 			return null;
@@ -357,15 +344,15 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 	 * Find actor_id of the given $user using the passed $db connection.
 	 *
 	 * @param string $name
-	 * @param IReadableDatabase $db The database connection to operate on.
+	 * @param IDatabase $db The database connection to operate on.
 	 *        The database must correspond to ActorStore's wiki ID.
-	 * @param bool $lockInShareMode
+	 * @param array $queryOptions
 	 * @return int|null
 	 */
 	private function findActorIdInternal(
 		string $name,
-		IReadableDatabase $db,
-		bool $lockInShareMode = false
+		IDatabase $db,
+		array $queryOptions = []
 	): ?int {
 		// Note: UserIdentity::getActorId will be deprecated and removed,
 		// and this is the replacement for it. Can't call User::getActorId, cause
@@ -377,15 +364,13 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 			return $cachedValue;
 		}
 
-		$queryBuilder = $db->newSelectQueryBuilder()
-			->select( [ 'actor_user', 'actor_name', 'actor_id' ] )
-			->from( 'actor' )
-			->where( [ 'actor_name' => $name ] );
-		if ( $lockInShareMode ) {
-			$queryBuilder->lockInShareMode();
-		}
-
-		$row = $queryBuilder->caller( __METHOD__ )->fetchRow();
+		$row = $db->selectRow(
+			'actor',
+			[ 'actor_user', 'actor_name', 'actor_id' ],
+			[ 'actor_name' => $name ],
+			__METHOD__,
+			$queryOptions
+		);
 
 		if ( !$row || !$row->actor_id ) {
 			return null;
@@ -421,18 +406,26 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 			return $existingActorId;
 		}
 
-		$dbw->newInsertQueryBuilder()
-			->insertInto( 'actor' )
-			->ignore()
-			->row( [ 'actor_user' => $userId, 'actor_name' => $userName ] )
-			->caller( __METHOD__ )->execute();
+		$dbw->insert(
+			'actor',
+			[
+				'actor_user' => $userId,
+				'actor_name' => $userName,
+			],
+			__METHOD__,
+			[ 'IGNORE' ]
+		);
 
 		if ( $dbw->affectedRows() ) {
 			$actorId = $dbw->insertId();
 		} else {
 			// Outdated cache?
 			// Use LOCK IN SHARE MODE to bypass any MySQL REPEATABLE-READ snapshot.
-			$actorId = $this->findActorIdInternal( $userName, $dbw, true );
+			$actorId = $this->findActorIdInternal(
+				$userName,
+				$dbw,
+				[ 'LOCK IN SHARE MODE' ]
+			);
 			if ( !$actorId ) {
 				throw new CannotCreateActorException(
 					"Failed to create actor ID for " .
@@ -467,10 +460,14 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 		[ $userId, $userName ] = $this->validateActorForInsertion( $user );
 
 		try {
-			$dbw->newInsertQueryBuilder()
-				->insertInto( 'actor' )
-				->row( [ 'actor_user' => $userId, 'actor_name' => $userName ] )
-				->caller( __METHOD__ )->execute();
+			$dbw->insert(
+				'actor',
+				[
+					'actor_user' => $userId,
+					'actor_name' => $userName,
+				],
+				__METHOD__
+			);
 		} catch ( DBQueryError $e ) {
 			// We rely on the database to crash on unique actor_name constraint.
 			throw new CannotCreateActorException( $e->getMessage() );
@@ -525,13 +522,14 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 				);
 			}
 		}
-		$dbw->newInsertQueryBuilder()
-			->insertInto( 'actor' )
-			->row( [ 'actor_name' => $userName, 'actor_user' => $userId ] )
-			->onDuplicateKeyUpdate()
-			->uniqueIndexFields( [ 'actor_name' ] )
-			->set( [ 'actor_user' => $userId ] )
-			->caller( __METHOD__ )->execute();
+
+		$dbw->upsert(
+			'actor',
+			[ 'actor_name' => $userName, 'actor_user' => $userId ],
+			[ [ 'actor_name' ] ],
+			[ 'actor_user' => $userId ],
+			__METHOD__
+		);
 		if ( !$dbw->affectedRows() ) {
 			throw new CannotCreateActorException(
 				'Failed to replace user for actor: ' .
@@ -570,10 +568,11 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 				"Unable to normalize the provided actor name {$actor->getName()}"
 			);
 		}
-		$dbw->newDeleteQueryBuilder()
-			->deleteFrom( 'actor' )
-			->where( [ 'actor_name' => $normalizedName ] )
-			->caller( __METHOD__ )->execute();
+		$dbw->delete(
+			'actor',
+			[ 'actor_name' => $normalizedName ],
+			__METHOD__
+		);
 		if ( $dbw->affectedRows() !== 0 ) {
 			$this->cache->remove( $actor );
 			return true;
@@ -633,12 +632,6 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 				"user_name=\"{$user->getName()}\""
 			);
 		}
-
-		if ( !$this->allowCreateIpActors && $this->userNameUtils->isIP( $userName ) ) {
-			throw new CannotCreateActorException(
-				'Cannot create an actor for an IP user when temporary accounts are enabled'
-			);
-		}
 		return [ $userId, $userName ];
 	}
 
@@ -670,12 +663,21 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 	}
 
 	/**
-	 * Throws an exception if the given database connection does not belong to the wiki this
-	 * ActorStore is bound to.
-	 *
-	 * @param IReadableDatabase $db
+	 * @param int $queryFlags a bit field composed of READ_XXX flags
+	 * @return array [ IDatabase $db, array $options ]
 	 */
-	private function checkDatabaseDomain( IReadableDatabase $db ) {
+	private function getDBConnectionRefForQueryFlags( int $queryFlags ): array {
+		[ $mode, $options ] = DBAccessObjectUtils::getDBOptions( $queryFlags );
+		return [ $this->loadBalancer->getConnectionRef( $mode, [], $this->wikiId ), $options ];
+	}
+
+	/**
+	 * Throws an exception if the given database connection does not belong to the wiki this
+	 * RevisionStore is bound to.
+	 *
+	 * @param IDatabase $db
+	 */
+	private function checkDatabaseDomain( IDatabase $db ) {
 		$dbDomain = $db->getDomainID();
 		$storeDomain = $this->loadBalancer->resolveDomainID( $this->wikiId );
 		if ( $dbDomain !== $storeDomain ) {
@@ -698,7 +700,7 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 		}
 		$actor = new UserIdentityValue( 0, self::UNKNOWN_USER_NAME, $this->wikiId );
 
-		$db = $this->loadBalancer->getConnection( DB_PRIMARY, [], $this->wikiId );
+		[ $db, ] = $this->getDBConnectionRefForQueryFlags( self::READ_LATEST );
 		$this->acquireActorId( $actor, $db );
 		return $actor;
 	}
@@ -706,38 +708,19 @@ class ActorStore implements UserIdentityLookup, ActorNormalization {
 	/**
 	 * Returns a specialized SelectQueryBuilder for querying the UserIdentity objects.
 	 *
-	 * @param IReadableDatabase|int $dbOrQueryFlags The database connection to perform the query on,
-	 *   or one of IDBAccessObject::READ_* constants.
+	 * @param IDatabase|int $dbOrQueryFlags The database connection to perform the query on,
+	 *   or one of self::READ_* constants.
 	 * @return UserSelectQueryBuilder
 	 */
-	public function newSelectQueryBuilder( $dbOrQueryFlags = IDBAccessObject::READ_NORMAL ): UserSelectQueryBuilder {
-		if ( $dbOrQueryFlags instanceof IReadableDatabase ) {
-			[ $db, $flags ] = [ $dbOrQueryFlags, IDBAccessObject::READ_NORMAL ];
+	public function newSelectQueryBuilder( $dbOrQueryFlags = self::READ_NORMAL ): UserSelectQueryBuilder {
+		if ( $dbOrQueryFlags instanceof IDatabase ) {
+			[ $db, $options ] = [ $dbOrQueryFlags, [] ];
 			$this->checkDatabaseDomain( $db );
 		} else {
-			if ( ( $dbOrQueryFlags & IDBAccessObject::READ_LATEST ) == IDBAccessObject::READ_LATEST ) {
-				$db = $this->loadBalancer->getConnection( DB_PRIMARY, [], $this->wikiId );
-			} else {
-				$db = $this->loadBalancer->getConnection( DB_REPLICA, [], $this->wikiId );
-			}
-			$flags = $dbOrQueryFlags;
+			[ $db, $options ] = $this->getDBConnectionRefForQueryFlags( $dbOrQueryFlags );
 		}
 
-		$builder = new UserSelectQueryBuilder(
-			$db,
-			$this,
-			$this->tempUserConfig,
-			$this->hideUserUtils
-		);
-		return $builder->recency( $flags );
-	}
-
-	/**
-	 * @internal For use immediately after construction only
-	 * @param bool $allow
-	 */
-	public function setAllowCreateIpActors( bool $allow ): void {
-		$this->allowCreateIpActors = $allow;
+		return ( new UserSelectQueryBuilder( $db, $this ) )->options( $options );
 	}
 
 	/**

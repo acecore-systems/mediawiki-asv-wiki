@@ -22,14 +22,21 @@ namespace MediaWiki\Minerva\Menu;
 
 use DomainException;
 use MediaWiki\Minerva\Menu\Entries\IMenuEntry;
+use MediaWiki\Minerva\Menu\Entries\SingleMenuEntry;
 
 /**
  * Model for a menu that can be presented in a skin.
  */
 final class Group {
-	/** @var IMenuEntry[] */
-	private array $entries = [];
-	private string $id;
+	/**
+	 * @var IMenuEntry[]
+	 */
+	private $entries = [];
+
+	/**
+	 * @var string
+	 */
+	private $id;
 
 	/**
 	 * @param string $id of the menu defaults to null (optional)
@@ -43,7 +50,7 @@ final class Group {
 	 *
 	 * @return string
 	 */
-	public function getId(): string {
+	public function getId() {
 		return $this->id;
 	}
 
@@ -52,7 +59,7 @@ final class Group {
 	 *
 	 * @return bool
 	 */
-	public function hasEntries(): bool {
+	public function hasEntries() {
 		return count( $this->entries ) > 0;
 	}
 
@@ -61,7 +68,7 @@ final class Group {
 	 *
 	 * @return array
 	 */
-	public function getEntries(): array {
+	public function getEntries() {
 		$entryPresenter = static function ( IMenuEntry $entry ) {
 			$result = [
 				'name' => $entry->getName(),
@@ -84,7 +91,7 @@ final class Group {
 	 * @param string $name
 	 * @throws DomainException When the entry already exists
 	 */
-	private function throwIfNotUnique( string $name ): void {
+	private function throwIfNotUnique( $name ) {
 		try {
 			$this->search( $name );
 		} catch ( DomainException $exception ) {
@@ -94,21 +101,11 @@ final class Group {
 	}
 
 	/**
-	 * Prepend new menu entry
-	 * @param IMenuEntry $entry
-	 * @throws DomainException When the entry already exists
-	 */
-	public function prependEntry( IMenuEntry $entry ): void {
-		$this->throwIfNotUnique( $entry->getName() );
-		array_unshift( $this->entries, $entry );
-	}
-
-	/**
 	 * Insert new menu entry
 	 * @param IMenuEntry $entry
 	 * @throws DomainException When the entry already exists
 	 */
-	public function insertEntry( IMenuEntry $entry ): void {
+	public function insertEntry( IMenuEntry $entry ) {
 		$this->throwIfNotUnique( $entry->getName() );
 		$this->entries[] = $entry;
 	}
@@ -120,7 +117,7 @@ final class Group {
 	 * @return int If the menu entry exists, then the 0-based index of the entry; otherwise, -1
 	 * @throws DomainException
 	 */
-	private function search( string $name ): int {
+	private function search( $name ) {
 		$count = count( $this->entries );
 
 		for ( $i = 0; $i < $count; ++$i ) {
@@ -132,11 +129,39 @@ final class Group {
 	}
 
 	/**
+	 * Insert an entry after an existing one.
+	 * @deprecated since 1.39
+	 * @param string $targetName The name of the existing entry to insert
+	 *  the new entry after
+	 * @param string $name The name of the new entry
+	 * @param string $text Entry label
+	 * @param string $url The URL entry points to
+	 * @param string $className Optional HTML classes
+	 * @param string|null $icon defaults to $name if not specified
+	 * @param bool $trackable Whether an entry will track clicks or not. Default is false.
+	 * @param bool $isJSOnly Whether the entry works without JS
+	 * @throws DomainException When the existing entry doesn't exist
+	 */
+	public function insertAfter( $targetName, $name, $text, $url,
+			$className = '', $icon = null, $trackable = false, $isJSOnly = false
+	) {
+		wfDeprecated( __METHOD__, '1.39' );
+		$this->throwIfNotUnique( $name );
+		$index = $this->search( $targetName );
+
+		$entry = SingleMenuEntry::create( $name, $text, $url, $className, $icon, $trackable );
+		if ( $isJSOnly ) {
+			$entry->setJSOnly();
+		}
+		array_splice( $this->entries, $index + 1, 0, [ $entry ] );
+	}
+
+	/**
 	 * @param string $targetName
 	 * @return IMenuEntry
 	 * @throws DomainException
 	 */
-	public function getEntryByName( string $targetName ): IMenuEntry {
+	public function getEntryByName( $targetName ): IMenuEntry {
 		$index = $this->search( $targetName );
 		return $this->entries[$index];
 	}
@@ -145,7 +170,7 @@ final class Group {
 	 * Serialize the group for use in a template
 	 * @return array{entries:array,id:string}
 	 */
-	public function serialize(): array {
+	public function serialize() {
 		return [
 			'entries' => $this->getEntries(),
 			'id' => $this->getId(),

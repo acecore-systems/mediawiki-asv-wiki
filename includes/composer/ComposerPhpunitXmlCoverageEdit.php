@@ -1,4 +1,5 @@
 <?php
+
 /**
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,13 +17,6 @@
  *
  */
 
-namespace MediaWiki\Composer;
-
-use Composer\Script\Event;
-use DOMDocument;
-use DOMNode;
-use InvalidArgumentException;
-
 /**
  * Edit phpunit.xml to speed up code coverage generation.
  *
@@ -33,9 +27,7 @@ use InvalidArgumentException;
  * code.
  */
 class ComposerPhpunitXmlCoverageEdit {
-	/**
-	 * @param Event $event
-	 */
+
 	public static function onEvent( $event ) {
 		$IP = dirname( dirname( __DIR__ ) );
 		// TODO: Support passing arbitrary directories for core (or extensions/skins).
@@ -45,14 +37,14 @@ class ComposerPhpunitXmlCoverageEdit {
 				'e.g. "composer phpunit:coverage-edit -- extensions/BoilerPlate"' );
 		}
 		$project = current( $args );
-		$phpunitXml = new DomDocument();
-		$phpunitXml->load( $IP . '/phpunit.xml.dist' );
-		$include = iterator_to_array( $phpunitXml->getElementsByTagName( 'include' ) );
+		$phpunitXml = \PHPUnit\Util\Xml::loadFile( $IP . '/phpunit.xml.dist' );
+		$whitelist = iterator_to_array( $phpunitXml->getElementsByTagName( 'whitelist' ) );
 		/** @var DOMNode $childNode */
-		foreach ( $include as $childNode ) {
+		foreach ( $whitelist as $childNode ) {
 			$childNode->parentNode->removeChild( $childNode );
 		}
-		$whitelistElement = $phpunitXml->createElement( 'include' );
+		$whitelistElement = $phpunitXml->createElement( 'whitelist' );
+		$whitelistElement->setAttribute( 'addUncoveredFilesFromWhitelist', 'false' );
 		// TODO: Use AutoloadClasses from extension.json to load the relevant directories
 		foreach ( [ 'includes', 'src', 'maintenance' ] as $dir ) {
 			$dirElement = $phpunitXml->createElement( 'directory', $project . '/' . $dir );
@@ -60,7 +52,7 @@ class ComposerPhpunitXmlCoverageEdit {
 			$whitelistElement->appendChild( $dirElement );
 
 		}
-		$phpunitXml->getElementsByTagName( 'coverage' )->item( 0 )
+		$phpunitXml->getElementsByTagName( 'filter' )->item( 0 )
 			->appendChild( $whitelistElement );
 		$phpunitXml->formatOutput = true;
 		$phpunitXml->save( $IP . '/phpunit.xml' );

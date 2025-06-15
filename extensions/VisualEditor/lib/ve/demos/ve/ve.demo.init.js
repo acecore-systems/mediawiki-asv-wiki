@@ -1,18 +1,21 @@
 /*!
  * VisualEditor standalone demo
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
-new ve.init.sa.Platform( ve.messagePaths ).getInitializedPromise().then( () => {
+new ve.init.sa.Platform( ve.messagePaths ).getInitializedPromise().then( function () {
 	/* eslint-disable no-jquery/no-global-selector */
-	const $toolbar = $( '.ve-demo-targetToolbar' ),
+	var $toolbar = $( '.ve-demo-targetToolbar' ),
 		$editor = $( '.ve-demo-editor' ),
 		/* eslint-enable no-jquery/no-global-selector */
 		// eslint-disable-next-line new-cap
 		target = new ve.demo.target(),
+		hashChanging = false,
 		$divider = $( '<span>' ).addClass( 've-demo-toolbar-divider' ).text( '\u00a0' ),
 
+		currentLang = ve.init.platform.getUserLanguages()[ 0 ],
+		currentDir = target.$element.css( 'direction' ) || 'ltr',
 		device = ve.demo.target === ve.init.sa.DesktopTarget ? 'desktop' : 'mobile',
 		theme = OO.ui.WikimediaUITheme && OO.ui.theme instanceof OO.ui.WikimediaUITheme ? 'wikimediaui' : 'apex',
 
@@ -36,14 +39,11 @@ new ve.init.sa.Platform( ve.messagePaths ).getInitializedPromise().then( () => {
 			new OO.ui.ButtonOptionWidget( { data: 'apex', label: 'Apex' } ),
 			new OO.ui.ButtonOptionWidget( { data: 'wikimediaui', label: 'WikimediaUI' } )
 		] ).toggle( !OO.ui.isMobile() ); // Only one theme on mobile ATM
-	let hashChanging = false,
-		currentLang = ve.init.platform.getUserLanguages()[ 0 ],
-		currentDir = target.$element.css( 'direction' ) || 'ltr';
 
 	// HACK: Prepend a qqx/message keys option to the list
-	languageInput.dialogs.on( 'opening', ( window, opening ) => {
-		opening.then( () => {
-			const searchWidget = languageInput.dialogs.currentWindow.searchWidget;
+	languageInput.dialogs.on( 'opening', function ( window, opening ) {
+		opening.then( function () {
+			var searchWidget = languageInput.dialogs.currentWindow.searchWidget;
 			searchWidget.filteredLanguageResultWidgets.unshift(
 				new ve.ui.LanguageResultWidget( {
 					data: {
@@ -58,7 +58,7 @@ new ve.init.sa.Platform( ve.messagePaths ).getInitializedPromise().then( () => {
 	} );
 
 	function updateStylesFromDir() {
-		const oldDir = currentDir === 'ltr' ? 'rtl' : 'ltr';
+		var oldDir = currentDir === 'ltr' ? 'rtl' : 'ltr';
 
 		$( '.stylesheet-' + currentDir ).prop( 'disabled', false );
 		$( '.stylesheet-' + oldDir ).prop( 'disabled', true );
@@ -75,7 +75,7 @@ new ve.init.sa.Platform( ve.messagePaths ).getInitializedPromise().then( () => {
 
 	deviceSelect.selectItemByData( device );
 
-	deviceSelect.on( 'select', ( item ) => {
+	deviceSelect.on( 'select', function ( item ) {
 		location.href = location.href
 			.replace( device, item.getData() )
 			.replace( /mobile-(apex|wikimediaui)+/, 'mobile' );
@@ -83,7 +83,7 @@ new ve.init.sa.Platform( ve.messagePaths ).getInitializedPromise().then( () => {
 
 	themeSelect.selectItemByData( theme );
 
-	themeSelect.on( 'select', ( item ) => {
+	themeSelect.on( 'select', function ( item ) {
 		if ( item.getData() === 'wikimediaui' ) {
 			location.href = location.href.replace( '.html', '-wikimediaui.html' );
 		} else {
@@ -95,7 +95,7 @@ new ve.init.sa.Platform( ve.messagePaths ).getInitializedPromise().then( () => {
 	// Dir doesn't change on init but styles need to be set
 	updateStylesFromDir();
 
-	languageInput.on( 'change', ( lang, dir ) => {
+	languageInput.on( 'change', function ( lang, dir ) {
 		if ( dir === currentDir && lang !== 'qqx' && ve.availableLanguages.indexOf( lang ) === -1 ) {
 			return;
 		}
@@ -120,8 +120,9 @@ new ve.init.sa.Platform( ve.messagePaths ).getInitializedPromise().then( () => {
 
 		// HACK: Re-initialize page to load message files
 		ve.init.target.teardownToolbar();
-		ve.init.platform.initialize().done( () => {
-			for ( let i = 0; i < ve.demo.surfaceContainers.length; i++ ) {
+		ve.init.platform.initialize().done( function () {
+			var i;
+			for ( i = 0; i < ve.demo.surfaceContainers.length; i++ ) {
 				ve.demo.surfaceContainers[ i ].reload( currentLang, currentDir );
 			}
 		} );
@@ -146,11 +147,13 @@ new ve.init.sa.Platform( ve.messagePaths ).getInitializedPromise().then( () => {
 		if ( hashChanging ) {
 			return false;
 		}
-		const pages = [];
-		for ( let i = 0; i < ve.demo.surfaceContainers.length; i++ ) {
-			pages.push( ve.demo.surfaceContainers[ i ].pageMenu.findSelectedItem().getData() );
+		if ( history.replaceState ) {
+			var pages = [];
+			for ( var i = 0; i < ve.demo.surfaceContainers.length; i++ ) {
+				pages.push( ve.demo.surfaceContainers[ i ].pageMenu.findSelectedItem().getData() );
+			}
+			history.replaceState( null, '', '#!' + pages.join( ',' ) );
 		}
-		history.replaceState( null, '', '#!' + pages.join( ',' ) );
 	}
 
 	function addSurfaceContainer( page ) {
@@ -158,23 +161,23 @@ new ve.init.sa.Platform( ve.messagePaths ).getInitializedPromise().then( () => {
 			page = ve.demo.surfaceContainers[ ve.demo.surfaceContainers.length - 1 ].pageMenu.findSelectedItem().getData();
 		}
 
-		const surfaceContainer = new ve.demo.SurfaceContainer( target, page, currentLang, currentDir );
+		var surfaceContainer = new ve.demo.SurfaceContainer( target, page, currentLang, currentDir );
 		surfaceContainer.on( 'changePage', updateHash );
 		updateHash();
 		target.$element.append( surfaceContainer.$element );
 	}
 
-	addSurfaceContainerButton.on( 'click', () => {
+	addSurfaceContainerButton.on( 'click', function () {
 		addSurfaceContainer();
 	} );
 
 	function createSurfacesFromHash( hash ) {
-		let pages = [];
+		var pages = [];
 		if ( hash.slice( 0, 2 ) === '#!' ) {
 			pages = hash.slice( 2 ).split( ',' ).map( decodeURIComponent );
 		}
 		if ( pages.length ) {
-			for ( let i = 0; i < pages.length; i++ ) {
+			for ( var i = 0; i < pages.length; i++ ) {
 				addSurfaceContainer( pages[ i ] );
 			}
 		} else {
@@ -183,20 +186,19 @@ new ve.init.sa.Platform( ve.messagePaths ).getInitializedPromise().then( () => {
 	}
 
 	createSurfacesFromHash( location.hash );
-	ve.init.target.once( 'surfaceReady', ve.collab.join );
 
-	$( window ).on( 'hashchange', () => {
+	$( window ).on( 'hashchange', function () {
 		if ( hashChanging ) {
 			return;
 		}
 		hashChanging = true;
-		ve.demo.surfaceContainers.slice().forEach( ( container ) => {
+		ve.demo.surfaceContainers.slice().forEach( function ( container ) {
 			container.destroy();
 		} );
 		createSurfacesFromHash( location.hash );
 		hashChanging = false;
 	} );
-}, () => {
+}, function () {
 	// eslint-disable-next-line no-jquery/no-global-selector
 	$( '.ve-demo-editor' ).text( 'VisualEditor not supported in this browser.' );
 } );

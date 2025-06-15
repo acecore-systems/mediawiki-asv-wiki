@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:ExpandTemplates
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,54 +18,45 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
-use MediaWiki\Html\Html;
-use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\MainConfigNames;
-use MediaWiki\MediaWikiServices;
-use MediaWiki\Output\OutputPage;
-use MediaWiki\Parser\Parser;
-use MediaWiki\Parser\ParserFactory;
-use MediaWiki\Parser\ParserOptions;
-use MediaWiki\Parser\ParserOutput;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Status\Status;
 use MediaWiki\Tidy\TidyDriverBase;
-use MediaWiki\Title\Title;
-use MediaWiki\User\Options\UserOptionsLookup;
-use MediaWiki\Xml\Xml;
+use MediaWiki\User\UserOptionsLookup;
 
 /**
- * A special page to enter wikitext and expands its templates, parser functions,
+ * A special page that expands submitted templates, parser functions,
  * and variables, allowing easier debugging of these.
  *
  * @ingroup SpecialPage
- * @ingroup Parser
  */
 class SpecialExpandTemplates extends SpecialPage {
 
 	/** @var int Maximum size in bytes to include. 50 MB allows fixing those huge pages */
-	private const MAX_INCLUDE_SIZE = 50_000_000;
+	private const MAX_INCLUDE_SIZE = 50000000;
 
-	private ParserFactory $parserFactory;
-	private UserOptionsLookup $userOptionsLookup;
-	private TidyDriverBase $tidy;
+	/** @var Parser */
+	private $parser;
+
+	/** @var UserOptionsLookup */
+	private $userOptionsLookup;
+
+	/** @var TidyDriverBase */
+	private $tidy;
 
 	/**
-	 * @param ParserFactory $parserFactory
+	 * @param Parser $parser
 	 * @param UserOptionsLookup $userOptionsLookup
 	 * @param TidyDriverBase $tidy
 	 */
 	public function __construct(
-		ParserFactory $parserFactory,
+		Parser $parser,
 		UserOptionsLookup $userOptionsLookup,
 		TidyDriverBase $tidy
 	) {
 		parent::__construct( 'ExpandTemplates' );
-		$this->parserFactory = $parserFactory;
+		$this->parser = $parser;
 		$this->userOptionsLookup = $userOptionsLookup;
 		$this->tidy = $tidy;
 	}
@@ -96,10 +89,9 @@ class SpecialExpandTemplates extends SpecialPage {
 				$options->setTargetLanguage( $this->getContentLanguage() );
 			}
 
-			$parser = $this->parserFactory->getInstance();
 			if ( $generateXML ) {
-				$parser->startExternalParse( $title, $options, Parser::OT_PREPROCESS );
-				$dom = $parser->preprocessToDom( $input );
+				$this->parser->startExternalParse( $title, $options, Parser::OT_PREPROCESS );
+				$dom = $this->parser->preprocessToDom( $input );
 
 				if ( method_exists( $dom, 'saveXML' ) ) {
 					// @phan-suppress-next-line PhanUndeclaredMethod
@@ -110,7 +102,7 @@ class SpecialExpandTemplates extends SpecialPage {
 				}
 			}
 
-			$output = $parser->preprocess( $input, $title, $options );
+			$output = $this->parser->preprocess( $input, $title, $options );
 			$this->makeForm();
 
 			$out = $this->getOutput();
@@ -133,11 +125,10 @@ class SpecialExpandTemplates extends SpecialPage {
 
 			$out->addHTML( $tmp );
 
-			$pout = $parser->parse( $output, $title, $options );
-			// TODO T371008 consider if using the Content framework makes sense instead of creating the pipeline
-			$rawhtml = MediaWikiServices::getInstance()->getDefaultOutputPipeline()
-				->run( $pout, $options, [ 'enableSectionEditLinks' => false ] )->getContentHolderText();
+			$pout = $this->generateHtml( $title, $output );
+			$rawhtml = $pout->getText();
 			if ( $generateRawHtml && strlen( $rawhtml ) > 0 ) {
+				// @phan-suppress-next-line SecurityCheck-DoubleEscaped Wanted here to display the html
 				$out->addHTML( $this->makeOutput( $rawhtml, 'expand_templates_html_output' ) );
 			}
 
@@ -168,20 +159,19 @@ class SpecialExpandTemplates extends SpecialPage {
 	 */
 	private function makeForm() {
 		$fields = [
+			'ContextTitle' => [
+				'type' => 'text',
+				'label' => $this->msg( 'expand_templates_title' )->plain(),
+				'id' => 'contexttitle',
+				'size' => 60,
+				'autofocus' => true,
+			],
 			'Input' => [
 				'type' => 'textarea',
 				'label' => $this->msg( 'expand_templates_input' )->text(),
 				'rows' => 10,
 				'id' => 'input',
 				'useeditfont' => true,
-				'required' => true,
-				'autofocus' => true,
-			],
-			'ContextTitle' => [
-				'type' => 'text',
-				'label' => $this->msg( 'expand_templates_title' )->plain(),
-				'id' => 'contexttitle',
-				'size' => 60,
 			],
 			'RemoveComments' => [
 				'type' => 'check',
@@ -210,7 +200,7 @@ class SpecialExpandTemplates extends SpecialPage {
 		$form
 			->setSubmitTextMsg( 'expand_templates_ok' )
 			->setWrapperLegendMsg( 'expandtemplates' )
-			->setHeaderHtml( $this->msg( 'expand_templates_intro' )->parse() )
+			->setHeaderText( $this->msg( 'expand_templates_intro' )->parse() )
 			->setSubmitCallback( [ $this, 'onSubmitInput' ] )
 			->showAlways();
 	}
@@ -240,6 +230,19 @@ class SpecialExpandTemplates extends SpecialPage {
 	}
 
 	/**
+	 * Renders the supplied wikitext as html
+	 *
+	 * @param Title $title
+	 * @param string $text
+	 * @return ParserOutput
+	 */
+	private function generateHtml( Title $title, $text ) {
+		$popts = ParserOptions::newFromContext( $this->getContext() );
+		$popts->setTargetLanguage( $title->getPageLanguage() );
+		return $this->parser->parse( $text, $title, $popts );
+	}
+
+	/**
 	 * Wraps the provided html code in a div and outputs it to the page
 	 *
 	 * @param Title $title
@@ -247,6 +250,7 @@ class SpecialExpandTemplates extends SpecialPage {
 	 * @param OutputPage $out
 	 */
 	private function showHtmlPreview( Title $title, ParserOutput $pout, OutputPage $out ) {
+		$lang = $title->getPageViewLanguage();
 		$out->addHTML( "<h2>" . $this->msg( 'expand_templates_preview' )->escaped() . "</h2>\n" );
 
 		if ( $this->getConfig()->get( MainConfigNames::RawHtml ) ) {
@@ -277,14 +281,17 @@ class SpecialExpandTemplates extends SpecialPage {
 			}
 		}
 
-		$out->addParserOutputContent( $pout, [ 'enableSectionEditLinks' => false ] );
-		$out->addCategoryLinks( $pout->getCategoryMap() );
+		$out->addHTML( Html::openElement( 'div', [
+			'class' => 'mw-content-' . $lang->getDir(),
+			'dir' => $lang->getDir(),
+			'lang' => $lang->getHtmlCode(),
+		] ) );
+		$out->addParserOutputContent( $pout );
+		$out->addHTML( Html::closeElement( 'div' ) );
+		$out->setCategoryLinks( $pout->getCategories() );
 	}
 
 	protected function getGroupName() {
 		return 'wiki';
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialExpandTemplates::class, 'SpecialExpandTemplates' );

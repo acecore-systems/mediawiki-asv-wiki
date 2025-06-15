@@ -3,8 +3,7 @@
 		"authors": [
 			"Serkanland",
 			"Wertuose",
-			"Nemoralis",
-			"Əkrəm Cəfər"
+			"Nemoralis"
 		]
 	},
 	"syntaxhighlight-desc": "[http://pygments.org/ Pygments - Python syntax highlighter] istifadə edərək <code>&lt;syntaxhighlight&gt;</code> kodu ilə sintaksis vurğulanması təqdim edir",
@@ -22,7 +21,5 @@
 	"syntaxhighlight-visualeditor-mwsyntaxhighlightinspector-title": "Kodlaşdırma fraqmenti",
 	"syntaxhighlight-error-pygments-invocation-failure": "Pygments-i işə salmaq alınmadı",
 	"syntaxhighlight-error-unknown-language": "Naməlum \"$1\" dili",
-	"syntaxhighlight-error-exceeds-size-limit": "$1 {{PLURAL:$1|bayt}} olan cari kod ölçüsü maksimum limit olan $2 {{PLURAL:$2|bayt}}ı keçir",
-	"syntaxhighlight-button-copy": "Kopiyala",
-	"syntaxhighlight-button-copied": "Kopyalandı!"
+	"syntaxhighlight-error-exceeds-size-limit": "$1 {{PLURAL:$1|bayt}} olan cari kod ölçüsü maksimum limit olan $2 {{PLURAL:$2|bayt}}ı keçir"
 }

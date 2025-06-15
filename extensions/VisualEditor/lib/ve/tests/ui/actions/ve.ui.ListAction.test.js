@@ -1,15 +1,15 @@
 /*!
  * VisualEditor UserInterface Actions ListAction tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ui.ListAction' );
 
 /* Tests */
 
-QUnit.test( '(un)wrap', ( assert ) => {
-	const cases = [
+QUnit.test( '(un)wrap', function ( assert ) {
+	var cases = [
 		{
 			rangeOrSelection: new ve.Range( 56, 60 ),
 			method: 'wrap',
@@ -53,24 +53,7 @@ QUnit.test( '(un)wrap', ( assert ) => {
 			},
 			undo: true,
 			msg: 'unwrapping two double listed paragraphs'
-		}
-	];
-
-	cases.forEach( ( caseItem ) => {
-		ve.test.utils.runActionTest(
-			assert,
-			{
-				actionName: 'list',
-				args: [ caseItem.style ],
-				createView: true,
-				...caseItem
-			}
-		);
-	} );
-} );
-
-QUnit.test( 'toggle', ( assert ) => {
-	const cases = [
+		},
 		{
 			html: '<ul><li>One<ul><li>Two</li></ul></li></ul>',
 			rangeOrSelection: new ve.Range( 11 ),
@@ -97,14 +80,14 @@ QUnit.test( 'toggle', ( assert ) => {
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		ve.test.utils.runActionTest(
-			assert,
+			'list', assert, caseItem.html, false, caseItem.method, [ caseItem.style ], caseItem.rangeOrSelection, caseItem.msg,
 			{
-				actionName: 'list',
-				args: [ caseItem.style ],
-				createView: true,
-				...caseItem
+				expectedData: caseItem.expectedData,
+				expectedOriginalData: caseItem.expectedOriginalData,
+				expectedRangeOrSelection: caseItem.expectedRangeOrSelection,
+				undo: caseItem.undo
 			}
 		);
 	} );

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface MWExpandableErrorElement class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -10,7 +10,7 @@
  *
  * @class
  * @extends OO.ui.Element
- * @mixes OO.EventEmitter
+ * @mixins OO.EventEmitter
  *
  * @constructor
  * @param {Object} [config] Configuration options
@@ -51,7 +51,7 @@ OO.mixinClass( ve.ui.MWExpandableErrorElement, OO.EventEmitter );
 /* Events */
 
 /**
- * @event ve.ui.MWExpandableErrorElement#update
+ * @event update
  */
 
 /* Methods */

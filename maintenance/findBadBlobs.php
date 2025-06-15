@@ -19,16 +19,17 @@
  * @ingroup Maintenance
  */
 
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Revision\RevisionArchiveRecord;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\RevisionStore;
 use MediaWiki\Revision\RevisionStoreRecord;
 use MediaWiki\Revision\SlotRecord;
 use MediaWiki\Storage\BlobStore;
+use Wikimedia\Rdbms\LBFactory;
+use Wikimedia\Rdbms\LoadBalancer;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script for finding and marking bad content blobs.
@@ -37,8 +38,25 @@ require_once __DIR__ . '/Maintenance.php';
  */
 class FindBadBlobs extends Maintenance {
 
-	private RevisionStore $revisionStore;
-	private BlobStore $blobStore;
+	/**
+	 * @var RevisionStore|null
+	 */
+	private $revisionStore;
+
+	/**
+	 * @var BlobStore|null
+	 */
+	private $blobStore;
+
+	/**
+	 * @var LoadBalancer|null
+	 */
+	private $loadBalancer;
+
+	/**
+	 * @var LBFactory
+	 */
+	private $lbFactory;
 
 	public function __construct() {
 		parent::__construct();
@@ -57,6 +75,20 @@ class FindBadBlobs extends Maintenance {
 		$this->addOption( 'mark', 'Mark the blob as "known bad", to avoid errors when '
 			. 'attempting to read it. The value given is the reason for marking the blob as bad, '
 			. 'typically a ticket ID. Requires --revisions to also be set.', false, true );
+	}
+
+	public function initializeServices(
+		?RevisionStore $revisionStore = null,
+		?BlobStore $blobStore = null,
+		?LoadBalancer $loadBalancer = null,
+		?LBFactory $lbFactory = null
+	) {
+		$services = MediaWikiServices::getInstance();
+
+		$this->revisionStore = $revisionStore ?? $this->revisionStore ?? $services->getRevisionStore();
+		$this->blobStore = $blobStore ?? $this->blobStore ?? $services->getBlobStore();
+		$this->loadBalancer = $loadBalancer ?? $this->loadBalancer ?? $services->getDBLoadBalancer();
+		$this->lbFactory = $lbFactory ?? $this->lbFactory ?? $services->getDBLoadBalancerFactory();
 	}
 
 	/**
@@ -98,10 +130,7 @@ class FindBadBlobs extends Maintenance {
 	 * @inheritDoc
 	 */
 	public function execute() {
-		$services = $this->getServiceContainer();
-		$this->revisionStore = $services->getRevisionStore();
-		$this->blobStore = $services->getBlobStore();
-		$this->setDBProvider( $services->getConnectionProvider() );
+		$this->initializeServices();
 
 		if ( $this->hasOption( 'revisions' ) ) {
 			if ( $this->hasOption( 'scan-from' ) ) {
@@ -230,17 +259,20 @@ class FindBadBlobs extends Maintenance {
 	 * @return RevisionStoreRecord[]
 	 */
 	private function loadRevisionsByTimestamp( int $afterId, string $fromTimestamp, $batchSize ) {
-		$db = $this->getReplicaDB();
-		$queryBuilder = $this->revisionStore->newSelectQueryBuilder( $db );
-		$rows = $queryBuilder->joinComment()
-			->where( $db->buildComparison( '>', [
-				'rev_timestamp' => $fromTimestamp,
-				'rev_id' => $afterId,
-			] ) )
+		$db = $this->loadBalancer->getConnectionRef( DB_REPLICA );
+		$queryInfo = $this->revisionStore->getQueryInfo();
+		$quotedTimestamp = $db->addQuotes( $fromTimestamp );
+		$rows = $db->newSelectQueryBuilder()
+			->select( $queryInfo['fields'] )
+			->tables( $queryInfo['tables'] )
+			->where( "rev_timestamp > $quotedTimestamp OR "
+				. "(rev_timestamp = $quotedTimestamp AND rev_id > $afterId )" )
+			->joinConds( $queryInfo['joins'] )
 			->useIndex( [ 'revision' => 'rev_timestamp' ] )
 			->orderBy( [ 'rev_timestamp', 'rev_id' ] )
 			->limit( $batchSize )
-			->caller( __METHOD__ )->fetchResultSet();
+			->caller( __METHOD__ )
+			->fetchResultSet();
 		$result = $this->revisionStore->newRevisionsFromBatch( $rows, [ 'slots' => true ] );
 		$this->handleStatus( $result );
 
@@ -258,13 +290,17 @@ class FindBadBlobs extends Maintenance {
 	 * @return RevisionArchiveRecord[]
 	 */
 	private function loadArchiveByRevisionId( int $afterId, int $uptoId, $batchSize ) {
-		$db = $this->getReplicaDB();
-		$rows = $this->revisionStore->newArchiveSelectQueryBuilder( $db )
-			->joinComment()
-			->where( [ $db->expr( 'ar_rev_id', '>', $afterId ), $db->expr( 'ar_rev_id', '<=', $uptoId ) ] )
+		$db = $this->loadBalancer->getConnectionRef( DB_REPLICA );
+		$queryInfo = $this->revisionStore->getArchiveQueryInfo();
+		$rows = $db->newSelectQueryBuilder()
+			->select( $queryInfo['fields'] )
+			->tables( $queryInfo['tables'] )
+			->where( [ "ar_rev_id > $afterId", "ar_rev_id <= $uptoId" ] )
+			->joinConds( $queryInfo['joins'] )
 			->orderBy( 'ar_rev_id' )
 			->limit( $batchSize )
-			->caller( __METHOD__ )->fetchResultSet();
+			->caller( __METHOD__ )
+			->fetchResultSet();
 		$result = $this->revisionStore->newRevisionsFromBatch(
 			$rows,
 			[ 'archive' => true, 'slots' => true ]
@@ -287,7 +323,7 @@ class FindBadBlobs extends Maintenance {
 	 * @return int
 	 */
 	private function getNextRevision( int $revId, string $comp, string $dir ) {
-		$db = $this->getReplicaDB();
+		$db = $this->loadBalancer->getConnectionRef( DB_REPLICA );
 		$next = $db->newSelectQueryBuilder()
 			->select( 'rev_id' )
 			->from( 'revision' )
@@ -334,13 +370,16 @@ class FindBadBlobs extends Maintenance {
 	 * @return RevisionRecord[]
 	 */
 	private function loadRevisionsById( array $ids ) {
-		$db = $this->getReplicaDB();
-		$queryBuilder = $this->revisionStore->newSelectQueryBuilder( $db );
+		$db = $this->loadBalancer->getConnectionRef( DB_REPLICA );
+		$queryInfo = $this->revisionStore->getQueryInfo();
 
-		$rows = $queryBuilder
-			->joinComment()
+		$rows = $db->newSelectQueryBuilder()
+			->select( $queryInfo['fields'] )
+			->tables( $queryInfo['tables'] )
 			->where( [ 'rev_id' => $ids ] )
-			->caller( __METHOD__ )->fetchResultSet();
+			->joinConds( $queryInfo['joins'] )
+			->caller( __METHOD__ )
+			->fetchResultSet();
 
 		$result = $this->revisionStore->newRevisionsFromBatch( $rows, [ 'slots' => true ] );
 
@@ -351,10 +390,16 @@ class FindBadBlobs extends Maintenance {
 
 		// if not all revisions were found, check the archive table.
 		if ( count( $revisions ) < count( $ids ) ) {
-			$rows = $this->revisionStore->newArchiveSelectQueryBuilder( $db )
-				->joinComment()
-				->where( [ 'ar_rev_id' => array_diff( $ids, array_keys( $revisions ) ) ] )
-				->caller( __METHOD__ )->fetchResultSet();
+			$archiveQueryInfo = $this->revisionStore->getArchiveQueryInfo();
+			$remainingIds = array_diff( $ids, array_keys( $revisions ) );
+
+			$rows = $db->newSelectQueryBuilder()
+				->select( $archiveQueryInfo['fields'] )
+				->tables( $archiveQueryInfo['tables'] )
+				->where( [ 'ar_rev_id' => $remainingIds ] )
+				->joinConds( $archiveQueryInfo['joins'] )
+				->caller( __METHOD__ )
+				->fetchResultSet();
 
 			$archiveResult = $this->revisionStore->newRevisionsFromBatch(
 				$rows,
@@ -396,6 +441,8 @@ class FindBadBlobs extends Maintenance {
 	 */
 	private function checkSlot( RevisionRecord $rev, SlotRecord $slot ) {
 		$address = $slot->getAddress();
+		$error = null;
+		$type = null;
 
 		try {
 			$this->blobStore->getBlob( $address );
@@ -414,7 +461,7 @@ class FindBadBlobs extends Maintenance {
 			. "error='$error', type='$type'. ID:\t{$rev->getId()}\n" );
 
 		if ( $this->hasOption( 'mark' ) ) {
-			$newAddress = $this->markBlob( $slot, $error );
+			$newAddress = $this->markBlob( $rev, $slot, $error );
 			$this->output( "\tChanged address to <$newAddress>\n" );
 		}
 
@@ -422,12 +469,13 @@ class FindBadBlobs extends Maintenance {
 	}
 
 	/**
+	 * @param RevisionRecord $rev
 	 * @param SlotRecord $slot
 	 * @param string|null $error
 	 *
 	 * @return false|string
 	 */
-	private function markBlob( SlotRecord $slot, ?string $error = null ) {
+	private function markBlob( RevisionRecord $rev, SlotRecord $slot, string $error = null ) {
 		$args = [];
 
 		if ( $this->hasOption( 'mark' ) ) {
@@ -447,28 +495,31 @@ class FindBadBlobs extends Maintenance {
 
 		$badAddress = substr( $badAddress, 0, 255 );
 
-		$dbw = $this->getPrimaryDB();
-		$dbw->newUpdateQueryBuilder()
-			->update( 'content' )
-			->set( [ 'content_address' => $badAddress ] )
-			->where( [ 'content_id' => $slot->getContentId() ] )
-			->caller( __METHOD__ )->execute();
+		$dbw = $this->loadBalancer->getConnectionRef( DB_PRIMARY );
+		$dbw->update(
+			'content',
+			[ 'content_address' => $badAddress ],
+			[ 'content_id' => $slot->getContentId() ],
+			__METHOD__
+		);
 
 		return $badAddress;
 	}
 
 	private function handleStatus( StatusValue $status ) {
 		if ( !$status->isOK() ) {
-			$this->fatalError( $status );
+			$this->fatalError(
+				Status::wrap( $status )->getMessage( false, false, 'en' )->text()
+			);
 		}
 		if ( !$status->isGood() ) {
-			$this->error( $status );
+			$this->error(
+				"\t! " . Status::wrap( $status )->getMessage( false, false, 'en' )->text()
+			);
 		}
 	}
 
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = FindBadBlobs::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

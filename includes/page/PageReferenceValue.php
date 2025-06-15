@@ -21,7 +21,6 @@
 namespace MediaWiki\Page;
 
 use MediaWiki\DAO\WikiAwareEntityTrait;
-use Stringable;
 use Wikimedia\Assert\Assert;
 use Wikimedia\NonSerializable\NonSerializableTrait;
 
@@ -40,7 +39,7 @@ use Wikimedia\NonSerializable\NonSerializableTrait;
  *
  * @since 1.37
  */
-class PageReferenceValue implements Stringable, PageReference {
+class PageReferenceValue implements PageReference {
 
 	/* Use JSON, but beware the note on serialization above. */
 	use NonSerializableTrait;
@@ -52,13 +51,13 @@ class PageReferenceValue implements Stringable, PageReference {
 	/** @var string */
 	private $dbKey;
 
-	/** @var string|false */
+	/** @var bool|string */
 	private $wikiId;
 
 	/**
 	 * @param int $namespace A valid namespace ID. Validation is the caller's responsibility!
 	 * @param string $dbKey A valid DB key. Validation is the caller's responsibility!
-	 * @param string|false $wikiId The Id of the wiki this page belongs to,
+	 * @param string|bool $wikiId The Id of the wiki this page belongs to,
 	 *        or self::LOCAL for the local wiki.
 	 */
 	public function __construct( int $namespace, string $dbKey, $wikiId ) {
@@ -113,14 +112,24 @@ class PageReferenceValue implements Stringable, PageReference {
 	}
 
 	/**
-	 * @inheritDoc
+	 * @param PageReference $other
+	 *
+	 * @return bool
 	 */
 	public function isSamePageAs( PageReference $other ): bool {
 		// NOTE: keep in sync with Title::isSamePageAs()!
 		// NOTE: keep in sync with WikiPage::isSamePageAs()!
-		return $this->getWikiId() === $other->getWikiId()
-			&& $this->getNamespace() === $other->getNamespace()
-			&& $this->getDBkey() === $other->getDBkey();
+
+		if ( $other->getWikiId() !== $this->getWikiId() ) {
+			return false;
+		}
+
+		if ( $other->getNamespace() !== $this->getNamespace()
+			|| $other->getDBkey() !== $this->getDBkey() ) {
+			return false;
+		}
+
+		return true;
 	}
 
 	/**

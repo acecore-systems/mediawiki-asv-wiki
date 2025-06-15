@@ -1,18 +1,12 @@
 <?php
 
-namespace Wikimedia\Tests;
-
-use InvalidArgumentException;
-use MediaWikiCoversValidator;
-use MemoizedCallable;
-use PHPUnit\Framework\TestCase;
-use stdClass;
 use Wikimedia\TestingAccessWrapper;
 
 /**
- * @covers \MemoizedCallable
+ * PHPUnit tests for MemoizedCallable class.
+ * @covers MemoizedCallable
  */
-class MemoizedCallableTest extends TestCase {
+class MemoizedCallableTest extends PHPUnit\Framework\TestCase {
 
 	use MediaWikiCoversValidator;
 
@@ -52,6 +46,9 @@ class MemoizedCallableTest extends TestCase {
 		$this->assertEquals( 'ok', $memoized->invoke() );
 	}
 
+	/**
+	 * @covers MemoizedCallable::invoke
+	 */
 	public function testInvokeVariadic() {
 		$memoized = new MemoizedCallable( 'sprintf' );
 		$this->assertEquals(
@@ -60,6 +57,9 @@ class MemoizedCallableTest extends TestCase {
 		);
 	}
 
+	/**
+	 * @covers MemoizedCallable::call
+	 */
 	public function testShortcutMethod() {
 		$this->assertEquals(
 			'this is correct',
@@ -139,7 +139,6 @@ class MemoizedCallableTest extends TestCase {
  * in an instance property rather than APC or APCu.
  */
 class ArrayBackedMemoizedCallable extends MemoizedCallable {
-	/** @var array */
 	private $cache = [];
 
 	protected function fetchResult( $key, &$success ) {

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor Linear Selection class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -35,21 +35,22 @@ ve.ce.LinearSelection.static.name = 'linear';
  * @inheritdoc
  */
 ve.ce.LinearSelection.prototype.getSelectionRects = function () {
-	const surface = this.getSurface();
+	var surface = this.getSurface(),
+		rects = [],
+		relativeRects = [];
 
-	const range = this.getModel().getRange();
-	const focusedNode = surface.getFocusedNode( range );
+	var range = this.getModel().getRange();
+	var focusedNode = surface.getFocusedNode( range );
 
 	if ( focusedNode ) {
 		return focusedNode.getRects();
 	}
 
-	const nativeRange = surface.getNativeRange( range );
+	var nativeRange = surface.getNativeRange( range );
 	if ( !nativeRange ) {
 		return null;
 	}
 
-	let rects = [];
 	// Support: Firefox, IE
 	// Calling getClientRects sometimes fails:
 	// * in Firefox on page load when the address bar is still focused
@@ -61,20 +62,18 @@ ve.ce.LinearSelection.prototype.getSelectionRects = function () {
 			throw new Error( 'getClientRects returned empty list' );
 		}
 	} catch ( e ) {
-		const rect = this.getNodeClientRectFromRange( nativeRange );
+		var rect = this.getNodeClientRectFromRange( nativeRange );
 		if ( rect ) {
 			rects = [ rect ];
 		}
 	}
 
-	const surfaceRect = surface.getSurface().getBoundingClientRect();
+	var surfaceRect = surface.getSurface().getBoundingClientRect();
 	if ( !rects || !surfaceRect ) {
 		return null;
 	}
 
-	// TODO: Use .map
-	const relativeRects = [];
-	for ( let i = 0, l = rects.length; i < l; i++ ) {
+	for ( var i = 0, l = rects.length; i < l; i++ ) {
 		relativeRects.push( ve.translateRect( rects[ i ], -surfaceRect.left, -surfaceRect.top ) );
 	}
 	return relativeRects;
@@ -84,10 +83,10 @@ ve.ce.LinearSelection.prototype.getSelectionRects = function () {
  * @inheritdoc
  */
 ve.ce.LinearSelection.prototype.getSelectionStartAndEndRects = function () {
-	const surface = this.getSurface();
+	var surface = this.getSurface();
 
-	const range = this.getModel().getRange();
-	const focusedNode = surface.getFocusedNode( range );
+	var range = this.getModel().getRange();
+	var focusedNode = surface.getFocusedNode( range );
 
 	if ( focusedNode ) {
 		return focusedNode.getStartAndEndRects();
@@ -100,21 +99,21 @@ ve.ce.LinearSelection.prototype.getSelectionStartAndEndRects = function () {
  * @inheritdoc
  */
 ve.ce.LinearSelection.prototype.getSelectionBoundingRect = function () {
-	const surface = this.getSurface();
+	var surface = this.getSurface();
 
-	const range = this.getModel().getRange();
-	const focusedNode = surface.getFocusedNode( range );
+	var range = this.getModel().getRange();
+	var focusedNode = surface.getFocusedNode( range );
 
 	if ( focusedNode ) {
 		return focusedNode.getBoundingRect();
 	}
 
-	const nativeRange = surface.getNativeRange( range );
+	var nativeRange = surface.getNativeRange( range );
 	if ( !nativeRange ) {
 		return null;
 	}
 
-	let boundingRect;
+	var boundingRect;
 	try {
 		boundingRect = RangeFix.getBoundingClientRect( nativeRange );
 	} catch ( e ) {
@@ -124,7 +123,7 @@ ve.ce.LinearSelection.prototype.getSelectionBoundingRect = function () {
 		boundingRect = this.getNodeClientRectFromRange( nativeRange );
 	}
 
-	const surfaceRect = surface.getSurface().getBoundingClientRect();
+	var surfaceRect = surface.getSurface().getBoundingClientRect();
 	if ( !boundingRect || !surfaceRect ) {
 		return null;
 	}
@@ -144,18 +143,18 @@ ve.ce.LinearSelection.prototype.getSelectionBoundingRect = function () {
  * @return {Object|null} ClientRect-like object
  */
 ve.ce.LinearSelection.prototype.getNodeClientRectFromRange = function ( range ) {
-	const containerNode = range.endContainer,
+	var containerNode = range.endContainer,
 		offset = range.endOffset;
 
-	let node;
-	let fixHeight;
+	var node;
+	var fixHeight;
 	if ( containerNode.nodeType === Node.TEXT_NODE && ( offset === 0 || offset === containerNode.length ) ) {
 		node = offset ? containerNode.previousSibling : containerNode.nextSibling;
 	} else if ( containerNode.nodeType === Node.ELEMENT_NODE ) {
 		node = offset === containerNode.childNodes.length ? containerNode.lastChild : containerNode.childNodes[ offset ];
 		// Nail heights are 0, so use the annotation's height
 		if ( node && node.nodeType === Node.ELEMENT_NODE && node.classList.contains( 've-ce-nail' ) ) {
-			const annotationNode = offset ? node.previousSibling : node.nextSibling;
+			var annotationNode = offset ? node.previousSibling : node.nextSibling;
 			// Sometimes annotationNode isn't an HTMLElement (T261992). Not sure
 			// when this happens, but we will still return a sensible rectangle
 			// without fixHeight isn't set.
@@ -180,18 +179,18 @@ ve.ce.LinearSelection.prototype.getNodeClientRectFromRange = function ( range ) 
 
 	// We would use getBoundingClientRect(), but in iOS7 that's relative to the
 	// document rather than to the viewport
-	const rect = node.getClientRects()[ 0 ];
+	var rect = node.getClientRects()[ 0 ];
 	if ( !rect ) {
 		// FF can return null when focusNode is invisible
 		return null;
 	}
 
-	const side = $( node ).css( 'direction' ) === 'rtl' ? 'right' : 'left';
-	const adjacentNode = range.endContainer.childNodes[ range.endOffset ];
-	let x;
+	var side = $( node ).css( 'direction' ) === 'rtl' ? 'right' : 'left';
+	var adjacentNode = range.endContainer.childNodes[ range.endOffset ];
+	var x;
 	if ( range.collapsed && adjacentNode && adjacentNode.classList && adjacentNode.classList.contains( 've-ce-unicorn' ) ) {
 		// We're next to a unicorn; use its left/right position
-		const unicornRect = adjacentNode.getClientRects()[ 0 ];
+		var unicornRect = adjacentNode.getClientRects()[ 0 ];
 		if ( !unicornRect ) {
 			return null;
 		}
@@ -202,7 +201,7 @@ ve.ce.LinearSelection.prototype.getNodeClientRectFromRange = function ( range ) 
 
 	if ( fixHeight ) {
 		// Use a pre-computed height from above, maintaining the vertical center
-		const middle = ( rect.top + rect.bottom ) / 2;
+		var middle = ( rect.top + rect.bottom ) / 2;
 		return {
 			top: middle - ( fixHeight / 2 ),
 			bottom: middle + ( fixHeight / 2 ),

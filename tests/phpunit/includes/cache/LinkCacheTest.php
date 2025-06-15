@@ -1,24 +1,17 @@
 <?php
 
-use MediaWiki\Cache\LinkCache;
 use MediaWiki\Page\PageReference;
 use MediaWiki\Page\PageReferenceValue;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleValue;
-use Wikimedia\ObjectCache\EmptyBagOStuff;
-use Wikimedia\ObjectCache\HashBagOStuff;
-use Wikimedia\ObjectCache\WANObjectCache;
-use Wikimedia\Rdbms\IDBAccessObject;
 
 /**
  * @group Database
  * @group Cache
- * @covers \MediaWiki\Cache\LinkCache
+ * @covers LinkCache
  */
 class LinkCacheTest extends MediaWikiIntegrationTestCase {
 	use LinkCacheTestTrait;
 
-	private function newLinkCache( ?WANObjectCache $wanCache = null ) {
+	private function newLinkCache( WANObjectCache $wanCache = null ) {
 		if ( !$wanCache ) {
 			$wanCache = new WANObjectCache( [ 'cache' => new EmptyBagOStuff() ] );
 		}
@@ -31,14 +24,14 @@ class LinkCacheTest extends MediaWikiIntegrationTestCase {
 		);
 	}
 
-	public static function providePageAndLink() {
+	public function providePageAndLink() {
 		return [
 			[ new PageReferenceValue( NS_USER, __METHOD__, PageReference::LOCAL ) ],
 			[ new TitleValue( NS_USER, __METHOD__ ) ]
 		];
 	}
 
-	public static function providePageAndLinkAndArray() {
+	public function providePageAndLinkAndArray() {
 		return [
 			[ new PageReferenceValue( NS_USER, __METHOD__, PageReference::LOCAL ) ],
 			[ new TitleValue( NS_USER, __METHOD__ ) ],
@@ -63,11 +56,11 @@ class LinkCacheTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider providePageAndLinkAndArray
-	 * @covers \MediaWiki\Cache\LinkCache::addGoodLinkObjFromRow()
-	 * @covers \MediaWiki\Cache\LinkCache::getGoodLinkRow()
-	 * @covers \MediaWiki\Cache\LinkCache::getGoodLinkID()
-	 * @covers \MediaWiki\Cache\LinkCache::getGoodLinkFieldObj()
-	 * @covers \MediaWiki\Cache\LinkCache::clearLink()
+	 * @covers LinkCache::addGoodLinkObjFromRow()
+	 * @covers LinkCache::getGoodLinkRow()
+	 * @covers LinkCache::getGoodLinkID()
+	 * @covers LinkCache::getGoodLinkFieldObj()
+	 * @covers LinkCache::clearLink()
 	 */
 	public function testAddGoodLinkObjFromRow( $page ) {
 		$linkCache = $this->newLinkCache();
@@ -129,10 +122,10 @@ class LinkCacheTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Cache\LinkCache::addGoodLinkObjFromRow()
-	 * @covers \MediaWiki\Cache\LinkCache::getGoodLinkRow()
-	 * @covers \MediaWiki\Cache\LinkCache::getGoodLinkID()
-	 * @covers \MediaWiki\Cache\LinkCache::getGoodLinkFieldObj()
+	 * @covers LinkCache::addGoodLinkObjFromRow()
+	 * @covers LinkCache::getGoodLinkRow()
+	 * @covers LinkCache::getGoodLinkID()
+	 * @covers LinkCache::getGoodLinkFieldObj()
 	 */
 	public function testAddGoodLinkObjWithAllParameters() {
 		$linkCache = $this->getServiceContainer()->getLinkCache();
@@ -168,10 +161,10 @@ class LinkCacheTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Cache\LinkCache::addGoodLinkObjFromRow()
-	 * @covers \MediaWiki\Cache\LinkCache::getGoodLinkRow()
-	 * @covers \MediaWiki\Cache\LinkCache::getGoodLinkID()
-	 * @covers \MediaWiki\Cache\LinkCache::getGoodLinkFieldObj()
+	 * @covers LinkCache::addGoodLinkObjFromRow()
+	 * @covers LinkCache::getGoodLinkRow()
+	 * @covers LinkCache::getGoodLinkID()
+	 * @covers LinkCache::getGoodLinkFieldObj()
 	 */
 	public function testAddGoodLinkObjFromRowWithMinimalParameters() {
 		$linkCache = $this->getServiceContainer()->getLinkCache();
@@ -220,7 +213,7 @@ class LinkCacheTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Cache\LinkCache::addGoodLinkObjFromRow()
+	 * @covers LinkCache::addGoodLinkObjFromRow()
 	 */
 	public function testAddGoodLinkObjFromRowWithInterwikiLink() {
 		$linkCache = $this->getServiceContainer()->getLinkCache();
@@ -234,9 +227,9 @@ class LinkCacheTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider providePageAndLink
-	 * @covers \MediaWiki\Cache\LinkCache::addBadLinkObj()
-	 * @covers \MediaWiki\Cache\LinkCache::isBadLink()
-	 * @covers \MediaWiki\Cache\LinkCache::clearLink()
+	 * @covers LinkCache::addBadLinkObj()
+	 * @covers LinkCache::isBadLink()
+	 * @covers LinkCache::clearLink()
 	 */
 	public function testAddBadLinkObj( $key ) {
 		$linkCache = $this->getServiceContainer()->getLinkCache();
@@ -253,7 +246,7 @@ class LinkCacheTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Cache\LinkCache::addBadLinkObj()
+	 * @covers LinkCache::addBadLinkObj()
 	 */
 	public function testAddBadLinkObjWithInterwikiLink() {
 		$linkCache = $this->newLinkCache();
@@ -265,8 +258,8 @@ class LinkCacheTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Cache\LinkCache::addLinkObj()
-	 * @covers \MediaWiki\Cache\LinkCache::getGoodLinkFieldObj
+	 * @covers LinkCache::addLinkObj()
+	 * @covers LinkCache::getGoodLinkFieldObj
 	 */
 	public function testAddLinkObj() {
 		$existing = $this->getExistingTestPage();
@@ -288,7 +281,7 @@ class LinkCacheTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Cache\LinkCache::addLinkObj()
+	 * @covers LinkCache::addLinkObj()
 	 */
 	public function testAddLinkObjUsesCachedInfo() {
 		$existing = $this->getExistingTestPage();
@@ -313,23 +306,32 @@ class LinkCacheTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Cache\LinkCache::addLinkObj()
+	 * @covers LinkCache::addLinkObj()
+	 * @covers LinkCache::getMutableCacheKeys()
 	 */
 	public function testAddLinkObjUsesWANCache() {
-		// For some namespaces we cache data (Template, File, etc)
+		// Pages in some namespaces use the WAN cache: Template, File, Category, MediaWiki
 		$existing = $this->getExistingTestPage( Title::makeTitle( NS_TEMPLATE, __METHOD__ ) );
-		$wanCache = new WANObjectCache( [ 'cache' => new HashBagOStuff() ] );
+
+		$fakeRow = $this->getPageRow( $existing->getId() + 100 );
+
+		$cache = new HashBagOStuff();
+		$wanCache = new WANObjectCache( [ 'cache' => $cache ] );
 		$linkCache = $this->newLinkCache( $wanCache );
 
 		// load the page row into the cache
 		$linkCache->addLinkObj( $existing );
 
+		$keys = $linkCache->getMutableCacheKeys( $wanCache, $existing );
+		$this->assertNotEmpty( $keys );
+
+		foreach ( $keys as $key ) {
+			$this->assertNotFalse( $wanCache->get( $key ) );
+		}
+
 		// replace real row data with fake, and assert that it gets used
-		$key = $wanCache->makeKey( 'page', $existing->getNamespace(), sha1( $existing->getDBkey() ) );
-		$fakeRow = $this->getPageRow( $existing->getId() + 100 );
 		$wanCache->set( $key, $fakeRow );
-		// clear in-class cache
-		$linkCache->clearLink( $existing );
+		$linkCache->clearLink( $existing ); // clear local cache
 		$this->assertSame( (int)$fakeRow->page_id, $linkCache->addLinkObj( $existing ) );
 
 		// set the "read latest" flag and try again
@@ -369,7 +371,7 @@ class LinkCacheTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( 0, $linkCache->getGoodLinkID( 'Xyzzy' ) );
 	}
 
-	public static function provideInvalidPageParams() {
+	public function provideInvalidPageParams() {
 		return [
 			'empty' => [ NS_MAIN, '' ],
 			'bad chars' => [ NS_MAIN, '_|_' ],
@@ -380,7 +382,7 @@ class LinkCacheTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * @dataProvider provideInvalidPageParams
-	 * @covers \MediaWiki\Cache\LinkCache::getGoodLinkRow()
+	 * @covers LinkCache::getGoodLinkRow()
 	 */
 	public function testGetGoodLinkRowWithBadParams( $ns, $dbkey ) {
 		$linkCache = $this->newLinkCache();
@@ -396,8 +398,8 @@ class LinkCacheTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Cache\LinkCache::getGoodLinkRow()
-	 * @covers \MediaWiki\Cache\LinkCache::getGoodLinkFieldObj
+	 * @covers LinkCache::getGoodLinkRow()
+	 * @covers LinkCache::getGoodLinkFieldObj
 	 */
 	public function testGetGoodLinkRow() {
 		$existing = new TitleValue( NS_MAIN, 'Existing' );
@@ -420,7 +422,7 @@ class LinkCacheTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Cache\LinkCache::getGoodLinkRow()
+	 * @covers LinkCache::getGoodLinkRow()
 	 */
 	public function testGetGoodLinkRowUsesCachedInfo() {
 		$existing = new TitleValue( NS_MAIN, 'Existing' );
@@ -481,6 +483,81 @@ class LinkCacheTest extends MediaWikiIntegrationTestCase {
 			$linkCache->getGoodLinkRow(
 				$missing->getNamespace(),
 				$missing->getDBkey(),
+				$callback,
+				$flags
+			)
+		);
+	}
+
+	/**
+	 * @covers LinkCache::getGoodLinkRow()
+	 */
+	public function testGetGoodLinkRowGetsIncompleteCachedInfo() {
+		// Pages in some namespaces use the WAN cache: Template, File, Category, MediaWiki
+		$existing = new TitleValue( NS_TEMPLATE, 'Existing' );
+		$brokenRow = $this->getPageRow( 3 );
+		unset( $brokenRow->page_len ); // make incomplete row
+
+		$cache = new HashBagOStuff();
+		$wanCache = new WANObjectCache( [ 'cache' => $cache ] );
+		$linkCache = $this->newLinkCache( $wanCache );
+
+		// force the incomplete row into the cache
+		$keys = $linkCache->getMutableCacheKeys( $wanCache, $existing );
+		$wanCache->set( $keys[0], $brokenRow );
+
+		// check that we are not getting the broken row, but load a good row
+		$callback = [ $this, 'getRowIfExisting' ];
+		$row = $linkCache->getGoodLinkRow( $existing->getNamespace(), $existing->getDBkey(), $callback );
+
+		$this->assertNotEquals( $brokenRow, $row );
+	}
+
+	/**
+	 * @covers LinkCache::getGoodLinkRow()
+	 * @covers LinkCache::getMutableCacheKeys()
+	 */
+	public function testGetGoodLinkRowUsesWANCache() {
+		// Pages in some namespaces use the WAN cache: Template, File, Category, MediaWiki
+		$existing = new TitleValue( NS_TEMPLATE, 'Existing' );
+		$callback = [ $this, 'getRowIfExisting' ];
+
+		$existingRow = $this->getPageRow( 0 );
+		$fakeRow = $this->getPageRow( 3 );
+
+		$cache = new HashBagOStuff();
+		$wanCache = new WANObjectCache( [ 'cache' => $cache ] );
+		$linkCache = $this->newLinkCache( $wanCache );
+
+		// load the page row into the cache
+		$linkCache->getGoodLinkRow( $existing->getNamespace(), $existing->getDBkey(), $callback );
+
+		$keys = $linkCache->getMutableCacheKeys( $wanCache, $existing );
+		$this->assertNotEmpty( $keys );
+
+		foreach ( $keys as $key ) {
+			$this->assertNotFalse( $wanCache->get( $key ) );
+		}
+
+		// replace real row data with fake, and assert that it gets used
+		$wanCache->set( $key, $fakeRow );
+		$linkCache->clearLink( $existing ); // clear local cache
+		$this->assertSame(
+			$fakeRow,
+			$linkCache->getGoodLinkRow(
+				$existing->getNamespace(),
+				$existing->getDBkey(),
+				$callback
+			)
+		);
+
+		// set the "read latest" flag and try again
+		$flags = IDBAccessObject::READ_LATEST;
+		$this->assertEquals(
+			$existingRow,
+			$linkCache->getGoodLinkRow(
+				$existing->getNamespace(),
+				$existing->getDBkey(),
 				$callback,
 				$flags
 			)

@@ -1,31 +1,29 @@
-const HighlightColors = require( '../HighlightColors.js' );
-
 /**
- * List of changes.
+ * List of changes
  *
  * @class mw.rcfilters.ui.ChangesListWrapperWidget
- * @ignore
  * @extends OO.ui.Widget
  *
+ * @constructor
  * @param {mw.rcfilters.dm.FiltersViewModel} filtersViewModel View model
  * @param {mw.rcfilters.dm.ChangesListViewModel} changesListViewModel View model
  * @param {mw.rcfilters.Controller} controller
  * @param {jQuery} $changesListRoot Root element of the changes list to attach to
  * @param {Object} [config] Configuration object
  */
-const ChangesListWrapperWidget = function MwRcfiltersUiChangesListWrapperWidget(
+var ChangesListWrapperWidget = function MwRcfiltersUiChangesListWrapperWidget(
 	filtersViewModel,
 	changesListViewModel,
 	controller,
 	$changesListRoot,
 	config
 ) {
-	config = Object.assign( {}, config, {
+	config = $.extend( {}, config, {
 		$element: $changesListRoot
 	} );
 
 	// Parent
-	ChangesListWrapperWidget.super.call( this, config );
+	ChangesListWrapperWidget.parent.call( this, config );
 
 	this.filtersViewModel = filtersViewModel;
 	this.changesListViewModel = changesListViewModel;
@@ -97,13 +95,14 @@ ChangesListWrapperWidget.prototype.onModelInvalidate = function () {
 ChangesListWrapperWidget.prototype.onModelUpdate = function (
 	$changesListContent, $fieldset, noResultsDetails, isInitialDOM, from
 ) {
-	const $message = $( '<div>' )
+	var conflictItem,
+		$message = $( '<div>' )
 			.addClass( 'mw-rcfilters-ui-changesListWrapperWidget-results' ),
 		isEmpty = $changesListContent === 'NO_RESULTS',
-		// For enhanced mode, we have to load this modules, which is
+		// For enhanced mode, we have to load these modules, which are
 		// not loaded for the 'regular' mode in the backend
 		loaderPromise = mw.user.options.get( 'usenewrc' ) && !OO.ui.isMobile() ?
-			mw.loader.using( [ 'mediawiki.special.changeslist.enhanced' ] ) :
+			mw.loader.using( [ 'mediawiki.special.changeslist.enhanced', 'mediawiki.icon' ] ) :
 			$.Deferred().resolve(),
 		widget = this;
 
@@ -112,7 +111,7 @@ ChangesListWrapperWidget.prototype.onModelUpdate = function (
 		this.$element.empty();
 
 		if ( this.filtersViewModel.hasConflict() ) {
-			const conflictItem = this.filtersViewModel.getFirstConflictedItem();
+			conflictItem = this.filtersViewModel.getFirstConflictedItem();
 
 			$message
 				.append(
@@ -136,15 +135,19 @@ ChangesListWrapperWidget.prototype.onModelUpdate = function (
 						// * recentchanges-network
 						// * recentchanges-notargetpage
 						// * allpagesbadtitle
-						.html( mw.message( this.getMsgKeyForNoResults( noResultsDetails ) ).parse() )
+						.text( mw.message( this.getMsgKeyForNoResults( noResultsDetails ) ).parse() )
 				);
 
 			// remove all classes matching mw-changeslist-*
 			// eslint-disable-next-line mediawiki/class-doc
-			this.$element.removeClass( ( elementIndex, allClasses ) => allClasses
-				.split( ' ' )
-				.filter( ( className ) => className.indexOf( 'mw-changeslist-' ) === 0 )
-				.join( ' ' ) );
+			this.$element.removeClass( function ( elementIndex, allClasses ) {
+				return allClasses
+					.split( ' ' )
+					.filter( function ( className ) {
+						return className.indexOf( 'mw-changeslist-' ) === 0;
+					} )
+					.join( ' ' );
+			} );
 		}
 
 		this.$element.append( $message );
@@ -164,7 +167,7 @@ ChangesListWrapperWidget.prototype.onModelUpdate = function (
 
 	this.$element.prepend( $( '<div>' ).addClass( 'mw-changeslist-overlay' ) );
 
-	loaderPromise.done( () => {
+	loaderPromise.done( function () {
 		if ( !isInitialDOM && !isEmpty ) {
 			// Make sure enhanced RC re-initializes correctly
 			mw.hook( 'wikipage.content' ).fire( widget.$element );
@@ -191,7 +194,7 @@ ChangesListWrapperWidget.prototype.toggleOverlay = function ( isVisible ) {
  * @return {string} Key for the message that explains why there is no results in this case
  */
 ChangesListWrapperWidget.prototype.getMsgKeyForNoResults = function ( reason ) {
-	const reasonMsgKeyMap = {
+	var reasonMsgKeyMap = {
 		NO_RESULTS_NORMAL: 'recentchanges-noresult',
 		NO_RESULTS_TIMEOUT: 'recentchanges-timeout',
 		NO_RESULTS_NETWORK_ERROR: 'recentchanges-network',
@@ -207,16 +210,17 @@ ChangesListWrapperWidget.prototype.getMsgKeyForNoResults = function ( reason ) {
  * @param {string} from Anything newer than this is considered 'new'
  */
 ChangesListWrapperWidget.prototype.emphasizeNewChanges = function ( from ) {
-	const selector = this.inEnhancedMode() ?
+	var $firstNew,
+		$indicator,
+		$newChanges = $( [] ),
+		selector = this.inEnhancedMode() ?
 			'table.mw-enhanced-rc[data-mw-ts]' :
 			'li[data-mw-ts]',
 		$set = this.$element.find( selector ),
 		length = $set.length;
 
-	let $firstNew,
-		$newChanges = $( [] );
 	$set.each( function ( index ) {
-		const $this = $( this ),
+		var $this = $( this ),
 			ts = $this.data( 'mw-ts' );
 
 		if ( ts >= from ) {
@@ -231,7 +235,7 @@ ChangesListWrapperWidget.prototype.emphasizeNewChanges = function ( from ) {
 	} );
 
 	if ( $firstNew ) {
-		const $indicator = $( '<div>' )
+		$indicator = $( '<div>' )
 			.addClass( 'mw-rcfilters-ui-changesListWrapperWidget-previousChangesIndicator' );
 
 		$firstNew.after( $indicator );
@@ -252,31 +256,36 @@ ChangesListWrapperWidget.prototype.emphasizeNewChanges = function ( from ) {
  * This is called every time highlights are applied.
  */
 ChangesListWrapperWidget.prototype.updateEnhancedParentHighlight = function () {
-	const $enhancedTopPageCell = this.$element.find( 'table.mw-enhanced-rc' );
+	var activeHighlightClasses,
+		$enhancedTopPageCell = this.$element.find( 'table.mw-enhanced-rc.mw-collapsible' );
 
-	const activeHighlightClasses = this.filtersViewModel.getCurrentlyUsedHighlightColors().map( ( color ) => 'mw-rcfilters-highlight-color-' + color );
+	activeHighlightClasses = this.filtersViewModel.getCurrentlyUsedHighlightColors().map( function ( color ) {
+		return 'mw-rcfilters-highlight-color-' + color;
+	} );
 
-	// Go over top pages and their children, and figure out if all subpages have the
+	// Go over top pages and their children, and figure out if all sub-pages have the
 	// same highlights between themselves. If they do, the parent should be highlighted
 	// with all colors. If classes are different, the parent should receive a grey
 	// background
 	$enhancedTopPageCell.each( function () {
-		const $table = $( this );
+		var firstChildClasses, $rowsWithDifferentHighlights,
+			$table = $( this );
 
 		// Collect the relevant classes from the first nested child
-		const firstChildClasses = activeHighlightClasses.filter(
+		firstChildClasses = activeHighlightClasses.filter( function ( className ) {
 			// eslint-disable-next-line no-jquery/no-class-state
-			( className ) => $table.find( 'tr' ).eq( 2 ).hasClass( className )
-		);
+			return $table.find( 'tr' ).eq( 2 ).hasClass( className );
+		} );
 		// Filter the non-head rows and see if they all have the same classes
 		// to the first row
-		const $rowsWithDifferentHighlights = $table.find( 'tr:not(:first-child)' ).filter( function () {
-			const $this = $( this );
+		$rowsWithDifferentHighlights = $table.find( 'tr:not(:first-child)' ).filter( function () {
+			var classesInThisRow,
+				$this = $( this );
 
-			const classesInThisRow = activeHighlightClasses.filter(
+			classesInThisRow = activeHighlightClasses.filter( function ( className ) {
 				// eslint-disable-next-line no-jquery/no-class-state
-				( className ) => $this.hasClass( className )
-			);
+				return $this.hasClass( className );
+			} );
 
 			return !OO.compare( firstChildClasses, classesInThisRow );
 		} );
@@ -291,9 +300,9 @@ ChangesListWrapperWidget.prototype.updateEnhancedParentHighlight = function () {
  * @return {boolean} Whether the changes are grouped by page
  */
 ChangesListWrapperWidget.prototype.inEnhancedMode = function () {
-	const enhanced = new URL( location.href ).searchParams.get( 'enhanced' );
-	return ( enhanced !== null && Number( enhanced ) ) ||
-		( enhanced === null && Number( mw.user.options.get( 'usenewrc' ) ) );
+	var uri = new mw.Uri();
+	return ( uri.query.enhanced !== undefined && Number( uri.query.enhanced ) ) ||
+		( uri.query.enhanced === undefined && Number( mw.user.options.get( 'usenewrc' ) ) );
 };
 
 /**
@@ -304,8 +313,8 @@ ChangesListWrapperWidget.prototype.applyHighlight = function () {
 		return;
 	}
 
-	this.filtersViewModel.getHighlightedItems().forEach( ( filterItem ) => {
-		const $elements = this.$element.find( '.' + filterItem.getCssClass() );
+	this.filtersViewModel.getHighlightedItems().forEach( function ( filterItem ) {
+		var $elements = this.$element.find( '.' + filterItem.getCssClass() );
 
 		// Add highlight class to all highlighted list items
 		// The following classes are used here:
@@ -314,7 +323,6 @@ ChangesListWrapperWidget.prototype.applyHighlight = function () {
 		// * mw-rcfilters-highlight-color-c3
 		// * mw-rcfilters-highlight-color-c4
 		// * mw-rcfilters-highlight-color-c5
-		// * notheme - T366920 Makes highlighted list legible in dark-mode.
 		$elements
 			.addClass(
 				'mw-rcfilters-highlighted ' +
@@ -323,7 +331,7 @@ ChangesListWrapperWidget.prototype.applyHighlight = function () {
 
 		// Track the filters for each item in .data( 'highlightedFilters' )
 		$elements.each( function () {
-			let filters = $( this ).data( 'highlightedFilters' );
+			var filters = $( this ).data( 'highlightedFilters' );
 			if ( !filters ) {
 				filters = [];
 				$( this ).data( 'highlightedFilters', filters );
@@ -332,10 +340,10 @@ ChangesListWrapperWidget.prototype.applyHighlight = function () {
 				filters.push( filterItem.getLabel() );
 			}
 		} );
-	} );
+	}.bind( this ) );
 	// Apply a title to each highlighted item, with a list of filters
 	this.$element.find( '.mw-rcfilters-highlighted' ).each( function () {
-		const filters = $( this ).data( 'highlightedFilters' );
+		var filters = $( this ).data( 'highlightedFilters' );
 
 		if ( filters && filters.length ) {
 			$( this ).attr( 'title', mw.msg(
@@ -358,7 +366,7 @@ ChangesListWrapperWidget.prototype.applyHighlight = function () {
  */
 ChangesListWrapperWidget.prototype.clearHighlight = function () {
 	// Remove highlight classes
-	HighlightColors.forEach( ( color ) => {
+	mw.rcfilters.HighlightColors.forEach( function ( color ) {
 		// The following classes are used here:
 		// * mw-rcfilters-highlight-color-c1
 		// * mw-rcfilters-highlight-color-c2
@@ -368,7 +376,7 @@ ChangesListWrapperWidget.prototype.clearHighlight = function () {
 		this.$element
 			.find( '.mw-rcfilters-highlight-color-' + color )
 			.removeClass( 'mw-rcfilters-highlight-color-' + color );
-	} );
+	}.bind( this ) );
 
 	this.$element.find( '.mw-rcfilters-highlighted' )
 		.removeAttr( 'title' )

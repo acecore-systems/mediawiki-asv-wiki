@@ -20,15 +20,9 @@
 
 namespace MediaWiki\Logger;
 
-use DateTimeZone;
 use MediaWiki\Logger\Monolog\BufferHandler;
-use Monolog\Formatter\FormatterInterface;
-use Monolog\Handler\FormattableHandlerInterface;
-use Monolog\Handler\HandlerInterface;
-use Monolog\Handler\PsrHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
-use Psr\Log\LoggerInterface;
 use Wikimedia\ObjectFactory\ObjectFactory;
 
 /**
@@ -117,26 +111,26 @@ use Wikimedia\ObjectFactory\ObjectFactory;
  *
  * @see https://github.com/Seldaek/monolog
  * @since 1.25
- * @ingroup Debug
  * @copyright © 2014 Wikimedia Foundation and contributors
  */
 class MonologSpi implements Spi {
 
 	/**
-	 * @var array{loggers:LoggerInterface[],handlers:HandlerInterface[],formatters:FormatterInterface[],processors:callable[]}
+	 * @var array
 	 */
 	protected $singletons;
 
 	/**
 	 * Configuration for creating new loggers.
-	 * @var array<string,array<string,array>>
+	 * @var array[][]
 	 */
-	protected array $config = [];
+	protected $config;
 
 	/**
 	 * @param array $config Configuration data.
 	 */
 	public function __construct( array $config ) {
+		$this->config = [];
 		$this->mergeConfig( $config );
 	}
 
@@ -158,10 +152,12 @@ class MonologSpi implements Spi {
 			$this->config['loggers']['@default'] = [
 				'handlers' => [ '@default' ],
 			];
-			$this->config['handlers']['@default'] ??= [
-				'class' => StreamHandler::class,
-				'args' => [ 'php://stderr', Logger::ERROR ],
-			];
+			if ( !isset( $this->config['handlers']['@default'] ) ) {
+				$this->config['handlers']['@default'] = [
+					'class' => StreamHandler::class,
+					'args' => [ 'php://stderr', Logger::ERROR ],
+				];
+			}
 		}
 		$this->reset();
 	}
@@ -189,7 +185,7 @@ class MonologSpi implements Spi {
 	 * name will return the cached instance.
 	 *
 	 * @param string $channel Logging channel
-	 * @return LoggerInterface
+	 * @return \Psr\Log\LoggerInterface Logger instance
 	 */
 	public function getLogger( $channel ) {
 		if ( !isset( $this->singletons['loggers'][$channel] ) ) {
@@ -208,34 +204,10 @@ class MonologSpi implements Spi {
 	 * Create a logger.
 	 * @param string $channel Logger channel
 	 * @param array $spec Configuration
-	 * @return LoggerInterface
+	 * @return \Monolog\Logger
 	 */
-	protected function createLogger( $channel, $spec ): LoggerInterface {
-		global $wgShowDebug, $wgDebugToolbar;
-
-		$handlers = [];
-		if ( isset( $spec['handlers'] ) && $spec['handlers'] ) {
-			foreach ( $spec['handlers'] as $handler ) {
-				$handlers[] = $this->getHandler( $handler );
-			}
-		}
-
-		$processors = [];
-		if ( isset( $spec['processors'] ) ) {
-			foreach ( $spec['processors'] as $processor ) {
-				$processors[] = $this->getProcessor( $processor );
-			}
-		}
-
-		// Use UTC for logs instead of Monolog's default, which asks the
-		// PHP runtime, which MediaWiki sets to $wgLocaltimezone (T99581)
-		$obj = new Logger( $channel, $handlers, $processors, new DateTimeZone( 'UTC' ) );
-
-		if ( $wgShowDebug || $wgDebugToolbar ) {
-			$legacyLogger = new LegacyLogger( $channel );
-			$legacyPsrHandler = new PsrHandler( $legacyLogger );
-			$obj->pushHandler( $legacyPsrHandler );
-		}
+	protected function createLogger( $channel, $spec ) {
+		$obj = new Logger( $channel );
 
 		if ( isset( $spec['calls'] ) ) {
 			foreach ( $spec['calls'] as $method => $margs ) {
@@ -243,6 +215,17 @@ class MonologSpi implements Spi {
 			}
 		}
 
+		if ( isset( $spec['processors'] ) ) {
+			foreach ( $spec['processors'] as $processor ) {
+				$obj->pushProcessor( $this->getProcessor( $processor ) );
+			}
+		}
+
+		if ( isset( $spec['handlers'] ) && $spec['handlers'] ) {
+			foreach ( $spec['handlers'] as $handler ) {
+				$obj->pushHandler( $this->getHandler( $handler ) );
+			}
+		}
 		return $obj;
 	}
 
@@ -254,7 +237,6 @@ class MonologSpi implements Spi {
 	public function getProcessor( $name ) {
 		if ( !isset( $this->singletons['processors'][$name] ) ) {
 			$spec = $this->config['processors'][$name];
-			/** @var callable $processor */
 			$processor = ObjectFactory::getObjectFromSpec( $spec );
 			$this->singletons['processors'][$name] = $processor;
 		}
@@ -264,16 +246,15 @@ class MonologSpi implements Spi {
 	/**
 	 * Create or return cached handler.
 	 * @param string $name Processor name
-	 * @return HandlerInterface
+	 * @return \Monolog\Handler\HandlerInterface
 	 */
 	public function getHandler( $name ) {
 		if ( !isset( $this->singletons['handlers'][$name] ) ) {
 			$spec = $this->config['handlers'][$name];
-			/** @var HandlerInterface $handler */
 			$handler = ObjectFactory::getObjectFromSpec( $spec );
 			if (
 				isset( $spec['formatter'] ) &&
-				$handler instanceof FormattableHandlerInterface
+				is_subclass_of( $handler, 'Monolog\Handler\FormattableHandlerInterface' )
 			) {
 				$handler->setFormatter(
 					$this->getFormatter( $spec['formatter'] )
@@ -290,12 +271,11 @@ class MonologSpi implements Spi {
 	/**
 	 * Create or return cached formatter.
 	 * @param string $name Formatter name
-	 * @return FormatterInterface
+	 * @return \Monolog\Formatter\FormatterInterface
 	 */
 	public function getFormatter( $name ) {
 		if ( !isset( $this->singletons['formatters'][$name] ) ) {
 			$spec = $this->config['formatters'][$name];
-			/** @var FormatterInterface $formatter */
 			$formatter = ObjectFactory::getObjectFromSpec( $spec );
 			$this->singletons['formatters'][$name] = $formatter;
 		}

@@ -1,24 +1,22 @@
-const HighlightColors = require( '../HighlightColors.js' );
-
 /**
- * A widget representing a filter item highlight color picker.
+ * A widget representing a filter item highlight color picker
  *
  * @class mw.rcfilters.ui.HighlightColorPickerWidget
- * @ignore
  * @extends OO.ui.Widget
- * @mixes OO.ui.mixin.LabelElement
+ * @mixins OO.ui.mixin.LabelElement
  *
+ * @constructor
  * @param {mw.rcfilters.Controller} controller RCFilters controller
  * @param {Object} [config] Configuration object
  */
-const HighlightColorPickerWidget = function MwRcfiltersUiHighlightColorPickerWidget( controller, config ) {
-	const colors = [ 'none' ].concat( HighlightColors );
+var HighlightColorPickerWidget = function MwRcfiltersUiHighlightColorPickerWidget( controller, config ) {
+	var colors = [ 'none' ].concat( mw.rcfilters.HighlightColors );
 	config = config || {};
 
 	// Parent
-	HighlightColorPickerWidget.super.call( this, config );
+	HighlightColorPickerWidget.parent.call( this, config );
 	// Mixin constructors
-	OO.ui.mixin.LabelElement.call( this, Object.assign( {}, config, {
+	OO.ui.mixin.LabelElement.call( this, $.extend( {}, config, {
 		label: mw.msg( 'rcfilters-highlightmenu-title' )
 	} ) );
 
@@ -26,14 +24,14 @@ const HighlightColorPickerWidget = function MwRcfiltersUiHighlightColorPickerWid
 
 	this.currentSelection = 'none';
 	this.buttonSelect = new OO.ui.ButtonSelectWidget( {
-		items: colors.map(
+		items: colors.map( function ( color ) {
 			// The following classes are used here:
 			// * mw-rcfilters-ui-highlightColorPickerWidget-buttonSelect-color-c1
 			// * mw-rcfilters-ui-highlightColorPickerWidget-buttonSelect-color-c2
 			// * mw-rcfilters-ui-highlightColorPickerWidget-buttonSelect-color-c3
 			// * mw-rcfilters-ui-highlightColorPickerWidget-buttonSelect-color-c4
 			// * mw-rcfilters-ui-highlightColorPickerWidget-buttonSelect-color-c5
-			( color ) => new OO.ui.ButtonOptionWidget( {
+			return new OO.ui.ButtonOptionWidget( {
 				icon: color === 'none' ? 'check' : null,
 				data: color,
 				classes: [
@@ -41,8 +39,8 @@ const HighlightColorPickerWidget = function MwRcfiltersUiHighlightColorPickerWid
 					'mw-rcfilters-ui-highlightColorPickerWidget-buttonSelect-color-' + color
 				],
 				framed: false
-			} )
-		),
+			} );
+		} ),
 		classes: [ 'mw-rcfilters-ui-highlightColorPickerWidget-buttonSelect' ]
 	} );
 
@@ -66,11 +64,10 @@ OO.mixinClass( HighlightColorPickerWidget, OO.ui.mixin.LabelElement );
 /* Events */
 
 /**
- * A color has been chosen
- *
  * @event chooseColor
  * @param {string} The chosen color
- * @ignore
+ *
+ * A color has been chosen
  */
 
 /* Methods */
@@ -103,7 +100,7 @@ HighlightColorPickerWidget.prototype.updateUiBasedOnModel = function () {
  * @param {string} color Selected color
  */
 HighlightColorPickerWidget.prototype.selectColor = function ( color ) {
-	const previousItem = this.buttonSelect.findItemFromData( this.currentSelection ),
+	var previousItem = this.buttonSelect.findItemFromData( this.currentSelection ),
 		selectedItem = this.buttonSelect.findItemFromData( color );
 
 	if ( this.currentSelection !== color ) {
@@ -121,7 +118,7 @@ HighlightColorPickerWidget.prototype.selectColor = function ( color ) {
 };
 
 HighlightColorPickerWidget.prototype.onChooseColor = function ( button ) {
-	const color = button.data;
+	var color = button.data;
 	if ( color === 'none' ) {
 		this.controller.clearHighlightColor( this.filterItem.getName() );
 	} else {

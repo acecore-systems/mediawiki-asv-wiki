@@ -1,38 +1,39 @@
-const SavedLinksListWidget = require( './SavedLinksListWidget.js' ),
+var SavedLinksListWidget = require( './SavedLinksListWidget.js' ),
 	FilterWrapperWidget = require( './FilterWrapperWidget.js' ),
 	ChangesListWrapperWidget = require( './ChangesListWrapperWidget.js' ),
 	RcTopSectionWidget = require( './RcTopSectionWidget.js' ),
 	RclTopSectionWidget = require( './RclTopSectionWidget.js' ),
 	WatchlistTopSectionWidget = require( './WatchlistTopSectionWidget.js' ),
-	FormWrapperWidget = require( './FormWrapperWidget.js' );
+	FormWrapperWidget = require( './FormWrapperWidget.js' ),
+	MainWrapperWidget;
 
 /**
- * Wrapper for changes list content.
+ * Wrapper for changes list content
  *
  * @class mw.rcfilters.ui.MainWrapperWidget
- * @ignore
  * @extends OO.ui.Widget
  *
+ * @constructor
  * @param {mw.rcfilters.Controller} controller Controller
  * @param {mw.rcfilters.dm.FiltersViewModel} model View model
  * @param {mw.rcfilters.dm.SavedQueriesModel} savedQueriesModel Saved queries model
  * @param {mw.rcfilters.dm.ChangesListViewModel} changesListModel
  * @param {Object} config Configuration object
- * @param {jQuery} config.$topSection Top section container
- * @param {jQuery} config.$filtersContainer
- * @param {jQuery} config.$changesListContainer
- * @param {jQuery} config.$formContainer
- * @param {boolean} [config.collapsed] Filter area is collapsed
- * @param {jQuery} [config.$wrapper] A jQuery object for the wrapper of the general
+ * @cfg {jQuery} $topSection Top section container
+ * @cfg {jQuery} $filtersContainer
+ * @cfg {jQuery} $changesListContainer
+ * @cfg {jQuery} $formContainer
+ * @cfg {boolean} [collapsed] Filter area is collapsed
+ * @cfg {jQuery} [$wrapper] A jQuery object for the wrapper of the general
  *  system. If not given, falls back to this widget's $element
  */
-const MainWrapperWidget = function MwRcfiltersUiMainWrapperWidget(
+MainWrapperWidget = function MwRcfiltersUiMainWrapperWidget(
 	controller, model, savedQueriesModel, changesListModel, config
 ) {
-	config = Object.assign( {}, config );
+	config = $.extend( {}, config );
 
 	// Parent
-	MainWrapperWidget.super.call( this, config );
+	MainWrapperWidget.parent.call( this, config );
 
 	this.controller = controller;
 	this.model = model;
@@ -41,7 +42,7 @@ const MainWrapperWidget = function MwRcfiltersUiMainWrapperWidget(
 	this.$filtersContainer = config.$filtersContainer;
 	this.$changesListContainer = config.$changesListContainer;
 	this.$formContainer = config.$formContainer;
-	this.$overlay = $( '<div>' ).addClass( 'mw-rcfilters-ui-overlay' );
+	this.$overlay = $( '<div>' ).addClass( 'mw-rcfilters-ui-overlay oo-ui-defaultOverlay' );
 	this.$wrapper = config.$wrapper || this.$element;
 
 	this.savedLinksListWidget = new SavedLinksListWidget(
@@ -72,8 +73,9 @@ const MainWrapperWidget = function MwRcfiltersUiMainWrapperWidget(
 
 	// Initialize
 	this.$filtersContainer.append( this.filtersWidget.$element );
-	$( document.body ).addClass( 'mw-rcfilters-ui-initialized' );
-	$( OO.ui.getTeleportTarget() ).append( this.$overlay );
+	$( document.body )
+		.append( this.$overlay )
+		.addClass( 'mw-rcfilters-ui-initialized' );
 };
 
 /* Initialization */
@@ -88,7 +90,7 @@ OO.inheritClass( MainWrapperWidget, OO.ui.Widget );
  * @param {string} specialPage
  */
 MainWrapperWidget.prototype.setTopSection = function ( specialPage ) {
-	let topSection;
+	var topSection;
 
 	if ( specialPage === 'Recentchanges' ) {
 		topSection = new RcTopSectionWidget(
@@ -128,7 +130,6 @@ MainWrapperWidget.prototype.onFilterMenuToggle = function ( isVisible ) {
 /**
  * Initialize FormWrapperWidget
  *
- * @ignore
  * @return {mw.rcfilters.ui.FormWrapperWidget} Form wrapper widget
  */
 MainWrapperWidget.prototype.initFormWidget = function () {

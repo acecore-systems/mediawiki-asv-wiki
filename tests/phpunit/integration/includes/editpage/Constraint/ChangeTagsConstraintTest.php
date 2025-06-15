@@ -36,11 +36,15 @@ class ChangeTagsConstraintTest extends MediaWikiIntegrationTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
+		$this->tablesUsed = array_merge(
+			$this->tablesUsed,
+			[ 'change_tag', 'change_tag_def', 'logging' ]
+		);
 	}
 
 	public function testPass() {
 		$tagName = 'tag-for-constraint-test-pass';
-		$this->getServiceContainer()->getChangeTagsStore()->defineTag( $tagName );
+		ChangeTags::defineTag( $tagName );
 
 		$constraint = new ChangeTagsConstraint(
 			$this->mockRegisteredUltimateAuthority(),
@@ -60,7 +64,7 @@ class ChangeTagsConstraintTest extends MediaWikiIntegrationTestCase {
 
 	public function testFailure() {
 		$tagName = 'tag-for-constraint-test-fail';
-		$this->getServiceContainer()->getChangeTagsStore()->defineTag( $tagName );
+		ChangeTags::defineTag( $tagName );
 
 		$constraint = new ChangeTagsConstraint(
 			$this->mockRegisteredAuthorityWithoutPermissions( [ 'applychangetags' ] ),

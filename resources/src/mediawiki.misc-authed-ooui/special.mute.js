@@ -1,9 +1,9 @@
 ( function () {
 	'use strict';
 
-	$( () => {
-		const $inputs = $( '#mw-specialmute-form input[type="checkbox"]' ),
-			$saveButton = $( '#save' );
+	$( function () {
+		var $inputs = $( '#mw-specialmute-form input[type="checkbox"]' ),
+			saveButton, $saveButton = $( '#save' );
 
 		function isFormChanged() {
 			return $inputs.is( function () {
@@ -12,10 +12,10 @@
 		}
 
 		if ( $saveButton.length ) {
-			const saveButton = OO.ui.infuse( $saveButton );
+			saveButton = OO.ui.infuse( $saveButton );
 			saveButton.setDisabled( !isFormChanged() );
 
-			$inputs.on( 'change', () => {
+			$inputs.on( 'change', function () {
 				saveButton.setDisabled( !isFormChanged() );
 			} );
 		}

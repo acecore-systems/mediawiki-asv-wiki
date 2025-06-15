@@ -19,9 +19,7 @@
  * @ingroup Maintenance
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script for finding the files that contain classes
@@ -37,25 +35,19 @@ class FindClasses extends Maintenance {
 	}
 
 	public function execute() {
-		$stdin = $this->getStdin();
+		$input = file( 'php://stdin' );
 
-		while ( !feof( $stdin ) ) {
-			$line = fgets( $stdin );
-			if ( $line === false ) {
-				break;
-			}
+		foreach ( $input as $line ) {
 			$class = trim( $line );
 			$filename = AutoLoader::find( $class );
 			if ( $filename ) {
-				$this->output( "$filename\n" );
+				print "$filename\n";
 			} elseif ( $class ) {
-				$this->output( "#$class\n" );
+				print "#$class\n";
 			}
 		}
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = FindClasses::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

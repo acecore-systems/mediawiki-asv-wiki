@@ -1,15 +1,15 @@
 /*!
  * VisualEditor UserInterface Actions TableAction tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ui.TableAction' );
 
 /* Tests */
 
-QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelative', ( assert ) => {
-	const tableCellTail = [
+QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelative', function ( assert ) {
+	var tableCellTail = [
 			{ type: 'paragraph', internal: { generated: 'wrapper' } },
 			{ type: '/paragraph' },
 			{ type: '/tableCell' }
@@ -22,9 +22,8 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 					rowspan: 1,
 					style: 'header'
 				}
-			},
-			...tableCellTail
-		],
+			}
+		].concat( tableCellTail ),
 		tableData = [
 			{
 				type: 'tableCell',
@@ -33,9 +32,8 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 					rowspan: 1,
 					style: 'data'
 				}
-			},
-			...tableCellTail
-		],
+			}
+		].concat( tableCellTail ),
 		cases = [
 			{
 				rangeOrSelection: new ve.Range( 0 ),
@@ -46,15 +44,19 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 					attributes: { sortable: true }
 				} ],
 				expectedData: function ( data ) {
-					data.splice( 0, 0,
-						{ type: 'table', attributes: { sortable: true } },
-						{ type: 'tableSection', attributes: { style: 'body' } },
-						{ type: 'tableRow' },
-						...tableData,
-						{ type: '/tableRow' },
-						{ type: '/tableSection' },
-						{ type: '/table' }
-					);
+					data.splice.apply( data, [ 0, 0 ].concat(
+						[
+							{ type: 'table', attributes: { sortable: true } },
+							{ type: 'tableSection', attributes: { style: 'body' } },
+							{ type: 'tableRow' }
+						],
+						tableData,
+						[
+							{ type: '/tableRow' },
+							{ type: '/tableSection' },
+							{ type: '/table' }
+						]
+					) );
 				},
 				expectedRangeOrSelection: {
 					type: 'table',
@@ -75,19 +77,23 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 					caption: true
 				} ],
 				expectedData: function ( data ) {
-					data.splice( 0, 0,
-						{ type: 'table' },
-						{ type: 'tableCaption' },
-						{ type: 'paragraph', internal: { generated: 'wrapper' } },
-						{ type: '/paragraph' },
-						{ type: '/tableCaption' },
-						{ type: 'tableSection', attributes: { style: 'body' } },
-						{ type: 'tableRow' },
-						...tableData,
-						{ type: '/tableRow' },
-						{ type: '/tableSection' },
-						{ type: '/table' }
-					);
+					data.splice.apply( data, [ 0, 0 ].concat(
+						[
+							{ type: 'table' },
+							{ type: 'tableCaption' },
+							{ type: 'paragraph', internal: { generated: 'wrapper' } },
+							{ type: '/paragraph' },
+							{ type: '/tableCaption' },
+							{ type: 'tableSection', attributes: { style: 'body' } },
+							{ type: 'tableRow' }
+						],
+						tableData,
+						[
+							{ type: '/tableRow' },
+							{ type: '/tableSection' },
+							{ type: '/table' }
+						]
+					) );
 				},
 				expectedRangeOrSelection: {
 					type: 'table',
@@ -176,27 +182,35 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 					header: true
 				} ],
 				expectedData: function ( data ) {
-					data.splice( 0, 0,
-						{ type: 'table' },
-						{ type: 'tableSection', attributes: { style: 'body' } },
-						{ type: 'tableRow' },
-						...tableHeader,
-						...tableHeader,
-						...tableHeader,
-						{ type: '/tableRow' },
-						{ type: 'tableRow' },
-						...tableData,
-						...tableData,
-						...tableData,
-						{ type: '/tableRow' },
-						{ type: 'tableRow' },
-						...tableData,
-						...tableData,
-						...tableData,
-						{ type: '/tableRow' },
-						{ type: '/tableSection' },
-						{ type: '/table' }
-					);
+					data.splice.apply( data, [ 0, 0 ].concat(
+						[
+							{ type: 'table' },
+							{ type: 'tableSection', attributes: { style: 'body' } },
+							{ type: 'tableRow' }
+						],
+						tableHeader,
+						tableHeader,
+						tableHeader,
+						[
+							{ type: '/tableRow' },
+							{ type: 'tableRow' }
+						],
+						tableData,
+						tableData,
+						tableData,
+						[
+							{ type: '/tableRow' },
+							{ type: 'tableRow' }
+						],
+						tableData,
+						tableData,
+						tableData,
+						[
+							{ type: '/tableRow' },
+							{ type: '/tableSection' },
+							{ type: '/table' }
+						]
+					) );
 				},
 				msg: 'create small table with header'
 			},
@@ -213,13 +227,13 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 				method: 'insert',
 				args: [ 'col', 'after' ],
 				expectedData: function ( data ) {
-					data.splice( 168, 0, ...tableData );
-					data.splice( 130, 0, ...tableData );
-					data.splice( 116, 0, ...tableData );
-					data.splice( 102, 0, ...tableData );
-					data.splice( 82, 0, ...tableData );
-					data.splice( 56, 0, ...tableData );
-					data.splice( 33, 0, ...tableData );
+					data.splice.apply( data, [ 168, 0 ].concat( tableData ) );
+					data.splice.apply( data, [ 130, 0 ].concat( tableData ) );
+					data.splice.apply( data, [ 116, 0 ].concat( tableData ) );
+					data.splice.apply( data, [ 102, 0 ].concat( tableData ) );
+					data.splice.apply( data, [ 82, 0 ].concat( tableData ) );
+					data.splice.apply( data, [ 56, 0 ].concat( tableData ) );
+					data.splice.apply( data, [ 33, 0 ].concat( tableData ) );
 				},
 				expectedRangeOrSelection: {
 					type: 'table',
@@ -244,11 +258,11 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 				method: 'insert',
 				args: [ 'col', 'before' ],
 				expectedData: function ( data ) {
-					data.splice( 150, 0, ...tableData );
+					data.splice.apply( data, [ 150, 0 ].concat( tableData ) );
 					data[ 90 ].attributes.colspan = 4;
-					data.splice( 76, 0, ...tableData );
-					data.splice( 45, 0, ...tableData );
-					data.splice( 18, 0, ...tableData );
+					data.splice.apply( data, [ 76, 0 ].concat( tableData ) );
+					data.splice.apply( data, [ 45, 0 ].concat( tableData ) );
+					data.splice.apply( data, [ 18, 0 ].concat( tableData ) );
 				},
 				msg: 'insert column in middle of table'
 			},
@@ -265,7 +279,7 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 				method: 'insert',
 				args: [ 'col', 'after' ],
 				expectedData: function ( data ) {
-					data.splice( 10, 0, ...tableData );
+					data.splice.apply( data, [ 10, 0 ].concat( tableData ) );
 				},
 				msg: 'insert column at middle of table with sparse row'
 			},
@@ -282,7 +296,7 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 				method: 'insert',
 				args: [ 'col', 'after' ],
 				expectedData: function ( data ) {
-					data.splice( 15, 0, ...tableData );
+					data.splice.apply( data, [ 15, 0 ].concat( tableData ) );
 				},
 				msg: 'insert column at end of table with sparse row'
 			},
@@ -299,11 +313,11 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 				method: 'insert',
 				args: [ 'row', 'after' ],
 				expectedData: function ( data ) {
-					data.splice( 19, 0,
+					data.splice.apply( data, [ 19, 0 ].concat(
 						{ type: 'tableRow' },
-						...tableData,
+						tableData,
 						{ type: '/tableRow' }
-					);
+					) );
 				},
 				msg: 'insert row after row containing cell with excessive rowspan'
 			},
@@ -320,7 +334,7 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 				method: 'insert',
 				args: [ 'col', 'after' ],
 				expectedData: function ( data ) {
-					data.splice( 8, 0, ...tableData );
+					data.splice.apply( data, [ 8, 0 ].concat( tableData ) );
 				},
 				msg: 'insert column after row containing cell with excessive rowspan'
 			},
@@ -337,15 +351,19 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 				method: 'insert',
 				args: [ 'row', 'after' ],
 				expectedData: function ( data ) {
-					data.splice( 169, 0,
-						{ type: 'tableRow' },
-						...tableData,
-						...tableData,
-						...tableData,
-						...tableData,
-						...tableData,
-						...tableData,
-						{ type: '/tableRow' }
+					data.splice.apply( data, [ 169, 0 ].concat(
+						[
+							{ type: 'tableRow' }
+						],
+						tableData,
+						tableData,
+						tableData,
+						tableData,
+						tableData,
+						tableData,
+						[
+							{ type: '/tableRow' }
+						] )
 					);
 				},
 				msg: 'insert row at end of table'
@@ -364,14 +382,18 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 				args: [ 'row', 'before' ],
 				expectedData: function ( data ) {
 					data[ 45 ].attributes.rowspan = 5;
-					data.splice( 83, 0,
-						{ type: 'tableRow' },
-						...tableData,
-						...tableData,
-						...tableData,
-						...tableData,
-						...tableData,
-						{ type: '/tableRow' }
+					data.splice.apply( data, [ 83, 0 ].concat(
+						[
+							{ type: 'tableRow' }
+						],
+						tableData,
+						tableData,
+						tableData,
+						tableData,
+						tableData,
+						[
+							{ type: '/tableRow' }
+						] )
 					);
 				},
 				msg: 'insert row in middle of table'
@@ -389,11 +411,15 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 				method: 'insert',
 				args: [ 'row', 'after' ],
 				expectedData: function ( data ) {
-					data.splice( 14, 0,
-						{ type: 'tableRow' },
-						...tableHeader,
-						...tableData,
-						{ type: '/tableRow' }
+					data.splice.apply( data, [ 14, 0 ].concat(
+						[
+							{ type: 'tableRow' }
+						],
+						tableHeader,
+						tableData,
+						[
+							{ type: '/tableRow' }
+						] )
 					);
 				},
 				msg: 'insert row of mixed styles'
@@ -435,9 +461,9 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 				expectedData: function ( data ) {
 					data[ 90 ].attributes.colspan = 1;
 					data[ 90 ].attributes.rowspan = 1;
-					data.splice( 124, 0, ...tableData, ...tableData, ...tableData );
-					data.splice( 110, 0, ...tableData, ...tableData, ...tableData );
-					data.splice( 96, 0, ...tableData, ...tableData );
+					data.splice.apply( data, [ 124, 0 ].concat( tableData, tableData, tableData ) );
+					data.splice.apply( data, [ 110, 0 ].concat( tableData, tableData, tableData ) );
+					data.splice.apply( data, [ 96, 0 ].concat( tableData, tableData ) );
 				},
 				msg: 'unmerge cells'
 			},
@@ -586,7 +612,7 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 							}
 						},
 						{ type: 'paragraph', internal: { generated: 'wrapper' } },
-						...'16',
+						'1', '6',
 						{ type: '/paragraph' },
 						{ type: '/tableCell' }
 					);
@@ -647,8 +673,8 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 				method: 'moveRelative',
 				args: [ 'row', 'before' ],
 				expectedData: function ( data ) {
-					const row = data.splice( 25, 25 );
-					data.splice( 2, 0, ...row );
+					var row = data.splice( 25, 25 );
+					data.splice.apply( data, [ 2, 0 ].concat( row ) );
 				},
 				expectedRangeOrSelection: {
 					type: 'table',
@@ -673,8 +699,8 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 				method: 'moveRelative',
 				args: [ 'row', 'after' ],
 				expectedData: function ( data ) {
-					const row = data.splice( 25, 25 );
-					data.splice( 2, 0, ...row );
+					var row = data.splice( 25, 25 );
+					data.splice.apply( data, [ 2, 0 ].concat( row ) );
 				},
 				expectedRangeOrSelection: {
 					type: 'table',
@@ -699,11 +725,11 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 				method: 'moveRelative',
 				args: [ 'col', 'before' ],
 				expectedData: function ( data ) {
-					const cell2 = data.splice( 34, 8 ),
+					var cell2 = data.splice( 34, 8 ),
 						cell1 = data.splice( 10, 7 );
 
-					data.splice( 26 - cell1.length, 0, ...cell2 );
-					data.splice( 3, 0, ...cell1 );
+					data.splice.apply( data, [ 26 - cell1.length, 0 ].concat( cell2 ) );
+					data.splice.apply( data, [ 3, 0 ].concat( cell1 ) );
 				},
 				expectedRangeOrSelection: {
 					type: 'table',
@@ -728,11 +754,11 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 				method: 'moveRelative',
 				args: [ 'col', 'after' ],
 				expectedData: function ( data ) {
-					const cell2 = data.splice( 26, 8 ),
+					var cell2 = data.splice( 26, 8 ),
 						cell1 = data.splice( 3, 7 );
 
-					data.splice( 42 - cell1.length - cell2.length, 0, ...cell2 );
-					data.splice( 17 - cell1.length, 0, ...cell1 );
+					data.splice.apply( data, [ 42 - cell1.length - cell2.length, 0 ].concat( cell2 ) );
+					data.splice.apply( data, [ 17 - cell1.length, 0 ].concat( cell1 ) );
 				},
 				expectedRangeOrSelection: {
 					type: 'table',
@@ -757,20 +783,19 @@ QUnit.test( 'create / insert / mergeCells / delete / changeCellStyle / moveRelat
 				method: 'moveRelative',
 				args: [ 'row', 'before' ],
 				expectedData: function ( data ) {
-					const row = data.splice( 4, 7 );
-					data.splice( 2, 0, ...row );
+					var row = data.splice( 4, 7 );
+					data.splice.apply( data, [ 2, 0 ].concat( row ) );
 				},
 				msg: 'move row adjacent to sparse row'
 			}
 		];
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		ve.test.utils.runActionTest(
-			assert,
+			'table', assert, caseItem.html, false, caseItem.method, caseItem.args, caseItem.rangeOrSelection, caseItem.msg,
 			{
-				actionName: 'table',
-				createView: true,
-				...caseItem
+				expectedData: caseItem.expectedData,
+				expectedRangeOrSelection: caseItem.expectedRangeOrSelection
 			}
 		);
 	} );

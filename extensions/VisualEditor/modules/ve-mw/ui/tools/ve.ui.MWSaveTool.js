@@ -24,9 +24,6 @@ ve.ui.MWSaveTool = function VeUiMWSaveTool() {
 		}
 
 		this.setTitle( this.toolbar.target.getSaveButtonLabel( true ) );
-		this.narrowConfig = {
-			title: this.toolbar.target.getSaveButtonLabel( true, true )
-		};
 	}
 };
 
@@ -37,18 +34,12 @@ OO.inheritClass( ve.ui.MWSaveTool, ve.ui.Tool );
 /* Static properties */
 
 ve.ui.MWSaveTool.static.name = 'showSave';
-
 ve.ui.MWSaveTool.static.flags = [ 'primary', 'progressive' ];
 ve.ui.MWSaveTool.static.displayBothIconAndLabel = true;
 ve.ui.MWSaveTool.static.group = 'save';
-ve.ui.MWSaveTool.static.fallbackIcon = 'next';
 ve.ui.MWSaveTool.static.commandName = 'showSave';
 ve.ui.MWSaveTool.static.autoAddToCatchall = false;
-if ( OO.ui.isMobile() ) {
-	// TODO: Have the mobile target build an icon-only version automatically.
-	ve.ui.MWSaveTool.static.icon = 'next';
-	ve.ui.MWSaveTool.static.displayBothIconAndLabel = false;
-}
+ve.ui.MWSaveTool.static.autoAddToGroup = false;
 
 /* Methods */
 
@@ -56,7 +47,7 @@ if ( OO.ui.isMobile() ) {
  * @inheritdoc
  */
 ve.ui.MWSaveTool.prototype.onUpdateState = function () {
-	const wasSaveable = !this.isDisabled(),
+	var wasSaveable = !this.isDisabled(),
 		isSaveable = this.toolbar instanceof ve.ui.TargetToolbar &&
 			this.toolbar.target.isSaveable();
 

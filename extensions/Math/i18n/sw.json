@@ -2,12 +2,11 @@
 	"@metadata": {
 		"authors": [
 			"Edwingudfriend",
-			"Killy95",
 			"Lloffiwr",
-			"Malangali"
+			"Malangali",
+			"Killy95"
 		]
 	},
-	"popups-settings-option-math-description": "Eleza njia za hesabu.",
 	"math_unknown_error": "hitilafu isiyojulikana",
 	"prefs-math": "Hisabati",
 	"math-wikibase-special-error-unknown": "Hitilafu isiyojulikana ilitokea wakati wa kuleta data kutoka Wikibase"

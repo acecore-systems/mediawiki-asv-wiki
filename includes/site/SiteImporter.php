@@ -1,5 +1,11 @@
 <?php
+
+use Wikimedia\RequestTimeout\TimeoutException;
+
 /**
+ * Utility for importing site entries from XML.
+ * For the expected format of the input, see docs/sitelist.md and docs/sitelist-1.0.xsd.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -15,25 +21,12 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
  *
- * @file
- */
-
-namespace MediaWiki\Site;
-
-use DOMDocument;
-use DOMElement;
-use Exception;
-use InvalidArgumentException;
-use RuntimeException;
-use Wikimedia\RequestTimeout\TimeoutException;
-
-/**
- * Utility for importing site entries from XML.
- *
- * For the expected format of the input, see docs/sitelist.md and docs/sitelist-1.0.xsd.
- *
  * @since 1.25
+ *
+ * @file
  * @ingroup Site
+ *
+ * @license GPL-2.0-or-later
  * @author Daniel Kinzler
  */
 class SiteImporter {
@@ -85,6 +78,7 @@ class SiteImporter {
 	/**
 	 * @param string $xml
 	 *
+	 * @throws InvalidArgumentException
 	 */
 	public function importFromXML( $xml ) {
 		$document = new DOMDocument();
@@ -113,7 +107,14 @@ class SiteImporter {
 		libxml_use_internal_errors( $oldLibXmlErrors );
 		// phpcs:ignore Generic.PHP.NoSilencedErrors
 		@libxml_disable_entity_loader( $oldDisable );
-		$sites = $this->makeSiteList( $document->documentElement );
+		$this->importFromDOM( $document->documentElement );
+	}
+
+	/**
+	 * @param DOMElement $root
+	 */
+	private function importFromDOM( DOMElement $root ) {
+		$sites = $this->makeSiteList( $root );
 		$this->store->saveSites( $sites );
 	}
 
@@ -159,6 +160,7 @@ class SiteImporter {
 	 * @param DOMElement $siteElement
 	 *
 	 * @return Site
+	 * @throws InvalidArgumentException
 	 */
 	public function makeSite( DOMElement $siteElement ) {
 		if ( $siteElement->tagName !== 'site' ) {
@@ -202,9 +204,10 @@ class SiteImporter {
 	/**
 	 * @param DOMElement $element
 	 * @param string $name
-	 * @param string|null|false $default
+	 * @param string|null|bool $default
 	 *
 	 * @return null|string
+	 * @throws MWException If the attribute is not found and no default is provided
 	 */
 	private function getAttributeValue( DOMElement $element, $name, $default = false ) {
 		$node = $element->getAttributeNode( $name );
@@ -213,7 +216,7 @@ class SiteImporter {
 			if ( $default !== false ) {
 				return $default;
 			} else {
-				throw new RuntimeException(
+				throw new MWException(
 					'Required ' . $name . ' attribute not found in <' . $element->tagName . '> tag'
 				);
 			}
@@ -225,9 +228,10 @@ class SiteImporter {
 	/**
 	 * @param DOMElement $element
 	 * @param string $name
-	 * @param string|null|false $default
+	 * @param string|null|bool $default
 	 *
 	 * @return null|string
+	 * @throws MWException If the child element is not found and no default is provided
 	 */
 	private function getChildText( DOMElement $element, $name, $default = false ) {
 		$elements = $element->getElementsByTagName( $name );
@@ -236,7 +240,7 @@ class SiteImporter {
 			if ( $default !== false ) {
 				return $default;
 			} else {
-				throw new RuntimeException(
+				throw new MWException(
 					'Required <' . $name . '> tag not found inside <' . $element->tagName . '> tag'
 				);
 			}
@@ -251,6 +255,7 @@ class SiteImporter {
 	 * @param string $name
 	 *
 	 * @return bool
+	 * @throws MWException
 	 */
 	private function hasChild( DOMElement $element, $name ) {
 		return $this->getChildText( $element, $name, null ) !== null;
@@ -268,6 +273,3 @@ class SiteImporter {
 	}
 
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( SiteImporter::class, 'SiteImporter' );

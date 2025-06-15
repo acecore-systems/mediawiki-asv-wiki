@@ -2,7 +2,8 @@
 
 namespace MediaWiki\Extension\Math\HookHandlers;
 
-use MediaWiki\Extension\Math\Hooks\HookRunner;
+use FatalError;
+use Hooks as MWHooks;
 use MediaWiki\Extension\Math\MathConfig;
 use MediaWiki\Extension\Math\MathMathML;
 use MediaWiki\Extension\Math\MathMathMLCli;
@@ -11,11 +12,11 @@ use MediaWiki\Extension\Math\Render\RendererFactory;
 use MediaWiki\Hook\ParserAfterTidyHook;
 use MediaWiki\Hook\ParserFirstCallInitHook;
 use MediaWiki\Hook\ParserOptionsRegisterHook;
-use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\Logger\LoggerFactory;
-use MediaWiki\Parser\Parser;
-use MediaWiki\Parser\ParserOptions;
-use MediaWiki\User\Options\UserOptionsLookup;
+use MediaWiki\User\UserOptionsLookup;
+use MWException;
+use Parser;
+use ParserOptions;
 
 /**
  * Hook handler for Parser hooks
@@ -38,22 +39,16 @@ class ParserHooksHandler implements
 	/** @var UserOptionsLookup */
 	private $userOptionsLookup;
 
-	/** @var HookRunner */
-	private $hookRunner;
-
 	/**
 	 * @param RendererFactory $rendererFactory
 	 * @param UserOptionsLookup $userOptionsLookup
-	 * @param HookContainer $hookContainer
 	 */
 	public function __construct(
 		RendererFactory $rendererFactory,
-		UserOptionsLookup $userOptionsLookup,
-		HookContainer $hookContainer
+		UserOptionsLookup $userOptionsLookup
 	) {
 		$this->rendererFactory = $rendererFactory;
 		$this->userOptionsLookup = $userOptionsLookup;
-		$this->hookRunner = new HookRunner( $hookContainer );
 	}
 
 	/**
@@ -77,19 +72,12 @@ class ParserHooksHandler implements
 	 * @return array|string
 	 */
 	public function mathTagHook( ?string $content, array $attributes, Parser $parser ) {
-		global $wgMathSvgRenderer;
 		$mode = $parser->getOptions()->getOption( 'math' );
-		if ( $mode === MathConfig::MODE_NATIVE_JAX ) {
-			$parser->getOutput()->addModules( [ 'ext.math.mathjax' ] );
-			$mode = MathConfig::MODE_NATIVE_MML;
-		}
 		$renderer = $this->rendererFactory->getRenderer( $content ?? '', $attributes, $mode );
 
 		$parser->getOutput()->addModuleStyles( [ 'ext.math.styles' ] );
-		if ( array_key_exists( "qid", $attributes ) ) {
-			$parser->getOutput()->addModules( [ 'ext.math.popup' ] );
-		}
-		if ( $wgMathSvgRenderer === 'restbase' && $mode == MathConfig::MODE_MATHML ) {
+		if ( $mode == MathConfig::MODE_MATHML ) {
+			$parser->getOutput()->addModules( [ 'ext.math.scripts' ] );
 			$marker = Parser::MARKER_PREFIX .
 				'-postMath-' . sprintf( '%08X', $this->mathTagCounter++ ) .
 				Parser::MARKER_SUFFIX;
@@ -118,6 +106,8 @@ class ParserHooksHandler implements
 	 * @param MathRenderer $renderer
 	 * @param Parser $parser
 	 * @return string
+	 * @throws FatalError
+	 * @throws MWException
 	 */
 	private function mathPostTagHook( MathRenderer $renderer, Parser $parser ) {
 		$checkResult = $renderer->checkTeX();
@@ -140,8 +130,9 @@ class ParserHooksHandler implements
 			$renderer->addTrackingCategories( $parser );
 			return $renderer->getLastError();
 		}
-		$this->hookRunner->onMathFormulaPostRender(
-			$parser, $renderer, $renderedMath
+		// TODO: Convert to a new style hook system and inject HookContainer
+		MWHooks::run( 'MathFormulaPostRender',
+			[ $parser, $renderer, &$renderedMath ]
 		); // Enables indexing of math formula
 
 		// Writes cache if rendering was successful
@@ -156,7 +147,9 @@ class ParserHooksHandler implements
 	 */
 	public function onParserAfterTidy( $parser, &$text ) {
 		global $wgMathoidCli;
-		$renderers = array_column( $this->mathLazyRenderBatch, 0 );
+		$renderers = array_map( static function ( $tag ) {
+			return $tag[0];
+		}, $this->mathLazyRenderBatch );
 		if ( $wgMathoidCli ) {
 			MathMathMLCli::batchEvaluate( $renderers );
 		} else {
@@ -173,7 +166,6 @@ class ParserHooksHandler implements
 		}
 	}
 
-	/** @inheritDoc */
 	public function onParserOptionsRegister( &$defaults, &$inCacheKey, &$lazyLoad ) {
 		$defaults['math'] = $this->userOptionsLookup->getDefaultOption( 'math' );
 		$inCacheKey['math'] = true;

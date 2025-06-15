@@ -20,12 +20,6 @@
  * @file
  */
 
-namespace MediaWiki\User;
-
-use ArrayIterator;
-use Iterator;
-use MediaWiki\HookContainer\HookRunner;
-use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IResultWrapper;
 
 abstract class UserArray implements Iterator {
@@ -40,8 +34,7 @@ abstract class UserArray implements Iterator {
 	 */
 	public static function newFromResult( $res ) {
 		$userArray = null;
-		$hookRunner = new HookRunner( MediaWikiServices::getInstance()->getHookContainer() );
-		if ( !$hookRunner->onUserArrayFromResult( $userArray, $res ) ) {
+		if ( !Hooks::runner()->onUserArrayFromResult( $userArray, $res ) ) {
 			return new ArrayIterator( [] );
 		}
 		return $userArray ?? new UserArrayFromResult( $res );
@@ -62,11 +55,16 @@ abstract class UserArray implements Iterator {
 			// Database::select() doesn't like empty arrays
 			return new ArrayIterator( [] );
 		}
-		$dbr = MediaWikiServices::getInstance()->getConnectionProvider()->getReplicaDatabase();
-		$res = User::newQueryBuilder( $dbr )
-			->where( [ 'user_id' => array_unique( $ids ) ] )
-			->caller( __METHOD__ )
-			->fetchResultSet();
+		$dbr = wfGetDB( DB_REPLICA );
+		$userQuery = User::getQueryInfo();
+		$res = $dbr->select(
+			$userQuery['tables'],
+			$userQuery['fields'],
+			[ 'user_id' => array_unique( $ids ) ],
+			__METHOD__,
+			[],
+			$userQuery['joins']
+		);
 		return self::newFromResult( $res );
 	}
 
@@ -86,11 +84,16 @@ abstract class UserArray implements Iterator {
 			// Database::select() doesn't like empty arrays
 			return new ArrayIterator( [] );
 		}
-		$dbr = MediaWikiServices::getInstance()->getConnectionProvider()->getReplicaDatabase();
-		$res = User::newQueryBuilder( $dbr )
-			->where( [ 'user_name' => array_unique( $names ) ] )
-			->caller( __METHOD__ )
-			->fetchResultSet();
+		$dbr = wfGetDB( DB_REPLICA );
+		$userQuery = User::getQueryInfo();
+		$res = $dbr->select(
+			$userQuery['tables'],
+			$userQuery['fields'],
+			[ 'user_name' => array_unique( $names ) ],
+			__METHOD__,
+			[],
+			$userQuery['joins']
+		);
 		return self::newFromResult( $res );
 	}
 
@@ -104,6 +107,3 @@ abstract class UserArray implements Iterator {
 	 */
 	abstract public function key(): int;
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( UserArray::class, 'UserArray' );

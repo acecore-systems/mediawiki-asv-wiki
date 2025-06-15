@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable TextNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -41,7 +41,7 @@ ve.ce.TextNode.static.whitespaceHtmlCharacters = ve.visibleWhitespaceCharacters;
  * @return {Array} Array of rendered HTML fragments with annotations
  */
 ve.ce.TextNode.prototype.getAnnotatedHtml = function () {
-	const data = this.model.getDocument().getDataFromNode( this.model ),
+	var data = this.model.getDocument().getDataFromNode( this.model ),
 		whitespaceHtmlChars = ve.visibleWhitespaceCharacters,
 		significantWhitespace = this.getModel().getParent().hasSignificantWhitespace();
 
@@ -64,8 +64,8 @@ ve.ce.TextNode.prototype.getAnnotatedHtml = function () {
 	}
 
 	if ( !significantWhitespace ) {
-		for ( let i = 0; i < data.length; i++ ) {
-			const char = getChar( i );
+		for ( var i = 0; i < data.length; i++ ) {
+			var char = getChar( i );
 			// Show meaningful whitespace characters
 			if ( Object.prototype.hasOwnProperty.call( whitespaceHtmlChars, char ) ) {
 				setChar( whitespaceHtmlChars[ char ], i );

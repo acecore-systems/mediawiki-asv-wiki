@@ -1,6 +1,8 @@
 <?php
 /** Low Saxon (Netherlands) (Nedersaksies)
  *
+ * To improve a translation please visit https://translatewiki.net
+ *
  * @file
  * @ingroup Languages
  *
@@ -125,7 +127,7 @@ $magicWords = [
 	'img_thumbnail'             => [ '1', 'duum', 'doem', 'miniatuur', 'mini', 'thumbnail', 'thumb' ],
 	'img_top'                   => [ '1', 'boven', 'top' ],
 	'img_upright'               => [ '1', 'rechtop', 'rechtop=$1', 'rechtop$1', 'upright', 'upright=$1', 'upright $1' ],
-	'language'                  => [ '0', '#TAAL', '#LANGUAGE' ],
+	'language'                  => [ '0', '#TAAL:', '#LANGUAGE:' ],
 	'lc'                        => [ '0', 'KL:', 'LC:' ],
 	'lcfirst'                   => [ '0', 'KLEERSTE:', 'LCFIRST:' ],
 	'localday'                  => [ '1', 'LOKALEDAG', 'PLAATSELIJKEDAG', 'LOCALDAY' ],
@@ -287,7 +289,6 @@ $specialPageAliases = [
 	'Recentchanges'             => [ 'Leste_wiezigingen' ],
 	'Recentchangeslinked'       => [ 'Leste_wiezigingen_ekoppeld' ],
 	'Redirect'                  => [ 'Deurverwiezen' ],
-	'Renameuser'                => [ 'Gebruker_herneumen' ],
 	'Revisiondelete'            => [ 'Versie_vortdoon' ],
 	'Search'                    => [ 'Zeuken' ],
 	'Shortpages'                => [ 'Korte_artikels' ],

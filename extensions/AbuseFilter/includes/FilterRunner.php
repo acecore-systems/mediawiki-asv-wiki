@@ -2,9 +2,10 @@
 
 namespace MediaWiki\Extension\AbuseFilter;
 
+use BadMethodCallException;
+use DeferredUpdates;
 use InvalidArgumentException;
 use MediaWiki\Config\ServiceOptions;
-use MediaWiki\Deferred\DeferredUpdates;
 use MediaWiki\Extension\AbuseFilter\ChangeTags\ChangeTagger;
 use MediaWiki\Extension\AbuseFilter\Consequences\ConsequencesExecutorFactory;
 use MediaWiki\Extension\AbuseFilter\Filter\ExistingFilter;
@@ -16,10 +17,10 @@ use MediaWiki\Extension\AbuseFilter\Variables\LazyVariableComputer;
 use MediaWiki\Extension\AbuseFilter\Variables\VariableHolder;
 use MediaWiki\Extension\AbuseFilter\Variables\VariablesManager;
 use MediaWiki\Extension\AbuseFilter\Watcher\Watcher;
-use MediaWiki\Status\Status;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
 use Psr\Log\LoggerInterface;
+use Status;
+use Title;
+use User;
 
 /**
  * This class contains the logic for executing abuse filters and their actions. The entry points are
@@ -71,23 +72,23 @@ class FilterRunner {
 	/**
 	 * @var User The user who performed the action being filtered
 	 */
-	private $user;
+	protected $user;
 	/**
 	 * @var Title The title where the action being filtered was performed
 	 */
-	private $title;
+	protected $title;
 	/**
 	 * @var VariableHolder The variables for the current action
 	 */
-	private $vars;
+	protected $vars;
 	/**
 	 * @var string The group of filters to check (as defined in $wgAbuseFilterValidGroups)
 	 */
-	private $group;
+	protected $group;
 	/**
 	 * @var string The action we're filtering
 	 */
-	private $action;
+	protected $action;
 
 	/**
 	 * @param AbuseFilterHookRunner $hookRunner
@@ -149,7 +150,6 @@ class FilterRunner {
 			throw new InvalidArgumentException( "Group $group is not a valid group" );
 		}
 		$this->options = $options;
-
 		if ( !$vars->varIsSet( 'action' ) ) {
 			throw new InvalidArgumentException( "The 'action' variable is not set." );
 		}
@@ -176,6 +176,8 @@ class FilterRunner {
 		);
 		$generator = $this->varGeneratorFactory->newGenerator( $this->vars );
 		$this->vars = $generator->addGenericVars()->getVariableHolder();
+
+		$this->vars->forFilter = true;
 		$this->ruleChecker = $this->ruleCheckerFactory->newRuleChecker( $this->vars );
 	}
 
@@ -184,6 +186,7 @@ class FilterRunner {
 	 *
 	 * @param bool $allowStash Whether we are allowed to check the cache to see if there's a cached
 	 *  result of a previous execution for the same edit.
+	 * @throws BadMethodCallException If run() was already called on this instance
 	 * @return Status Good if no action has been taken, a fatal otherwise.
 	 */
 	public function run( $allowStash = true ): Status {
@@ -213,29 +216,29 @@ class FilterRunner {
 			}
 		}
 
-		$runnerData ??= $this->checkAllFiltersInternal();
+		if ( $runnerData === null ) {
+			$runnerData = $this->checkAllFiltersInternal();
+		}
 
-		DeferredUpdates::addCallableUpdate( function () use ( $runnerData ) {
+		// hack until DI for DeferredUpdates is possible (T265749)
+		if ( defined( 'MW_PHPUNIT_TEST' ) ) {
 			$this->profileExecution( $runnerData );
 			$this->updateEmergencyCache( $runnerData->getMatchesMap() );
-		} );
-
-		// TODO: inject the action specifier to avoid this
-		$accountname = $this->varManager->getVar(
-			$this->vars,
-			'accountname',
-			VariablesManager::GET_BC
-		)->toNative();
-		$spec = new ActionSpecifier(
-			$this->action,
-			$this->title,
-			$this->user,
-			$this->user->getRequest()->getIP(),
-			$accountname
-		);
+		} else {
+			DeferredUpdates::addCallableUpdate( function () use ( $runnerData ) {
+				$this->profileExecution( $runnerData );
+				$this->updateEmergencyCache( $runnerData->getMatchesMap() );
+			} );
+		}
 
 		// Tag the action if the condition limit was hit
 		if ( $runnerData->getTotalConditions() > $this->options->get( 'AbuseFilterConditionLimit' ) ) {
+			$accountname = $this->varManager->getVar(
+				$this->vars,
+				'accountname',
+				VariablesManager::GET_BC
+			)->toNative();
+			$spec = new ActionSpecifier( $this->action, $this->title, $this->user, $accountname );
 			$this->changeTagger->addConditionsLimitTag( $spec );
 		}
 
@@ -245,7 +248,11 @@ class FilterRunner {
 			return Status::newGood();
 		}
 
-		$executor = $this->consExecutorFactory->newExecutor( $spec, $this->vars );
+		$executor = $this->consExecutorFactory->newExecutor(
+			$this->user,
+			$this->title,
+			$this->vars
+		);
 		$status = $executor->executeFilterActions( $matchedFilters );
 		$actionsTaken = $status->getValue();
 
@@ -314,7 +321,7 @@ class FilterRunner {
 	 *
 	 * @return RunnerData
 	 */
-	private function checkAllFiltersInternal(): RunnerData {
+	protected function checkAllFiltersInternal(): RunnerData {
 		// Ensure there's no extra time leftover
 		LazyVariableComputer::$profilingExtraTime = 0;
 
@@ -354,7 +361,7 @@ class FilterRunner {
 	 * @return array [ status, time taken ]
 	 * @phan-return array{0:\MediaWiki\Extension\AbuseFilter\Parser\RuleCheckerStatus,1:float}
 	 */
-	private function checkFilter( ExistingFilter $filter, bool $global = false ): array {
+	protected function checkFilter( ExistingFilter $filter, bool $global = false ): array {
 		$filterName = GlobalNameUtils::buildGlobalName( $filter->getID(), $global );
 
 		$startTime = microtime( true );
@@ -371,7 +378,7 @@ class FilterRunner {
 	/**
 	 * @param RunnerData $data
 	 */
-	private function profileExecution( RunnerData $data ) {
+	protected function profileExecution( RunnerData $data ) {
 		$allFilters = $data->getAllFilters();
 		$matchedFilters = $data->getMatchedFilters();
 		$this->filterProfiler->recordRuntimeProfilingResult(
@@ -391,7 +398,7 @@ class FilterRunner {
 	/**
 	 * @param bool[] $matches
 	 */
-	private function updateEmergencyCache( array $matches ): void {
+	protected function updateEmergencyCache( array $matches ): void {
 		$filters = $this->emergencyCache->getFiltersToCheckInGroup( $this->group );
 		foreach ( $filters as $filter ) {
 			if ( array_key_exists( "$filter", $matches ) ) {

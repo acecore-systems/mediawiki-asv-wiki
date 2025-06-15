@@ -19,7 +19,6 @@
  */
 namespace Wikimedia\Rdbms;
 
-use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Schema\Schema;
 
 /**
@@ -29,7 +28,7 @@ use Doctrine\DBAL\Schema\Schema;
  */
 trait DoctrineAbstractSchemaTrait {
 
-	private AbstractPlatform $platform;
+	private $platform;
 
 	private function addTableToSchema( Schema $schema, array $schemaSpec ) {
 		$prefix = $this->platform->getName() === 'postgresql' ? '' : '/*_*/';

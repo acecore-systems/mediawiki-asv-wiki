@@ -23,18 +23,10 @@
  * @ingroup Content
  */
 
-namespace MediaWiki\Content;
-
 use MediaWiki\Content\Renderer\ContentParseParams;
 use MediaWiki\Content\Transform\PreSaveTransformParams;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Parser\ParserOutput;
-use MediaWiki\Revision\RevisionRecord;
-use ReflectionMethod;
-use SearchEngine;
-use SearchIndexField;
-use WikiPage;
 
 /**
  * Base content handler implementation for flat text contents.
@@ -75,19 +67,9 @@ class TextContentHandler extends ContentHandler {
 	 * @param Content $myContent One of the page's conflicting contents.
 	 * @param Content $yourContent One of the page's conflicting contents.
 	 *
-	 * @return Content|false
+	 * @return Content|bool
 	 */
 	public function merge3( Content $oldContent, Content $myContent, Content $yourContent ) {
-		// Nothing to do when the unsaved edit is already identical to the latest revision
-		if ( $myContent->equals( $yourContent ) ) {
-			return $yourContent;
-		}
-		// Impossible to have a conflict when the user just edited the latest revision. This can
-		// happen e.g. when $wgDiff3 is badly configured.
-		if ( $oldContent->equals( $yourContent ) ) {
-			return $myContent;
-		}
-
 		$this->checkModelID( $oldContent->getModel() );
 		$this->checkModelID( $myContent->getModel() );
 		$this->checkModelID( $yourContent->getModel() );
@@ -120,7 +102,7 @@ class TextContentHandler extends ContentHandler {
 	 *
 	 * @since 1.24
 	 *
-	 * @return class-string<TextContent>
+	 * @return string
 	 */
 	protected function getContentClass() {
 		return TextContent::class;
@@ -175,10 +157,9 @@ class TextContentHandler extends ContentHandler {
 	public function getDataForSearchIndex(
 		WikiPage $page,
 		ParserOutput $output,
-		SearchEngine $engine,
-		?RevisionRecord $revision = null
+		SearchEngine $engine
 	) {
-		$fields = parent::getDataForSearchIndex( $page, $output, $engine, $revision );
+		$fields = parent::getDataForSearchIndex( $page, $output, $engine );
 		$fields['language'] =
 			$this->getPageLanguage( $page->getTitle(), $page->getContent() )->getCode();
 		return $fields;
@@ -188,6 +169,18 @@ class TextContentHandler extends ContentHandler {
 		Content $content,
 		PreSaveTransformParams $pstParams
 	): Content {
+		$shouldCallDeprecatedMethod = $this->shouldCallDeprecatedContentTransformMethod(
+			$content,
+			$pstParams
+		);
+
+		if ( $shouldCallDeprecatedMethod ) {
+			return $this->callDeprecatedContentPST(
+				$content,
+				$pstParams
+			);
+		}
+
 		'@phan-var TextContent $content';
 
 		$text = $content->getText();
@@ -245,19 +238,15 @@ class TextContentHandler extends ContentHandler {
 				$method = new ReflectionMethod( $content, 'getHtml' );
 				$method->setAccessible( true );
 				$html = $method->invoke( $content );
-				$html = "<pre>$html</pre>";
 			} else {
 				// Return an HTML representation of the content
 				$html = htmlspecialchars( $content->getText(), ENT_COMPAT );
-				$html = "<pre>$html</pre>";
 			}
 		} else {
 			$html = null;
 		}
 
 		$output->clearWrapperDivClass();
-		$output->setRawText( $html );
+		$output->setText( $html );
 	}
 }
-/** @deprecated class alias since 1.43 */
-class_alias( TextContentHandler::class, 'TextContentHandler' );

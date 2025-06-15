@@ -23,15 +23,13 @@
  * @ingroup Maintenance
  * @author Antoine Musso <hashar at free dot fr>
  * Based on initSiteStats.php by:
- * @author Brooke Vibber
+ * @author Brion Vibber
  * @author Rob Church <robchur@gmail.com>
  *
  * @license GPL-2.0-or-later
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script to show the cached statistics.
@@ -55,11 +53,8 @@ class ShowSiteStats extends Maintenance {
 		];
 
 		// Get cached stats from a replica DB
-		$dbr = $this->getReplicaDB();
-		$stats = $dbr->newSelectQueryBuilder()
-			->select( '*' )
-			->from( 'site_stats' )
-			->caller( __METHOD__ )->fetchRow();
+		$dbr = $this->getDB( DB_REPLICA );
+		$stats = $dbr->selectRow( 'site_stats', '*', '', __METHOD__ );
 
 		// Get maximum size for each column
 		$max_length_value = $max_length_desc = 0;
@@ -79,7 +74,5 @@ class ShowSiteStats extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = ShowSiteStats::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

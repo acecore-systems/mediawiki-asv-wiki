@@ -14,5 +14,6 @@
 	"cite-ve-dialog-referenceslist-title": "Listt teâttkääivain",
 	"cite-ve-dialogbutton-reference-title": "Teâttkäivv",
 	"cite-ve-dialogbutton-referenceslist-tooltip": "Listt teâttkääivain",
-	"cite-ve-othergroup-item": "$1 teâttkäivv"
+	"cite-ve-othergroup-item": "$1 teâttkäivv",
+	"visualeditor-internal-list-diff-default-group-name-mwreference": "Teâttkääiv"
 }

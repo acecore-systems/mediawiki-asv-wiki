@@ -18,10 +18,6 @@
  * @file
  */
 
-use MediaWiki\Message\Message;
-use MediaWiki\Parser\Sanitizer;
-use Wikimedia\Message\MessageSpecifier;
-
 /**
  * Basic localized exception.
  *
@@ -42,7 +38,7 @@ class LocalizedException extends Exception implements ILocalizedException {
 	 * @param Throwable|null $previous The previous exception used for the exception
 	 *  chaining.
 	 */
-	public function __construct( $messageSpec, $code = 0, ?Throwable $previous = null ) {
+	public function __construct( $messageSpec, $code = 0, Throwable $previous = null ) {
 		$this->messageSpec = $messageSpec;
 
 		// Exception->getMessage() should be in plain English, not localized.

@@ -16,15 +16,17 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ *
+ * @author Ostrzyciel
  */
 
 namespace MediaWiki\Storage;
 
+use BagOStuff;
+use FormatJson;
 use MediaWiki\Config\ServiceOptions;
-use MediaWiki\Json\FormatJson;
 use MediaWiki\MainConfigNames;
-use Wikimedia\ObjectCache\BagOStuff;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * Class allowing easy storage and retrieval of EditResults associated with revisions.
@@ -34,9 +36,9 @@ use Wikimedia\Rdbms\IConnectionProvider;
  * asked to retrieve an EditResult for an edit and the requested key is not present in the
  * main stash, the class will attempt to retrieve the EditResult from revert tags.
  *
- * @internal Used by RevertedTagUpdateManager
  * @since 1.36
- * @author Ostrzyciel
+ *
+ * @internal Used by RevertedTagUpdateManager
  */
 class EditResultCache {
 
@@ -49,8 +51,8 @@ class EditResultCache {
 	/** @var BagOStuff */
 	private $mainObjectStash;
 
-	/** @var IConnectionProvider */
-	private $dbProvider;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
 
 	/** @var ServiceOptions */
 	private $options;
@@ -58,18 +60,18 @@ class EditResultCache {
 	/**
 	 * @param BagOStuff $mainObjectStash Main object stash, see
 	 *  MediaWikiServices::getMainObjectStash()
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param ServiceOptions $options
 	 */
 	public function __construct(
 		BagOStuff $mainObjectStash,
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		ServiceOptions $options
 	) {
 		$options->assertRequiredOptions( self::CONSTRUCTOR_OPTIONS );
 
 		$this->mainObjectStash = $mainObjectStash;
-		$this->dbProvider = $dbProvider;
+		$this->loadBalancer = $loadBalancer;
 		$this->options = $options;
 	}
 
@@ -105,15 +107,21 @@ class EditResultCache {
 
 		// not found in stash, try change tags
 		if ( !$result ) {
-			$result = $this->dbProvider->getReplicaDatabase()->newSelectQueryBuilder()
-				->select( 'ct_params' )
-				->from( 'change_tag' )
-				->join( 'change_tag_def', null, 'ctd_id = ct_tag_id' )
-				->where( [
+			$dbr = $this->loadBalancer->getConnectionRef( DB_REPLICA );
+			$result = $dbr->selectField(
+				[ 'change_tag', 'change_tag_def' ],
+				'ct_params',
+				[
 					'ct_rev_id' => $revisionId,
-					'ctd_name' => [ 'mw-rollback', 'mw-undo', 'mw-manual-revert' ]
-				] )
-				->caller( __METHOD__ )->fetchField();
+					'ctd_id = ct_tag_id',
+					'ctd_name' => [
+						'mw-rollback',
+						'mw-undo',
+						'mw-manual-revert'
+					]
+				],
+				__METHOD__
+			);
 		}
 
 		if ( !$result ) {

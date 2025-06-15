@@ -18,33 +18,21 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 
-use MediaWiki\Json\FormatJson;
-use MediaWiki\Linker\LinkTarget;
-use MediaWiki\Request\WebRequest;
-use MediaWiki\Status\Status;
-use MediaWiki\Title\Title;
 use Wikimedia\IPSet;
 use Wikimedia\IPUtils;
 
 /**
  * A class to check request restrictions expressed as a JSON object
  */
-class MWRestrictions implements Stringable {
+class MWRestrictions {
 
-	/** @var string[] */
 	private $ipAddresses = [ '0.0.0.0/0', '::/0' ];
-
-	/** @var string[] */
-	private $pages = [];
-
-	public StatusValue $validity;
 
 	/**
 	 * @param array|null $restrictions
 	 * @throws InvalidArgumentException
 	 */
-	protected function __construct( ?array $restrictions = null ) {
-		$this->validity = StatusValue::newGood();
+	protected function __construct( array $restrictions = null ) {
 		if ( $restrictions !== null ) {
 			$this->loadFromArray( $restrictions );
 		}
@@ -80,9 +68,16 @@ class MWRestrictions implements Stringable {
 	}
 
 	private function loadFromArray( array $restrictions ) {
+		static $validKeys = [ 'IPAddresses' ];
 		static $neededKeys = [ 'IPAddresses' ];
 
 		$keys = array_keys( $restrictions );
+		$invalidKeys = array_diff( $keys, $validKeys );
+		if ( $invalidKeys ) {
+			throw new InvalidArgumentException(
+				'Array contains invalid keys: ' . implode( ', ', $invalidKeys )
+			);
+		}
 		$missingKeys = array_diff( $neededKeys, $keys );
 		if ( $missingKeys ) {
 			throw new InvalidArgumentException(
@@ -95,22 +90,10 @@ class MWRestrictions implements Stringable {
 		}
 		foreach ( $restrictions['IPAddresses'] as $ip ) {
 			if ( !IPUtils::isIPAddress( $ip ) ) {
-				$this->validity->fatal( 'restrictionsfield-badip', $ip );
+				throw new InvalidArgumentException( "Invalid IP address: $ip" );
 			}
 		}
 		$this->ipAddresses = $restrictions['IPAddresses'];
-
-		if ( isset( $restrictions['Pages'] ) ) {
-			if ( !is_array( $restrictions['Pages'] ) ) {
-				throw new InvalidArgumentException( 'Pages is not an array of page names' );
-			}
-			foreach ( $restrictions['Pages'] as $page ) {
-				if ( !is_string( $page ) ) {
-					throw new InvalidArgumentException( "Pages contains non-string value: $page" );
-				}
-			}
-			$this->pages = $restrictions['Pages'];
-		}
 	}
 
 	/**
@@ -118,11 +101,9 @@ class MWRestrictions implements Stringable {
 	 * @return array
 	 */
 	public function toArray() {
-		$arr = [ 'IPAddresses' => $this->ipAddresses ];
-		if ( count( $this->pages ) ) {
-			$arr['Pages'] = $this->pages;
-		}
-		return $arr;
+		return [
+			'IPAddresses' => $this->ipAddresses,
+		];
 	}
 
 	/**
@@ -153,20 +134,6 @@ class MWRestrictions implements Stringable {
 	}
 
 	/**
-	 * Test whether an action on the target is allowed by the restrictions
-	 *
-	 * @internal
-	 * @param LinkTarget $target
-	 * @return StatusValue
-	 */
-	public function userCan( LinkTarget $target ) {
-		if ( !$this->checkPage( $target ) ) {
-			return StatusValue::newFatal( 'session-page-restricted' );
-		}
-		return StatusValue::newGood();
-	}
-
-	/**
 	 * Test if an IP address is allowed by the restrictions
 	 * @param string $ip
 	 * @return bool
@@ -174,22 +141,5 @@ class MWRestrictions implements Stringable {
 	public function checkIP( $ip ) {
 		$set = new IPSet( $this->ipAddresses );
 		return $set->match( $ip );
-	}
-
-	/**
-	 * Test if an action on a title is allowed by the restrictions
-	 *
-	 * @param LinkTarget $target
-	 * @return bool
-	 */
-	private function checkPage( LinkTarget $target ) {
-		if ( count( $this->pages ) === 0 ) {
-			return true;
-		}
-		$pagesNormalized = array_map( static function ( $titleText ) {
-			$title = Title::newFromText( $titleText );
-			return $title ? $title->getPrefixedText() : '';
-		}, $this->pages );
-		return in_array( Title::newFromLinkTarget( $target )->getPrefixedText(), $pagesNormalized, true );
 	}
 }

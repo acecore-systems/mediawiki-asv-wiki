@@ -1,15 +1,11 @@
 <?php
 
-namespace MediaWiki\Tests\Api\Query;
-
 use MediaWiki\MainConfigNames;
-use MediaWiki\Message\Message;
-use MediaWiki\Tests\Api\ApiTestCase;
 
 /**
  * @group API
  * @group medium
- * @covers MediaWiki\Api\ApiQueryTokens
+ * @covers ApiQueryTokens
  */
 class ApiQueryTokensTest extends ApiTestCase {
 
@@ -20,7 +16,9 @@ class ApiQueryTokensTest extends ApiTestCase {
 			'type' => 'csrf',
 		];
 
-		$apiResult = $this->doApiRequest( $params );
+		$performer = $this->getTestUser()->getAuthority();
+
+		$apiResult = $this->doApiRequest( $params, null, false, $performer );
 		$this->assertArrayHasKey( 'query', $apiResult[0] );
 		$this->assertArrayHasKey( 'tokens', $apiResult[0]['query'] );
 		$this->assertArrayHasKey( 'csrftoken', $apiResult[0]['query']['tokens'] );
@@ -34,7 +32,9 @@ class ApiQueryTokensTest extends ApiTestCase {
 			'type' => '*',
 		];
 
-		$apiResult = $this->doApiRequest( $params );
+		$performer = $this->getTestUser()->getAuthority();
+
+		$apiResult = $this->doApiRequest( $params, null, false, $performer );
 		$this->assertArrayHasKey( 'query', $apiResult[0] );
 		$this->assertArrayHasKey( 'tokens', $apiResult[0]['query'] );
 
@@ -54,7 +54,7 @@ class ApiQueryTokensTest extends ApiTestCase {
 		] );
 
 		$this->assertSame(
-			$this->apiContext->msg( 'apiwarn-truncatedresult', Message::numParam( $size ) )
+			wfMessage( 'apiwarn-truncatedresult', Message::numParam( $size ) )
 				->text(),
 			$result['warnings']['result']['warnings']
 		);

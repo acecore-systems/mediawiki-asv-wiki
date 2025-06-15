@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel MWInternalLinkAnnotation class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -33,12 +33,12 @@ ve.dm.MWInternalLinkAnnotation.static.name = 'link/mwInternal';
 ve.dm.MWInternalLinkAnnotation.static.matchRdfaTypes = [ 'mw:WikiLink', 'mw:MediaLink' ];
 
 // mw:MediaLink to non-existent files come with typeof="mw:Error"
-ve.dm.MWInternalLinkAnnotation.static.allowedRdfaTypes = [ 'mw:Error', 'mw:LocalizedAttrs' ];
+ve.dm.MWInternalLinkAnnotation.static.allowedRdfaTypes = [ 'mw:Error' ];
 
 ve.dm.MWInternalLinkAnnotation.static.toDataElement = function ( domElements, converter ) {
-	const resource = domElements[ 0 ].getAttribute( 'resource' );
+	var resource = domElements[ 0 ].getAttribute( 'resource' );
 
-	let targetData;
+	var targetData;
 	if ( resource ) {
 		targetData = mw.libs.ve.parseParsoidResourceName( resource );
 	} else {
@@ -57,7 +57,8 @@ ve.dm.MWInternalLinkAnnotation.static.toDataElement = function ( domElements, co
 		attributes: {
 			title: targetData.title,
 			normalizedTitle: this.normalizeTitle( targetData.title ),
-			lookupTitle: this.getLookupTitle( targetData.title )
+			lookupTitle: this.getLookupTitle( targetData.title ),
+			origTitle: targetData.rawTitle
 		}
 	};
 };
@@ -66,16 +67,17 @@ ve.dm.MWInternalLinkAnnotation.static.toDataElement = function ( domElements, co
  * Build element from a given mw.Title and raw title
  *
  * @param {mw.Title} title The title to link to.
+ * @param {string} [rawTitle] String from which the title was created
  * @return {Object} The element.
  */
-ve.dm.MWInternalLinkAnnotation.static.dataElementFromTitle = function ( title ) {
-	let target = title.toText();
+ve.dm.MWInternalLinkAnnotation.static.dataElementFromTitle = function ( title, rawTitle ) {
+	var target = title.toText();
 
 	if ( title.getFragment() ) {
 		target += '#' + title.getFragment();
 	}
 
-	const element = {
+	var element = {
 		type: this.name,
 		attributes: {
 			title: target,
@@ -84,6 +86,10 @@ ve.dm.MWInternalLinkAnnotation.static.dataElementFromTitle = function ( title ) 
 		}
 	};
 
+	if ( rawTitle ) {
+		element.attributes.origTitle = rawTitle;
+	}
+
 	return element;
 };
 
@@ -91,32 +97,48 @@ ve.dm.MWInternalLinkAnnotation.static.dataElementFromTitle = function ( title ) 
  * Build a ve.dm.MWInternalLinkAnnotation from a given mw.Title.
  *
  * @param {mw.Title} title The title to link to.
+ * @param {string} [rawTitle] String from which the title was created
  * @return {ve.dm.MWInternalLinkAnnotation} The annotation.
  */
-ve.dm.MWInternalLinkAnnotation.static.newFromTitle = function ( title ) {
-	const element = this.dataElementFromTitle( title );
+ve.dm.MWInternalLinkAnnotation.static.newFromTitle = function ( title, rawTitle ) {
+	var element = this.dataElementFromTitle( title, rawTitle );
 
 	return new ve.dm.MWInternalLinkAnnotation( element );
 };
 
 ve.dm.MWInternalLinkAnnotation.static.toDomElements = function () {
-	const parentResult = ve.dm.LinkAnnotation.static.toDomElements.apply( this, arguments );
+	var parentResult = ve.dm.LinkAnnotation.static.toDomElements.apply( this, arguments );
 	// we just created that link so the 'rel' attribute should be safe
 	parentResult[ 0 ].setAttribute( 'rel', 'mw:WikiLink' );
 	return parentResult;
 };
 
 ve.dm.MWInternalLinkAnnotation.static.getHref = function ( dataElement ) {
-	let title = dataElement.attributes.title;
-
-	if ( title.slice( 0, 1 ) === '#' ) {
+	var encodedTitle,
+		title = dataElement.attributes.title,
+		origTitle = dataElement.attributes.origTitle;
+	if ( origTitle !== undefined && mw.libs.ve.decodeURIComponentIntoArticleTitle( origTitle ) === title ) {
+		// Restore href from origTitle
+		encodedTitle = origTitle;
+	} else {
+		// Don't escape slashes in the title; they represent subpages.
+		// Don't escape colons to work around a Parsoid bug with interwiki links (T95850)
+		// TODO: Maybe this should be using mw.util.wikiUrlencode(), which also doesn't escape them?
+		encodedTitle = title.split( /(\/|#|:)/ ).map( function ( part ) {
+			if ( part === '/' || part === '#' || part === ':' ) {
+				return part;
+			} else {
+				return encodeURIComponent( part );
+			}
+		} ).join( '' );
+	}
+	if ( encodedTitle.slice( 0, 1 ) === '#' ) {
 		// Special case: For a newly created link to a #fragment with
 		// no explicit title use the current title as prefix (T218581)
 		// TODO: Pass a 'doc' param to getPageName
-		title = ve.init.target.getPageName() + title;
+		encodedTitle = ve.init.target.getPageName() + encodedTitle;
 	}
-
-	return mw.libs.ve.encodeParsoidResourceName( title );
+	return './' + encodedTitle;
 };
 
 /**
@@ -127,7 +149,7 @@ ve.dm.MWInternalLinkAnnotation.static.getHref = function ( dataElement ) {
  * @return {string} Normalized title, or the original string if it is invalid
  */
 ve.dm.MWInternalLinkAnnotation.static.normalizeTitle = function ( original ) {
-	const title = original instanceof mw.Title ? original : mw.Title.newFromText( original );
+	var title = original instanceof mw.Title ? original : mw.Title.newFromText( original );
 	if ( !title ) {
 		return original;
 	}
@@ -141,7 +163,7 @@ ve.dm.MWInternalLinkAnnotation.static.normalizeTitle = function ( original ) {
  * @return {string} Normalized title, or the original string if it is invalid
  */
 ve.dm.MWInternalLinkAnnotation.static.getLookupTitle = function ( original ) {
-	const title = original instanceof mw.Title ? original : mw.Title.newFromText( original );
+	var title = original instanceof mw.Title ? original : mw.Title.newFromText( original );
 	if ( !title ) {
 		return original;
 	}
@@ -156,7 +178,7 @@ ve.dm.MWInternalLinkAnnotation.static.getLookupTitle = function ( original ) {
  * @return {string|null} Fragment for the title, or null if it was invalid or missing
  */
 ve.dm.MWInternalLinkAnnotation.static.getFragment = function ( original ) {
-	const title = original instanceof mw.Title ? original : mw.Title.newFromText( original );
+	var title = original instanceof mw.Title ? original : mw.Title.newFromText( original );
 	if ( !title ) {
 		return null;
 	}

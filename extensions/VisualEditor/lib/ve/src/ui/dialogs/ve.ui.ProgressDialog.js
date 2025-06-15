@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface ProgressDialog class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -63,19 +63,19 @@ ve.ui.ProgressDialog.prototype.getSetupProcess = function ( data ) {
 
 	// Parent method
 	return ve.ui.ProgressDialog.super.prototype.getSetupProcess.call( this, data )
-		.next( () => {
-			const progresses = data.progresses;
+		.next( function () {
+			var cancellable = false,
+				progresses = data.progresses;
 
-			let cancellable = false;
 			this.inProgress = progresses.length;
 			this.text.$element.empty();
 			this.cancelDeferreds = [];
 
-			for ( let i = 0, l = progresses.length; i < l; i++ ) {
-				const cancelDeferred = ve.createDeferred();
-				const $row = $( '<div>' ).addClass( 've-ui-progressDialog-row' );
-				const progressBar = new OO.ui.ProgressBarWidget();
-				const fieldLayout = new OO.ui.FieldLayout(
+			for ( var i = 0, l = progresses.length; i < l; i++ ) {
+				var cancelDeferred = ve.createDeferred();
+				var $row = $( '<div>' ).addClass( 've-ui-progressDialog-row' );
+				var progressBar = new OO.ui.ProgressBarWidget();
+				var fieldLayout = new OO.ui.FieldLayout(
 					progressBar,
 					{
 						label: progresses[ i ].label,
@@ -86,7 +86,7 @@ ve.ui.ProgressDialog.prototype.getSetupProcess = function ( data ) {
 				$row.append( fieldLayout.$element );
 
 				if ( progresses[ i ].cancellable ) {
-					const cancelButton = new OO.ui.ButtonWidget( {
+					var cancelButton = new OO.ui.ButtonWidget( {
 						framed: false,
 						icon: 'cancel',
 						title: OO.ui.deferMsg( 'visualeditor-dialog-action-cancel' )
@@ -104,21 +104,21 @@ ve.ui.ProgressDialog.prototype.getSetupProcess = function ( data ) {
 				this.cancelDeferreds.push( cancelDeferred );
 			}
 			this.actions.setMode( cancellable ? 'cancellable' : 'default' );
-		} );
+		}, this );
 };
 
 /**
  * @inheritdoc
  */
 ve.ui.ProgressDialog.prototype.getActionProcess = function ( action ) {
-	return new OO.ui.Process( () => {
+	return new OO.ui.Process( function () {
 		if ( action === 'cancel' ) {
-			for ( let i = 0, l = this.cancelDeferreds.length; i < l; i++ ) {
+			for ( var i = 0, l = this.cancelDeferreds.length; i < l; i++ ) {
 				this.cancelDeferreds[ i ].reject();
 			}
 		}
 		this.close( { action: action } );
-	} );
+	}, this );
 };
 
 /**

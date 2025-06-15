@@ -1,15 +1,15 @@
 /*!
  * VisualEditor DataModel SourceSurfaceFragment tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.dm.SourceSurfaceFragment' );
 
 /* Tests */
 
-QUnit.test( 'insertContent/insertDocument', ( assert ) => {
-	const cases = [
+QUnit.test( 'insertContent/insertDocument', function ( assert ) {
+	var cases = [
 		{
 			msg: 'Heading converted to HTML',
 			insert: [
@@ -17,18 +17,16 @@ QUnit.test( 'insertContent/insertDocument', ( assert ) => {
 				'a',
 				{ type: '/heading' }
 			],
-			expected: [
-				{ type: 'paragraph' },
-				...'<h1>a</h1>',
-				{ type: '/paragraph' }
-			]
+			expected: [ { type: 'paragraph' } ]
+				.concat( '<h1>a</h1>'.split( '' ) )
+				.concat( [ { type: '/paragraph' } ] )
 		},
 		{
 			msg: 'Simple text insert',
 			insert: 'foo',
 			expected: [
 				{ type: 'paragraph' },
-				...'foo',
+				'f', 'o', 'o',
 				{ type: '/paragraph' }
 			]
 		},
@@ -37,10 +35,10 @@ QUnit.test( 'insertContent/insertDocument', ( assert ) => {
 			insert: 'foo\nbar',
 			expected: [
 				{ type: 'paragraph' },
-				...'foo',
+				'f', 'o', 'o',
 				{ type: '/paragraph' },
 				{ type: 'paragraph' },
-				...'bar',
+				'b', 'a', 'r',
 				{ type: '/paragraph' }
 			]
 		},
@@ -48,10 +46,10 @@ QUnit.test( 'insertContent/insertDocument', ( assert ) => {
 			msg: 'Multiline into string',
 			data: [
 				{ type: 'paragraph' },
-				...'foo',
+				'f', 'o', 'o',
 				{ type: '/paragraph' },
 				{ type: 'paragraph' },
-				...'bar',
+				'b', 'a', 'r',
 				{ type: '/paragraph' },
 				{ type: 'internalList' },
 				{ type: '/internalList' }
@@ -60,10 +58,10 @@ QUnit.test( 'insertContent/insertDocument', ( assert ) => {
 			insert: 'foo\nbar',
 			expected: [
 				{ type: 'paragraph' },
-				...'fofoo',
+				'f', 'o', 'f', 'o', 'o',
 				{ type: '/paragraph' },
 				{ type: 'paragraph' },
-				...'barar',
+				'b', 'a', 'r', 'a', 'r',
 				{ type: '/paragraph' }
 			]
 		},
@@ -97,8 +95,8 @@ QUnit.test( 'insertContent/insertDocument', ( assert ) => {
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
-		const doc = ve.dm.example.createExampleDocumentFromData( caseItem.data || [ { type: 'paragraph' }, { type: '/paragraph' }, { type: 'internalList' }, { type: '/internalList' } ] ),
+	cases.forEach( function ( caseItem ) {
+		var doc = ve.dm.example.createExampleDocumentFromData( caseItem.data || [ { type: 'paragraph' }, { type: '/paragraph' }, { type: 'internalList' }, { type: '/internalList' } ] ),
 			surface = new ve.dm.Surface( doc, { sourceMode: true } ),
 			fragment = surface.getLinearFragment( caseItem.range || new ve.Range( 1 ) ),
 			done = assert.async();
@@ -108,7 +106,7 @@ QUnit.test( 'insertContent/insertDocument', ( assert ) => {
 		} else {
 			fragment.insertContent( caseItem.insert );
 		}
-		fragment.getPending().then( () => {
+		fragment.getPending().then( function () {
 			assert.deepEqual(
 				doc.getData( doc.getDocumentRange() ),
 				caseItem.expected,

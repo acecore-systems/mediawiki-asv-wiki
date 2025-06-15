@@ -1,9 +1,5 @@
 <?php
 
-use MediaWiki\Title\ForeignTitle;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
-
 /**
  * Test class for Import methods.
  *
@@ -14,7 +10,7 @@ use MediaWiki\User\User;
 class ImportTest extends MediaWikiLangTestCase {
 
 	/**
-	 * @covers \WikiImporter
+	 * @covers WikiImporter
 	 * @dataProvider getUnknownTagsXML
 	 * @param string $xml
 	 * @param string $text
@@ -24,7 +20,7 @@ class ImportTest extends MediaWikiLangTestCase {
 		$source = new ImportStringSource( $xml );
 		$services = $this->getServiceContainer();
 
-		$importer = $services->getWikiImporterFactory()->getWikiImporter( $source, $this->getTestSysop()->getAuthority() );
+		$importer = $services->getWikiImporterFactory()->getWikiImporter( $source );
 
 		$importer->doImport();
 		$title = Title::newFromText( $title );
@@ -74,7 +70,7 @@ EOF
 	}
 
 	/**
-	 * @covers \WikiImporter::handlePage
+	 * @covers WikiImporter::handlePage
 	 * @dataProvider getRedirectXML
 	 * @param string $xml
 	 * @param string|null $redirectTitle
@@ -92,7 +88,7 @@ EOF
 
 		$importer = $this->getServiceContainer()
 			->getWikiImporterFactory()
-			->getWikiImporter( $source, $this->getTestSysop()->getAuthority() );
+			->getWikiImporter( $source );
 		$importer->setPageOutCallback( $callback );
 		$importer->doImport();
 
@@ -158,7 +154,7 @@ EOF
 	}
 
 	/**
-	 * @covers \WikiImporter::handleSiteInfo
+	 * @covers WikiImporter::handleSiteInfo
 	 * @dataProvider getSiteInfoXML
 	 * @param string $xml
 	 * @param array|null $namespaces
@@ -173,7 +169,7 @@ EOF
 
 		$importer = $this->getServiceContainer()
 			->getWikiImporterFactory()
-			->getWikiImporter( $source, $this->getTestSysop()->getAuthority() );
+			->getWikiImporter( $source );
 		$importer->setSiteInfoCallback( $callback );
 		$importer->doImport();
 
@@ -217,9 +213,9 @@ EOF
 
 	/**
 	 * @dataProvider provideUnknownUserHandling
-	 * @covers \WikiImporter::setUsernamePrefix
-	 * @covers \MediaWiki\User\ExternalUserNames::addPrefix
-	 * @covers \MediaWiki\User\ExternalUserNames::applyPrefix
+	 * @covers WikiImporter::setUsernamePrefix
+	 * @covers ExternalUserNames::addPrefix
+	 * @covers ExternalUserNames::applyPrefix
 	 * @param bool $assign
 	 * @param bool $create
 	 */
@@ -283,24 +279,36 @@ EOF
 		// phpcs:enable
 
 		$services = $this->getServiceContainer();
-		$importer = $services->getWikiImporterFactory()->getWikiImporter( $source, $this->getTestSysop()->getAuthority() );
+		$importer = $services->getWikiImporterFactory()->getWikiImporter( $source );
 
 		$importer->setUsernamePrefix( 'Xxx', $assign );
 		$importer->doImport();
 
-		$db = $this->getDb();
-		$row = $services->getRevisionStore()->newSelectQueryBuilder( $db )
-			->where( [ 'rev_timestamp' => $db->timestamp( "201601010{$n}0000" ) ] )
-			->caller( __METHOD__ )->fetchRow();
+		$db = wfGetDB( DB_PRIMARY );
+		$revQuery = $services->getRevisionStore()->getQueryInfo();
+
+		$row = $db->selectRow(
+			$revQuery['tables'],
+			$revQuery['fields'],
+			[ 'rev_timestamp' => $db->timestamp( "201601010{$n}0000" ) ],
+			__METHOD__,
+			[],
+			$revQuery['joins']
+		);
 		$this->assertSame(
 			$assign && $create ? 'UserDoesNotExist' : 'Xxx>UserDoesNotExist',
 			$row->rev_user_text
 		);
 		$this->assertSame( $assign && $create ? $hookId : 0, (int)$row->rev_user );
 
-		$row = $services->getRevisionStore()->newSelectQueryBuilder( $db )
-			->where( [ 'rev_timestamp' => $db->timestamp( "201601010{$n}0001" ) ] )
-			->caller( __METHOD__ )->fetchRow();
+		$row = $db->selectRow(
+			$revQuery['tables'],
+			$revQuery['fields'],
+			[ 'rev_timestamp' => $db->timestamp( "201601010{$n}0001" ) ],
+			__METHOD__,
+			[],
+			$revQuery['joins']
+		);
 		$this->assertSame( ( $assign ? '' : 'Xxx>' ) . $user->getName(), $row->rev_user_text );
 		$this->assertSame( $assign ? $user->getId() : 0, (int)$row->rev_user );
 	}

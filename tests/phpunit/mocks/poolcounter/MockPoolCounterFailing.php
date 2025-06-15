@@ -1,5 +1,7 @@
 <?php
 /**
+ * Fake PoolCounter that always fails with PoolCounter::QUEUE_FULL
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -18,39 +20,19 @@
  * @file
  */
 
-use MediaWiki\PoolCounter\PoolCounter;
-use MediaWiki\Status\Status;
-
-/**
- * Fake PoolCounter that always fails
- */
 class MockPoolCounterFailing extends PoolCounter {
-	/** @var Status|null */
-	private $mockAcquire;
-	/** @var Status|null */
-	private $mockRelease;
-
-	public function __construct( $conf, $type, $key ) {
-		$conf += [
-			'timeout' => 15,
-			'workers' => 2,
-			'maxqueue' => 50,
-		];
-		parent::__construct( $conf, $type, $key );
-
-		$this->mockAcquire = $conf['mockAcquire'] ?? null;
-		$this->mockRelease = $conf['mockRelease'] ?? null;
+	public function __construct() {
 	}
 
 	public function acquireForMe( $timeout = null ) {
-		return $this->mockAcquire ?? Status::newGood( PoolCounter::QUEUE_FULL );
+		return Status::newGood( PoolCounter::QUEUE_FULL );
 	}
 
 	public function acquireForAnyone( $timeout = null ) {
-		return $this->mockAcquire ?? Status::newGood( PoolCounter::QUEUE_FULL );
+		return Status::newGood( PoolCounter::QUEUE_FULL );
 	}
 
 	public function release() {
-		return $this->mockRelease ?? Status::newGood( PoolCounter::NOT_LOCKED );
+		return Status::newGood( PoolCounter::NOT_LOCKED );
 	}
 }

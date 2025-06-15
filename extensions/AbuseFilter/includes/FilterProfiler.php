@@ -2,18 +2,17 @@
 
 namespace MediaWiki\Extension\AbuseFilter;
 
+use BagOStuff;
+use IBufferingStatsdDataFactory;
 use MediaWiki\Config\ServiceOptions;
-use MediaWiki\Title\Title;
 use Psr\Log\LoggerInterface;
-use Wikimedia\ObjectCache\BagOStuff;
-use Wikimedia\Stats\IBufferingStatsdDataFactory;
+use Title;
 use Wikimedia\WRStats\LocalEntityKey;
 use Wikimedia\WRStats\WRStatsFactory;
 
 /**
  * This class is used to create, store, and retrieve profiling information for single filters and
  * groups of filters.
- *
  * @internal
  */
 class FilterProfiler {
@@ -220,7 +219,7 @@ class FilterProfiler {
 		$slowFilterThreshold = $this->options->get( 'AbuseFilterSlowFilterRuntimeLimit' );
 
 		foreach ( $data as $filterName => $params ) {
-			[ $filterID, $global ] = GlobalNameUtils::splitGlobalName( $filterName );
+			list( $filterID, $global ) = GlobalNameUtils::splitGlobalName( $filterName );
 			// @todo Maybe add a parameter to recordProfilingResult to record global filters
 			// data separately (in the foreign wiki)
 			if ( !$global ) {

@@ -3,7 +3,7 @@
  * with a selection widget that can determine how long the page will be watched.
  * If a page is being watched then a dropdown with expiry options is included.
  *
- * @exports mediawiki.watchstar.widgets
+ * @class
  * @extends OO.ui.Widget
  * @param {string} action One of 'watch', 'unwatch'
  * @param {string} pageTitle Title of page that this widget will watch or unwatch
@@ -11,16 +11,21 @@
  * @param {Object} config Configuration object
  */
 function WatchlistExpiryWidget( action, pageTitle, updateWatchLink, config ) {
-	const dataExpiryOptions = require( './data.json' ).options,
+	var dataExpiryOptions = require( './data.json' ).options,
+		messageLabel,
+		dropdownLabel,
+		expiryDropdown,
+		onDropdownChange,
+		api,
+		$link,
 		expiryOptions = [];
-	let expiryDropdown;
 
 	config = config || {};
-	const $link = config.$link;
+	$link = config.$link;
 
-	WatchlistExpiryWidget.super.call( this, config );
+	WatchlistExpiryWidget.parent.call( this, config );
 
-	const messageLabel = new OO.ui.LabelWidget( {
+	messageLabel = new OO.ui.LabelWidget( {
 		label: config.message
 	} );
 
@@ -34,7 +39,7 @@ function WatchlistExpiryWidget( action, pageTitle, updateWatchLink, config ) {
 	 * avoid listening to every keystroke for the entire session.
 	 */
 	function addTabKeyListener() {
-		$( window ).one( 'keydown.watchlistExpiry', ( e ) => {
+		$( window ).one( 'keydown.watchlistExpiry', function ( e ) {
 			if ( ( e.keyCode || e.which ) !== OO.ui.Keys.TAB ) {
 				return;
 			}
@@ -60,11 +65,11 @@ function WatchlistExpiryWidget( action, pageTitle, updateWatchLink, config ) {
 	if ( action === 'watch' ) {
 		addTabKeyListener();
 
-		Object.keys( dataExpiryOptions ).forEach( ( key ) => {
+		Object.keys( dataExpiryOptions ).forEach( function ( key ) {
 			expiryOptions.push( { data: dataExpiryOptions[ key ], label: key } );
 		} );
 
-		const dropdownLabel = new OO.ui.LabelWidget( {
+		dropdownLabel = new OO.ui.LabelWidget( {
 			label: mw.message( 'addedwatchexpiry-options-label' ).parseDom(),
 			classes: [ 'mw-WatchlistExpiryWidgetwatchlist-dropdown-label' ]
 		} );
@@ -72,8 +77,8 @@ function WatchlistExpiryWidget( action, pageTitle, updateWatchLink, config ) {
 			options: expiryOptions,
 			classes: [ 'mw-watchexpiry' ]
 		} );
-		const onDropdownChange = function ( value ) {
-			const notif = mw.notification,
+		onDropdownChange = function ( value ) {
+			var notif = mw.notification,
 				optionSelectedLabel = expiryDropdown.dropdownWidget.label;
 
 			if ( typeof $link !== 'undefined' ) {
@@ -82,16 +87,15 @@ function WatchlistExpiryWidget( action, pageTitle, updateWatchLink, config ) {
 
 			// Pause the mw.notify so that we can wait for watch request to finish
 			notif.pause();
-			const api = new mw.Api();
+			api = new mw.Api();
 			api.watch( pageTitle, value )
-				.done( ( watchResponse ) => {
-					let message;
-					const mwTitle = mw.Title.newFromText( pageTitle ),
-						isInfinity = mw.util.isInfinity( value );
+				.done( function ( watchResponse ) {
+					var message,
+						mwTitle = mw.Title.newFromText( pageTitle );
 					if ( mwTitle.isTalkPage() ) {
-						message = isInfinity ? 'addedwatchindefinitelytext-talk' : 'addedwatchexpirytext-talk';
+						message = value === 'infinite' ? 'addedwatchindefinitelytext-talk' : 'addedwatchexpirytext-talk';
 					} else {
-						message = isInfinity ? 'addedwatchindefinitelytext' : 'addedwatchexpirytext';
+						message = value === 'infinite' ? 'addedwatchindefinitelytext' : 'addedwatchexpirytext';
 					}
 
 					// The following messages can be used here:
@@ -107,9 +111,9 @@ function WatchlistExpiryWidget( action, pageTitle, updateWatchLink, config ) {
 
 					updateWatchLink( mwTitle, 'unwatch', 'idle', watchResponse.expiry, value );
 				} )
-				.fail( ( code, data ) => {
+				.fail( function ( code, data ) {
 					// Format error message
-					const $msg = api.getErrorMessage( data );
+					var $msg = api.getErrorMessage( data );
 
 					// Report to user about the error
 					mw.notify( $msg, {

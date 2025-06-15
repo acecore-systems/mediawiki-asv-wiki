@@ -1,18 +1,12 @@
 <?php
 
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Deferred\CdnCacheUpdate;
-use MediaWiki\Deferred\DeferredUpdates;
-use MediaWiki\Title\Title;
-
-/**
- * @covers \MediaWiki\Deferred\CdnCacheUpdate
- */
 class CdnCacheUpdateTest extends MediaWikiIntegrationTestCase {
 
+	/**
+	 * @covers CdnCacheUpdate::merge
+	 */
 	public function testPurgeMergeWeb() {
-		$cleanup = DeferredUpdates::preventOpportunisticUpdates();
-		$this->setService( 'LinkBatchFactory', $this->createMock( LinkBatchFactory::class ) );
+		$this->setMwGlobals( 'wgCommandLineMode', false );
 
 		$title = Title::newMainPage();
 
@@ -58,7 +52,7 @@ class CdnCacheUpdateTest extends MediaWikiIntegrationTestCase {
 
 		$this->assertEquals( $expected, $update->getUrls() );
 
-		$this->assertSame( 0, DeferredUpdates::pendingUpdatesCount(), 'PRESEND update run' );
+		$this->assertEquals( DeferredUpdates::pendingUpdatesCount(), 0, 'PRESEND update run' );
 	}
 
 	/**

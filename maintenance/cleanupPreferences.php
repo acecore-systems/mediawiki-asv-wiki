@@ -24,14 +24,10 @@
  * @ingroup Maintenance
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 use MediaWiki\MainConfigNames;
-use MediaWiki\User\Options\UserOptionsLookup;
-use Wikimedia\Rdbms\IExpression;
-use Wikimedia\Rdbms\LikeValue;
+use MediaWiki\MediaWikiServices;
 
 /**
  * Maintenance script that removes unused preferences from the database.
@@ -58,7 +54,7 @@ class CleanupPreferences extends Maintenance {
 	 *      of a bug. We don't want them.
 	 */
 	public function execute() {
-		$dbr = $this->getReplicaDB();
+		$dbr = $this->getDB( DB_REPLICA );
 		$hidden = $this->hasOption( 'hidden' );
 		$unknown = $this->hasOption( 'unknown' );
 
@@ -84,13 +80,10 @@ class CleanupPreferences extends Maintenance {
 
 		// Remove unknown preferences. Special-case 'userjs-' as we can't control those names.
 		if ( $unknown ) {
-			$defaultUserOptions = $this->getServiceContainer()->getUserOptionsLookup()->getDefaultOptions( null );
+			$defaultUserOptions = MediaWikiServices::getInstance()->getUserOptionsLookup()->getDefaultOptions();
 			$where = [
-				$dbr->expr( 'up_property', IExpression::NOT_LIKE,
-					new LikeValue( 'userjs-', $dbr->anyString() ) ),
-				$dbr->expr( 'up_property', IExpression::NOT_LIKE,
-					new LikeValue( UserOptionsLookup::LOCAL_EXCEPTION_SUFFIX, $dbr->anyString() ) ),
-				$dbr->expr( 'up_property', '!=', array_keys( $defaultUserOptions ) ),
+				'up_property NOT' . $dbr->buildLike( 'userjs-', $dbr->anyString() ),
+				'up_property NOT IN (' . $dbr->makeList( array_keys( $defaultUserOptions ) ) . ')',
 			];
 			// Allow extensions to add to the where clause to prevent deletion of their own prefs.
 			$this->getHookRunner()->onDeleteUnknownPreferences( $where, $dbr );
@@ -116,7 +109,8 @@ class CleanupPreferences extends Maintenance {
 		$iterator->addConditions( $where );
 		$iterator->setCaller( __METHOD__ );
 
-		$dbw = $this->getPrimaryDB();
+		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
+		$dbw = $this->getDB( DB_PRIMARY );
 		$total = 0;
 		foreach ( $iterator as $batch ) {
 			$numRows = count( $batch );
@@ -139,19 +133,18 @@ class CleanupPreferences extends Maintenance {
 				$deleteWhere[$row->up_user][$row->up_property] = true;
 			}
 			if ( $deleteWhere && !$dryRun ) {
-				$dbw->newDeleteQueryBuilder()
-					->deleteFrom( 'user_properties' )
-					->where( $dbw->makeWhereFrom2d( $deleteWhere, 'up_user', 'up_property' ) )
-					->caller( __METHOD__ )->execute();
+				$dbw->delete(
+					'user_properties',
+					$dbw->makeWhereFrom2d( $deleteWhere, 'up_user', 'up_property' ),
+					__METHOD__
+				);
 
-				$this->waitForReplication();
+				$lbFactory->waitForReplication();
 			}
 		}
 		$this->output( "DONE! (handled $total entries)\n" );
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = CleanupPreferences::class; // Tells it to run the class
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

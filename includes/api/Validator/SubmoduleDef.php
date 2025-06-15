@@ -2,9 +2,9 @@
 
 namespace MediaWiki\Api\Validator;
 
-use MediaWiki\Api\ApiBase;
-use MediaWiki\Api\ApiUsageException;
-use MediaWiki\Html\Html;
+use ApiBase;
+use ApiUsageException;
+use Html;
 use Wikimedia\ParamValidator\TypeDef\EnumDef;
 
 /**

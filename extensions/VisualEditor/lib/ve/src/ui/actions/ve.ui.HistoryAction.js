@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface HistoryAction class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -12,7 +12,6 @@
  *
  * @constructor
  * @param {ve.ui.Surface} surface Surface to act on
- * @param {string} [source]
  */
 ve.ui.HistoryAction = function VeUiHistoryAction() {
 	// Parent constructor

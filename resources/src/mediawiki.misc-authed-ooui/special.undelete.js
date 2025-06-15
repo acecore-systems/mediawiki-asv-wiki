@@ -7,8 +7,9 @@
 		return;
 	}
 
-	$( () => {
-		const $widget = $( '#wpComment' ).closest( '.oo-ui-widget' );
+	$( function () {
+		var $widget = $( '#wpComment' ).closest( '.oo-ui-widget' ),
+			wpComment;
 
 		if ( !$widget.length ) {
 			// If the user has permission to see only the deleted
@@ -17,14 +18,14 @@
 			return;
 		}
 
-		const wpComment = OO.ui.infuse( $widget );
+		wpComment = OO.ui.infuse( $widget );
 
-		const wpCommentList = OO.ui.infuse( $( '#wpCommentList' ).closest( '.oo-ui-widget' ) );
-
-		$( '#mw-undelete-invert' ).on( 'click', () => {
-			$( '.mw-undelete-revlist input[type="checkbox"]' ).prop( 'checked', ( i, val ) => !val );
+		$( '#mw-undelete-invert' ).on( 'click', function () {
+			$( '.mw-undelete-revlist input[type="checkbox"]' ).prop( 'checked', function ( i, val ) {
+				return !val;
+			} );
 		} );
 
-		mw.widgets.visibleCodePointLimitWithDropdown( wpComment, wpCommentList, mw.config.get( 'wgCommentCodePointLimit' ) );
+		mw.widgets.visibleCodePointLimit( wpComment, mw.config.get( 'wgCommentCodePointLimit' ) );
 	} );
 }() );

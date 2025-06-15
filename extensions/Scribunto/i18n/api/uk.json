@@ -5,6 +5,7 @@
 			"Ата"
 		]
 	},
+	"apihelp-scribunto-console-description": "Внутрішній модуль обробки XHR-запитів з консолі Scribunto.",
 	"apihelp-scribunto-console-summary": "Внутрішній модуль обробки XHR-запитів з консолі Scribunto.",
 	"apihelp-scribunto-console-param-title": "Назва модуля для тесту.",
 	"apihelp-scribunto-console-param-content": "Новий вміст модуля.",

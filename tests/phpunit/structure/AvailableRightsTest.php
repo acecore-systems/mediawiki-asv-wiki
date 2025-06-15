@@ -1,15 +1,14 @@
 <?php
 
-use MediaWiki\MainConfigNames;
+use MediaWiki\MediaWikiServices;
 
 /**
  * Try to make sure that extensions register all rights in $wgAvailableRights
  * or via the 'UserGetAllRights' hook.
  *
  * @author Marius Hoch < hoo@online.de >
- * @coversNothing
  */
-class AvailableRightsTest extends MediaWikiIntegrationTestCase {
+class AvailableRightsTest extends PHPUnit\Framework\TestCase {
 
 	use MediaWikiCoversValidator;
 
@@ -22,7 +21,7 @@ class AvailableRightsTest extends MediaWikiIntegrationTestCase {
 	private function getAllVisibleRights() {
 		global $wgGroupPermissions, $wgRevokePermissions;
 
-		$rights = $this->getServiceContainer()->getPermissionManager()->getAllPermissions();
+		$rights = MediaWikiServices::getInstance()->getPermissionManager()->getAllPermissions();
 
 		foreach ( $wgGroupPermissions as $permissions ) {
 			$rights = array_merge( $rights, array_keys( $permissions ) );
@@ -41,7 +40,7 @@ class AvailableRightsTest extends MediaWikiIntegrationTestCase {
 	public function testAvailableRights() {
 		$missingRights = array_diff(
 			$this->getAllVisibleRights(),
-			$this->getServiceContainer()->getPermissionManager()->getAllPermissions()
+			MediaWikiServices::getInstance()->getPermissionManager()->getAllPermissions()
 		);
 
 		$this->assertEquals(
@@ -54,43 +53,8 @@ class AvailableRightsTest extends MediaWikiIntegrationTestCase {
 		);
 	}
 
-	public function testAvailableRightsShouldNotBeImplicitRights() {
-		$intersection = array_intersect(
-			$this->getServiceContainer()->getPermissionManager()->getImplicitRights(),
-			$this->getServiceContainer()->getPermissionManager()->getAllPermissions()
-		);
-
-		$this->assertEquals(
-			[],
-			// Re-index to produce nicer output, keys are meaningless.
-			array_values( $intersection ),
-			'Additional user rights can be added to $wgAvailableRights or $wgImplicitRights, ' .
-			'but not both!'
-		);
-	}
-
-	public function testLimitsAreRights() {
-		$knownRights = array_merge(
-			$this->getServiceContainer()->getPermissionManager()->getImplicitRights(),
-			$this->getServiceContainer()->getPermissionManager()->getAllPermissions()
-		);
-
-		$missingRights = array_diff(
-			array_keys( $this->getConfVar( MainConfigNames::RateLimits ) ),
-			$knownRights
-		);
-
-		$this->assertEquals(
-			[],
-			// Re-index to produce nicer output, keys are meaningless.
-			array_values( $missingRights ),
-			'All keys in $wgRateLimits must be listed in $wgAvailableRights or $wgImplicitRights, ' .
-			'unless the keys are defined as rights by MediaWiki core.'
-		);
-	}
-
 	/**
-	 * Test, if for all rights an action- message exists,
+	 * Test, if for all rights an action- message exist,
 	 * which is used on Special:ListGroupRights as help text
 	 * Extensions and core
 	 *
@@ -101,7 +65,7 @@ class AvailableRightsTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * Test, if for all rights a right- message exists,
+	 * Test, if for all rights a right- message exist,
 	 * which is used on Special:ListGroupRights as help text
 	 * Extensions and core
 	 */
@@ -114,13 +78,14 @@ class AvailableRightsTest extends MediaWikiIntegrationTestCase {
 	 */
 	private function checkMessagesExist( $prefix ) {
 		// Getting all user rights, for core: User::$mCoreRights, for extensions: $wgAvailableRights
-		$services = $this->getServiceContainer();
+		$services = MediaWikiServices::getInstance();
 		$allRights = $services->getPermissionManager()->getAllPermissions();
 		$allMessageKeys = $services->getLocalisationCache()->getSubitemList( 'en', 'messages' );
 
 		$messagesToCheck = [];
 		foreach ( $allMessageKeys as $message ) {
-			if ( str_starts_with( $message, $prefix ) ) {
+			// === 0: must be at beginning of string (position 0)
+			if ( strpos( $message, $prefix ) === 0 ) {
 				$messagesToCheck[] = substr( $message, strlen( $prefix ) );
 			}
 		}
@@ -134,8 +99,6 @@ class AvailableRightsTest extends MediaWikiIntegrationTestCase {
 			[],
 			$missing,
 			"Each user right (core/extensions) has a corresponding $prefix message."
-				. ' See the instructions at: '
-				. 'https://www.mediawiki.org/wiki/Manual:User_rights#Adding_new_rights'
 		);
 	}
 }

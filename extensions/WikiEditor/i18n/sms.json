@@ -13,6 +13,7 @@
 	"wikieditor-toolbar-tool-link-ext-text": "Liŋkkteʹkstt:",
 	"wikieditor-toolbar-tool-link-insert": "Lââʹzzet liiŋk",
 	"wikieditor-toolbar-tool-link-cancel": "Jõõsk",
+	"wikieditor-toolbar-tool-file-example": "Ouddmiârkk.jpg",
 	"wikieditor-toolbar-tool-file-title": "Lââʹzzet teâttõõzz",
 	"wikieditor-toolbar-file-target": "Teâttõsnõmm:",
 	"wikieditor-toolbar-file-caption": "Kartt- leʹbe snimldõkteʹkstt:",
@@ -21,6 +22,10 @@
 	"wikieditor-toolbar-tool-file-insert": "Lââʹzzet",
 	"wikieditor-toolbar-tool-file-cancel": "Jõõsk",
 	"wikieditor-toolbar-tool-file-upload": "Teâttõõzz ruõkkmõš",
+	"wikieditor-toolbar-tool-reference": "Teâttkäivv",
+	"wikieditor-toolbar-tool-reference-cancel": "Jõõsk",
+	"wikieditor-toolbar-tool-reference-title": "Lââʹzzet teâttkääiv",
+	"wikieditor-toolbar-tool-reference-insert": "Lââʹzzet",
 	"wikieditor-toolbar-group-insert": "Lââʹzzet",
 	"wikieditor-toolbar-tool-table": "Taullõk",
 	"wikieditor-toolbar-tool-table-example-caption": "Kartt- leʹbe snimldõkteʹkstt",
@@ -34,8 +39,5 @@
 	"wikieditor-toolbar-tool-replace-search": "Ooʒʒ:",
 	"wikieditor-toolbar-section-characters": "Spesiaalmiârk",
 	"wikieditor-toolbar-help-page-link": "Liiŋk",
-	"wikieditor-toolbar-help-page-discussion": "Saǥstõõllmõš",
-	"wikieditor-toolbar-help-content-ilink-example": "[[Seiddnõmm]]\n[[Seiddnõmm|Liŋkkteʹkstt]]",
-	"wikieditor-toolbar-help-content-xlink-example-label": "Liŋkkteʹkstt",
-	"wikieditor-toolbar-help-content-signature-username": "Õõʹnninõmm"
+	"wikieditor-toolbar-help-page-discussion": "Saǥstõõllmõš"
 }

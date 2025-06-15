@@ -6,7 +6,7 @@ use HTMLCacheUpdateJob;
 use JobQueueGroup;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Parser\ParserOutput;
+use ParserOutput;
 
 /**
  * page_props
@@ -129,7 +129,7 @@ class PagePropsTable extends LinksTable {
 	 * 1 or resp. 0 if it is a bool, and null otherwise.
 	 *
 	 * @note In the future, we may allow the sortkey to be specified explicitly
-	 *       in ParserOutput::setPageProperty (T357783).
+	 *       in ParserOutput::setProperty.
 	 *
 	 * @param mixed $value
 	 *
@@ -192,7 +192,8 @@ class PagePropsTable extends LinksTable {
 	 */
 	public function getAssocArray( $setType ) {
 		$props = [];
-		foreach ( $this->getLinkIDs( $setType ) as [ $name, $value ] ) {
+		foreach ( $this->getLinkIDs( $setType ) as $linkId ) {
+			[ $name, $value ] = $linkId;
 			$props[$name] = $value;
 		}
 		return $props;

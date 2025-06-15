@@ -1,15 +1,16 @@
 /*!
  * VisualEditor UserInterface DSVFileTransferHandler tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ui.DSVFileTransferHandler' );
 
 /* Tests */
 
-QUnit.test( 'getInsertableData', ( assert ) => {
-	const done = assert.async(),
+QUnit.test( 'getInsertableData', function ( assert ) {
+	var handler,
+		done = assert.async(),
 		fn = function () {},
 		item = {
 			getAsFile: function () {
@@ -29,12 +30,12 @@ QUnit.test( 'getInsertableData', ( assert ) => {
 			result: 'a,b\nc,d\n'
 		};
 
-	const handler = ve.ui.dataTransferHandlerFactory.create( 'dsv', mockSurface, item );
+	handler = ve.ui.dataTransferHandlerFactory.create( 'dsv', mockSurface, item );
 	// Override with a mock reader then trigger file load event
 	handler.reader = mockReader;
 	handler.onFileLoad();
 
-	handler.getInsertableData().done( ( data ) => {
+	handler.getInsertableData().done( function ( data ) {
 		assert.deepEqual( data, [
 			{ type: 'table' },
 			{ type: 'tableSection', attributes: { style: 'body' } },

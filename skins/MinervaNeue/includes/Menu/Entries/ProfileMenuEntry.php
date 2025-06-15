@@ -17,32 +17,35 @@
 
 namespace MediaWiki\Minerva\Menu\Entries;
 
-use MediaWiki\Title\Title;
 use MediaWiki\User\UserIdentity;
+use Title;
 
 /**
  * Note this is used by Extension:GrowthExperiments
  */
 final class ProfileMenuEntry implements IProfileMenuEntry {
-	private UserIdentity $user;
+	/**
+	 * @var UserIdentity
+	 */
+	private $user;
 
 	/**
 	 * Code used to track clicks on the link to profile page
 	 * @var string|null
 	 */
-	private ?string $profileTrackingCode = null;
+	private $profileTrackingCode = null;
 
 	/**
 	 * Custom profile URL, can be used to override where the profile link href
 	 * @var string|null
 	 */
-	private ?string $customProfileURL = null;
+	private $customProfileURL = null;
 
 	/**
 	 * Custom profile label, can be used to override the profile label
 	 * @var string|null
 	 */
-	private ?string $customProfileLabel = null;
+	private $customProfileLabel = null;
 
 	/**
 	 * @param UserIdentity $user Currently logged in user/anon
@@ -54,16 +57,14 @@ final class ProfileMenuEntry implements IProfileMenuEntry {
 	/**
 	 * @inheritDoc
 	 */
-	public function getName(): string {
+	public function getName() {
 		return 'profile';
 	}
 
 	/**
 	 * @inheritDoc
 	 */
-	public function overrideProfileURL(
-		$customURL, $customLabel = null, $trackingCode = null
-	): self {
+	public function overrideProfileURL( $customURL, $customLabel = null, $trackingCode = null ) {
 		$this->customProfileURL = $customURL;
 		$this->customProfileLabel = $customLabel;
 		$this->profileTrackingCode = $trackingCode;
@@ -83,23 +84,12 @@ final class ProfileMenuEntry implements IProfileMenuEntry {
 	public function getComponents(): array {
 		$username = $this->user->getName();
 		return [ [
-			'data-icon' => [
-				'icon' => 'userAvatar',
-			],
-			'label' => $this->customProfileLabel ?? $username,
-			'array-attributes' => [
-				[
-					'key' => 'href',
-					'value' => $this->customProfileURL ?? Title::makeTitle( NS_USER, $username )->getLocalURL(),
-				],
-				[
-					'key' => 'data-event-name',
-					'value' => 'menu.' . (
-						$this->profileTrackingCode ?? self::DEFAULT_PROFILE_TRACKING_CODE
-					)
-				],
-			],
-			'classes' => 'menu__item--user',
+			'icon' => 'wikimedia-userAvatar-base20',
+			'text' => $this->customProfileLabel ?? $username,
+			'href' => $this->customProfileURL ?? Title::makeTitle( NS_USER, $username )->getLocalURL(),
+			'class' => 'menu__item--user',
+			'data-event-name' => 'menu.' . (
+				$this->profileTrackingCode ?? self::DEFAULT_PROFILE_TRACKING_CODE )
 		] ];
 	}
 }

@@ -19,56 +19,27 @@
  * @ingroup RevisionDelete
  */
 
-use MediaWiki\RevisionList\RevisionListBase;
-use Wikimedia\Rdbms\IConnectionProvider;
-
 /**
  * Item class for a archive table row by ar_rev_id -- actually
  * used via RevDelRevisionList.
  */
 class RevDelArchivedRevisionItem extends RevDelArchiveItem {
-
-	/** @var IConnectionProvider */
-	protected IConnectionProvider $connectionProvider;
-
-	/**
-	 * @param RevisionListBase $list
-	 * @param stdClass $row
-	 * @param IConnectionProvider $connectionProvider
-	 */
-	public function __construct( RevisionListBase $list, stdClass $row, IConnectionProvider $connectionProvider ) {
-		$this->connectionProvider = $connectionProvider;
-		parent::__construct( $list, $row );
-	}
-
-	/**
-	 * @return string
-	 */
-	public function getIdField(): string {
+	public function getIdField() {
 		return 'ar_rev_id';
 	}
 
-	/**
-	 * @return int
-	 */
-	public function getId(): int {
+	public function getId() {
 		return $this->getRevisionRecord()->getId();
 	}
 
-	/**
-	 * @param int $bits
-	 * @return bool
-	 */
-	public function setBits( $bits ): bool {
-		$dbw = $this->connectionProvider->getPrimaryDatabase();
-		$dbw->newUpdateQueryBuilder()
-			->update( 'archive' )
-			->set( [ 'ar_deleted' => $bits ] )
-			->where( [
-				'ar_rev_id' => $this->row->ar_rev_id,
-				'ar_deleted' => $this->getBits(),
-			] )
-			->caller( __METHOD__ )->execute();
+	public function setBits( $bits ) {
+		$dbw = wfGetDB( DB_PRIMARY );
+		$dbw->update( 'archive',
+			[ 'ar_deleted' => $bits ],
+			[ 'ar_rev_id' => $this->row->ar_rev_id,
+				'ar_deleted' => $this->getBits()
+			],
+			__METHOD__ );
 
 		return (bool)$dbw->affectedRows();
 	}

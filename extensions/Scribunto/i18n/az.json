@@ -2,15 +2,14 @@
 	"@metadata": {
 		"authors": [
 			"NMW03",
-			"Nemoralis",
 			"Serkanland",
 			"Toghrul Rahimli",
 			"Wertuose",
+			"Nemoralis",
 			"Əkrəm Cəfər",
 			"Əkrəm"
 		]
 	},
-	"content-model-scribunto": "Scribunto modulu",
 	"scribunto-desc": "Skriptləşdirmə dillərini MediaWiki səhifələrində istifadə etmək üçün framework",
 	"scribunto-line": "sətir $1",
 	"scribunto-module-line": "modul $1, sətir $2",
@@ -69,7 +68,5 @@
 	"scribunto-limitreport-profile-percent": "$1%",
 	"scribunto-limitreport-logs": "Lua jurnalı",
 	"nstab-module": "Modul",
-	"tooltip-ca-nstab-module": "Modulun səhifəsinə bax",
-	"namespaceinfo-description-ns828": "Viki səhifələrindən və onların sənədləşmə səhifələrindən istifadə edilə bilən Lua kod modulları üçün ad fəzası",
-	"namespaceinfo-description-ns829": "Modullar və sənədlər üçün müzakirə səhifələri"
+	"tooltip-ca-nstab-module": "Modulun səhifəsinə bax"
 }

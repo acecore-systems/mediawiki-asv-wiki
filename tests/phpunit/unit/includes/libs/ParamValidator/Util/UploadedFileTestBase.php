@@ -1,12 +1,11 @@
 <?php
 
-namespace Wikimedia\Tests\ParamValidator\Util;
+namespace Wikimedia\ParamValidator\Util;
 
-use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
-abstract class UploadedFileTestBase extends TestCase {
+abstract class UploadedFileTestBase extends \PHPUnit\Framework\TestCase {
 
 	/** @var string|null */
 	protected static $tmpdir;

@@ -28,13 +28,14 @@
 
 namespace MediaWiki\Parser;
 
-use MapCacheLRU;
+use Content;
 use MediaWiki\Cache\CacheKeyHelper;
-use MediaWiki\Content\Content;
 use MediaWiki\Page\PageReference;
-use MediaWiki\Title\Title;
+use ParserOptions;
+use ParserOutput;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use Title;
 
 /**
  * For observing and detecting parser behaviors, such as duplicate parses
@@ -47,14 +48,17 @@ class ParserObserver {
 	 */
 	private $logger;
 
-	private MapCacheLRU $previousParseStackTraces;
+	/**
+	 * @var array
+	 */
+	private $previousParseStackTraces;
 
 	/**
 	 * @param LoggerInterface $logger
 	 */
 	public function __construct( LoggerInterface $logger ) {
 		$this->logger = $logger;
-		$this->previousParseStackTraces = new MapCacheLRU( 10 );
+		$this->previousParseStackTraces = [];
 	}
 
 	/**
@@ -71,7 +75,7 @@ class ParserObserver {
 
 		$optionsHash = $options->optionsHash(
 			$output->getUsedOptions(),
-			Title::newFromPageReference( $page )
+			Title::castFromPageReference( $page )
 		);
 
 		$contentStr = $content->isValid() ? $content->serialize() : null;
@@ -81,7 +85,7 @@ class ParserObserver {
 		$index = $this->getParseId( $pageKey, $revId, $optionsHash, $contentSha1 );
 
 		$stackTrace = ( new RuntimeException() )->getTraceAsString();
-		if ( $this->previousParseStackTraces->has( $index ) ) {
+		if ( array_key_exists( $index, $this->previousParseStackTraces ) ) {
 
 			// NOTE: there may be legitimate changes to re-parse the same WikiText content,
 			// e.g. if predicted revision ID for the REVISIONID magic word mismatched.
@@ -94,11 +98,11 @@ class ParserObserver {
 					'options-hash' => $optionsHash,
 					'contentSha1' => $contentSha1,
 					'trace' => $stackTrace,
-					'previous-trace' => $this->previousParseStackTraces->get( $index ),
+					'previous-trace' => $this->previousParseStackTraces[$index],
 				]
 			);
 		}
-		$this->previousParseStackTraces->set( $index, $stackTrace );
+		$this->previousParseStackTraces[$index] = $stackTrace;
 	}
 
 	/**

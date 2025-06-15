@@ -24,6 +24,7 @@ use Wikimedia\NormalizedException\NormalizedExceptionTrait;
 
 /**
  * @newable
+ * @stable to extend
  * @ingroup Database
  */
 class DBTransactionError extends DBExpectedError implements INormalizedException {
@@ -39,7 +40,7 @@ class DBTransactionError extends DBExpectedError implements INormalizedException
 	 * @param array $errorParams PSR-3 message context
 	 */
 	public function __construct(
-		?IDatabase $db, $error, array $params = [], ?\Throwable $prev = null, $errorParams = []
+		?IDatabase $db, $error, array $params = [], \Throwable $prev = null, $errorParams = []
 	) {
 		$this->normalizedMessage = $error;
 		$this->messageContext = $errorParams;
@@ -51,3 +52,8 @@ class DBTransactionError extends DBExpectedError implements INormalizedException
 		);
 	}
 }
+
+/**
+ * @deprecated since 1.29
+ */
+class_alias( DBTransactionError::class, 'DBTransactionError' );

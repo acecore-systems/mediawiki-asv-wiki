@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel Fragment class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -52,13 +52,13 @@ ve.dm.SurfaceFragment.prototype.getSelectedModels = function ( all ) {
 		return [];
 	}
 
-	const annotations = this.getAnnotations( all );
+	var annotations = this.getAnnotations( all );
 
 	// Filter out nodes with collapsed ranges
-	let nodes;
+	var nodes;
 	if ( all ) {
 		nodes = this.getCoveredNodes();
-		for ( let i = 0, len = nodes.length; i < len; i++ ) {
+		for ( var i = 0, len = nodes.length; i < len; i++ ) {
 			if ( nodes[ i ].range && nodes[ i ].range.isCollapsed() ) {
 				nodes.splice( i, 1 );
 				len--;
@@ -69,7 +69,7 @@ ve.dm.SurfaceFragment.prototype.getSelectedModels = function ( all ) {
 		}
 	} else {
 		nodes = [];
-		const selectedNode = this.getSelectedNode();
+		var selectedNode = this.getSelectedNode();
 		if ( selectedNode ) {
 			nodes.push( selectedNode );
 		}
@@ -97,7 +97,7 @@ ve.dm.SurfaceFragment.prototype.update = function ( selection ) {
 		this.historyPointer = this.document.getCompleteHistoryLength();
 	} else if ( this.historyPointer < this.document.getCompleteHistoryLength() ) {
 		// Small optimisation: check history pointer is in the past
-		const txs = this.document.getCompleteHistorySince( this.historyPointer );
+		var txs = this.document.getCompleteHistorySince( this.historyPointer );
 		this.selection = this.selection.translateByTransactions( txs, this.excludeInsertions );
 		this.leafNodes = null;
 		this.historyPointer += txs.length;
@@ -247,8 +247,8 @@ ve.dm.SurfaceFragment.prototype.adjustLinearSelection = function ( start, end ) 
 	if ( !( this.selection instanceof ve.dm.LinearSelection ) ) {
 		return this.clone();
 	}
-	const oldRange = this.getSelection().getRange();
-	const newRange = oldRange && new ve.Range( oldRange.start + ( start || 0 ), oldRange.end + ( end || 0 ) );
+	var oldRange = this.getSelection().getRange();
+	var newRange = oldRange && new ve.Range( oldRange.start + ( start || 0 ), oldRange.end + ( end || 0 ) );
 	return this.clone( new ve.dm.LinearSelection( newRange ) );
 };
 
@@ -262,7 +262,7 @@ ve.dm.SurfaceFragment.prototype.truncateLinearSelection = function ( limit ) {
 	if ( !( this.selection instanceof ve.dm.LinearSelection ) ) {
 		return this.clone();
 	}
-	const range = this.getSelection().getRange();
+	var range = this.getSelection().getRange();
 	return this.clone( new ve.dm.LinearSelection( range.truncate( limit ) ) );
 };
 
@@ -293,8 +293,8 @@ ve.dm.SurfaceFragment.prototype.trimLinearSelection = function () {
 	if ( !( this.selection instanceof ve.dm.LinearSelection ) ) {
 		return this.clone();
 	}
-	const oldRange = this.getSelection().getRange();
-	let newRange;
+	var oldRange = this.getSelection().getRange();
+	var newRange;
 
 	if ( this.getText().trim().length === 0 ) {
 		// oldRange is only whitespace
@@ -324,9 +324,9 @@ ve.dm.SurfaceFragment.prototype.expandLinearSelection = function ( scope, type )
 		return this.clone();
 	}
 
-	const oldRange = this.getSelection().getRange();
-	let newRange;
-	let nodes, node, parent;
+	var oldRange = this.getSelection().getRange();
+	var newRange;
+	var nodes, node, parent;
 
 	switch ( scope || 'parent' ) {
 		case 'word':
@@ -410,7 +410,7 @@ ve.dm.SurfaceFragment.prototype.expandLinearSelection = function ( scope, type )
  * @return {Array} Fragment data
  */
 ve.dm.SurfaceFragment.prototype.getData = function ( deep ) {
-	const range = this.getSelection().getCoveringRange();
+	var range = this.getSelection().getCoveringRange();
 	if ( !range ) {
 		return [];
 	}
@@ -424,7 +424,7 @@ ve.dm.SurfaceFragment.prototype.getData = function ( deep ) {
  * @return {string} Fragment text
  */
 ve.dm.SurfaceFragment.prototype.getText = function ( maintainIndices ) {
-	const range = this.getSelection().getCoveringRange();
+	var range = this.getSelection().getCoveringRange();
 	if ( !range ) {
 		return '';
 	}
@@ -438,7 +438,7 @@ ve.dm.SurfaceFragment.prototype.getText = function ( maintainIndices ) {
  * @return {boolean} Whether there's only text
  */
 ve.dm.SurfaceFragment.prototype.containsOnlyText = function () {
-	const range = this.getSelection().getCoveringRange();
+	var range = this.getSelection().getCoveringRange();
 	if ( !range ) {
 		return true;
 	}
@@ -455,15 +455,15 @@ ve.dm.SurfaceFragment.prototype.containsOnlyText = function () {
  * @return {ve.dm.AnnotationSet} All annotation objects range is covered by
  */
 ve.dm.SurfaceFragment.prototype.getAnnotations = function ( all ) {
-	const selection = this.getSelection();
+	var selection = this.getSelection();
 
 	if ( selection.isCollapsed() ) {
 		return this.surface.getInsertionAnnotations();
 	} else {
-		let annotations = null;
-		const ranges = selection.getRanges( this.getDocument() );
-		for ( let i = 0, l = ranges.length; i < l; i++ ) {
-			const rangeAnnotations = this.getDocument().data.getAnnotationsFromRange( ranges[ i ], all, true );
+		var annotations = null;
+		var ranges = selection.getRanges( this.getDocument() );
+		for ( var i = 0, l = ranges.length; i < l; i++ ) {
+			var rangeAnnotations = this.getDocument().data.getAnnotationsFromRange( ranges[ i ], all, true );
 			if ( !rangeAnnotations ) {
 				continue;
 			}
@@ -472,7 +472,7 @@ ve.dm.SurfaceFragment.prototype.getAnnotations = function ( all ) {
 			} else if ( all ) {
 				annotations.addSet( rangeAnnotations );
 			} else {
-				const matchingAnnotations = rangeAnnotations.getComparableAnnotationsFromSet( annotations );
+				var matchingAnnotations = rangeAnnotations.getComparableAnnotationsFromSet( annotations );
 				if ( matchingAnnotations.isEmpty() ) {
 					// Nothing matched so our intersection is empty
 					annotations = matchingAnnotations;
@@ -497,9 +497,9 @@ ve.dm.SurfaceFragment.prototype.getAnnotations = function ( all ) {
  * @return {boolean} The fragment contains at least one annotation
  */
 ve.dm.SurfaceFragment.prototype.hasAnnotations = function () {
-	const ranges = this.getSelection().getRanges( this.getDocument() );
+	var ranges = this.getSelection().getRanges( this.getDocument() );
 
-	for ( let i = 0, l = ranges.length; i < l; i++ ) {
+	for ( var i = 0, l = ranges.length; i < l; i++ ) {
 		if ( this.getDocument().data.hasAnnotationsInRange( ranges[ i ] ) ) {
 			return true;
 		}
@@ -510,12 +510,12 @@ ve.dm.SurfaceFragment.prototype.hasAnnotations = function () {
 /**
  * Get all leaf nodes covered by the fragment.
  *
- * @see {@link ve.Document#selectNodes} for more information about the return value.
+ * @see ve.Document#selectNodes Used to get the return value
  *
  * @return {Array} List of nodes and related information
  */
 ve.dm.SurfaceFragment.prototype.getLeafNodes = function () {
-	const range = this.getSelection().getCoveringRange();
+	var range = this.getSelection().getCoveringRange();
 	if ( !range ) {
 		return [];
 	}
@@ -532,13 +532,13 @@ ve.dm.SurfaceFragment.prototype.getLeafNodes = function () {
 /**
  * Get all leaf nodes excluding nodes where the selection is empty.
  *
- * @return {ve.dm.Node[]} List of nodes and related information
+ * @return {Array} List of nodes and related information
  */
 ve.dm.SurfaceFragment.prototype.getSelectedLeafNodes = function () {
-	const selectedLeafNodes = [],
+	var selectedLeafNodes = [],
 		leafNodes = this.getLeafNodes();
-	for ( let i = 0, len = leafNodes.length; i < len; i++ ) {
-		if ( len === 1 || !leafNodes[ i ].range || !leafNodes[ i ].range.isCollapsed() ) {
+	for ( var i = 0, len = leafNodes.length; i < len; i++ ) {
+		if ( len === 1 || !leafNodes[ i ].range || leafNodes[ i ].range.getLength() ) {
 			selectedLeafNodes.push( leafNodes[ i ].node );
 		}
 	}
@@ -554,7 +554,7 @@ ve.dm.SurfaceFragment.prototype.getSelectedLeafNodes = function () {
  * @return {ve.dm.Node|null} The node selected by the range, or null if a node is not selected
  */
 ve.dm.SurfaceFragment.prototype.getSelectedNode = function () {
-	const surface = this.getSurface();
+	var surface = this.getSurface();
 
 	// Ensure the fragment is up to date
 	this.update();
@@ -571,12 +571,12 @@ ve.dm.SurfaceFragment.prototype.getSelectedNode = function () {
  * similar to that of {ve.dm.SurfaceFragment.prototype.getLeafNodes} except that if a node is
  * entirely covered, its children aren't returned separately.
  *
- * @see {@link ve.Document#selectNodes} for more information about the return value.
+ * @see ve.Document#selectNodes for more information about the return value
  *
  * @return {Array} List of nodes and related information
  */
 ve.dm.SurfaceFragment.prototype.getCoveredNodes = function () {
-	const range = this.getSelection().getCoveringRange();
+	var range = this.getSelection().getCoveringRange();
 	if ( !range ) {
 		return [];
 	}
@@ -588,12 +588,12 @@ ve.dm.SurfaceFragment.prototype.getCoveredNodes = function () {
  *
  * Includes adjacent siblings covered by the range, descending if the range is in a single node.
  *
- * @see {@link ve.Document#selectNodes} for more information about the return value.
+ * @see ve.Document#selectNodes for more information about the return value.
  *
  * @return {Array} List of nodes and related information
  */
 ve.dm.SurfaceFragment.prototype.getSiblingNodes = function () {
-	const range = this.getSelection().getCoveringRange();
+	var range = this.getSelection().getCoveringRange();
 	if ( !range ) {
 		return [];
 	}
@@ -610,15 +610,15 @@ ve.dm.SurfaceFragment.prototype.getSiblingNodes = function () {
  * @return {boolean} Nodes have a matching ancestor
  */
 ve.dm.SurfaceFragment.prototype.hasMatchingAncestor = function ( type, attributes, matchFirstAncestorOfType ) {
-	const selection = this.getSelection();
+	var selection = this.getSelection();
 
-	let all;
+	var all;
 	if ( selection instanceof ve.dm.LinearSelection ) {
-		const nodes = this.getSelectedLeafNodes();
+		var nodes = this.getSelectedLeafNodes();
 		all = !!nodes.length;
-		for ( let i = 0, len = nodes.length; i < len; i++ ) {
+		for ( var i = 0, len = nodes.length; i < len; i++ ) {
 			if ( matchFirstAncestorOfType ) {
-				const node = nodes[ i ].findMatchingAncestor( type );
+				var node = nodes[ i ].findMatchingAncestor( type );
 				if ( !( node && node.compareAttributes( attributes ) ) ) {
 					all = false;
 					break;
@@ -631,9 +631,9 @@ ve.dm.SurfaceFragment.prototype.hasMatchingAncestor = function ( type, attribute
 			}
 		}
 	} else if ( selection instanceof ve.dm.TableSelection ) {
-		const cells = selection.getMatrixCells( this.getDocument() );
+		var cells = selection.getMatrixCells( this.getDocument() );
 		all = true;
-		for ( let j = cells.length - 1; j >= 0; j-- ) {
+		for ( var j = cells.length - 1; j >= 0; j-- ) {
 			if ( !cells[ j ].node.matches( type, attributes ) ) {
 				all = false;
 				break;
@@ -689,11 +689,11 @@ ve.dm.SurfaceFragment.prototype.select = function () {
  * @chainable
  */
 ve.dm.SurfaceFragment.prototype.changeAttributes = function ( attr, type ) {
-	const txs = [],
+	var txs = [],
 		covered = this.getCoveredNodes();
 
-	for ( let i = 0, len = covered.length; i < len; i++ ) {
-		const result = covered[ i ];
+	for ( var i = 0, len = covered.length; i < len; i++ ) {
+		var result = covered[ i ];
 		if (
 			// Non-wrapped nodes have no attributes
 			!result.node.isWrapped() ||
@@ -732,32 +732,33 @@ ve.dm.SurfaceFragment.prototype.changeAttributes = function ( attr, type ) {
  * @chainable
  */
 ve.dm.SurfaceFragment.prototype.annotateContent = function ( method, nameOrAnnotations, data ) {
-	const ranges = this.getSelection().getRanges( this.getDocument() ),
+	var i, ilen,
+		annotations = new ve.dm.AnnotationSet( this.getDocument().getStore() ),
+		ranges = this.getSelection().getRanges( this.getDocument() ),
 		txs = [];
 
-	let annotations = new ve.dm.AnnotationSet( this.getDocument().getStore() );
 	if ( nameOrAnnotations instanceof ve.dm.AnnotationSet ) {
 		annotations = nameOrAnnotations;
 	} else if ( nameOrAnnotations instanceof ve.dm.Annotation ) {
 		annotations.push( nameOrAnnotations );
 	} else {
-		const annotation = ve.dm.annotationFactory.create( nameOrAnnotations, data );
+		var annotation = ve.dm.annotationFactory.create( nameOrAnnotations, data );
 		if ( method === 'set' ) {
 			annotations.push( annotation );
 		} else if ( method === 'clear' ) {
-			for ( let i = 0, ilen = ranges.length; i < ilen; i++ ) {
+			for ( i = 0, ilen = ranges.length; i < ilen; i++ ) {
 				annotations.addSet(
 					this.document.data.getAnnotationsFromRange( ranges[ i ], true ).getAnnotationsByName( annotation.name )
 				);
 			}
 		}
 	}
-	for ( let i = 0, ilen = ranges.length; i < ilen; i++ ) {
-		const range = ranges[ i ];
+	for ( i = 0, ilen = ranges.length; i < ilen; i++ ) {
+		var range = ranges[ i ];
 		if ( !range.isCollapsed() ) {
 			// Apply to selection
-			for ( let j = 0, jlen = annotations.getLength(); j < jlen; j++ ) {
-				const tx = ve.dm.TransactionBuilder.static.newFromAnnotation( this.document, range, method, annotations.get( j ) );
+			for ( var j = 0, jlen = annotations.getLength(); j < jlen; j++ ) {
+				var tx = ve.dm.TransactionBuilder.static.newFromAnnotation( this.document, range, method, annotations.get( j ) );
 				txs.push( tx );
 			}
 		} else {
@@ -785,27 +786,19 @@ ve.dm.SurfaceFragment.prototype.annotateContent = function ( method, nameOrAnnot
  * in a paragraph.
  *
  * @param {string|Array} content Content to insert, can be either a string or array of data
- * @param {boolean|ve.dm.AnnotationSet} [annotateOrSet] Content should be automatically annotated to match surrounding content,
- *  or an AnnotationSet from the current offset (calculated from the view)
+ * @param {boolean} [annotate] Content should be automatically annotated to match surrounding content
  * @return {ve.dm.SurfaceFragment}
  * @chainable
  */
-ve.dm.SurfaceFragment.prototype.insertContent = function ( content, annotateOrSet ) {
-	const range = this.getSelection().getCoveringRange(),
+ve.dm.SurfaceFragment.prototype.insertContent = function ( content, annotate ) {
+	var range = this.getSelection().getCoveringRange(),
 		doc = this.getDocument();
 
 	if ( !range ) {
 		return this;
 	}
 
-	let annotations, annotate;
-	if ( annotateOrSet instanceof ve.dm.AnnotationSet ) {
-		annotations = annotateOrSet;
-		annotate = true;
-	} else {
-		annotate = annotateOrSet;
-	}
-
+	var annotations;
 	if ( !range.isCollapsed() ) {
 		if ( annotate ) {
 			// If we're replacing content, use the annotations selected
@@ -815,14 +808,14 @@ ve.dm.SurfaceFragment.prototype.insertContent = function ( content, annotateOrSe
 		this.removeContent();
 	}
 
-	const offset = range.start;
+	var offset = range.start;
 	// Auto-convert content to array of plain text characters
 	if ( typeof content === 'string' ) {
-		const lines = content.split( /[\r\n]+/ );
+		var lines = content.split( /[\r\n]+/ );
 
 		if ( lines.length > 1 ) {
 			content = [];
-			for ( let i = 0, l = lines.length; i < l; i++ ) {
+			for ( var i = 0, l = lines.length; i < l; i++ ) {
 				if ( lines[ i ].length ) {
 					content.push( { type: 'paragraph' } );
 					ve.batchPush( content, lines[ i ].split( '' ) );
@@ -851,10 +844,10 @@ ve.dm.SurfaceFragment.prototype.insertContent = function ( content, annotateOrSe
 			// <b>f<b>o</b>o</b> when pasting.
 			ve.dm.Document.static.addAnnotationsToData( content, annotations, true, doc.store );
 		}
-		const tx = ve.dm.TransactionBuilder.static.newFromInsertion( doc, offset, content );
+		var tx = ve.dm.TransactionBuilder.static.newFromInsertion( doc, offset, content );
 		// Set the range to cover the inserted content; the offset translation will be wrong
 		// if newFromInsertion() decided to move the insertion point
-		const newRange = tx.getModifiedRange( doc );
+		var newRange = tx.getModifiedRange( doc );
 		this.change( tx, newRange ? new ve.dm.LinearSelection( newRange ) : new ve.dm.NullSelection() );
 	}
 
@@ -887,27 +880,19 @@ ve.dm.SurfaceFragment.prototype.insertHtml = function ( html, importRules ) {
  *
  * @param {ve.dm.Document} newDoc Document to insert
  * @param {ve.Range} [newDocRange] Range from the new document to insert (defaults to entire document)
- * @param {boolean|ve.dm.AnnotationSet} [annotateOrSet] Content should be automatically annotated to match surrounding content,
- *  or an AnnotationSet from the current offset (calculated from the view)
+ * @param {boolean} [annotate] Content should be automatically annotated to match surrounding content
  * @return {ve.dm.SurfaceFragment}
  * @chainable
  */
-ve.dm.SurfaceFragment.prototype.insertDocument = function ( newDoc, newDocRange, annotateOrSet ) {
-	const range = this.getSelection().getCoveringRange(),
+ve.dm.SurfaceFragment.prototype.insertDocument = function ( newDoc, newDocRange, annotate ) {
+	var range = this.getSelection().getCoveringRange(),
 		doc = this.getDocument();
 
 	if ( !range ) {
 		return this;
 	}
 
-	let annotations, annotate;
-	if ( annotateOrSet instanceof ve.dm.AnnotationSet ) {
-		annotations = annotateOrSet;
-		annotate = true;
-	} else {
-		annotate = annotateOrSet;
-	}
-
+	var annotations;
 	if ( !range.isCollapsed() ) {
 		if ( annotate ) {
 			// If we're replacing content, use the annotations selected
@@ -917,29 +902,29 @@ ve.dm.SurfaceFragment.prototype.insertDocument = function ( newDoc, newDocRange,
 		this.removeContent();
 	}
 
-	const offset = range.start;
+	var offset = range.start;
 	if ( annotate && !annotations ) {
 		// TODO T126021: Don't reach into properties of document
 		annotations = doc.data
 			.getAnnotationsFromOffset( offset === 0 ? 0 : offset - 1 );
 	}
 
-	let annotatedDoc;
+	var annotatedDoc;
 	if ( !annotations || annotations.getLength() === 0 ) {
 		annotatedDoc = newDoc;
 	} else {
 		// Build shallow-cloned annotatedData array, copying on write as we go
 		// FIXME T126022: the logic we actually need for annotating inserted content
 		// correctly is much more complicated
-		const annotatedData = newDoc.data.slice();
+		var annotatedData = newDoc.data.slice();
 		ve.dm.Document.static.addAnnotationsToData( annotatedData, annotations, true, newDoc.store, true );
 		annotatedDoc = newDoc.cloneWithData( annotatedData );
 	}
-	const tx = ve.dm.TransactionBuilder.static.newFromDocumentInsertion( doc, offset, annotatedDoc, newDocRange );
+	var tx = ve.dm.TransactionBuilder.static.newFromDocumentInsertion( doc, offset, annotatedDoc, newDocRange );
 	if ( !tx.isNoOp() ) {
 		// Set the range to cover the inserted content; the offset translation will be wrong
 		// if newFromInsertion() decided to move the insertion point
-		const newRange = tx.getModifiedRange( doc );
+		var newRange = tx.getModifiedRange( doc );
 		this.change( tx, newRange ? new ve.dm.LinearSelection( newRange ) : new ve.dm.NullSelection() );
 	}
 	return this;
@@ -952,7 +937,7 @@ ve.dm.SurfaceFragment.prototype.insertDocument = function ( newDoc, newDocRange,
  * @chainable
  */
 ve.dm.SurfaceFragment.prototype.removeContent = function () {
-	const range = this.getSelection().getCoveringRange();
+	var range = this.getSelection().getCoveringRange();
 	if ( !range ) {
 		return this;
 	}
@@ -972,7 +957,7 @@ ve.dm.SurfaceFragment.prototype.removeContent = function () {
  * @chainable
  */
 ve.dm.SurfaceFragment.prototype.delete = function ( directionAfterDelete ) {
-	const rangeToRemove = this.getSelection().getCoveringRange();
+	var rangeToRemove = this.getSelection().getCoveringRange();
 
 	if ( !rangeToRemove || rangeToRemove.isCollapsed() ) {
 		return this;
@@ -982,11 +967,11 @@ ve.dm.SurfaceFragment.prototype.delete = function ( directionAfterDelete ) {
 	// capable of merging nodes of the same type and at the same depth level, so some or all
 	// of rangeToRemove may be left untouched (and in some cases tx may not remove anything
 	// at all).
-	let tx = ve.dm.TransactionBuilder.static.newFromRemoval( this.document, rangeToRemove );
+	var tx = ve.dm.TransactionBuilder.static.newFromRemoval( this.document, rangeToRemove );
 	this.change( tx );
-	let rangeAfterRemove = tx.translateRange( rangeToRemove );
+	var rangeAfterRemove = tx.translateRange( rangeToRemove );
 
-	let endNode;
+	var endNode;
 	if (
 		!rangeAfterRemove.isCollapsed() &&
 		( endNode = this.document.getBranchNodeFromOffset( rangeAfterRemove.end, false ) ) &&
@@ -997,7 +982,7 @@ ve.dm.SurfaceFragment.prototype.delete = function ( directionAfterDelete ) {
 		// not everything got merged nicely, so we process further to deal with
 		// remaining content.
 
-		let startNode = this.document.getBranchNodeFromOffset( rangeAfterRemove.start, false );
+		var startNode = this.document.getBranchNodeFromOffset( rangeAfterRemove.start, false );
 		if ( startNode.getRange().isCollapsed() ) {
 			// If startNode has no content then just delete that node instead of
 			// moving content from endNode to startNode. This prevents content being
@@ -1028,10 +1013,10 @@ ve.dm.SurfaceFragment.prototype.delete = function ( directionAfterDelete ) {
 			// If startNode has content then take remaining content from endNode and
 			// append it into startNode. Then remove endNode (and recursively any
 			// ancestor that the removal causes to be empty).
-			const endNodeData = this.document.getData( endNode.getRange() );
-			let nodeToDelete = endNode;
-			nodeToDelete.traverseUpstream( ( node ) => {
-				const parent = node.getParent();
+			var endNodeData = this.document.getData( endNode.getRange() );
+			var nodeToDelete = endNode;
+			nodeToDelete.traverseUpstream( function ( node ) {
+				var parent = node.getParent();
 				if ( parent.children.length === 1 ) {
 					nodeToDelete = parent;
 					return true;
@@ -1056,7 +1041,7 @@ ve.dm.SurfaceFragment.prototype.delete = function ( directionAfterDelete ) {
 	}
 
 	// Use a collapsed range at a content offset beside rangeAfterRemove.start
-	const nearestOffset = this.document.data.getNearestContentOffset(
+	var nearestOffset = this.document.data.getNearestContentOffset(
 		rangeAfterRemove.start,
 		// If undefined (e.g. cut), default to backwards movement
 		directionAfterDelete || -1
@@ -1087,7 +1072,7 @@ ve.dm.SurfaceFragment.prototype.delete = function ( directionAfterDelete ) {
  * @chainable
  */
 ve.dm.SurfaceFragment.prototype.convertNodes = function ( type, attr, internal ) {
-	const range = this.getSelection().getCoveringRange();
+	var range = this.getSelection().getCoveringRange();
 	if ( !range ) {
 		return this;
 	}
@@ -1119,7 +1104,7 @@ ve.dm.SurfaceFragment.prototype.convertNodes = function ( type, attr, internal )
  * @chainable
  */
 ve.dm.SurfaceFragment.prototype.wrapNodes = function ( wrapper ) {
-	const range = this.getSelection().getCoveringRange();
+	var range = this.getSelection().getCoveringRange();
 	if ( !range ) {
 		return this;
 	}
@@ -1148,7 +1133,7 @@ ve.dm.SurfaceFragment.prototype.wrapNodes = function ( wrapper ) {
  * @chainable
  */
 ve.dm.SurfaceFragment.prototype.unwrapNodes = function ( outerDepth, innerDepth ) {
-	const range = this.getSelection().getCoveringRange();
+	var range = this.getSelection().getCoveringRange();
 
 	if ( !range ) {
 		return this;
@@ -1158,9 +1143,9 @@ ve.dm.SurfaceFragment.prototype.unwrapNodes = function ( outerDepth, innerDepth 
 		throw new Error( 'cannot unwrap by greater depth than maximum theoretical depth of selection' );
 	}
 
-	let i;
-	const innerUnwrapper = [];
-	const outerUnwrapper = [];
+	var i;
+	var innerUnwrapper = [];
+	var outerUnwrapper = [];
 	for ( i = 0; i < innerDepth; i++ ) {
 		innerUnwrapper.push( this.document.data.getData( range.start + i ) );
 	}
@@ -1197,7 +1182,7 @@ ve.dm.SurfaceFragment.prototype.unwrapNodes = function ( outerDepth, innerDepth 
  * @chainable
  */
 ve.dm.SurfaceFragment.prototype.rewrapNodes = function ( depth, wrapper ) {
-	const range = this.getSelection().getCoveringRange();
+	var range = this.getSelection().getCoveringRange();
 
 	if ( !range ) {
 		return this;
@@ -1211,8 +1196,8 @@ ve.dm.SurfaceFragment.prototype.rewrapNodes = function ( depth, wrapper ) {
 		throw new Error( 'cannot unwrap by greater depth than maximum theoretical depth of selection' );
 	}
 
-	const unwrapper = [];
-	for ( let i = 0; i < depth; i++ ) {
+	var unwrapper = [];
+	for ( var i = 0; i < depth; i++ ) {
 		unwrapper.push( this.document.data.getData( range.start + i ) );
 	}
 
@@ -1250,7 +1235,7 @@ ve.dm.SurfaceFragment.prototype.rewrapNodes = function ( depth, wrapper ) {
  * @chainable
  */
 ve.dm.SurfaceFragment.prototype.wrapAllNodes = function ( wrapOuter, wrapEach ) {
-	const range = this.getSelection().getCoveringRange();
+	var range = this.getSelection().getCoveringRange();
 	if ( !range ) {
 		return this;
 	}
@@ -1291,7 +1276,7 @@ ve.dm.SurfaceFragment.prototype.wrapAllNodes = function ( wrapOuter, wrapEach ) 
  * @chainable
  */
 ve.dm.SurfaceFragment.prototype.rewrapAllNodes = function ( depth, wrapper ) {
-	const range = this.getSelection().getCoveringRange(),
+	var range = this.getSelection().getCoveringRange(),
 		unwrapper = [];
 
 	if ( !range ) {
@@ -1299,7 +1284,7 @@ ve.dm.SurfaceFragment.prototype.rewrapAllNodes = function ( depth, wrapper ) {
 	}
 
 	// TODO: preserve direction
-	const innerRange = new ve.Range(
+	var innerRange = new ve.Range(
 		range.start + depth,
 		range.end - depth
 	);
@@ -1312,7 +1297,7 @@ ve.dm.SurfaceFragment.prototype.rewrapAllNodes = function ( depth, wrapper ) {
 		throw new Error( 'cannot unwrap by greater depth than maximum theoretical depth of selection' );
 	}
 
-	for ( let i = 0; i < depth; i++ ) {
+	for ( var i = 0; i < depth; i++ ) {
 		unwrapper.push( this.document.data.getData( range.start + i ) );
 	}
 
@@ -1336,20 +1321,22 @@ ve.dm.SurfaceFragment.prototype.rewrapAllNodes = function ( depth, wrapper ) {
  * @chainable
  */
 ve.dm.SurfaceFragment.prototype.isolateAndUnwrap = function ( isolateForType ) {
-	const insertions = [],
-		factory = ve.dm.nodeFactory,
-		startSplitNodes = [],
-		endSplitNodes = [];
-	let startOffset, endOffset,
+	var startOffset, endOffset,
+		insertions = [],
 		outerDepth = 0,
+		factory = ve.dm.nodeFactory,
 		startSplitRequired = false,
-		endSplitRequired = false;
+		endSplitRequired = false,
+		startSplitNodes = [],
+		endSplitNodes = [],
+		fragment = this;
 
 	function createSplits( splitNodes, insertBefore ) {
-		const data = [];
+		var i, length,
+			adjustment = 0,
+			data = [];
 
-		let adjustment = 0;
-		for ( let i = 0, length = splitNodes.length; i < length; i++ ) {
+		for ( i = 0, length = splitNodes.length; i < length; i++ ) {
 			data.unshift( { type: '/' + splitNodes[ i ].type } );
 			data.push( splitNodes[ i ].getClonedElement() );
 
@@ -1372,11 +1359,11 @@ ve.dm.SurfaceFragment.prototype.isolateAndUnwrap = function ( isolateForType ) {
 		return this;
 	}
 
-	const allowedParents = factory.getSuggestedParentNodeTypes( isolateForType );
-	const nodes = this.getSiblingNodes();
+	var allowedParents = factory.getSuggestedParentNodeTypes( isolateForType );
+	var nodes = this.getSiblingNodes();
 
 	// Find start split point, if required
-	let startSplitNode = nodes[ 0 ].node;
+	var startSplitNode = nodes[ 0 ].node;
 	startOffset = startSplitNode.getOuterRange().start;
 	if ( allowedParents !== null ) {
 		while ( allowedParents.indexOf( startSplitNode.getParent().type ) === -1 ) {
@@ -1394,7 +1381,7 @@ ve.dm.SurfaceFragment.prototype.isolateAndUnwrap = function ( isolateForType ) {
 	}
 
 	// Find end split point, if required
-	let endSplitNode = nodes[ nodes.length - 1 ].node;
+	var endSplitNode = nodes[ nodes.length - 1 ].node;
 	endOffset = endSplitNode.getOuterRange().end;
 	if ( allowedParents !== null ) {
 		while ( allowedParents.indexOf( endSplitNode.getParent().type ) === -1 ) {
@@ -1413,7 +1400,7 @@ ve.dm.SurfaceFragment.prototype.isolateAndUnwrap = function ( isolateForType ) {
 	// We have to exclude insertions while doing splits, because we want the range to be
 	// exactly what we're isolating, we don't want it to grow to include the separators
 	// we're inserting (which would happen if one of them is immediately adjacent to the range)
-	const oldExclude = this.willExcludeInsertions();
+	var oldExclude = this.willExcludeInsertions();
 	this.setExcludeInsertions( true );
 
 	if ( startSplitRequired ) {
@@ -1424,9 +1411,9 @@ ve.dm.SurfaceFragment.prototype.isolateAndUnwrap = function ( isolateForType ) {
 		createSplits( endSplitNodes, false );
 	}
 
-	insertions.forEach( ( insertion ) => {
-		this.change(
-			ve.dm.TransactionBuilder.static.newFromInsertion( this.getDocument(), insertion.offset, insertion.data )
+	insertions.forEach( function ( insertion ) {
+		fragment.change(
+			ve.dm.TransactionBuilder.static.newFromInsertion( fragment.getDocument(), insertion.offset, insertion.data )
 		);
 	} );
 
@@ -1435,67 +1422,4 @@ ve.dm.SurfaceFragment.prototype.isolateAndUnwrap = function ( isolateForType ) {
 	this.unwrapNodes( outerDepth, 0 );
 
 	return this;
-};
-
-/**
- * Insert new metadata into the document. This builds and processes a transaction that inserts
- * metadata into the document.
- *
- * Pass a plain object rather than a MetaItem into this function unless you know what you're doing.
- *
- * @param {Object|ve.dm.MetaItem} meta Metadata element (or MetaItem) to insert
- * @param {number} offset Document offset to insert at; must be a valid offset for metadata;
- * defaults to document end
- */
-ve.dm.SurfaceFragment.prototype.insertMeta = function ( meta, offset ) {
-	if ( arguments[ 2 ] !== undefined ) {
-		throw new Error( 'Old "index" argument is no longer supported' );
-	}
-	if ( meta instanceof ve.dm.MetaItem ) {
-		meta = meta.getElement();
-	}
-	const closeMeta = { type: '/' + meta.type };
-	const doc = this.getDocument();
-	if ( offset === undefined ) {
-		offset = doc.getDocumentRange().end;
-	}
-	const tx = ve.dm.TransactionBuilder.static.newFromInsertion( doc, offset, [ meta, closeMeta ] );
-	this.surface.change( tx );
-};
-
-/**
- * Remove a meta item from the document. This builds and processes a transaction that removes the
- * associated metadata from the document.
- *
- * @param {ve.dm.MetaItem} item Item to remove
- */
-ve.dm.SurfaceFragment.prototype.removeMeta = function ( item ) {
-	const tx = ve.dm.TransactionBuilder.static.newFromRemoval(
-		this.getDocument(),
-		item.getOuterRange(),
-		true
-	);
-	this.surface.change( tx );
-};
-
-/**
- * Replace a MetaItem with another in-place.
- *
- * Pass a plain object rather than a MetaItem into this function unless you know what you're doing.
- *
- * @param {ve.dm.MetaItem} oldItem Old item to replace
- * @param {Object|ve.dm.MetaItem} meta Metadata element (or MetaItem) to insert
- */
-ve.dm.SurfaceFragment.prototype.replaceMeta = function ( oldItem, meta ) {
-	if ( meta instanceof ve.dm.MetaItem ) {
-		meta = meta.getElement();
-	}
-	const closeMeta = { type: '/' + meta.type };
-	const tx = ve.dm.TransactionBuilder.static.newFromReplacement(
-		this.getDocument(),
-		oldItem.getOuterRange(),
-		[ meta, closeMeta ],
-		true
-	);
-	this.surface.change( tx );
 };

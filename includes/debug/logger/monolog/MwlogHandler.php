@@ -24,24 +24,14 @@ use Monolog\Handler\SyslogUdpHandler;
 use Monolog\Logger;
 
 /**
- * Write logs to syslog with the channel appended to the application name.
+ * Log handler that will append the record's channel to a fixed 'application
+ * prefix' given at construction time.
  *
- * This use case for this handler is to emulate Wikimedia Foundation's
- * udp2log system by leveraging syslog (and e.g. Rsyslog/Kafka) and
- * allow an unstructured string to pass through mostly as-is, with the
- * exception of the channel name, which is encoded in transit as part
- * of the syslog "application name". It is intended that the syslog
- * consumer "wildcard" subscribes to all messages with the app prefix,
- * and then * strips it off at some point before writing the messages
- * to a log file named after the channel.
+ * The use case for this handler is to deprecate udp2log with a localhost
+ * syslog endpoint. The application name is then used to reconstruct the
+ * message's channel.
  *
- * Transition plan (2016):
- * - https://phabricator.wikimedia.org/T205856#4957430
- * - https://phabricator.wikimedia.org/T126989
- *
- * @unstable
  * @since 1.32
- * @ingroup Debug
  * @copyright © 2019 Wikimedia Foundation and contributors
  */
 class MwlogHandler extends SyslogUdpHandler {

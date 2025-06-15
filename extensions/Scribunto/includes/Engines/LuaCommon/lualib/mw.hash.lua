@@ -17,7 +17,6 @@ end
 
 function hash.setupInterface()
 	-- Boilerplate
-	hash.setupInterface = nil
 	php = mw_interface
 	mw_interface = nil
 

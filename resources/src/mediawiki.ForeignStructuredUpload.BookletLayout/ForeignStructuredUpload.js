@@ -1,21 +1,20 @@
 ( function () {
 	/**
-	 * @classdesc Upload to another MediaWiki site using structured metadata.
+	 * Used to represent an upload in progress on the frontend.
 	 *
-	 * This subclass uses a structured metadata system similar to
-	 * (or identical to) the one on Wikimedia Commons.
+	 * This subclass will upload to a wiki using a structured metadata
+	 * system similar to (or identical to) the one on Wikimedia Commons.
+	 *
 	 * See <https://commons.wikimedia.org/wiki/Commons:Structured_data> for
 	 * a more detailed description of how that system works.
 	 *
-	 * TODO: This currently only supports uploads under CC-BY-SA 4.0,
-	 * and should really have support for more licenses.
+	 * **TODO: This currently only supports uploads under CC-BY-SA 4.0,
+	 * and should really have support for more licenses.**
 	 *
-	 * @class ForeignStructuredUpload
-	 * @memberof mw
+	 * @class mw.ForeignStructuredUpload
 	 * @extends mw.ForeignUpload
 	 *
 	 * @constructor
-	 * @description Used to represent an upload in progress on the frontend.
 	 * @param {string} [target]
 	 * @param {Object} [apiconfig]
 	 */
@@ -40,30 +39,31 @@
 	 * @return {jQuery.Promise} Promise returning config object
 	 */
 	ForeignStructuredUpload.prototype.loadConfig = function () {
-		const upload = this;
+		var deferred,
+			upload = this;
 
 		if ( this.configPromise ) {
 			return this.configPromise;
 		}
 
 		if ( this.target === 'local' ) {
-			const deferred = $.Deferred();
-			setTimeout( () => {
+			deferred = $.Deferred();
+			setTimeout( function () {
 				// Resolve asynchronously, so that it's harder to accidentally write synchronous code that
 				// will break for cross-wiki uploads
 				deferred.resolve( upload.config );
 			} );
 			this.configPromise = deferred.promise();
 		} else {
-			this.configPromise = this.apiPromise.then(
+			this.configPromise = this.apiPromise.then( function ( api ) {
 				// Get the config from the foreign wiki
-				( api ) => api.get( {
+				return api.get( {
 					action: 'query',
 					meta: 'siteinfo',
 					siprop: 'uploaddialog',
 					// For convenient true/false booleans
 					formatversion: 2
-				} ).then( ( resp ) => {
+				} ).then( function ( resp ) {
 					// Foreign wiki might be running a pre-1.27 MediaWiki, without support for this
 					if ( resp.query && resp.query.uploaddialog ) {
 						upload.config = resp.query.uploaddialog;
@@ -71,8 +71,10 @@
 					} else {
 						return $.Deferred().reject( 'upload-foreign-cant-load-config' );
 					}
-				}, () => $.Deferred().reject( 'upload-foreign-cant-load-config' ) )
-			);
+				}, function () {
+					return $.Deferred().reject( 'upload-foreign-cant-load-config' );
+				} );
+			} );
 		}
 
 		return this.configPromise;
@@ -84,7 +86,9 @@
 	 * @param {string[]} categories Array of categories to which this upload will be added.
 	 */
 	ForeignStructuredUpload.prototype.addCategories = function ( categories ) {
-		this.categories.push( ...categories );
+		// The length of the array must be less than 10000.
+		// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/push#Merging_two_arrays
+		Array.prototype.push.apply( this.categories, categories );
 	};
 
 	/**
@@ -144,7 +148,7 @@
 	 * @inheritdoc
 	 */
 	ForeignStructuredUpload.prototype.getComment = function () {
-		const
+		var
 			isLocal = this.target === 'local',
 			comment = typeof this.config.comment === 'string' ?
 				this.config.comment :
@@ -177,10 +181,12 @@
 	 * @return {string}
 	 */
 	ForeignStructuredUpload.prototype.getDescriptions = function () {
-		const upload = this;
-		return this.descriptions.map( ( desc ) => upload.config.format.description
-			.replace( '$LANGUAGE', desc.language )
-			.replace( '$TEXT', desc.text ) ).join( '\n' );
+		var upload = this;
+		return this.descriptions.map( function ( desc ) {
+			return upload.config.format.description
+				.replace( '$LANGUAGE', desc.language )
+				.replace( '$TEXT', desc.text );
+		} ).join( '\n' );
 	};
 
 	/**
@@ -195,7 +201,9 @@
 			return this.config.format.uncategorized;
 		}
 
-		return this.categories.map( ( cat ) => '[[Category:' + cat + ']]' ).join( '\n' );
+		return this.categories.map( function ( cat ) {
+			return '[[Category:' + cat + ']]';
+		} ).join( '\n' );
 	};
 
 	/**
@@ -225,9 +233,10 @@
 	 * @return {string}
 	 */
 	ForeignStructuredUpload.prototype.getUser = function () {
+		var username, namespace;
 		// Do not localise, we don't know the language of target wiki
-		const namespace = 'User';
-		let username = mw.config.get( 'wgUserName' );
+		namespace = 'User';
+		username = mw.config.get( 'wgUserName' );
 		if ( !username ) {
 			// The user is not logged in locally. However, they might be logged in on the foreign wiki.
 			// We should record their username there. (If they're not logged in there either, this will

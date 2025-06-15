@@ -1,7 +1,5 @@
 <?php
 
-namespace Wikimedia\Tests\FileBackend\FSFile;
-
 /**
  * Code shared between the unit and integration tests
  */
@@ -9,7 +7,8 @@ trait TempFSFileTestTrait {
 	abstract protected function newFile();
 
 	/**
-	 * @covers \Wikimedia\FileBackend\FSFile\TempFSFile
+	 * @covers TempFSFile::__construct
+	 * @covers TempFSFile::purge
 	 */
 	public function testPurge() {
 		$file = $this->newFile();
@@ -19,7 +18,10 @@ trait TempFSFileTestTrait {
 	}
 
 	/**
-	 * @covers \Wikimedia\FileBackend\FSFile\TempFSFile
+	 * @covers TempFSFile::__construct
+	 * @covers TempFSFile::bind
+	 * @covers TempFSFile::autocollect
+	 * @covers TempFSFile::__destruct
 	 */
 	public function testBind() {
 		$file = $this->newFile();
@@ -40,7 +42,9 @@ trait TempFSFileTestTrait {
 	}
 
 	/**
-	 * @covers \Wikimedia\FileBackend\FSFile\TempFSFile
+	 * @covers TempFSFile::__construct
+	 * @covers TempFSFile::preserve
+	 * @covers TempFSFile::__destruct
 	 */
 	public function testPreserve() {
 		$file = $this->newFile();

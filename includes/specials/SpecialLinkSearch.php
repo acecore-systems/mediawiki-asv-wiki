@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:LinkSearch
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,31 +18,19 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
+ * @author Brion Vibber
  */
 
-namespace MediaWiki\Specials;
-
 use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\ExternalLinks\LinkFilter;
-use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Parser\Parser;
-use MediaWiki\SpecialPage\QueryPage;
-use MediaWiki\Title\TitleValue;
-use MediaWiki\Utils\UrlUtils;
-use Skin;
-use stdClass;
-use Wikimedia\Rdbms\IConnectionProvider;
 use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\IExpression;
+use Wikimedia\Rdbms\ILoadBalancer;
 use Wikimedia\Rdbms\IResultWrapper;
-use Wikimedia\Rdbms\LikeValue;
 
 /**
  * Special:LinkSearch to search the external-links table.
- *
  * @ingroup SpecialPage
- * @author Brooke Vibber
  */
 class SpecialLinkSearch extends QueryPage {
 	/** @var array|bool */
@@ -52,8 +42,6 @@ class SpecialLinkSearch extends QueryPage {
 	/** @var string|null */
 	private $mProt;
 
-	private UrlUtils $urlUtils;
-
 	private function setParams( $params ) {
 		$this->mQuery = $params['query'];
 		$this->mNs = $params['namespace'];
@@ -61,19 +49,16 @@ class SpecialLinkSearch extends QueryPage {
 	}
 
 	/**
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param UrlUtils $urlUtils
 	 */
 	public function __construct(
-		IConnectionProvider $dbProvider,
-		LinkBatchFactory $linkBatchFactory,
-		UrlUtils $urlUtils
+		ILoadBalancer $loadBalancer,
+		LinkBatchFactory $linkBatchFactory
 	) {
 		parent::__construct( 'LinkSearch' );
-		$this->setDatabaseProvider( $dbProvider );
+		$this->setDBLoadBalancer( $loadBalancer );
 		$this->setLinkBatchFactory( $linkBatchFactory );
-		$this->urlUtils = $urlUtils;
 	}
 
 	public function isCacheable() {
@@ -85,7 +70,7 @@ class SpecialLinkSearch extends QueryPage {
 		$this->outputHeader();
 
 		$out = $this->getOutput();
-		$out->getMetadata()->setPreventClickjacking( false );
+		$out->setPreventClickjacking( false );
 
 		$request = $this->getRequest();
 		$target = $request->getVal( 'target', $par ?? '' );
@@ -99,11 +84,13 @@ class SpecialLinkSearch extends QueryPage {
 		}
 
 		$target2 = Parser::normalizeLinkUrl( $target );
-		$protocol = null;
-		$bits = $this->urlUtils->parse( $target );
+		// Get protocol, default is http://
+		$protocol = 'http://';
+		$bits = wfParseUrl( $target );
 		if ( isset( $bits['scheme'] ) && isset( $bits['delimiter'] ) ) {
 			$protocol = $bits['scheme'] . $bits['delimiter'];
-			// Make sure UrlUtils::parse() didn't make some well-intended correction in the protocol
+			// Make sure wfParseUrl() didn't make some well-intended correction in the
+			// protocol
 			if ( str_starts_with( strtolower( $target ), strtolower( $protocol ) ) ) {
 				$target2 = substr( $target, strlen( $protocol ) );
 			} else {
@@ -180,24 +167,13 @@ class SpecialLinkSearch extends QueryPage {
 	}
 
 	public function getQueryInfo() {
-		$dbr = $this->getDatabaseProvider()->getReplicaDatabase();
+		$dbr = $this->getDBLoadBalancer()->getConnectionRef( ILoadBalancer::DB_REPLICA );
 
-		$field = 'el_to_domain_index';
-		$extraFields = [
-			'urldomain' => 'el_to_domain_index',
-			'urlpath' => 'el_to_path'
-		];
+		$orderBy = [];
 		if ( $this->mQuery === '*' && $this->mProt !== '' ) {
-			if ( $this->mProt !== null ) {
-				$this->mungedQuery = [
-					$dbr->expr( $field, IExpression::LIKE, new LikeValue( $this->mProt, $dbr->anyString() ) ),
-				];
-			} else {
-				$this->mungedQuery = [
-					$dbr->expr( $field, IExpression::LIKE, new LikeValue( 'http://', $dbr->anyString() ) )
-						->or( $field, IExpression::LIKE, new LikeValue( 'https://', $dbr->anyString() ) ),
-				];
-			}
+			$this->mungedQuery = [
+				'el_index_60' . $dbr->buildLike( $this->mProt, $dbr->anyString() ),
+			];
 		} else {
 			$this->mungedQuery = LinkFilter::getQueryConditions( $this->mQuery, [
 				'protocol' => $this->mProt,
@@ -208,15 +184,19 @@ class SpecialLinkSearch extends QueryPage {
 				// Invalid query; return no results
 				return [ 'tables' => 'page', 'fields' => 'page_id', 'conds' => '0=1' ];
 			}
+			$orderBy[] = 'el_index_60';
 		}
-		$orderBy = [ 'el_id' ];
+
+		$orderBy[] = 'el_id';
 
 		$retval = [
 			'tables' => [ 'page', 'externallinks' ],
-			'fields' => array_merge( [
+			'fields' => [
 				'namespace' => 'page_namespace',
 				'title' => 'page_title',
-			], $extraFields ),
+				'value' => 'el_index',
+				'url' => 'el_to'
+			],
 			'conds' => array_merge(
 				[
 					'page_id = el_from',
@@ -251,9 +231,9 @@ class SpecialLinkSearch extends QueryPage {
 	public function formatResult( $skin, $result ) {
 		$title = new TitleValue( (int)$result->namespace, $result->title );
 		$pageLink = $this->getLinkRenderer()->makeLink( $title );
-		$url = LinkFilter::reverseIndexes( $result->urldomain ) . $result->urlpath;
 
-		$urlLink = $this->getLinkRenderer()->makeExternalLink( $url, $url, $this->getFullTitle() );
+		$url = $result->url;
+		$urlLink = Linker::makeExternalLink( $url, $url );
 
 		return $this->msg( 'linksearch-line' )->rawParams( $urlLink, $pageLink )->escaped();
 	}
@@ -282,6 +262,3 @@ class SpecialLinkSearch extends QueryPage {
 		return max( parent::getMaxResults(), 60000 );
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialLinkSearch::class, 'SpecialLinkSearch' );

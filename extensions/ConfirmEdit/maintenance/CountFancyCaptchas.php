@@ -28,9 +28,7 @@ if ( getenv( 'MW_INSTALL_PATH' ) ) {
 
 require_once "$IP/maintenance/Maintenance.php";
 
-use MediaWiki\Extension\ConfirmEdit\FancyCaptcha\FancyCaptcha;
 use MediaWiki\Extension\ConfirmEdit\Hooks;
-use MediaWiki\Maintenance\Maintenance;
 
 /**
  * Maintenance script that counts the number of captchas remaining.
@@ -40,13 +38,7 @@ use MediaWiki\Maintenance\Maintenance;
 class CountFancyCaptchas extends Maintenance {
 	public function __construct() {
 		parent::__construct();
-		$this->addDescription( "Counts the number of fancy captchas in storage" );
-		$this->addOption(
-			'captchastoragedir',
-			'Overrides the value of $wgCaptchaStorageDirectory',
-			false,
-			true
-		);
+		$this->addDescription( "Counts the number of fancy aptchas in storage" );
 		$this->requireExtension( "FancyCaptcha" );
 	}
 
@@ -56,14 +48,8 @@ class CountFancyCaptchas extends Maintenance {
 			$this->fatalError( "\$wgCaptchaClass is not FancyCaptcha.\n", 1 );
 		}
 
-		// Overrides $wgCaptchaStorageDirectory for this script run
-		if ( $this->hasOption( 'captchastoragedir' ) ) {
-			global $wgCaptchaStorageDirectory;
-			$wgCaptchaStorageDirectory = $this->getOption( 'captchastoragedir' );
-		}
-
 		$countAct = $instance->getCaptchaCount();
-		$this->output( "Current number of stored captchas is $countAct.\n" );
+		$this->output( "Current number of captchas is $countAct.\n" );
 	}
 }
 

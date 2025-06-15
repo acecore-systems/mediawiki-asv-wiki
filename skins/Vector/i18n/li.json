@@ -23,10 +23,5 @@
 	"vector-view-viewsource": "Bekiek bróntèks",
 	"vector-more-actions": "Mieë",
 	"vector-searchsuggest-containing": "Zeuk veur pagina's mitte teks <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
-	"vector-toc-label": "Inhaud",
-	"vector-toc-beginning": "Begin",
-	"vector-main-menu-label": "Houfmenu",
-	"vector-page-tools-label": "Gereidsjapskis",
-	"vector-page-tools-general-label": "Algemein",
-	"vector-unpin-element-label": "versjtaek"
+	"vector-toc-beginning": "Begin"
 }

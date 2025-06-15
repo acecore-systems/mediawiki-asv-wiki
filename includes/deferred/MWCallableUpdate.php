@@ -1,15 +1,9 @@
 <?php
 
-namespace MediaWiki\Deferred;
-
-use Closure;
 use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\Platform\ISQLPlatform;
 
 /**
- * DeferrableUpdate for closure/callable
- *
- * @internal Use DeferredUpdates::addCallableUpdate instead
+ * Deferrable Update for closure/callback
  */
 class MWCallableUpdate
 	implements DeferrableUpdate, DeferrableCallback, TransactionRoundAwareUpdate
@@ -22,38 +16,26 @@ class MWCallableUpdate
 	private $trxRoundRequirement = self::TRX_ROUND_PRESENT;
 
 	/**
-	 * @param callable $callback One of the following:
-	 *    - A Closure callback that takes the caller name as its argument
-	 *    - A non-Closure callback that takes no arguments
-	 * @param string $fname Calling method @phan-mandatory-param
-	 * @param IDatabase|IDatabase[] $dependeeDbws DB handles which might have pending writes
-	 *  upon which this update depends. If any of the handles already has an open transaction,
-	 *  a rollback thereof will cause this update to be cancelled (if it has not already run).
-	 *  [optional]
+	 * @param callable $callback
+	 * @param string $fname Calling method
+	 * @param IDatabase|IDatabase[]|null $dbws Abort if any of the specified DB handles have
+	 *   a currently pending transaction which later gets rolled back [optional] (since 1.28)
 	 */
-	public function __construct(
-		callable $callback,
-		$fname = ISQLPlatform::CALLER_UNKNOWN,
-		$dependeeDbws = []
-	) {
+	public function __construct( callable $callback, $fname = 'unknown', $dbws = [] ) {
 		$this->callback = $callback;
 		$this->fname = $fname;
 
-		$dependeeDbws = is_array( $dependeeDbws ) ? $dependeeDbws : [ $dependeeDbws ];
-		foreach ( $dependeeDbws as $dbw ) {
-			if ( $dbw->trxLevel() ) {
+		$dbws = is_array( $dbws ) ? $dbws : [ $dbws ];
+		foreach ( $dbws as $dbw ) {
+			if ( $dbw && $dbw->trxLevel() ) {
 				$dbw->onTransactionResolution( [ $this, 'cancelOnRollback' ], $fname );
 			}
 		}
 	}
 
 	public function doUpdate() {
-		if ( $this->callback instanceof Closure ) {
-			( $this->callback )( $this->fname );
-		} elseif ( $this->callback ) {
-			// For backwards-compatibility with [$classOrObject, 'func'] style callbacks
-			// where the function happened to already take an optional parameter.
-			( $this->callback )();
+		if ( $this->callback ) {
+			call_user_func( $this->callback );
 		}
 	}
 
@@ -72,6 +54,7 @@ class MWCallableUpdate
 	}
 
 	/**
+	 * @since 1.34
 	 * @param int $mode One of the class TRX_ROUND_* constants
 	 */
 	public function setTransactionRoundRequirement( $mode ) {
@@ -82,6 +65,3 @@ class MWCallableUpdate
 		return $this->trxRoundRequirement;
 	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( MWCallableUpdate::class, 'MWCallableUpdate' );

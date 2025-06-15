@@ -2,11 +2,10 @@
 
 namespace MediaWiki\Settings\Cache;
 
+use BagOStuff;
 use MediaWiki\Settings\SettingsBuilderException;
 use MediaWiki\Settings\Source\SettingsIncludeLocator;
 use MediaWiki\Settings\Source\SettingsSource;
-use Stringable;
-use Wikimedia\ObjectCache\BagOStuff;
 use Wikimedia\WaitConditionLoop;
 
 /**
@@ -15,7 +14,7 @@ use Wikimedia\WaitConditionLoop;
  * @newable
  * @since 1.38
  */
-class CachedSource implements Stringable, SettingsSource, SettingsIncludeLocator {
+class CachedSource implements SettingsSource, SettingsIncludeLocator {
 	/**
 	 * Cached source generation timeout (in seconds).
 	 */

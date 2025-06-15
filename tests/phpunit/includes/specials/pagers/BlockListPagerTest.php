@@ -4,26 +4,20 @@ use MediaWiki\Block\BlockActionInfo;
 use MediaWiki\Block\BlockRestrictionStore;
 use MediaWiki\Block\BlockUtils;
 use MediaWiki\Block\DatabaseBlock;
-use MediaWiki\Block\HideUserUtils;
 use MediaWiki\Block\Restriction\NamespaceRestriction;
 use MediaWiki\Block\Restriction\PageRestriction;
 use MediaWiki\Cache\LinkBatchFactory;
 use MediaWiki\CommentFormatter\RowCommentFormatter;
-use MediaWiki\CommentStore\CommentStore;
-use MediaWiki\Context\RequestContext;
 use MediaWiki\Linker\LinkRenderer;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Pager\BlockListPager;
-use MediaWiki\Request\FauxRequest;
 use MediaWiki\SpecialPage\SpecialPageFactory;
-use MediaWiki\Utils\MWTimestamp;
 use Wikimedia\Rdbms\FakeResultWrapper;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\ILoadBalancer;
 use Wikimedia\TestingAccessWrapper;
 
 /**
  * @group Database
- * @coversDefaultClass \MediaWiki\Pager\BlockListPager
+ * @coversDefaultClass BlockListPager
  */
 class BlockListPagerTest extends MediaWikiIntegrationTestCase {
 
@@ -36,9 +30,6 @@ class BlockListPagerTest extends MediaWikiIntegrationTestCase {
 	/** @var BlockUtils */
 	private $blockUtils;
 
-	/** @var HideUserUtils */
-	private $hideUserUtils;
-
 	/** @var CommentStore */
 	private $commentStore;
 
@@ -48,8 +39,8 @@ class BlockListPagerTest extends MediaWikiIntegrationTestCase {
 	/** @var LinkBatchFactory */
 	private $linkBatchFactory;
 
-	/** @var IConnectionProvider */
-	private $dbProvider;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
 
 	/** @var RowCommentFormatter */
 	private $rowCommentFormatter;
@@ -64,11 +55,10 @@ class BlockListPagerTest extends MediaWikiIntegrationTestCase {
 		$this->blockActionInfo = $services->getBlockActionInfo();
 		$this->blockRestrictionStore = $services->getBlockRestrictionStore();
 		$this->blockUtils = $services->getBlockUtils();
-		$this->hideUserUtils = $services->getHideUserUtils();
 		$this->commentStore = $services->getCommentStore();
 		$this->linkBatchFactory = $services->getLinkBatchFactory();
 		$this->linkRenderer = $services->getLinkRenderer();
-		$this->dbProvider = $services->getConnectionProvider();
+		$this->loadBalancer = $services->getDBLoadBalancer();
 		$this->rowCommentFormatter = $services->getRowCommentFormatter();
 		$this->specialPageFactory = $services->getSpecialPageFactory();
 	}
@@ -79,11 +69,10 @@ class BlockListPagerTest extends MediaWikiIntegrationTestCase {
 			$this->blockActionInfo,
 			$this->blockRestrictionStore,
 			$this->blockUtils,
-			$this->hideUserUtils,
 			$this->commentStore,
 			$this->linkBatchFactory,
 			$this->linkRenderer,
-			$this->dbProvider,
+			$this->loadBalancer,
 			$this->rowCommentFormatter,
 			$this->specialPageFactory,
 			[]
@@ -95,25 +84,14 @@ class BlockListPagerTest extends MediaWikiIntegrationTestCase {
 	 * @dataProvider formatValueEmptyProvider
 	 * @dataProvider formatValueDefaultProvider
 	 */
-	public function testFormatValue( $name, $expected, $row ) {
+	public function testFormatValue( $name, $expected = null, $row = null ) {
 		// Set the time to now so it does not get off during the test.
-		MWTimestamp::setFakeTime( '20230405060708' );
+		MWTimestamp::setFakeTime( MWTimestamp::time() );
 
-		$value = $row->$name ?? null;
+		$value = $name === 'ipb_timestamp' ? MWTimestamp::time() : '';
+		$expected = $expected ?? MWTimestamp::getInstance()->format( 'H:i, j F Y' );
 
-		if ( $name === 'bl_timestamp' ) {
-			// Wrap the expected timestamp in a string with the timestamp in the format
-			// used by the BlockListPager.
-			$linkRenderer = $this->getServiceContainer()->getLinkRenderer();
-			$link = $linkRenderer->makeKnownLink(
-				$this->specialPageFactory->getTitleForAlias( 'BlockList' ),
-				MWTimestamp::getInstance( $value )->format( 'H:i, j F Y' ),
-				[],
-				[ 'wpTarget' => "#{$row->bl_id}" ],
-			);
-			$expected = $link;
-		}
-
+		$row = $row ?: (object)[];
 		$pager = $this->getBlockListPager();
 		$wrappedPager = TestingAccessWrapper::newFromObject( $pager );
 		$wrappedPager->mCurrentRow = $row;
@@ -125,36 +103,39 @@ class BlockListPagerTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * Test empty values.
 	 */
-	public static function formatValueEmptyProvider() {
-		$row = (object)[
-			'bl_id' => 1,
-		];
-
+	public function formatValueEmptyProvider() {
 		return [
-			[ 'test', 'Unable to format test', $row ],
-			[ 'bl_timestamp', null, $row ],
-			[ 'bl_expiry', 'infinite<br />0 seconds left', $row ],
+			[
+				'test',
+				'Unable to format test',
+			],
+			[
+				'ipb_timestamp',
+			],
+			[
+				'ipb_expiry',
+				'infinite<br />0 minutes left',
+			],
 		];
 	}
 
 	/**
 	 * Test the default row values.
 	 */
-	public static function formatValueDefaultProvider() {
+	public function formatValueDefaultProvider() {
 		$row = (object)[
-			'bt_user' => 0,
-			'bt_user_text' => null,
-			'bt_address' => '127.0.0.1',
-			'bl_id' => 1,
-			'bl_by_text' => 'Admin',
-			'bt_auto' => 0,
-			'bl_anon_only' => 0,
-			'bl_create_account' => 1,
-			'bl_enable_autoblock' => 1,
-			'bl_deleted' => 0,
-			'bl_block_email' => 0,
-			'bl_allow_usertalk' => 0,
-			'bl_sitewide' => 1,
+			'ipb_user' => 0,
+			'ipb_address' => '127.0.0.1',
+			'ipb_by_text' => 'Admin',
+			'ipb_create_account' => 1,
+			'ipb_auto' => 0,
+			'ipb_anon_only' => 0,
+			'ipb_create_account' => 1,
+			'ipb_enable_autoblock' => 1,
+			'ipb_deleted' => 0,
+			'ipb_block_email' => 0,
+			'ipb_allow_usertalk' => 0,
+			'ipb_sitewide' => 1,
 		];
 
 		return [
@@ -164,22 +145,22 @@ class BlockListPagerTest extends MediaWikiIntegrationTestCase {
 				$row,
 			],
 			[
-				'bl_timestamp',
-				'20230405060708',
+				'ipb_timestamp',
+				null,
 				$row,
 			],
 			[
-				'bl_expiry',
-				'infinite<br />0 seconds left',
+				'ipb_expiry',
+				'infinite<br />0 minutes left',
 				$row,
 			],
 			[
-				'by',
+				'ipb_by',
 				'<a %s><bdi>Admin</bdi></a>%s',
 				$row,
 			],
 			[
-				'params',
+				'ipb_params',
 				'<ul><li>editing (sitewide)</li>' .
 					'<li>account creation disabled</li><li>cannot edit own talk page</li></ul>',
 				$row,
@@ -193,21 +174,21 @@ class BlockListPagerTest extends MediaWikiIntegrationTestCase {
 	 */
 	public function testFormatValueRestrictions() {
 		$this->overrideConfigValues( [
+			MainConfigNames::ArticlePath => '/wiki/$1',
 			MainConfigNames::Script => '/w/index.php',
 		] );
 
 		$pager = $this->getBlockListPager();
 
 		$row = (object)[
-			'bl_id' => 0,
-			'bt_user' => 0,
-			'bl_anon_only' => 0,
-			'bl_enable_autoblock' => 0,
-			'bl_create_account' => 0,
-			'bl_block_email' => 0,
-			'bl_allow_usertalk' => 1,
-			'bl_sitewide' => 0,
-			'bl_deleted' => 0,
+			'ipb_id' => 0,
+			'ipb_user' => 0,
+			'ipb_anon_only' => 0,
+			'ipb_enable_autoblock' => 0,
+			'ipb_create_account' => 0,
+			'ipb_block_email' => 0,
+			'ipb_allow_usertalk' => 1,
+			'ipb_sitewide' => 0,
 		];
 		$wrappedPager = TestingAccessWrapper::newFromObject( $pager );
 		$wrappedPager->mCurrentRow = $row;
@@ -227,7 +208,7 @@ class BlockListPagerTest extends MediaWikiIntegrationTestCase {
 		$wrappedPager = TestingAccessWrapper::newFromObject( $pager );
 		$wrappedPager->restrictions = $restrictions;
 
-		$formatted = $pager->formatValue( 'params', '' );
+		$formatted = $pager->formatValue( 'ipb_params', '' );
 		$this->assertEquals( '<ul><li>'
 			// FIXME: Expectation value should not be dynamic
 			// and must not depend on a localisation message.
@@ -256,6 +237,12 @@ class BlockListPagerTest extends MediaWikiIntegrationTestCase {
 	 * @covers ::preprocessResults
 	 */
 	public function testPreprocessResults() {
+		$this->tablesUsed[] = 'ipblocks';
+		$this->tablesUsed[] = 'ipblocks_restrictions';
+		$this->tablesUsed[] = 'comment';
+		$this->tablesUsed[] = 'page';
+		$this->tablesUsed[] = 'user';
+
 		// Test the Link Cache.
 		$linkCache = $this->getServiceContainer()->getLinkCache();
 		$wrappedlinkCache = TestingAccessWrapper::newFromObject( $linkCache );
@@ -270,43 +257,40 @@ class BlockListPagerTest extends MediaWikiIntegrationTestCase {
 		];
 
 		foreach ( $links as $link ) {
-			$this->assertNull( $wrappedlinkCache->entries->get( $link ) );
+			$this->assertNull( $wrappedlinkCache->badLinks->get( $link ) );
 		}
 
 		$row = (object)[
-			'bt_address' => '127.0.0.1',
-			'bt_user' => null,
-			'bt_user_text' => null,
-			'bl_by' => $admin->getId(),
-			'bl_by_text' => $admin->getName(),
-			'bl_sitewide' => 1,
-			'bl_timestamp' => $this->getDb()->timestamp( wfTimestamp( TS_MW ) ),
-			'bl_reason_text' => '[[Comment link]]',
-			'bl_reason_data' => null,
+			'ipb_address' => '127.0.0.1',
+			'ipb_by' => $admin->getId(),
+			'ipb_by_text' => $admin->getName(),
+			'ipb_sitewide' => 1,
+			'ipb_timestamp' => $this->db->timestamp( wfTimestamp( TS_MW ) ),
+			'ipb_reason_text' => '[[Comment link]]',
+			'ipb_reason_data' => null,
 		];
 		$pager = $this->getBlockListPager();
 		$pager->preprocessResults( new FakeResultWrapper( [ $row ] ) );
 
 		foreach ( $links as $link ) {
-			$this->assertTrue( $wrappedlinkCache->isBadLink( $link ), "Bad link [[$link]]" );
+			$this->assertSame( 1, $wrappedlinkCache->badLinks->get( $link ), "Bad link [[$link]]" );
 		}
 
 		// Test sitewide blocks.
 		$row = (object)[
-			'bt_address' => '127.0.0.1',
-			'bt_user' => null,
-			'bt_user_text' => null,
-			'bl_by' => $admin->getId(),
-			'bl_by_text' => $admin->getName(),
-			'bl_sitewide' => 1,
-			'bl_reason_text' => '',
-			'bl_reason_data' => null,
+			'ipb_address' => '127.0.0.1',
+			'ipb_by' => $admin->getId(),
+			'ipb_by_text' => $admin->getName(),
+			'ipb_sitewide' => 1,
+			'ipb_reason_text' => '',
+			'ipb_reason_data' => null,
 		];
 		$pager = $this->getBlockListPager();
 		$pager->preprocessResults( new FakeResultWrapper( [ $row ] ) );
 
-		$this->assertObjectNotHasProperty( 'bl_restrictions', $row );
+		$this->assertObjectNotHasAttribute( 'ipb_restrictions', $row );
 
+		$pageName = 'Victor Frankenstein';
 		$page = $this->getExistingTestPage( 'Victor Frankenstein' );
 		$title = $page->getTitle();
 
@@ -317,7 +301,7 @@ class BlockListPagerTest extends MediaWikiIntegrationTestCase {
 			'address' => $target,
 			'by' => $this->getTestSysop()->getUser(),
 			'reason' => 'Parce que',
-			'expiry' => $this->getDb()->getInfinity(),
+			'expiry' => $this->db->getInfinity(),
 			'sitewide' => false,
 		] );
 		$block->setRestrictions( [
@@ -326,13 +310,13 @@ class BlockListPagerTest extends MediaWikiIntegrationTestCase {
 		$blockStore = $this->getServiceContainer()->getDatabaseBlockStore();
 		$blockStore->insertBlock( $block );
 
-		$pager = $this->getBlockListPager();
-		$result = $this->getDb()->newSelectQueryBuilder()
-			->queryInfo( $pager->getQueryInfo() )
-			->where( [ 'bl_id' => $block->getId() ] )
+		$result = $this->db->newSelectQueryBuilder()
+			->queryInfo( DatabaseBlock::getQueryInfo() )
+			->where( [ 'ipb_id' => $block->getId() ] )
 			->caller( __METHOD__ )
 			->fetchResultSet();
 
+		$pager = $this->getBlockListPager();
 		$pager->preprocessResults( $result );
 
 		$wrappedPager = TestingAccessWrapper::newFromObject( $pager );
@@ -345,23 +329,5 @@ class BlockListPagerTest extends MediaWikiIntegrationTestCase {
 		$this->assertEquals( $page->getId(), $restriction->getTitle()->getArticleID() );
 		$this->assertEquals( $title->getDBkey(), $restriction->getTitle()->getDBkey() );
 		$this->assertEquals( $title->getNamespace(), $restriction->getTitle()->getNamespace() );
-	}
-
-	/**
-	 * T352310 regression test
-	 * @coversNothing
-	 */
-	public function testOffset() {
-		if ( $this->getDb()->getType() === 'postgres' ) {
-			$this->markTestSkipped( "PostgreSQL fatals when the first part of " .
-				"the offset parameter has the wrong timestamp format" );
-		}
-		$request = new FauxRequest( [
-			'offset' => '20231115010645|7'
-		] );
-		RequestContext::getMain()->setRequest( $request );
-		$pager = $this->getBlockListPager();
-		$pager->getFullOutput();
-		$this->assertTrue( true );
 	}
 }

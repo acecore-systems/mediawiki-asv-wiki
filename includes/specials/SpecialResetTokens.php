@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:ResetTokens
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,25 +18,18 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
-use MediaWiki\Html\Html;
-use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\MainConfigNames;
-use MediaWiki\SpecialPage\FormSpecialPage;
-use MediaWiki\SpecialPage\SpecialPage;
 
 /**
  * Let users reset tokens like the watchlist token.
  *
  * @ingroup SpecialPage
- * @ingroup Auth
  * @deprecated since 1.26
  */
 class SpecialResetTokens extends FormSpecialPage {
-	/** @var array|null */
 	private $tokensList;
 
 	public function __construct() {
@@ -159,16 +154,10 @@ class SpecialResetTokens extends FormSpecialPage {
 	}
 
 	protected function getGroupName() {
-		return 'login';
+		return 'users';
 	}
 
 	public function isListed() {
 		return (bool)$this->getTokensList();
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialResetTokens::class, 'SpecialResetTokens' );

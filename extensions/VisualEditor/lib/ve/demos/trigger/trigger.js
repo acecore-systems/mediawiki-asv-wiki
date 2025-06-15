@@ -1,12 +1,12 @@
 /*!
  * VisualEditor trigger demo
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 ( function () {
 	/* eslint-disable no-jquery/no-global-selector */
-	const $primary = $( '#primary' ),
+	var $primary = $( '#primary' ),
 		$modifiers = $( '#modifiers' ),
 		$aliases = $( '#aliases' ),
 		$trigger = $( '#trigger' ),
@@ -16,18 +16,19 @@
 		keyAliases = ve.ui.Trigger.static.keyAliases;
 
 	function setTrigger( trigger ) {
+		var parts;
 		trigger = trigger.toString();
-		const parts = trigger.split( '+' );
+		parts = trigger.split( '+' );
 		$trigger.text( trigger );
-		parts.forEach( ( part ) => {
-			const key = part.replace( '\\', '\\\\' ).replace( '"', '\\"' );
+		parts.forEach( function ( part ) {
+			var key = part.replace( '\\', '\\\\' ).replace( '"', '\\"' );
 			$( '.key[rel~="' + key + '"]' ).addClass( 'active' );
 		} );
 	}
 
 	// Initialization
 
-	modifierKeys.forEach( ( modifierKey ) => {
+	modifierKeys.forEach( function ( modifierKey ) {
 		$modifiers.append(
 			$( '<li>' ).append(
 				$( '<span>' )
@@ -37,7 +38,7 @@
 			)
 		);
 	} );
-	primaryKeys.forEach( ( primaryKey ) => {
+	primaryKeys.forEach( function ( primaryKey ) {
 		$primary.append(
 			$( '<li>' ).append(
 				$( '<span>' )
@@ -47,7 +48,7 @@
 			)
 		);
 	} );
-	Object.keys( keyAliases ).forEach( ( key ) => {
+	Object.keys( keyAliases ).forEach( function ( key ) {
 		$aliases.append(
 			$( '<li>' )
 				.append( $( '<span>' ).addClass( 'key alias' ).text( key ) )
@@ -68,7 +69,7 @@
 	// eslint-disable-next-line no-jquery/no-global-selector
 	$( '#primary .key, #modifiers .key' ).on( {
 		mousedown: function ( e ) {
-			const $target = $( e.target );
+			var $target = $( e.target );
 			if ( e.which === OO.ui.MouseButtons.LEFT ) {
 				if ( $target.closest( '#primary' ).length ) {
 					$primary.find( '.active' ).removeClass( 'active' );
@@ -80,7 +81,7 @@
 			}
 		},
 		mouseup: function ( e ) {
-			const parts = [],
+			var parts = [],
 				$target = $( e.target );
 			if ( e.which === OO.ui.MouseButtons.LEFT ) {
 				// eslint-disable-next-line no-jquery/no-class-state

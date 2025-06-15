@@ -1,5 +1,3 @@
-'use strict';
-
 /*!
  * VisualEditor DataModel MWReferencesListNode class.
  *
@@ -10,9 +8,11 @@
 /**
  * DataModel MediaWiki references list node.
  *
- * @constructor
+ * @class
  * @extends ve.dm.BranchNode
- * @mixes ve.dm.FocusableNode
+ * @mixin ve.dm.FocusableNode
+ *
+ * @constructor
  * @param {Object} [element] Reference to element in linear model
  * @param {ve.dm.Node[]} [children]
  */
@@ -75,20 +75,18 @@ ve.dm.MWReferencesListNode.static.matchFunction = function ( domElement ) {
 			domElement.nextElementSibling &&
 			domElement.nextElementSibling.getAttribute( 'about' ) === domElement.getAttribute( 'about' ) &&
 			// A div-wrapped reference list
-			domElement.nextElementSibling.children.length === 1 &&
-			isRefList( domElement.nextElementSibling.children[ 0 ] )
-			// TODO: We should probably check there aren't subsequent elements. This
-			// and the above checks would be easier if the matchFunction was passed
-			// all the elements in the about group.
+			domElement.nextElementSibling.children.length === 1 && isRefList( domElement.nextElementSibling.children[ 0 ] )
+			// TODO: We should probably check there aren't subsequent elements. This and the above
+			// checks would be easier if the matchFunction was passed all the elements in the about group.
 		);
 };
 
 ve.dm.MWReferencesListNode.static.preserveHtmlAttributes = false;
 
 ve.dm.MWReferencesListNode.static.toDataElement = function ( domElements, converter ) {
-	const type = domElements[ 0 ].getAttribute( 'typeof' ) || '';
+	var type = domElements[ 0 ].getAttribute( 'typeof' ) || '';
 
-	let refListNode;
+	var refListNode;
 	// We may have matched a mw:Transclusion wrapping a reference list, so pull out the refListNode
 	if ( type.indexOf( 'mw:Extension/references' ) !== -1 ) {
 		refListNode = domElements[ 0 ];
@@ -98,16 +96,15 @@ ve.dm.MWReferencesListNode.static.toDataElement = function ( domElements, conver
 			domElements[ 1 ].querySelector( '[typeof*="mw:Extension/references"]' );
 	}
 
-	const mwDataJSON = refListNode.getAttribute( 'data-mw' );
-	const mwData = mwDataJSON ? JSON.parse( mwDataJSON ) : {};
-	const mwAttrs = mwData.attrs || {};
-	const refGroup = mwAttrs.group || '';
-	const responsiveAttr = mwAttrs.responsive;
-	const listGroup = 'mwReference/' + refGroup;
-	const templateGenerated = type.indexOf( 'mw:Transclusion' ) !== -1;
-	const isResponsiveDefault = mw.config.get( 'wgCiteResponsiveReferences' );
+	var mwDataJSON = refListNode.getAttribute( 'data-mw' );
+	var mwData = mwDataJSON ? JSON.parse( mwDataJSON ) : {};
+	var refGroup = ve.getProp( mwData, 'attrs', 'group' ) || '';
+	var responsiveAttr = ve.getProp( mwData, 'attrs', 'responsive' );
+	var listGroup = 'mwReference/' + refGroup;
+	var templateGenerated = type.indexOf( 'mw:Transclusion' ) !== -1;
+	var isResponsiveDefault = mw.config.get( 'wgCiteResponsiveReferences' );
 
-	const referencesListElement = {
+	var referencesListData = {
 		type: this.name,
 		attributes: {
 			mw: mwData,
@@ -121,74 +118,68 @@ ve.dm.MWReferencesListNode.static.toDataElement = function ( domElements, conver
 	if ( mwData.body && mwData.body.html && !templateGenerated ) {
 		// Process the nodes in .body.html as if they were this node's children
 		// Don't process template-generated reflists, that mangles the content (T209493)
-		const contentsDiv = domElements[ 0 ].ownerDocument.createElement( 'div' );
+		var contentsDiv = domElements[ 0 ].ownerDocument.createElement( 'div' );
 		contentsDiv.innerHTML = mwData.body.html;
-		const contentsData = converter.getDataFromDomClean( contentsDiv );
-		return [
-			referencesListElement,
-			...contentsData,
-			{ type: '/' + this.name }
-		];
+		var contentsData = converter.getDataFromDomClean( contentsDiv );
+		referencesListData = [ referencesListData ]
+			.concat( contentsData )
+			.concat( [ { type: '/' + this.name } ] );
 	}
-	return referencesListElement;
+	return referencesListData;
 };
 
 ve.dm.MWReferencesListNode.static.toDomElements = function ( data, doc, converter ) {
-	const isForParser = converter.isForParser();
-	const dataElement = data[ 0 ];
-	const attributes = dataElement.attributes;
+	var isForParser = converter.isForParser(),
+		dataElement = data[ 0 ],
+		attrs = dataElement.attributes;
 
-	// If we are sending a template generated ref back to Parsoid, output it as a
-	// template.  This works because the dataElement already has mw, originalMw
-	// and originalDomIndex properties.
-	if ( attributes.templateGenerated && isForParser ) {
-		return ve.dm.MWTransclusionNode.static
-			.toDomElements.call( this, dataElement, doc, converter );
+	// If we are sending a template generated ref back to Parsoid, output it as a template.
+	// This works because the dataElement already has mw, originalMw and originalDomIndex properties.
+	if ( attrs.templateGenerated && isForParser ) {
+		return ve.dm.MWTransclusionNode.static.toDomElements.call( this, dataElement, doc, converter );
 	}
 
-	let els;
+	var els;
 	if ( !isForParser ) {
 		// Output needs to be read so re-render
-		const modelNode = ve.dm.nodeFactory.createFromElement( dataElement );
+		var modelNode = ve.dm.nodeFactory.createFromElement( dataElement );
 		// Build from original doc's internal list to get all refs (T186407)
 		modelNode.setDocument( converter.originalDocInternalList.getDocument() );
-		const viewNode = ve.ce.nodeFactory.createFromModel( modelNode );
+		var viewNode = ve.ce.nodeFactory.createFromModel( modelNode );
 		viewNode.modified = true;
 		viewNode.update();
 		els = [ doc.createElement( 'div' ) ];
 		els[ 0 ].appendChild( viewNode.$reflist[ 0 ] );
-		// Destroy the view node so it doesn't try to update the DOM node later
-		// (e.g. updateDebounced)
+		// Destroy the view node so it doesn't try to update the DOM node later (e.g. updateDebounced)
 		viewNode.destroy();
 	} else if ( dataElement.originalDomElementsHash !== undefined ) {
 		// If there's more than 1 element, preserve entire array, not just first element
-		els = ve.copyDomElements(
-			converter.getStore().value( dataElement.originalDomElementsHash ), doc );
+		els = ve.copyDomElements( converter.getStore().value( dataElement.originalDomElementsHash ), doc );
 	} else {
 		els = [ doc.createElement( 'div' ) ];
 	}
 
-	const mwData = attributes.mw ? ve.copy( attributes.mw ) : {};
+	var mwData = attrs.mw ? ve.copy( attrs.mw ) : {};
 
 	mwData.name = 'references';
 
-	if ( attributes.refGroup ) {
-		ve.setProp( mwData, 'attrs', 'group', attributes.refGroup );
+	if ( attrs.refGroup ) {
+		ve.setProp( mwData, 'attrs', 'group', attrs.refGroup );
 	} else if ( mwData.attrs ) {
-		delete mwData.attrs.group;
+		delete mwData.attrs.refGroup;
 	}
 
-	const originalMw = attributes.originalMw;
-	const originalMwData = originalMw && JSON.parse( originalMw );
-	const originalResponsiveAttr = ve.getProp( originalMwData, 'attrs', 'responsive' );
-	const isResponsiveDefault = mw.config.get( 'wgCiteResponsiveReferences' );
+	var originalMw = attrs.originalMw;
+	var originalMwData = originalMw && JSON.parse( originalMw );
+	var originalResponsiveAttr = ve.getProp( originalMwData, 'attrs', 'responsive' );
+	var isResponsiveDefault = mw.config.get( 'wgCiteResponsiveReferences' );
 
 	if ( !(
 		// The original "responsive" attribute hasn't had its meaning changed
-		originalResponsiveAttr !== undefined && ( originalResponsiveAttr !== '0' ) === attributes.isResponsive
+		originalResponsiveAttr !== undefined && ( originalResponsiveAttr !== '0' ) === attrs.isResponsive
 	) ) {
-		if ( attributes.isResponsive !== isResponsiveDefault ) {
-			ve.setProp( mwData, 'attrs', 'responsive', attributes.isResponsive ? '' : '0' );
+		if ( attrs.isResponsive !== isResponsiveDefault ) {
+			ve.setProp( mwData, 'attrs', 'responsive', attrs.isResponsive ? '' : '0' );
 		} else if ( mwData.attrs ) {
 			delete mwData.attrs.responsive;
 		}
@@ -202,8 +193,8 @@ ve.dm.MWReferencesListNode.static.toDomElements = function ( data, doc, converte
 		// the document.
 		// TODO: it would be better to do this without needing to fish through
 		// the converter's linear data. Use the DM tree instead?
-		let nextIndex = converter.documentData.indexOf( data[ data.length - 1 ] ) + 1;
-		let nextElement;
+		var nextIndex = converter.documentData.indexOf( data[ data.length - 1 ] ) + 1;
+		var nextElement;
 		while ( ( nextElement = converter.documentData[ nextIndex ] ) ) {
 			if ( nextElement.type[ 0 ] !== '/' ) {
 				break;
@@ -215,16 +206,16 @@ ve.dm.MWReferencesListNode.static.toDomElements = function ( data, doc, converte
 		}
 	}
 
-	const el = els[ 0 ];
+	var el = els[ 0 ];
 	el.setAttribute( 'typeof', 'mw:Extension/references' );
 
-	const contentsData = data.slice( 1, -1 );
+	var contentsData = data.slice( 1, -1 );
 	if ( contentsData.length > 2 ) {
-		const wrapper = doc.createElement( 'div' );
+		var wrapper = doc.createElement( 'div' );
 		converter.getDomSubtreeFromData( data.slice( 1, -1 ), wrapper );
-		const contentsHtml = wrapper.innerHTML; // Returns '' if wrapper is empty
-		const originalHtml = ve.getProp( mwData, 'body', 'html' ) || '';
-		const originalHtmlWrapper = doc.createElement( 'div' );
+		var contentsHtml = wrapper.innerHTML; // Returns '' if wrapper is empty
+		var originalHtml = ve.getProp( mwData, 'body', 'html' ) || '';
+		var originalHtmlWrapper = doc.createElement( 'div' );
 		originalHtmlWrapper.innerHTML = originalHtml;
 		// Only set body.html if contentsHtml and originalHtml are actually different
 		if ( !originalHtmlWrapper.isEqualNode( wrapper ) ) {
@@ -269,14 +260,13 @@ ve.dm.MWReferencesListNode.static.describeChange = function ( key, change ) {
 };
 
 ve.dm.MWReferencesListNode.static.getHashObject = function ( dataElement ) {
-	const attributes = dataElement.attributes;
 	return {
 		type: dataElement.type,
 		attributes: {
-			refGroup: attributes.refGroup,
-			listGroup: attributes.listGroup,
-			isResponsive: attributes.isResponsive,
-			templateGenerated: attributes.templateGenerated
+			refGroup: dataElement.attributes.refGroup,
+			listGroup: dataElement.attributes.listGroup,
+			isResponsive: dataElement.attributes.isResponsive,
+			templateGenerated: dataElement.attributes.templateGenerated
 		}
 	};
 };

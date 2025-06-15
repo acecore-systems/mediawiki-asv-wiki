@@ -21,12 +21,9 @@
  * @ingroup Maintenance
  */
 
-use MediaWiki\FileRepo\File\FileSelectQueryBuilder;
-use MediaWiki\Maintenance\Maintenance;
+use MediaWiki\MediaWikiServices;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script to check images to see if they exist, are readable, etc.
@@ -43,18 +40,22 @@ class CheckImages extends Maintenance {
 
 	public function execute() {
 		$start = '';
-		$dbr = $this->getReplicaDB();
+		$dbr = $this->getDB( DB_REPLICA );
 
 		$numImages = 0;
 		$numGood = 0;
 
-		$repo = $this->getServiceContainer()->getRepoGroup()->getLocalRepo();
+		$repo = MediaWikiServices::getInstance()->getRepoGroup()->getLocalRepo();
+		$fileQuery = LocalFile::getQueryInfo();
 		do {
-			$queryBuilder = FileSelectQueryBuilder::newForFile( $dbr );
-
-			$res = $queryBuilder->where( $dbr->expr( 'img_name', '>', $start ) )
+			$res = $dbr->newSelectQueryBuilder()
+				->select( $fileQuery['fields'] )
+				->tables( $fileQuery['tables'] )
+				->where( 'img_name > ' . $dbr->addQuotes( $start ) )
+				->joinConds( $fileQuery['joins'] )
+				->caller( __METHOD__ )
 				->limit( $this->getBatchSize() )
-				->caller( __METHOD__ )->fetchResultSet();
+				->fetchResultSet();
 			foreach ( $res as $row ) {
 				$numImages++;
 				$start = $row->img_name;
@@ -89,7 +90,5 @@ class CheckImages extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = CheckImages::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

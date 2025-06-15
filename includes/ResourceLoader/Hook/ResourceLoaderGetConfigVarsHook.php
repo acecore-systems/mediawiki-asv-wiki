@@ -2,7 +2,7 @@
 
 namespace MediaWiki\ResourceLoader\Hook;
 
-use MediaWiki\Config\Config;
+use Config;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

@@ -12,7 +12,8 @@ use MediaWiki\Rest\RequestInterface;
  * @internal
  */
 class MWBasicAuthorizer extends BasicAuthorizerBase {
-	private Authority $authority;
+	/** @var Authority */
+	private $authority;
 
 	public function __construct( Authority $authority ) {
 		$this->authority = $authority;

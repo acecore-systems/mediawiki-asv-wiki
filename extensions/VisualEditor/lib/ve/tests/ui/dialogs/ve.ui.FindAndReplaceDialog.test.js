@@ -1,15 +1,15 @@
 /*!
  * VisualEditor UserInterface FindAndReplaceDialog tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ui.FindAndReplaceDialog' );
 
 /* Tests */
 
-QUnit.test( 'find fragments', ( assert ) => {
-	const done = assert.async(),
+QUnit.test( 'find fragments', function ( assert ) {
+	var done = assert.async(),
 		surface = ve.test.utils.createSurfaceFromHtml( '<p>Foo bar fooq.</p><p>baz foob</p>' ),
 		cases = [
 			{
@@ -74,16 +74,18 @@ QUnit.test( 'find fragments', ( assert ) => {
 			}
 		];
 
-	surface.getToolbarDialogs( 'above' ).getWindow( 'findAndReplace' ).then( ( dialog ) => {
+	surface.getToolbarDialogs().getWindow( 'findAndReplace' ).then( function ( dialog ) {
 		dialog.open( {
 			surface: surface,
 			fragment: surface.getModel().getFragment()
-		} ).opening.then( () => {
-			cases.forEach( ( caseItem ) => {
+		} ).opening.then( function () {
+			cases.forEach( function ( caseItem ) {
 				dialog.matchCaseToggle.setValue( !!caseItem.matchCase );
 				dialog.regexToggle.setValue( !!caseItem.regex );
 				dialog.findText.setValue( caseItem.find );
-				const ranges = dialog.fragments.map( ( fragment ) => fragment.getSelection().getRange() );
+				var ranges = dialog.fragments.map( function ( fragment ) {
+					return fragment.getSelection().getRange();
+				} );
 				assert.deepEqual( ranges, caseItem.ranges, caseItem.msg );
 				dialog.findText.setValue( '' );
 			} );
@@ -93,8 +95,8 @@ QUnit.test( 'find fragments', ( assert ) => {
 
 } );
 
-QUnit.test( 'replace all', ( assert ) => {
-	const done = assert.async(),
+QUnit.test( 'replace all', function ( assert ) {
+	var done = assert.async(),
 		surface = ve.test.utils.createSurfaceFromHtml( '<p>Foo bar fooq.</p><p>baz foob</p>' ),
 		cases = [
 			{
@@ -118,12 +120,12 @@ QUnit.test( 'replace all', ( assert ) => {
 			}
 		];
 
-	surface.getToolbarDialogs( 'above' ).getWindow( 'findAndReplace' ).done( ( dialog ) => {
+	surface.getToolbarDialogs().getWindow( 'findAndReplace' ).done( function ( dialog ) {
 		dialog.open( {
 			surface: surface,
 			fragment: surface.getModel().getFragment()
-		} ).opening.then( () => {
-			cases.forEach( ( caseItem ) => {
+		} ).opening.then( function () {
+			cases.forEach( function ( caseItem ) {
 				dialog.matchCaseToggle.setValue( !!caseItem.matchCase );
 				dialog.regexToggle.setValue( !!caseItem.regex );
 				dialog.findText.setValue( caseItem.find );
@@ -134,7 +136,7 @@ QUnit.test( 'replace all', ( assert ) => {
 				dialog.replaceText.setValue( '' );
 			} );
 			done();
-		} ).fail( ( ex ) => {
+		} ).fail( function ( ex ) {
 			assert.true( false, 'Error thrown: ' + ex.stack );
 			done();
 		} );

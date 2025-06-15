@@ -2,8 +2,8 @@
 
 namespace MediaWiki\Extension\AbuseFilter;
 
-use MediaWiki\Extension\Notifications\Formatters\EchoEventPresentationModel;
-use MediaWiki\Message\Message;
+use EchoEventPresentationModel;
+use Message;
 
 class ThrottleFilterPresentationModel extends EchoEventPresentationModel {
 
@@ -19,7 +19,7 @@ class ThrottleFilterPresentationModel extends EchoEventPresentationModel {
 	 */
 	public function getHeaderMessage() {
 		$text = $this->event->getTitle()->getText();
-		[ , $filter ] = explode( '/', $text, 2 );
+		list( , $filter ) = explode( '/', $text, 2 );
 		$disabledActions = $this->event->getExtraParam( 'throttled-actions' );
 		if ( $disabledActions === null ) {
 			// BC for when we didn't include the actions here.

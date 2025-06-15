@@ -22,7 +22,6 @@
 	"apihelp-visualeditoredit-param-html": "著發送遘Parsoid轉成Wiki文本其HTML。",
 	"apihelp-visualeditoredit-param-minor": "標記成小編輯。",
 	"apihelp-visualeditoredit-param-needcheck": "保存其辰候如果修訂版本直頭出現問題，噲就設置茲萆參數。嚽會造成編輯乞拍上標籤。",
-	"apihelp-visualeditoredit-param-oldid": "著使其修訂版本號。默認是最新版，使用0表示新頁面。",
 	"apihelp-visualeditoredit-param-page": "著執行操作其頁面。",
 	"apihelp-visualeditoredit-param-starttimestamp": "保存其辰候，將伊設置成頁面加載辰候其時間戳。廮𡅏檢測編輯衝突。",
 	"apihelp-visualeditoredit-param-summary": "編輯摘要"

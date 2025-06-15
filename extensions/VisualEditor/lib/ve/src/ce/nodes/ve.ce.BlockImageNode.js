@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable block image node class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -9,8 +9,8 @@
  *
  * @class
  * @extends ve.ce.BranchNode
- * @mixes ve.ce.ImageNode
- * @mixes ve.ce.AlignableNode
+ * @mixins ve.ce.ImageNode
+ * @mixins ve.ce.AlignableNode
  *
  * @constructor
  * @param {ve.dm.BlockImageNode} model Model to observe

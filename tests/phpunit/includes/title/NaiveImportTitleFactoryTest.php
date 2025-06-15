@@ -20,12 +20,9 @@
  */
 
 use MediaWiki\MainConfigNames;
-use MediaWiki\Title\ForeignTitle;
-use MediaWiki\Title\NaiveImportTitleFactory;
-use MediaWiki\Title\Title;
 
 /**
- * @covers \MediaWiki\Title\NaiveImportTitleFactory
+ * @covers NaiveImportTitleFactory
  *
  * @group Title
  *
@@ -42,7 +39,7 @@ class NaiveImportTitleFactoryTest extends MediaWikiIntegrationTestCase {
 		] );
 	}
 
-	public static function basicProvider() {
+	public function basicProvider() {
 		return [
 			[
 				new ForeignTitle( 0, '', 'MainNamespaceArticle' ),

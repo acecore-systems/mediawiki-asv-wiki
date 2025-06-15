@@ -1,16 +1,15 @@
 <?php
 
-namespace Wikimedia\Tests\ParamValidator\TypeDef;
+namespace Wikimedia\ParamValidator\TypeDef;
 
 use Wikimedia\Message\DataMessageValue;
 use Wikimedia\Message\MessageValue;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\SimpleCallbacks;
-use Wikimedia\ParamValidator\TypeDef\EnumDef;
 use Wikimedia\ParamValidator\ValidationException;
 
 /**
- * @covers \Wikimedia\ParamValidator\TypeDef\EnumDef
+ * @covers Wikimedia\ParamValidator\TypeDef\EnumDef
  */
 class EnumDefTest extends TypeDefTestCase {
 
@@ -35,14 +34,12 @@ class EnumDefTest extends TypeDefTestCase {
 			] ],
 			'Deprecated with message' => [
 				'b', 'b', $settings, [], [
-					[ 'code' => 'deprecated-value', 'data' => null ]
-				]
-			],
+				[ 'code' => 'deprecated-value', 'data' => null ]
+			] ],
 			'Deprecated with data message' => [
 				'e', 'e', $settings, [], [
-					[ 'code' => 'deprecated-value', 'data' => [ 'x' => 'y' ] ]
-				]
-			],
+				[ 'code' => 'deprecated-value', 'data' => [ 'x' => 'y' ] ]
+			] ],
 			'Deprecated, from default' => [
 				'c', 'c', $settings, [ 'is-default' => true ], []
 			],

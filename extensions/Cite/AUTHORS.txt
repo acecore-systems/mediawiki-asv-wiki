@@ -1,13 +1,11 @@
 Principal Authors (major contributors, alphabetically)
 
-Adam Wight
 Ævar Arnfjörð Bjarmason
 Andrew Garrett
 Brion Vibber
 Ed Sanders
 Marius Hoch
 Steve Sanbeg
-Thiemo Kreuz
 Trevor Parscal
 Yair rand
 
@@ -36,7 +34,6 @@ Jackmcbarn
 James D. Forrester
 Jan Paul Posma
 Jens Frank
-Jon Harald Søby
 Jon Robson
 Kaity Hammerstein
 Kevin Brown

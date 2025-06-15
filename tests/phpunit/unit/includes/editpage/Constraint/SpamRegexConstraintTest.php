@@ -21,7 +21,6 @@
 use MediaWiki\EditPage\Constraint\IEditConstraint;
 use MediaWiki\EditPage\Constraint\SpamRegexConstraint;
 use MediaWiki\EditPage\SpamChecker;
-use MediaWiki\Title\Title;
 use Psr\Log\LogLevel;
 use Psr\Log\NullLogger;
 
@@ -47,10 +46,11 @@ class SpamRegexConstraintTest extends MediaWikiUnitTestCase {
 			->willReturn( false );
 		$spamChecker->expects( $this->exactly( 2 ) )
 			->method( 'checkContent' )
-			->willReturnMap( [
-				[ $sectionHeading, false ],
-				[ $text, false ],
-			] );
+			->withConsecutive(
+				[ $sectionHeading ],
+				[ $text ]
+			)
+			->willReturn( false );
 
 		$title = $this->createMock( Title::class );
 		$title->expects( $this->never() )

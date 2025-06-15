@@ -1,13 +1,12 @@
 'use strict';
 
-// eslint-disable-next-line n/no-missing-require
+// eslint-disable-next-line node/no-missing-require
 const ve = require( '../dist/ve-rebaser.js' ),
 	fs = require( 'fs' );
 
 /**
  * Parse log file contents.
  *
- * @ignore
  * @param {string} log Newline-separated list of JSON objects
  * @return {Object[]} Array of parsed objects
  */
@@ -80,8 +79,7 @@ function toTestCase( parsedLog ) {
 	};
 }
 
-// eslint-disable-next-line security/detect-non-literal-fs-filename
-fs.readFile( process.argv[ 2 ], { encoding: 'utf8' }, ( err, data ) => {
+fs.readFile( process.argv[ 2 ], { encoding: 'utf8' }, function ( err, data ) {
 	const parsed = parseLog( data ),
 		testCase = toTestCase( parsed );
 	process.stdout.write( JSON.stringify( testCase ) );

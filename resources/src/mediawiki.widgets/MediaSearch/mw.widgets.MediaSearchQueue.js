@@ -7,15 +7,14 @@
 ( function () {
 
 	/**
-	 * @classdesc Media resource queue.
+	 * MediaWiki media resource queue.
 	 *
 	 * @class
 	 * @extends mw.widgets.MediaResourceQueue
 	 *
 	 * @constructor
-	 * @description Create an instance of `mw.widgets.MediaSearchQueue`.
 	 * @param {Object} [config] Configuration options
-	 * @param {number} config.maxHeight The maximum height of the media, used in the
+	 * @cfg {number} maxHeight The maximum height of the media, used in the
 	 *  search call to the API.
 	 */
 	mw.widgets.MediaSearchQueue = function MwWidgetsMediaSearchQueue( config ) {
@@ -30,26 +29,29 @@
 
 	/**
 	 * Override parent method to set up the providers according to
-	 * the file repos.
+	 * the file repos
 	 *
 	 * @return {jQuery.Promise} Promise that resolves when the resources are set up
 	 */
 	mw.widgets.MediaSearchQueue.prototype.setup = function () {
-		return this.getFileRepos().then( ( sources ) => {
-			if ( this.providers.length === 0 ) {
+		var i, len,
+			queue = this;
+
+		return this.getFileRepos().then( function ( sources ) {
+			if ( queue.providers.length === 0 ) {
 				// Set up the providers
-				for ( let i = 0, len = sources.length; i < len; i++ ) {
-					this.addProvider( new mw.widgets.MediaSearchProvider(
+				for ( i = 0, len = sources.length; i < len; i++ ) {
+					queue.addProvider( new mw.widgets.MediaSearchProvider(
 						sources[ i ].apiurl,
 						{
 							name: sources[ i ].name,
 							local: sources[ i ].local,
 							scriptDirUrl: sources[ i ].scriptDirUrl,
 							userParams: {
-								gsrsearch: this.getSearchQuery()
+								gsrsearch: queue.getSearchQuery()
 							},
 							staticParams: {
-								iiurlheight: this.getMaxHeight()
+								iiurlheight: queue.getMaxHeight()
 							}
 						} )
 					);
@@ -59,7 +61,7 @@
 	};
 
 	/**
-	 * Set the search query.
+	 * Set the search query
 	 *
 	 * @param {string} searchQuery API search query
 	 */
@@ -68,7 +70,7 @@
 	};
 
 	/**
-	 * Get the search query.
+	 * Get the search query
 	 *
 	 * @return {string} API search query
 	 */

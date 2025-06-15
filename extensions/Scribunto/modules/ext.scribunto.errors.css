@@ -6,9 +6,3 @@
 .scribunto-error:focus {
 	text-decoration: underline;
 }
-
-/* Make the popup heading more prominent */
-.scribunto-error-label {
-	font-size: larger;
-	font-weight: bold;
-}

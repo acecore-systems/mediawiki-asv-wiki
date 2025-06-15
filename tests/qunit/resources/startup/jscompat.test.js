@@ -1,35 +1,67 @@
-// JavaScript compatibility tests to confirm that server and browser
-// are behaving consistently and configured correctly.
-QUnit.module( 'startup/jscompat', () => {
+/**
+ * Some misc JavaScript compatibility tests,
+ * just to make sure the environments we run in are consistent.
+ */
+( function () {
+	QUnit.module( 'mediawiki.jscompat', QUnit.newMwEnvironment() );
 
-	QUnit.test( 'Unicode variable name', ( assert ) => {
-		const ŝablono = true;
+	QUnit.test( 'Variable with Unicode letter in name', function ( assert ) {
+		var orig, ŝablono;
 
-		assert.true( ŝablono, 'ŝablono' );
-		assert.true( \u015dablono, '\\u015dablono' );
-		assert.true( \u015Dablono, '\\u015Dablono' );
+		orig = 'some token';
+		ŝablono = orig;
+
+		assert.deepEqual( ŝablono, orig, 'ŝablono' );
+		assert.deepEqual( \u015dablono, orig, '\\u015dablono' );
+		assert.deepEqual( \u015Dablono, orig, '\\u015Dablono' );
 	} );
 
-	function repeat( str, n ) {
-		let out;
-		if ( n <= 0 ) {
-			return '';
-		} else {
-			out = [];
-			out.length = n + 1;
-			return out.join( str );
+	/*
+	// Not that we need this. ;)
+	// This fails on IE 6-8
+	// Works on IE 9, Firefox 6, Chrome 14
+	...( 'Keyword workaround: "if" as variable name using Unicode escapes', function ( assert ) {
+		var orig = "another token";
+		\u0069\u0066 = orig;
+		assert.deepEqual( \u0069\u0066, orig, '\\u0069\\u0066' );
+	});
+	*/
+
+	/*
+	// Not that we need this. ;)
+	// This fails on IE 6-9
+	// Works on Firefox 6, Chrome 14
+	...( 'Keyword workaround: "if" as member variable name using Unicode escapes', function ( assert ) {
+		var orig = "another token";
+		var foo = {};
+		foo.\u0069\u0066 = orig;
+		assert.deepEqual( foo.\u0069\u0066, orig, 'foo.\\u0069\\u0066' );
+	});
+	*/
+
+	QUnit.test( 'Stripping of single initial newline from textarea\'s literal contents (T14130)', function ( assert ) {
+		var i, expected, $textarea,
+			maxN = 4;
+
+		function repeat( str, n ) {
+			var out;
+			if ( n <= 0 ) {
+				return '';
+			} else {
+				out = [];
+				out.length = n + 1;
+				return out.join( str );
+			}
 		}
-	}
 
-	QUnit.test.each( 'textarea strips newline (T14130)', [ 0, 1, 2, 3 ], ( assert, i ) => {
-		const expected = repeat( '\n', i ) + 'some text';
+		for ( i = 0; i < maxN; i++ ) {
+			expected = repeat( '\n', i ) + 'some text';
 
-		let $textarea;
-		// When setting HTML, we expect exactly 1 newline to be stripped.
-		$textarea = $( '<textarea>\n' + expected + '</textarea>' );
-		assert.strictEqual( $textarea.val(), expected, 'read after setting HTML' );
+			$textarea = $( '<textarea>\n' + expected + '</textarea>' );
+			assert.strictEqual( $textarea.val(), expected, 'Expecting ' + i + ' newlines (HTML contained ' + ( i + 1 ) + ')' );
 
-		$textarea = $( '<textarea>' ).val( expected );
-		assert.strictEqual( $textarea.val(), expected, 'read after setting value' );
+			$textarea = $( '<textarea>' ).val( expected );
+			assert.strictEqual( $textarea.val(), expected, 'Expecting ' + i + ' newlines (from DOM set with ' + i + ')' );
+		}
 	} );
-} );
+}() );

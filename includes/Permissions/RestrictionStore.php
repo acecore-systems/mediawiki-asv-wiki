@@ -2,9 +2,11 @@
 
 namespace MediaWiki\Permissions;
 
+use CommentStore;
+use DBAccessObjectUtils;
+use IDBAccessObject;
+use LinkCache;
 use MediaWiki\Cache\CacheKeyHelper;
-use MediaWiki\Cache\LinkCache;
-use MediaWiki\CommentStore\CommentStore;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\HookContainer\HookContainer;
 use MediaWiki\HookContainer\HookRunner;
@@ -13,17 +15,17 @@ use MediaWiki\MainConfigNames;
 use MediaWiki\Page\PageIdentity;
 use MediaWiki\Page\PageIdentityValue;
 use MediaWiki\Page\PageStore;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleValue;
 use stdClass;
-use Wikimedia\ObjectCache\WANObjectCache;
+use Title;
+use TitleValue;
+use WANObjectCache;
 use Wikimedia\Rdbms\Database;
-use Wikimedia\Rdbms\DBAccessObjectUtils;
-use Wikimedia\Rdbms\IDBAccessObject;
+use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\ILoadBalancer;
-use Wikimedia\Rdbms\IReadableDatabase;
 
 /**
+ * Class RestrictionStore
+ *
  * @since 1.37
  */
 class RestrictionStore {
@@ -36,15 +38,32 @@ class RestrictionStore {
 		MainConfigNames::SemiprotectedRestrictionLevels,
 	];
 
-	private ServiceOptions $options;
-	private WANObjectCache $wanCache;
-	private ILoadBalancer $loadBalancer;
-	private LinkCache $linkCache;
-	private LinksMigration $linksMigration;
-	private CommentStore $commentStore;
-	private HookContainer $hookContainer;
-	private HookRunner $hookRunner;
-	private PageStore $pageStore;
+	/** @var ServiceOptions */
+	private $options;
+
+	/** @var WANObjectCache */
+	private $wanCache;
+
+	/** @var ILoadBalancer */
+	private $loadBalancer;
+
+	/** @var LinkCache */
+	private $linkCache;
+
+	/** @var LinksMigration */
+	private $linksMigration;
+
+	/** @var CommentStore */
+	private $commentStore;
+
+	/** @var HookContainer */
+	private $hookContainer;
+
+	/** @var HookRunner */
+	private $hookRunner;
+
+	/** @var PageStore */
+	private $pageStore;
 
 	/**
 	 * @var array[] Caching various restrictions data in the following format:
@@ -54,10 +73,21 @@ class RestrictionStore {
 	 *   ?array `create_protection` => value for getCreateProtection
 	 *   bool `cascade` => cascade restrictions on this page to included templates and images?
 	 *   array[] `cascade_sources` => the results of getCascadeProtectionSources
+	 *   bool `has_cascading` => Are cascading restrictions in effect on this page?
 	 * ]
 	 */
 	private $cache = [];
 
+	/**
+	 * @param ServiceOptions $options
+	 * @param WANObjectCache $wanCache
+	 * @param ILoadBalancer $loadBalancer
+	 * @param LinkCache $linkCache
+	 * @param LinksMigration $linksMigration
+	 * @param CommentStore $commentStore
+	 * @param HookContainer $hookContainer
+	 * @param PageStore $pageStore
+	 */
 	public function __construct(
 		ServiceOptions $options,
 		WANObjectCache $wanCache,
@@ -94,15 +124,6 @@ class RestrictionStore {
 	public function getRestrictions( PageIdentity $page, string $action ): array {
 		$page->assertWiki( PageIdentity::LOCAL );
 
-		// Optimization: Avoid repeatedly fetching page restrictions (from cache or DB)
-		// for repeated PermissionManager::userCan calls, if this action cannot be restricted
-		// in the first place. This is primarily to improve batch rendering on RecentChanges,
-		// where as of writing this will save 0.5s on a 8.0s response. (T341319)
-		$restrictionTypes = $this->listApplicableRestrictionTypes( $page );
-		if ( !in_array( $action, $restrictionTypes ) ) {
-			return [];
-		}
-
 		$restrictions = $this->getAllRestrictions( $page );
 		return $restrictions[$action] ?? [];
 	}
@@ -129,7 +150,8 @@ class RestrictionStore {
 	 * @param PageIdentity $page Must be local
 	 * @param string $action
 	 * @return ?string 14-char timestamp, or 'infinity' if the page is protected forever or not
-	 *   protected at all, or null if the action is not recognized.
+	 *   protected at all, or null if the action is not recognized. NOTE: This returns null for
+	 *   unrecognized actions, unlike Title::getRestrictionExpiry which returns false.
 	 */
 	public function getRestrictionExpiry( PageIdentity $page, string $action ): ?string {
 		$page->assertWiki( PageIdentity::LOCAL );
@@ -179,11 +201,12 @@ class RestrictionStore {
 	public function deleteCreateProtection( PageIdentity $page ): void {
 		$page->assertWiki( PageIdentity::LOCAL );
 
-		$dbw = $this->loadBalancer->getConnection( DB_PRIMARY );
-		$dbw->newDeleteQueryBuilder()
-			->deleteFrom( 'protected_titles' )
-			->where( [ 'pt_namespace' => $page->getNamespace(), 'pt_title' => $page->getDBkey() ] )
-			->caller( __METHOD__ )->execute();
+		$dbw = $this->loadBalancer->getConnectionRef( DB_PRIMARY );
+		$dbw->delete(
+			'protected_titles',
+			[ 'pt_namespace' => $page->getNamespace(), 'pt_title' => $page->getDBkey() ],
+			__METHOD__
+		);
 		$this->cache[CacheKeyHelper::getKeyForPage( $page )]['create_protection'] = null;
 	}
 
@@ -265,7 +288,7 @@ class RestrictionStore {
 	public function isCascadeProtected( PageIdentity $page ): bool {
 		$page->assertWiki( PageIdentity::LOCAL );
 
-		return $this->getCascadeProtectionSourcesInternal( $page )[0] !== [];
+		return $this->getCascadeProtectionSourcesInternal( $page, true );
 	}
 
 	/**
@@ -290,7 +313,8 @@ class RestrictionStore {
 
 		if ( $this->hookContainer->isRegistered( 'TitleGetRestrictionTypes' ) ) {
 			$this->hookRunner->onTitleGetRestrictionTypes(
-				Title::newFromPageIdentity( $page ), $types );
+				// @phan-suppress-next-line PhanTypeMismatchArgumentNullable castFrom does not return null here
+				Title::castFromPageIdentity( $page ), $types );
 		}
 
 		return $types;
@@ -310,8 +334,8 @@ class RestrictionStore {
 			return array_values( array_diff( $types, [ 'create' ] ) );
 		}
 
-		// Only the create restrictions apply to non-existing titles
-		return array_values( array_intersect( $types, [ 'create' ] ) );
+		// Only the create and upload restrictions apply to non-existing titles
+		return array_values( array_intersect( $types, [ 'create', 'upload' ] ) );
 	}
 
 	/**
@@ -348,21 +372,22 @@ class RestrictionStore {
 		$id = $page->getId();
 		if ( $id ) {
 			$fname = __METHOD__;
-			$loadRestrictionsFromDb = static function ( IReadableDatabase $dbr ) use ( $fname, $id ) {
+			$loadRestrictionsFromDb = static function ( IDatabase $dbr ) use ( $fname, $id ) {
 				return iterator_to_array(
-					$dbr->newSelectQueryBuilder()
-						->select( [ 'pr_type', 'pr_expiry', 'pr_level', 'pr_cascade' ] )
-						->from( 'page_restrictions' )
-						->where( [ 'pr_page' => $id ] )
-						->caller( $fname )->fetchResultSet()
+					$dbr->select(
+						'page_restrictions',
+						[ 'pr_type', 'pr_expiry', 'pr_level', 'pr_cascade' ],
+						[ 'pr_page' => $id ],
+						$fname
+					)
 				);
 			};
 
 			if ( $readLatest ) {
-				$dbr = $this->loadBalancer->getConnection( DB_PRIMARY );
+				$dbr = $this->loadBalancer->getConnectionRef( DB_PRIMARY );
 				$rows = $loadRestrictionsFromDb( $dbr );
 			} else {
-				$this->pageStore->getPageForLink( TitleValue::newFromPage( $page ) )->getId();
+				$this->linkCache->addLinkObj( $page );
 				$latestRev = $this->linkCache->getGoodLinkFieldObj( $page, 'revision' );
 				if ( !$latestRev ) {
 					// This method can get called in the middle of page creation
@@ -375,7 +400,7 @@ class RestrictionStore {
 						$this->wanCache->makeKey( 'page-restrictions', 'v1', $id, $latestRev ),
 						$this->wanCache::TTL_DAY,
 						function ( $curValue, &$ttl, array &$setOpts ) use ( $loadRestrictionsFromDb ) {
-							$dbr = $this->loadBalancer->getConnection( DB_REPLICA );
+							$dbr = $this->loadBalancer->getConnectionRef( DB_REPLICA );
 							$setOpts += Database::getCacheSetOptions( $dbr );
 							if ( $this->loadBalancer->hasOrMadeRecentPrimaryChanges() ) {
 								// TODO: cleanup Title cache and caller assumption mess in general
@@ -448,7 +473,7 @@ class RestrictionStore {
 				continue;
 			}
 
-			$dbr = $this->loadBalancer->getConnection( DB_REPLICA );
+			$dbr = $this->loadBalancer->getConnectionRef( DB_REPLICA );
 			$expiry = $dbr->decodeExpiry( $row->pr_expiry );
 
 			// Only apply the restrictions if they haven't expired!
@@ -489,15 +514,16 @@ class RestrictionStore {
 		$cacheEntry = &$this->cache[CacheKeyHelper::getKeyForPage( $page )];
 
 		if ( !$cacheEntry || !array_key_exists( 'create_protection', $cacheEntry ) ) {
-			$dbr = $this->loadBalancer->getConnection( DB_REPLICA );
+			$dbr = $this->loadBalancer->getConnectionRef( DB_REPLICA );
 			$commentQuery = $this->commentStore->getJoin( 'pt_reason' );
-			$row = $dbr->newSelectQueryBuilder()
-				->select( [ 'pt_user', 'pt_expiry', 'pt_create_perm' ] )
-				->from( 'protected_titles' )
-				->where( [ 'pt_namespace' => $page->getNamespace(), 'pt_title' => $page->getDBkey() ] )
-				->queryInfo( $commentQuery )
-				->caller( __METHOD__ )
-				->fetchRow();
+			$row = $dbr->selectRow(
+				[ 'protected_titles' ] + $commentQuery['tables'],
+				[ 'pt_user', 'pt_expiry', 'pt_create_perm' ] + $commentQuery['fields'],
+				[ 'pt_namespace' => $page->getNamespace(), 'pt_title' => $page->getDBkey() ],
+				__METHOD__,
+				[],
+				$commentQuery['joins']
+			);
 
 			if ( $row ) {
 				$cacheEntry['create_protection'] = [
@@ -519,96 +545,86 @@ class RestrictionStore {
 	 * Cascading protection: Get the source of any cascading restrictions on this page.
 	 *
 	 * @param PageIdentity $page Must be local
-	 * @return array[] Four elements: First is an array of PageIdentity objects combining the
-	 *   third and fourth elements of this array, which may be empty.
-	 *   Second is an array like that returned by getAllRestrictions().
-	 *   Third is an array of PageIdentity objects of the pages from
-	 *   which cascading restrictions have come, orginating via templatelinks, which may be empty.
-	 *   Fourth is an array of PageIdentity objects of the pages from
-	 *   which cascading restrictions have come, orginating via imagelinks, which may be empty.
+	 * @return array[] Two elements: First is an array of PageIdentity objects of the pages from
+	 *   which cascading restrictions have come, which may be empty. Second is an array like that
+	 *   returned by getAllRestrictions(). NOTE: The first element of the return is always an
+	 *   array, unlike Title::getCascadeProtectionSources where the first element is false if there
+	 *   are no sources.
 	 */
 	public function getCascadeProtectionSources( PageIdentity $page ): array {
 		$page->assertWiki( PageIdentity::LOCAL );
 
-		return $this->getCascadeProtectionSourcesInternal( $page );
+		return $this->getCascadeProtectionSourcesInternal( $page, false );
 	}
 
 	/**
 	 * Cascading protection: Get the source of any cascading restrictions on this page.
 	 *
 	 * @param PageIdentity $page Must be local
-	 * @return array[] Same as getCascadeProtectionSources().
+	 * @param bool $shortCircuit If true, just return true or false instead of the actual lists.
+	 * @return array|bool If $shortCircuit is true, return true if there is some cascading
+	 *   protection and false otherwise. Otherwise, same as getCascadeProtectionSources().
 	 */
 	private function getCascadeProtectionSourcesInternal(
-		PageIdentity $page
-	): array {
+		PageIdentity $page, bool $shortCircuit = false
+	) {
 		if ( !$page->canExist() ) {
-			return [ [], [], [], [] ];
+			return $shortCircuit ? false : [ [], [] ];
 		}
 
 		$cacheEntry = &$this->cache[CacheKeyHelper::getKeyForPage( $page )];
 
-		if ( isset( $cacheEntry['cascade_sources'] ) ) {
+		if ( !$shortCircuit && isset( $cacheEntry['cascade_sources'] ) ) {
 			return $cacheEntry['cascade_sources'];
+		} elseif ( $shortCircuit && isset( $cacheEntry['has_cascading'] ) ) {
+			return $cacheEntry['has_cascading'];
 		}
-
-		$dbr = $this->loadBalancer->getConnection( DB_REPLICA );
-
-		$baseQuery = $dbr->newSelectQueryBuilder()
-			->select( [
-				'pr_expiry',
-				'pr_page',
-				'page_namespace',
-				'page_title',
-				'pr_type',
-				'pr_level'
-			] )
-			->from( 'page_restrictions' )
-			->join( 'page', null, 'page_id=pr_page' )
-			->where( [ 'pr_cascade' => 1 ] );
-
-		$imageQuery = clone $baseQuery;
-		$imageQuery->join( 'imagelinks', null, 'il_from=pr_page' )
-			->fields( [
-				'type' => $dbr->addQuotes( 'il' ),
-			] )
-			->andWhere( [ 'il_to' => $page->getDBkey() ] );
-
-		$templateQuery = clone $baseQuery;
-		$templateQuery->join( 'templatelinks', null, 'tl_from=pr_page' )
-			->fields( [
-				'type' => $dbr->addQuotes( 'tl' ),
-			] )
-			->andWhere(
-				$this->linksMigration->getLinksConditions( 'templatelinks', TitleValue::newFromPage( $page ) )
-			);
 
 		if ( $page->getNamespace() === NS_FILE ) {
-			$unionQuery = $dbr->newUnionQueryBuilder()
-				->add( $imageQuery )
-				->add( $templateQuery )
-				->all();
-
-			$res = $unionQuery->caller( __METHOD__ )->fetchResultSet();
+			// Files transclusion may receive cascading protection in the future
+			// see https://phabricator.wikimedia.org/T241453
+			$tables = [ 'imagelinks', 'page_restrictions' ];
+			$where_clauses = [
+				'il_to' => $page->getDBkey(),
+				'il_from=pr_page',
+				'pr_cascade' => 1
+			];
 		} else {
-			$res = $templateQuery->caller( __METHOD__ )->fetchResultSet();
+			$tables = [ 'templatelinks', 'page_restrictions' ];
+			$where_clauses = $this->linksMigration->getLinksConditions(
+				'templatelinks',
+				TitleValue::newFromPage( $page )
+			);
+			$where_clauses[] = 'tl_from=pr_page';
+			$where_clauses['pr_cascade'] = 1;
 		}
 
-		$tlSources = [];
-		$ilSources = [];
+		if ( $shortCircuit ) {
+			$cols = [ 'pr_expiry' ];
+		} else {
+			$cols = [ 'pr_page', 'page_namespace', 'page_title',
+				'pr_expiry', 'pr_type', 'pr_level' ];
+			$where_clauses[] = 'page_id=pr_page';
+			$tables[] = 'page';
+		}
+
+		$dbr = $this->loadBalancer->getConnectionRef( DB_REPLICA );
+		$res = $dbr->select( $tables, $cols, $where_clauses, __METHOD__ );
+
+		$sources = [];
 		$pageRestrictions = [];
 		$now = wfTimestampNow();
+
 		foreach ( $res as $row ) {
 			$expiry = $dbr->decodeExpiry( $row->pr_expiry );
 			if ( $expiry > $now ) {
-				if ( $row->type === 'il' ) {
-					$ilSources[$row->pr_page] = new PageIdentityValue( $row->pr_page,
-					$row->page_namespace, $row->page_title, PageIdentity::LOCAL );
-				} elseif ( $row->type === 'tl' ) {
-					$tlSources[$row->pr_page] = new PageIdentityValue( $row->pr_page,
-					$row->page_namespace, $row->page_title, PageIdentity::LOCAL );
+				if ( $shortCircuit ) {
+					$cacheEntry['has_cascading'] = true;
+					return true;
 				}
 
+				$sources[$row->pr_page] = new PageIdentityValue( $row->pr_page,
+						$row->page_namespace, $row->page_title, PageIdentity::LOCAL );
 				// Add groups needed for each restriction type if its not already there
 				// Make sure this restriction type still exists
 
@@ -622,11 +638,14 @@ class RestrictionStore {
 			}
 		}
 
-		$sources = array_replace( $tlSources, $ilSources );
+		$cacheEntry['has_cascading'] = (bool)$sources;
 
-		$cacheEntry['cascade_sources'] = [ $sources, $pageRestrictions, $tlSources, $ilSources ];
+		if ( $shortCircuit ) {
+			return false;
+		}
 
-		return $cacheEntry['cascade_sources'];
+		$cacheEntry['cascade_sources'] = [ $sources, $pageRestrictions ];
+		return [ $sources, $pageRestrictions ];
 	}
 
 	/**

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface MWExtensionPreviewDialog class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -48,29 +48,27 @@ ve.ui.MWExtensionPreviewDialog.prototype.initialize = function () {
  */
 ve.ui.MWExtensionPreviewDialog.prototype.getSetupProcess = function ( data ) {
 	return ve.ui.MWExtensionPreviewDialog.super.prototype.getSetupProcess.call( this, data )
-		.next( () => {
-			let element;
+		.next( function () {
+			var element;
 			if ( this.selectedNode ) {
 				element = this.selectedNode.getClonedElement();
 			} else {
 				element = this.getNewElement();
 			}
-			const linearData = [ element, { type: '/' + element.type } ];
+			var linearData = [ element, { type: '/' + element.type } ];
 			if ( ve.dm.nodeFactory.isNodeContent( element.type ) ) {
-				linearData.unshift( { type: 'paragraph' } );
-				linearData.push( { type: '/paragraph' } );
+				linearData = [ { type: 'paragraph' } ].concat( linearData, { type: '/paragraph' } );
 			}
-			linearData.push(
+			// We assume that WindowAction pass
+			var doc = data.fragment.getDocument().cloneWithData( linearData.concat( [
 				{ type: 'internalList' },
 				{ type: '/internalList' }
-			);
-			// We assume that WindowAction pass
-			const doc = data.fragment.getDocument().cloneWithData( linearData );
+			] ) );
 
-			const rootNode = doc.getDocumentNode().children[ 0 ];
+			var rootNode = doc.getDocumentNode().children[ 0 ];
 			this.previewNode = doc.getNodesByType( element.type )[ 0 ];
 			this.previewElement.setModel( rootNode );
-		} );
+		}, this );
 };
 
 /**
@@ -87,7 +85,7 @@ ve.ui.MWExtensionPreviewDialog.prototype.onChange = function () {
  * Update the node rendering to reflect the current content in the dialog.
  */
 ve.ui.MWExtensionPreviewDialog.prototype.updatePreview = function () {
-	const mwData = ve.copy( this.previewNode.getAttribute( 'mw' ) ),
+	var mwData = ve.copy( this.previewNode.getAttribute( 'mw' ) ),
 		doc = this.previewNode.getDocument();
 
 	this.updateMwData( mwData );

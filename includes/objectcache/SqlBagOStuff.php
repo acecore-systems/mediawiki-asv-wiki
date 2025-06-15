@@ -21,9 +21,7 @@
  * @ingroup Cache
  */
 
-use MediaWiki\MediaWikiServices;
 use Wikimedia\AtEase\AtEase;
-use Wikimedia\ObjectCache\MediumSpecificBagOStuff;
 use Wikimedia\Rdbms\Blob;
 use Wikimedia\Rdbms\Database;
 use Wikimedia\Rdbms\DBConnectionError;
@@ -32,9 +30,7 @@ use Wikimedia\Rdbms\DBQueryError;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\ILoadBalancer;
 use Wikimedia\Rdbms\IMaintainableDatabase;
-use Wikimedia\Rdbms\RawSQLValue;
 use Wikimedia\Rdbms\SelectQueryBuilder;
-use Wikimedia\Rdbms\ServerInfo;
 use Wikimedia\ScopedCallback;
 use Wikimedia\Timestamp\ConvertibleTimestamp;
 
@@ -77,6 +73,8 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 	protected $writeBatchSize = 100;
 	/** @var string */
 	protected $tableName = 'objectcache';
+	/** @var bool Whether to use replicas instead of primaries (if using LoadBalancer) */
+	protected $replicaOnly;
 	/** @var bool Whether multi-primary mode is enabled */
 	protected $multiPrimaryMode;
 
@@ -139,6 +137,7 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 	 *   - purgeLimit: int
 	 *   - tableName: string
 	 *   - shards: int
+	 *   - replicaOnly: bool
 	 *   - writeBatchSize: int
 	 */
 	public function __construct( $params ) {
@@ -174,9 +173,11 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		$this->tableName = $params['tableName'] ?? $this->tableName;
 		$this->numTableShards = intval( $params['shards'] ?? $this->numTableShards );
 		$this->writeBatchSize = intval( $params['writeBatchSize'] ?? $this->writeBatchSize );
+		$this->replicaOnly = $params['replicaOnly'] ?? false;
 		$this->multiPrimaryMode = $params['multiPrimaryMode'] ?? false;
 
 		$this->attrMap[self::ATTR_DURABILITY] = self::QOS_DURABILITY_RDBMS;
+		$this->attrMap[self::ATTR_EMULATION] = self::QOS_EMULATION_SQL;
 
 		$this->hasZlib = extension_loaded( 'zlib' );
 	}
@@ -208,7 +209,8 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		return $this->modifyBlobs(
 			[ $this, 'modifyTableSpecificBlobsForSet' ],
 			$mtime,
-			[ $key => [ $value, $exptime ] ]
+			[ $key => [ $value, $exptime ] ],
+			$flags
 		);
 	}
 
@@ -218,7 +220,8 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		return $this->modifyBlobs(
 			[ $this, 'modifyTableSpecificBlobsForDelete' ],
 			$mtime,
-			[ $key => [] ]
+			[ $key => [] ],
+			$flags
 		);
 	}
 
@@ -232,7 +235,8 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		return $this->modifyBlobs(
 			[ $this, 'modifyTableSpecificBlobsForAdd' ],
 			$mtime,
-			[ $key => [ $value, $exptime ] ]
+			[ $key => [ $value, $exptime ] ],
+			$flags
 		);
 	}
 
@@ -246,7 +250,8 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		return $this->modifyBlobs(
 			[ $this, 'modifyTableSpecificBlobsForCas' ],
 			$mtime,
-			[ $key => [ $value, $exptime, $casToken ] ]
+			[ $key => [ $value, $exptime, $casToken ] ],
+			$flags
 		);
 	}
 
@@ -256,7 +261,8 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		return $this->modifyBlobs(
 			[ $this, 'modifyTableSpecificBlobsForChangeTTL' ],
 			$mtime,
-			[ $key => [ $exptime ] ]
+			[ $key => [ $exptime ] ],
+			$flags
 		);
 	}
 
@@ -273,8 +279,50 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 			$callback,
 			$mtime,
 			[ $key => [ $step, $init, $exptime ] ],
+			$flags,
 			$resByKey
 		) ? $resByKey[$key] : false;
+
+		return $result;
+	}
+
+	public function incr( $key, $value = 1, $flags = 0 ) {
+		return $this->doIncr( $key, $value, $flags );
+	}
+
+	public function decr( $key, $value = 1, $flags = 0 ) {
+		return $this->doIncr( $key, -$value, $flags );
+	}
+
+	private function doIncr( $key, $value = 1, $flags = 0 ) {
+		$mtime = $this->newLockingWriteSectionModificationTimestamp( $key, $scope );
+		if ( $mtime === null ) {
+			// Timeout or I/O error during lock acquisition
+			return false;
+		}
+
+		$data = $this->fetchBlobs( [ $key ] )[$key];
+		if ( $data ) {
+			$serialValue = $data[self::BLOB_VALUE];
+			if ( $this->isInteger( $serialValue ) ) {
+				$newValue = max( (int)$serialValue + (int)$value, 0 );
+				$result = $this->modifyBlobs(
+					[ $this, 'modifyTableSpecificBlobsForSet' ],
+					$mtime,
+					// Preserve the old expiry timestamp
+					[ $key => [ $newValue, $data[self::BLOB_EXPIRY] ] ],
+					$flags
+				) ? $newValue : false;
+			} else {
+				$result = false;
+				$this->logger->warning( __METHOD__ . ": $key is a non-integer" );
+			}
+		} else {
+			$result = false;
+			$this->logger->debug( __METHOD__ . ": $key does not exists" );
+		}
+
+		$this->updateOpStats( $value >= 0 ? self::METRIC_OP_INCR : self::METRIC_OP_DECR, [ $key ] );
 
 		return $result;
 	}
@@ -315,7 +363,8 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 					return [ $value, $exptime ];
 				},
 				$data
-			)
+			),
+			$flags
 		);
 	}
 
@@ -325,7 +374,8 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		return $this->modifyBlobs(
 			[ $this, 'modifyTableSpecificBlobsForDelete' ],
 			$mtime,
-			array_fill_keys( $keys, [] )
+			array_fill_keys( $keys, [] ),
+			$flags
 		);
 	}
 
@@ -335,7 +385,8 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		return $this->modifyBlobs(
 			[ $this, 'modifyTableSpecificBlobsForChangeTTL' ],
 			$mtime,
-			array_fill_keys( $keys, [ $exptime ] )
+			array_fill_keys( $keys, [ $exptime ] ),
+			$flags
 		);
 	}
 
@@ -376,11 +427,6 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 	 * @return array (server index, table name)
 	 */
 	private function getKeyLocation( $key ) {
-		// Pick the same shard for sister keys
-		// Using the same hash stop as mc-router for consistency
-		if ( str_contains( $key, '|#|' ) ) {
-			$key = explode( '|#|', $key )[0];
-		}
 		if ( $this->useLB ) {
 			// LoadBalancer based configuration
 			$shardIndex = 0;
@@ -391,7 +437,8 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 			} else {
 				$sortedServers = $this->serverTags;
 				ArrayUtils::consistentHashSort( $sortedServers, $key );
-				$shardIndex = array_key_first( $sortedServers );
+				reset( $sortedServers );
+				$shardIndex = key( $sortedServers );
 			}
 		}
 
@@ -435,7 +482,7 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		$readTime = (int)$this->getCurrentTime();
 		$keysByTableByShard = [];
 		foreach ( $keys as $key ) {
-			[ $shardIndex, $partitionTable ] = $this->getKeyLocation( $key );
+			list( $shardIndex, $partitionTable ) = $this->getKeyLocation( $key );
 			$keysByTableByShard[$shardIndex][$partitionTable][] = $key;
 		}
 
@@ -496,6 +543,7 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 	 *  - Map of (key => result) [returned]
 	 * @param float $mtime UNIX modification timestamp
 	 * @param array<string,array> $argsByKey Map of (key => list of arguments)
+	 * @param int $flags Bitfield of BagOStuff::WRITE_* constants
 	 * @param array<string,mixed> &$resByKey Order-preserved map of (key => result) [returned]
 	 * @return bool Whether all keys were processed
 	 * @param-taint $argsByKey none
@@ -504,6 +552,7 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		callable $tableWriteCallback,
 		float $mtime,
 		array $argsByKey,
+		int $flags,
 		&$resByKey = []
 	) {
 		// Initialize order-preserved per-key results; callbacks mark successful results
@@ -514,7 +563,7 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 
 		$argsByKeyByTableByShard = [];
 		foreach ( $argsByKey as $key => $args ) {
-			[ $shardIndex, $partitionTable ] = $this->getKeyLocation( $key );
+			list( $shardIndex, $partitionTable ) = $this->getKeyLocation( $key );
 			$argsByKeyByTableByShard[$shardIndex][$partitionTable][$key] = $args;
 		}
 
@@ -536,16 +585,8 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 
 		foreach ( $shardIndexesAffected as $shardIndex ) {
 			try {
-				if (
-					// Random purging is enabled
-					$this->purgePeriod >= 1 &&
-					// Only purge on one in every $this->purgePeriod writes
-					mt_rand( 1, $this->purgePeriod ) == 1 &&
-					// Avoid repeating the delete within a few seconds
-					( $this->getCurrentTime() - $this->lastGarbageCollect ) > self::GC_DELAY_SEC
-				) {
-					$this->garbageCollect( $shardIndex );
-				}
+				$db = $this->getConnection( $shardIndex );
+				$this->occasionallyGarbageCollect( $db );
 			} catch ( DBError $e ) {
 				$this->handleDBError( $e, $shardIndex );
 			}
@@ -580,34 +621,36 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 
 		$mt = $this->makeTimestampedModificationToken( $mtime, $db );
 
-		$rows = [];
-		foreach ( $argsByKey as $key => [ $value, $exptime ] ) {
-			$expiry = $this->makeNewKeyExpiry( $exptime, (int)$mtime );
-			$serialValue = $this->getSerialized( $value, $key );
-			$rows[] = $this->buildUpsertRow( $db, $key, $serialValue, $expiry, $mt );
-
-			$valueSizesByKey[$key] = [ strlen( $serialValue ), 0 ];
-		}
-
 		if ( $this->multiPrimaryMode ) {
-			$db->newInsertQueryBuilder()
-				->insertInto( $ptable )
-				->rows( $rows )
-				->onDuplicateKeyUpdate()
-				->uniqueIndexFields( [ 'keyname' ] )
-				->set( $this->buildMultiUpsertSetForOverwrite( $db, $mt ) )
-				->caller( __METHOD__ )->execute();
+			// @TODO: use multi-row upsert() with VALUES() once supported in Database
+			foreach ( $argsByKey as $key => list( $value, $exptime ) ) {
+				$serialValue = $this->getSerialized( $value, $key );
+				$expiry = $this->makeNewKeyExpiry( $exptime, (int)$mtime );
+				$db->upsert(
+					$ptable,
+					$this->buildUpsertRow( $db, $key, $serialValue, $expiry, $mt ),
+					[ [ 'keyname' ] ],
+					$this->buildUpsertSetForOverwrite( $db, $serialValue, $expiry, $mt ),
+					__METHOD__
+				);
+				$resByKey[$key] = true;
+
+				$valueSizesByKey[$key] = [ strlen( $serialValue ), 0 ];
+			}
 		} else {
 			// T288998: use REPLACE, if possible, to avoid cluttering the binlogs
-			$db->newReplaceQueryBuilder()
-				->replaceInto( $ptable )
-				->rows( $rows )
-				->uniqueIndexFields( [ 'keyname' ] )
-				->caller( __METHOD__ )->execute();
-		}
+			$rows = [];
+			foreach ( $argsByKey as $key => list( $value, $exptime ) ) {
+				$expiry = $this->makeNewKeyExpiry( $exptime, (int)$mtime );
+				$serialValue = $this->getSerialized( $value, $key );
+				$rows[] = $this->buildUpsertRow( $db, $key, $serialValue, $expiry, $mt );
 
-		foreach ( $argsByKey as $key => $unused ) {
-			$resByKey[$key] = true;
+				$valueSizesByKey[$key] = [ strlen( $serialValue ), 0 ];
+			}
+			$db->replace( $ptable, 'keyname', $rows, __METHOD__ );
+			foreach ( $argsByKey as $key => $unused ) {
+				$resByKey[$key] = true;
+			}
 		}
 
 		$this->updateOpStats( self::METRIC_OP_SET, $valueSizesByKey );
@@ -640,21 +683,20 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 			// Tombstone keys in order to respect eventual consistency
 			$mt = $this->makeTimestampedModificationToken( $mtime, $db );
 			$expiry = $this->makeNewKeyExpiry( self::TOMB_EXPTIME, (int)$mtime );
-			$queryBuilder = $db->newInsertQueryBuilder()
-				->insertInto( $ptable )
-				->onDuplicateKeyUpdate()
-				->uniqueIndexFields( [ 'keyname' ] )
-				->set( $this->buildMultiUpsertSetForOverwrite( $db, $mt ) );
+			$rows = [];
 			foreach ( $argsByKey as $key => $arg ) {
-				$queryBuilder->row( $this->buildUpsertRow( $db, $key, self::TOMB_SERIAL, $expiry, $mt ) );
+				$rows[] = $this->buildUpsertRow( $db, $key, self::TOMB_SERIAL, $expiry, $mt );
 			}
-			$queryBuilder->caller( __METHOD__ )->execute();
+			$db->upsert(
+				$ptable,
+				$rows,
+				[ [ 'keyname' ] ],
+				$this->buildUpsertSetForOverwrite( $db, self::TOMB_SERIAL, $expiry, $mt ),
+				__METHOD__
+			);
 		} else {
 			// Just purge the keys since there is only one primary (e.g. "source of truth")
-			$db->newDeleteQueryBuilder()
-				->deleteFrom( $ptable )
-				->where( [ 'keyname' => array_keys( $argsByKey ) ] )
-				->caller( __METHOD__ )->execute();
+			$db->delete( $ptable, [ 'keyname' => array_keys( $argsByKey ) ], __METHOD__ );
 		}
 
 		foreach ( $argsByKey as $key => $arg ) {
@@ -704,8 +746,8 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 			->fetchFieldValues();
 		$existingByKey = array_fill_keys( $existingKeys, true );
 
-		$rows = [];
-		foreach ( $argsByKey as $key => [ $value, $exptime ] ) {
+		// @TODO: use multi-row upsert() with VALUES() once supported in Database
+		foreach ( $argsByKey as $key => list( $value, $exptime ) ) {
 			if ( isset( $existingByKey[$key] ) ) {
 				$this->logger->debug( __METHOD__ . ": $key already exists" );
 				continue;
@@ -713,22 +755,16 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 
 			$serialValue = $this->getSerialized( $value, $key );
 			$expiry = $this->makeNewKeyExpiry( $exptime, (int)$mtime );
-			$valueSizesByKey[$key] = [ strlen( $serialValue ), 0 ];
-			$rows[] = $this->buildUpsertRow( $db, $key, $serialValue, $expiry, $mt );
-		}
-		if ( !$rows ) {
-			return;
-		}
-		$db->newInsertQueryBuilder()
-			->insertInto( $ptable )
-			->rows( $rows )
-			->onDuplicateKeyUpdate()
-			->uniqueIndexFields( [ 'keyname' ] )
-			->set( $this->buildMultiUpsertSetForOverwrite( $db, $mt ) )
-			->caller( __METHOD__ )->execute();
+			$db->upsert(
+				$ptable,
+				$this->buildUpsertRow( $db, $key, $serialValue, $expiry, $mt ),
+				[ [ 'keyname' ] ],
+				$this->buildUpsertSetForOverwrite( $db, $serialValue, $expiry, $mt ),
+				__METHOD__
+			);
+			$resByKey[$key] = true;
 
-		foreach ( $argsByKey as $key => $unused ) {
-			$resByKey[$key] = !isset( $existingByKey[$key] );
+			$valueSizesByKey[$key] = [ strlen( $serialValue ), 0 ];
 		}
 
 		$this->updateOpStats( self::METRIC_OP_ADD, $valueSizesByKey );
@@ -778,41 +814,31 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 			$curTokensByKey[$row->keyname] = $this->getCasTokenFromRow( $db, $row );
 		}
 
-		$nonMatchingByKey = [];
-		$rows = [];
-		foreach ( $argsByKey as $key => [ $value, $exptime, $casToken ] ) {
+		// @TODO: use multi-row upsert() with VALUES() once supported in Database
+		foreach ( $argsByKey as $key => list( $value, $exptime, $casToken ) ) {
 			$curToken = $curTokensByKey[$key] ?? null;
 			if ( $curToken === null ) {
-				$nonMatchingByKey[$key] = true;
 				$this->logger->debug( __METHOD__ . ": $key does not exists" );
 				continue;
 			}
 
 			if ( $curToken !== $casToken ) {
-				$nonMatchingByKey[$key] = true;
 				$this->logger->debug( __METHOD__ . ": $key does not have a matching token" );
 				continue;
 			}
 
 			$serialValue = $this->getSerialized( $value, $key );
 			$expiry = $this->makeNewKeyExpiry( $exptime, (int)$mtime );
+			$db->upsert(
+				$ptable,
+				$this->buildUpsertRow( $db, $key, $serialValue, $expiry, $mt ),
+				[ [ 'keyname' ] ],
+				$this->buildUpsertSetForOverwrite( $db, $serialValue, $expiry, $mt ),
+				__METHOD__
+			);
+			$resByKey[$key] = true;
+
 			$valueSizesByKey[$key] = [ strlen( $serialValue ), 0 ];
-
-			$rows[] = $this->buildUpsertRow( $db, $key, $serialValue, $expiry, $mt );
-		}
-		if ( !$rows ) {
-			return;
-		}
-		$db->newInsertQueryBuilder()
-			->insertInto( $ptable )
-			->rows( $rows )
-			->onDuplicateKeyUpdate()
-			->uniqueIndexFields( [ 'keyname' ] )
-			->set( $this->buildMultiUpsertSetForOverwrite( $db, $mt ) )
-			->caller( __METHOD__ )->execute();
-
-		foreach ( $argsByKey as $key => $unused ) {
-			$resByKey[$key] = !isset( $nonMatchingByKey[$key] );
 		}
 
 		$this->updateOpStats( self::METRIC_OP_CAS, $valueSizesByKey );
@@ -853,45 +879,37 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 				->where( $this->buildExistenceConditions( $db, array_keys( $argsByKey ), (int)$mtime ) )
 				->caller( __METHOD__ )
 				->fetchResultSet();
-
-			$rows = [];
-			$existingKeys = [];
+			// @TODO: use multi-row upsert() with VALUES() once supported in Database
 			foreach ( $res as $curRow ) {
 				$key = $curRow->keyname;
-				$existingKeys[$key] = true;
 				$serialValue = $this->dbDecodeSerialValue( $db, $curRow->value );
-				[ $exptime ] = $argsByKey[$key];
+				list( $exptime ) = $argsByKey[$key];
 				$expiry = $this->makeNewKeyExpiry( $exptime, (int)$mtime );
-				$rows[] = $this->buildUpsertRow( $db, $key, $serialValue, $expiry, $mt );
-			}
-			if ( !$rows ) {
-				return;
-			}
-			$db->newInsertQueryBuilder()
-				->insertInto( $ptable )
-				->rows( $rows )
-				->onDuplicateKeyUpdate()
-				->uniqueIndexFields( [ 'keyname' ] )
-				->set( $this->buildMultiUpsertSetForOverwrite( $db, $mt ) )
-				->caller( __METHOD__ )->execute();
 
-			foreach ( $argsByKey as $key => $unused ) {
-				$resByKey[$key] = isset( $existingKeys[$key] );
+				$db->upsert(
+					$ptable,
+					$this->buildUpsertRow( $db, $key, $serialValue, $expiry, $mt ),
+					[ [ 'keyname' ] ],
+					$this->buildUpsertSetForOverwrite( $db, $serialValue, $expiry, $mt ),
+					__METHOD__
+				);
+				$resByKey[$key] = true;
 			}
 		} else {
 			$keysBatchesByExpiry = [];
-			foreach ( $argsByKey as $key => [ $exptime ] ) {
+			foreach ( $argsByKey as $key => list( $exptime ) ) {
 				$expiry = $this->makeNewKeyExpiry( $exptime, (int)$mtime );
 				$keysBatchesByExpiry[$expiry][] = $key;
 			}
 
 			$existingCount = 0;
 			foreach ( $keysBatchesByExpiry as $expiry => $keyBatch ) {
-				$db->newUpdateQueryBuilder()
-					->update( $ptable )
-					->set( [ 'exptime' => $this->encodeDbExpiry( $db, $expiry ) ] )
-					->where( $this->buildExistenceConditions( $db, $keyBatch, (int)$mtime ) )
-					->caller( __METHOD__ )->execute();
+				$db->update(
+					$ptable,
+					[ 'exptime' => $this->encodeDbExpiry( $db, $expiry ) ],
+					$this->buildExistenceConditions( $db, $keyBatch, (int)$mtime ),
+					__METHOD__
+				);
 				$existingCount += $db->affectedRows();
 			}
 			if ( $existingCount === count( $argsByKey ) ) {
@@ -930,7 +948,7 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		array $argsByKey,
 		array &$resByKey
 	) {
-		foreach ( $argsByKey as $key => [ $step, $init, $exptime ] ) {
+		foreach ( $argsByKey as $key => list( $step, $init, $exptime ) ) {
 			$mt = $this->makeTimestampedModificationToken( $mtime, $db );
 			$expiry = $this->makeNewKeyExpiry( $exptime, (int)$mtime );
 
@@ -940,13 +958,13 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 			// replication since the TTL for such keys is either indefinite or very short.
 			$atomic = $db->startAtomic( __METHOD__, IDatabase::ATOMIC_CANCELABLE );
 			try {
-				$db->newInsertQueryBuilder()
-					->insertInto( $ptable )
-					->rows( $this->buildUpsertRow( $db, $key, $init, $expiry, $mt ) )
-					->onDuplicateKeyUpdate()
-					->uniqueIndexFields( [ 'keyname' ] )
-					->set( $this->buildIncrUpsertSet( $db, $step, $init, $expiry, $mt, (int)$mtime ) )
-					->caller( __METHOD__ )->execute();
+				$db->upsert(
+					$ptable,
+					$this->buildUpsertRow( $db, $key, $init, $expiry, $mt ),
+					[ [ 'keyname' ] ],
+					$this->buildIncrUpsertSet( $db, $step, $init, $expiry, $mt, (int)$mtime ),
+					__METHOD__
+				);
 				$affectedCount = $db->affectedRows();
 				$row = $db->newSelectQueryBuilder()
 					->select( 'value' )
@@ -995,16 +1013,16 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		array $argsByKey,
 		array &$resByKey
 	) {
-		foreach ( $argsByKey as $key => [ $step, $init, $exptime ] ) {
+		foreach ( $argsByKey as $key => list( $step, $init, $exptime ) ) {
 			$mt = $this->makeTimestampedModificationToken( $mtime, $db );
 			$expiry = $this->makeNewKeyExpiry( $exptime, (int)$mtime );
-			$db->newInsertQueryBuilder()
-				->insertInto( $ptable )
-				->rows( $this->buildUpsertRow( $db, $key, $init, $expiry, $mt ) )
-				->onDuplicateKeyUpdate()
-				->uniqueIndexFields( [ 'keyname' ] )
-				->set( $this->buildIncrUpsertSet( $db, $step, $init, $expiry, $mt, (int)$mtime ) )
-				->caller( __METHOD__ )->execute();
+			$db->upsert(
+				$ptable,
+				$this->buildUpsertRow( $db, $key, $init, $expiry, $mt ),
+				[ [ 'keyname' ] ],
+				$this->buildIncrUpsertSet( $db, $step, $init, $expiry, $mt, (int)$mtime ),
+				__METHOD__
+			);
 			if ( !$db->affectedRows() ) {
 				$this->logger->warning( __METHOD__ . ": failed to set new $key value" );
 			} else {
@@ -1077,9 +1095,9 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		// which generally has fewer than 6 digits of meaningful precision but can still be useful
 		// in debugging (to see the token continuously change even during rapid testing).
 		$seconds = (int)$mtime;
-		[ , $microseconds ] = explode( '.', sprintf( '%.6F', $mtime ) );
+		list( , $microseconds ) = explode( '.', sprintf( '%.6F', $mtime ) );
 
-		$id = sprintf( '%u', crc32( $db->getServerName() ) );
+		$id = $db->getTopologyBasedServerId() ?? sprintf( '%u', crc32( $db->getServerName() ) );
 
 		$token = implode( '', [
 			// 67 bit integral portion of UNIX timestamp, qualified
@@ -1115,7 +1133,7 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		// Note that tombstones always have past expiration dates
 		return [
 			'keyname' => $keys,
-			$db->expr( 'exptime', '>=', $db->timestamp( $time ) )
+			'exptime >= ' . $db->addQuotes( $db->timestamp( $time ) )
 		];
 	}
 
@@ -1152,13 +1170,20 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 	 * SET array for handling key overwrites when a live or stale key exists
 	 *
 	 * @param IDatabase $db
+	 * @param string|int $serialValue New value
+	 * @param int $expiry Expiration timestamp or TTL_INDEFINITE
 	 * @param string $mt Modification token
 	 * @return array
 	 */
-	private function buildMultiUpsertSetForOverwrite( IDatabase $db, string $mt ) {
+	private function buildUpsertSetForOverwrite(
+		IDatabase $db,
+		$serialValue,
+		int $expiry,
+		string $mt
+	) {
 		$expressionsByColumn = [
-			'value'   => $db->buildExcludedValue( 'value' ),
-			'exptime' => $db->buildExcludedValue( 'exptime' )
+			'value'   => $db->addQuotes( $this->dbEncodeSerialValue( $db, $serialValue ) ),
+			'exptime' => $db->addQuotes( $this->encodeDbExpiry( $db, $expiry ) )
 		];
 
 		$set = [];
@@ -1177,11 +1202,11 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 					$updateExpression,
 					$column
 				);
-				$set[$column] = new RawSQLValue( $rhs );
+				$set[] = "{$column}=" . trim( $rhs );
 			}
 		} else {
 			foreach ( $expressionsByColumn as $column => $updateExpression ) {
-				$set[$column] = new RawSQLValue( $updateExpression );
+				$set[] = "{$column}={$updateExpression}";
 			}
 		}
 
@@ -1223,13 +1248,13 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		}
 
 		$set = [];
-		foreach ( $expressionsByColumn as $column => [ $updateExpression, $initExpression ] ) {
+		foreach ( $expressionsByColumn as $column => list( $updateExpression, $initExpression ) ) {
 			$rhs = $db->conditional(
-				$db->expr( 'exptime', '>=', $db->timestamp( $mtUnixTs ) ),
+				'exptime >= ' . $db->addQuotes( $db->timestamp( $mtUnixTs ) ),
 				$updateExpression,
 				$initExpression
 			);
-			$set[$column] = new RawSQLValue( $rhs );
+			$set[] = "{$column}=" . trim( $rhs );
 		}
 
 		return $set;
@@ -1330,64 +1355,51 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 	}
 
 	/**
-	 * @param int $shardIndex
+	 * @param IDatabase $db
 	 * @throws DBError
 	 */
-	private function garbageCollect( $shardIndex ) {
-		// set right away, avoid queuing duplicate async callbacks
-		$this->lastGarbageCollect = $this->getCurrentTime();
-
-		$garbageCollector = function () use ( $shardIndex ) {
-			$db = $this->getConnection( $shardIndex );
-			/** @noinspection PhpUnusedLocalVariableInspection */
-			$silenceScope = $this->silenceTransactionProfiler();
-			$this->deleteServerObjectsExpiringBefore(
-				$db,
-				(int)$this->getCurrentTime(),
-				$this->purgeLimit
-			);
-			$this->lastGarbageCollect = $this->getCurrentTime();
-		};
-
-		if ( $this->asyncHandler ) {
-			( $this->asyncHandler )( $garbageCollector );
-		} else {
-			$garbageCollector();
+	private function occasionallyGarbageCollect( IDatabase $db ) {
+		if (
+			// Random purging is enabled
+			$this->purgePeriod &&
+			// Only purge on one in every $this->purgePeriod writes
+			mt_rand( 0, $this->purgePeriod - 1 ) == 0 &&
+			// Avoid repeating the delete within a few seconds
+			( $this->getCurrentTime() - $this->lastGarbageCollect ) > self::GC_DELAY_SEC
+		) {
+			$garbageCollector = function () use ( $db ) {
+				$this->deleteServerObjectsExpiringBefore(
+					$db,
+					(int)$this->getCurrentTime(),
+					$this->purgeLimit
+				);
+				$this->lastGarbageCollect = time();
+			};
+			if ( $this->asyncHandler ) {
+				$this->lastGarbageCollect = $this->getCurrentTime(); // avoid duplicate enqueues
+				( $this->asyncHandler )( $garbageCollector );
+			} else {
+				$garbageCollector();
+			}
 		}
 	}
 
-	/**
-	 * @deprecated since 1.41, use deleteObjectsExpiringBefore() instead
-	 */
 	public function expireAll() {
-		wfDeprecated( __METHOD__, '1.41' );
 		$this->deleteObjectsExpiringBefore( (int)$this->getCurrentTime() );
 	}
 
 	public function deleteObjectsExpiringBefore(
 		$timestamp,
-		?callable $progress = null,
+		callable $progress = null,
 		$limit = INF,
-		?string $tag = null
+		string $tag = null
 	) {
 		/** @noinspection PhpUnusedLocalVariableInspection */
 		$silenceScope = $this->silenceTransactionProfiler();
 
 		if ( $tag !== null ) {
 			// Purge one server only, to support concurrent purging in large wiki farms (T282761).
-			$shardIndexes = [];
-			if ( !$this->serverTags ) {
-				throw new InvalidArgumentException( "Given a tag but no tags are configured" );
-			}
-			foreach ( $this->serverTags as $serverShardIndex => $serverTag ) {
-				if ( $tag === $serverTag ) {
-					$shardIndexes[] = $serverShardIndex;
-					break;
-				}
-			}
-			if ( !$shardIndexes ) {
-				throw new InvalidArgumentException( "Unknown server tag: $tag" );
-			}
+			$shardIndexes = [ $this->getShardServerIndexForTag( $tag ) ];
 		} else {
 			$shardIndexes = $this->getShardServerIndexes();
 			shuffle( $shardIndexes );
@@ -1400,14 +1412,6 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		foreach ( $shardIndexes as $numServersDone => $shardIndex ) {
 			try {
 				$db = $this->getConnection( $shardIndex );
-
-				// Avoid deadlock (T330377)
-				$lockKey = "SqlBagOStuff-purge-shard:$shardIndex";
-				if ( !$db->lock( $lockKey, __METHOD__, 0 ) ) {
-					$this->logger->info( "SqlBagOStuff purge for shard $shardIndex already locked, skip" );
-					continue;
-				}
-
 				$this->deleteServerObjectsExpiringBefore(
 					$db,
 					$timestamp,
@@ -1415,7 +1419,6 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 					$keysDeletedCount,
 					[ 'fn' => $progress, 'serversDone' => $numServersDone, 'serversTotal' => $numServers ]
 				);
-				$db->unlock( $lockKey, __METHOD__ );
 			} catch ( DBError $e ) {
 				$this->handleDBError( $e, $shardIndex );
 				$ok = false;
@@ -1439,7 +1442,7 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		$timestamp,
 		$limit,
 		&$keysDeletedCount = 0,
-		?array $progress = null
+		array $progress = null
 	) {
 		$cutoffUnix = ConvertibleTimestamp::convert( TS_UNIX, $timestamp );
 		if ( $this->multiPrimaryMode ) {
@@ -1472,8 +1475,12 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 				$res = $db->newSelectQueryBuilder()
 					->select( [ 'keyname', 'exptime' ] )
 					->from( $this->getTableNameByShard( $tableIndex ) )
-					->where( $db->expr( 'exptime', '<', $db->timestamp( $cutoffUnix ) ) )
-					->andWhere( $maxExp ? $db->expr( 'exptime', '>=', $maxExp ) : [] )
+					->where(
+						array_merge(
+							[ 'exptime < ' . $db->addQuotes( $db->timestamp( $cutoffUnix ) ) ],
+							$maxExp ? [ 'exptime >= ' . $db->addQuotes( $maxExp ) ] : []
+						)
+					)
 					->orderBy( 'exptime', SelectQueryBuilder::SORT_ASC )
 					->limit( $batchSize )
 					->caller( __METHOD__ )
@@ -1492,13 +1499,14 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 						$maxExp = $row->exptime;
 					}
 
-					$db->newDeleteQueryBuilder()
-						->deleteFrom( $this->getTableNameByShard( $tableIndex ) )
-						->where( [
-							'keyname' => $keys,
-							$db->expr( 'exptime', '<', $db->timestamp( $cutoffUnix ) ),
-						] )
-						->caller( __METHOD__ )->execute();
+					$db->delete(
+						$this->getTableNameByShard( $tableIndex ),
+						[
+							'exptime < ' . $db->addQuotes( $db->timestamp( $cutoffUnix ) ),
+							'keyname' => $keys
+						],
+						__METHOD__
+					);
 					$keysDeletedCount += $db->affectedRows();
 				}
 
@@ -1529,23 +1537,17 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 	/**
 	 * Delete content of shard tables in every server.
 	 * Return true if the operation is successful, false otherwise.
-	 *
-	 * @deprecated since 1.41, unused.
-	 *
 	 * @return bool
 	 */
 	public function deleteAll() {
-		wfDeprecated( __METHOD__, '1.41' );
 		/** @noinspection PhpUnusedLocalVariableInspection */
 		$silenceScope = $this->silenceTransactionProfiler();
 		foreach ( $this->getShardServerIndexes() as $shardIndex ) {
+			$db = null; // in case of connection failure
 			try {
 				$db = $this->getConnection( $shardIndex );
 				for ( $i = 0; $i < $this->numTableShards; $i++ ) {
-					$db->newDeleteQueryBuilder()
-						->deleteFrom( $this->getTableNameByShard( $i ) )
-						->where( $db::ALL_ROWS )
-						->caller( __METHOD__ )->execute();
+					$db->delete( $this->getTableNameByShard( $i ), '*', __METHOD__ );
 				}
 			} catch ( DBError $e ) {
 				$this->handleDBError( $e, $shardIndex );
@@ -1561,7 +1563,7 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 
 		$lockTsUnix = null;
 
-		[ $shardIndex ] = $this->getKeyLocation( $key );
+		list( $shardIndex ) = $this->getKeyLocation( $key );
 		try {
 			$db = $this->getConnection( $shardIndex );
 			$lockTsUnix = $db->lock( $key, __METHOD__, $timeout, $db::LOCK_TIMESTAMP );
@@ -1580,7 +1582,7 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		/** @noinspection PhpUnusedLocalVariableInspection */
 		$silenceScope = $this->silenceTransactionProfiler();
 
-		[ $shardIndex ] = $this->getKeyLocation( $key );
+		list( $shardIndex ) = $this->getKeyLocation( $key );
 
 		try {
 			$db = $this->getConnection( $shardIndex );
@@ -1593,7 +1595,7 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		return $released;
 	}
 
-	protected function makeKeyInternal( $keyspace, $components ) {
+	public function makeKeyInternal( $keyspace, $components ) {
 		// SQL schema for 'objectcache' specifies keys as varchar(255). From that,
 		// subtract the number of characters we need for the keyspace and for
 		// the separator character needed for each argument. To handle some
@@ -1617,10 +1619,6 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 			return $keyspace . ':BagOStuff-long-key:##' . md5( implode( ':', $components ) );
 		}
 		return $keyspace . ':' . implode( ':', $components );
-	}
-
-	protected function requireConvertGenericKey(): bool {
-		return true;
 	}
 
 	protected function serialize( $value ) {
@@ -1673,14 +1671,14 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 	private function getConnectionViaLoadBalancer() {
 		$lb = $this->getLoadBalancer();
 
-		if ( $lb->getServerAttributes( ServerInfo::WRITER_INDEX )[Database::ATTR_DB_LEVEL_LOCKING] ) {
+		if ( $lb->getServerAttributes( $lb->getWriterIndex() )[Database::ATTR_DB_LEVEL_LOCKING] ) {
 			// Use the main connection to avoid transaction deadlocks
 			$conn = $lb->getMaintenanceConnectionRef( DB_PRIMARY, [], $this->dbDomain );
 		} else {
 			// If the RDBMS has row/table/page level locking, then use separate auto-commit
 			// connection to avoid needless contention and deadlocks.
 			$conn = $lb->getMaintenanceConnectionRef(
-				DB_PRIMARY,
+				$this->replicaOnly ? DB_REPLICA : DB_PRIMARY,
 				[],
 				$this->dbDomain,
 				$lb::CONN_TRX_AUTOCOMMIT
@@ -1700,15 +1698,19 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 	 */
 	private function getConnectionFromServerInfo( $shardIndex, array $server ) {
 		if ( !isset( $this->conns[$shardIndex] ) ) {
-			$server['logger'] = $this->logger;
-			// Always use autocommit mode, even if DBO_TRX is configured
-			$server['flags'] ??= 0;
-			$server['flags'] &= ~( IDatabase::DBO_TRX | IDatabase::DBO_DEFAULT );
-
-			/** @var IMaintainableDatabase $conn Auto-commit connection to the server */
-			$conn = MediaWikiServices::getInstance()->getDatabaseFactory()
-				->create( $server['type'], $server );
-
+			/** @var IMaintainableDatabase Auto-commit connection to the server */
+			$conn = Database::factory(
+				$server['type'],
+				array_merge(
+					$server,
+					[
+						// Make sure the handle uses autocommit mode
+						'flags' => ( $server['flags'] ?? 0 ) & ~IDatabase::DBO_TRX,
+						'connLogger' => $this->logger,
+						'queryLogger' => $this->logger
+					]
+				)
+			);
 			// Automatically create the objectcache table for sqlite as needed
 			if ( $conn->getType() === 'sqlite' ) {
 				$this->initSqliteDatabase( $conn );
@@ -1728,30 +1730,47 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 	 */
 	private function handleDBError( DBError $exception, $shardIndex ) {
 		if ( !$this->useLB && $exception instanceof DBConnectionError ) {
-			unset( $this->conns[$shardIndex] ); // bug T103435
-
-			$now = $this->getCurrentTime();
-			if ( isset( $this->connFailureTimes[$shardIndex] ) ) {
-				if ( $now - $this->connFailureTimes[$shardIndex] >= 60 ) {
-					unset( $this->connFailureTimes[$shardIndex] );
-					unset( $this->connFailureErrors[$shardIndex] );
-				} else {
-					$this->logger->debug( __METHOD__ . ": Server #$shardIndex already down" );
-					return;
-				}
-			}
-			$this->logger->info( __METHOD__ . ": Server #$shardIndex down until " . ( $now + 60 ) );
-			$this->connFailureTimes[$shardIndex] = $now;
-			$this->connFailureErrors[$shardIndex] = $exception;
+			$this->markServerDown( $exception, $shardIndex );
 		}
-		$this->logger->error( "DBError: {$exception->getMessage()}", [ 'exception' => $exception ] );
-		if ( $exception instanceof DBConnectionError ) {
+		$this->setAndLogDBError( $exception );
+	}
+
+	/**
+	 * @param DBError $e
+	 */
+	private function setAndLogDBError( DBError $e ) {
+		$this->logger->error( "DBError: {$e->getMessage()}", [ 'exception' => $e ] );
+		if ( $e instanceof DBConnectionError ) {
 			$this->setLastError( self::ERR_UNREACHABLE );
 			$this->logger->warning( __METHOD__ . ": ignoring connection error" );
 		} else {
 			$this->setLastError( self::ERR_UNEXPECTED );
 			$this->logger->warning( __METHOD__ . ": ignoring query error" );
 		}
+	}
+
+	/**
+	 * Mark a server down due to a DBConnectionError exception
+	 *
+	 * @param DBError $exception
+	 * @param int $shardIndex Server index
+	 */
+	private function markServerDown( DBError $exception, $shardIndex ) {
+		unset( $this->conns[$shardIndex] ); // bug T103435
+
+		$now = $this->getCurrentTime();
+		if ( isset( $this->connFailureTimes[$shardIndex] ) ) {
+			if ( $now - $this->connFailureTimes[$shardIndex] >= 60 ) {
+				unset( $this->connFailureTimes[$shardIndex] );
+				unset( $this->connFailureErrors[$shardIndex] );
+			} else {
+				$this->logger->debug( __METHOD__ . ": Server #$shardIndex already down" );
+				return;
+			}
+		}
+		$this->logger->info( __METHOD__ . ": Server #$shardIndex down until " . ( $now + 60 ) );
+		$this->connFailureTimes[$shardIndex] = $now;
+		$this->connFailureErrors[$shardIndex] = $exception;
 	}
 
 	/**
@@ -1825,6 +1844,23 @@ class SqlBagOStuff extends MediumSpecificBagOStuff {
 		}
 
 		return $shardIndexes;
+	}
+
+	/**
+	 * @param string $tag
+	 * @return int Server index for use with ::getConnection()
+	 * @throws InvalidArgumentException If tag is unknown
+	 */
+	private function getShardServerIndexForTag( string $tag ) {
+		if ( !$this->serverTags ) {
+			throw new InvalidArgumentException( "Given a tag but no tags are configured" );
+		}
+		foreach ( $this->serverTags as $serverShardIndex => $serverTag ) {
+			if ( $tag === $serverTag ) {
+				return $serverShardIndex;
+			}
+		}
+		throw new InvalidArgumentException( "Unknown server tag: $tag" );
 	}
 
 	/**

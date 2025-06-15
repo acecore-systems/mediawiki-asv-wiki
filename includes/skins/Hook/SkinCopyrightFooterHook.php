@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\Title\Title;
+use Title;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.
@@ -13,10 +13,9 @@ use MediaWiki\Title\Title;
  */
 interface SkinCopyrightFooterHook {
 	/**
-	 * Use this hook for site and per-namespace customization of the copyright notice as raw HTML.
+	 * Use this hook for site and per-namespace customization of the copyright notice.
 	 *
 	 * @since 1.35
-	 * @deprecated since 1.43, use SkinCopyrightFooterMessage hook instead.
 	 *
 	 * @param Title $title Displayed page title
 	 * @param string $type Set to 'normal' or 'history' for old/diff views

@@ -2,10 +2,10 @@
 
 namespace MediaWiki\Extension\AbuseFilter\Watcher;
 
-use MediaWiki\Deferred\DeferredUpdates;
+use DeferredUpdates;
 use MediaWiki\Extension\AbuseFilter\CentralDBManager;
 use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\LBFactory;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * Watcher that updates hit counts of filters
@@ -13,21 +13,21 @@ use Wikimedia\Rdbms\LBFactory;
 class UpdateHitCountWatcher implements Watcher {
 	public const SERVICE_NAME = 'AbuseFilterUpdateHitCountWatcher';
 
-	/** @var LBFactory */
-	private $lbFactory;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
 
 	/** @var CentralDBManager */
 	private $centralDBManager;
 
 	/**
-	 * @param LBFactory $lbFactory
+	 * @param ILoadBalancer $loadBalancer
 	 * @param CentralDBManager $centralDBManager
 	 */
 	public function __construct(
-		LBFactory $lbFactory,
+		ILoadBalancer $loadBalancer,
 		CentralDBManager $centralDBManager
 	) {
-		$this->lbFactory = $lbFactory;
+		$this->loadBalancer = $loadBalancer;
 		$this->centralDBManager = $centralDBManager;
 	}
 
@@ -38,7 +38,7 @@ class UpdateHitCountWatcher implements Watcher {
 		// Run in a DeferredUpdate to avoid primary database queries on raw/view requests (T274455)
 		DeferredUpdates::addCallableUpdate( function () use ( $localFilters, $globalFilters ) {
 			if ( $localFilters ) {
-				$this->updateHitCounts( $this->lbFactory->getPrimaryDatabase(), $localFilters );
+				$this->updateHitCounts( $this->loadBalancer->getConnectionRef( DB_PRIMARY ), $localFilters );
 			}
 
 			if ( $globalFilters ) {
@@ -53,11 +53,11 @@ class UpdateHitCountWatcher implements Watcher {
 	 * @param array $loggedFilters
 	 */
 	private function updateHitCounts( IDatabase $dbw, array $loggedFilters ): void {
-		$dbw->newUpdateQueryBuilder()
-			->update( 'abuse_filter' )
-			->set( [ 'af_hit_count=af_hit_count+1' ] )
-			->where( [ 'af_id' => $loggedFilters ] )
-			->caller( __METHOD__ )
-			->execute();
+		$dbw->update(
+			'abuse_filter',
+			[ 'af_hit_count=af_hit_count+1' ],
+			[ 'af_id' => $loggedFilters ],
+			__METHOD__
+		);
 	}
 }

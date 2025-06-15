@@ -20,7 +20,6 @@
 
 use MediaWiki\EditPage\Constraint\IEditConstraint;
 use MediaWiki\EditPage\Constraint\ReadOnlyConstraint;
-use Wikimedia\Rdbms\ReadOnlyMode;
 
 /**
  * Tests the ReadOnlyConstraint

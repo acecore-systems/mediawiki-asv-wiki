@@ -9,7 +9,6 @@ use MediaWiki\Extension\Math\MathWikibaseConnector;
 use MediaWiki\Extension\Math\Render\RendererFactory;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Registration\ExtensionRegistry;
 use Wikibase\Client\WikibaseClient;
 use Wikibase\Lib\Formatters\SnakFormatter;
 
@@ -39,8 +38,7 @@ return [
 			),
 			Math::getMathConfig( $services ),
 			$services->getUserOptionsLookup(),
-			LoggerFactory::getInstance( 'Math' ),
-			$services->getMainWANObjectCache()
+			LoggerFactory::getInstance( 'Math' )
 		);
 	},
 	'Math.WikibaseConnector' => static function ( MediaWikiServices $services ): MathWikibaseConnector {
@@ -48,7 +46,6 @@ return [
 			new ServiceOptions( MathWikibaseConnector::CONSTRUCTOR_OPTIONS, $services->getMainConfig() ),
 			WikibaseClient::getRepoLinker( $services ),
 			$services->getLanguageFactory(),
-			$services->getLanguageNameUtils(),
 			WikibaseClient::getEntityRevisionLookup( $services ),
 			WikibaseClient::getFallbackLabelDescriptionLookupFactory( $services ),
 			WikibaseClient::getSite( $services ),

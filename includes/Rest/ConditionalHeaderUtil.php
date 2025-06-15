@@ -4,17 +4,13 @@ namespace MediaWiki\Rest;
 
 use MediaWiki\Rest\HeaderParser\HttpDate;
 use MediaWiki\Rest\HeaderParser\IfNoneMatch;
-use RuntimeException;
 use Wikimedia\Timestamp\ConvertibleTimestamp;
 
 class ConditionalHeaderUtil {
-	/** @var bool */
+	private $validatorsHaveBeenSet = false;
 	private $varnishETagHack = true;
-	/** @var string|null */
 	private $eTag;
-	/** @var int|null */
 	private $lastModified;
-	/** @var bool */
 	private $hasRepresentation;
 
 	/**
@@ -32,13 +28,17 @@ class ConditionalHeaderUtil {
 	 *   the resource exists if an ETag was specified for it.
 	 */
 	public function setValidators( $eTag, $lastModified, $hasRepresentation ) {
+		$this->validatorsHaveBeenSet = true;
 		$this->eTag = $eTag;
 		if ( $lastModified === null ) {
 			$this->lastModified = null;
 		} else {
 			$this->lastModified = (int)ConvertibleTimestamp::convert( TS_UNIX, $lastModified );
 		}
-		$this->hasRepresentation = $hasRepresentation ?? ( $eTag !== null );
+		if ( $hasRepresentation === null ) {
+			$hasRepresentation = $eTag !== null;
+		}
+		$this->hasRepresentation = $hasRepresentation;
 	}
 
 	/**
@@ -64,8 +64,8 @@ class ConditionalHeaderUtil {
 		if ( $this->eTag !== null ) {
 			$resourceTag = $parser->parseETag( $this->eTag );
 			if ( !$resourceTag ) {
-				throw new RuntimeException( 'Invalid ETag returned by handler: `' .
-					$parser->getLastError() . '`' );
+				throw new \Exception( 'Invalid ETag returned by handler: ' .
+					$parser->getLastError() );
 			}
 		} else {
 			$resourceTag = null;
@@ -75,9 +75,12 @@ class ConditionalHeaderUtil {
 			$im = $request->getHeader( 'If-Match' );
 			$match = false;
 			foreach ( $parser->parseHeaderList( $im ) as $tag ) {
-				if ( ( $tag['whole'] === '*' && $this->hasRepresentation ) ||
-					$this->strongCompare( $resourceTag, $tag )
-				) {
+				if ( $tag['whole'] === '*' && $this->hasRepresentation ) {
+					$match = true;
+					break;
+				}
+
+				if ( $this->strongCompare( $resourceTag, $tag ) ) {
 					$match = true;
 					break;
 				}
@@ -96,10 +99,12 @@ class ConditionalHeaderUtil {
 		if ( $request->hasHeader( 'If-None-Match' ) ) {
 			$inm = $request->getHeader( 'If-None-Match' );
 			foreach ( $parser->parseHeaderList( $inm ) as $tag ) {
-				if ( ( $tag['whole'] === '*' && $this->hasRepresentation ) ||
-					$this->weakCompare( $resourceTag, $tag )
-				) {
-					return $getOrHead ? 304 : 412;
+				if ( $this->weakCompare( $resourceTag, $tag ) ) {
+					if ( $getOrHead ) {
+						return 304;
+					} else {
+						return 412;
+					}
 				}
 			}
 		} elseif ( $getOrHead && $request->hasHeader( 'If-Modified-Since' ) ) {

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable View class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -9,7 +9,7 @@
  *
  * @abstract
  * @extends OO.ui.Element
- * @mixes OO.EventEmitter
+ * @mixins OO.EventEmitter
  *
  * @constructor
  * @param {ve.dm.Model} model Model to observe
@@ -49,11 +49,11 @@ OO.mixinClass( ve.ce.View, OO.EventEmitter );
 /* Events */
 
 /**
- * @event ve.ce.View#setup
+ * @event setup
  */
 
 /**
- * @event ve.ce.View#teardown
+ * @event teardown
  */
 
 /* Static members */
@@ -72,11 +72,10 @@ OO.mixinClass( ve.ce.View, OO.EventEmitter );
  * @static
  * @property {boolean|Function}
  * @param {string} attribute
- * @return {boolean} Attibute is allowed
  * @inheritable
  */
 ve.ce.View.static.renderHtmlAttributes = function ( attribute ) {
-	const attributes = [
+	var attributes = [
 		'abbr', 'about', 'align', 'alt', 'axis', 'bgcolor', 'border', 'cellpadding', 'cellspacing',
 		'char', 'charoff', 'cite', 'class', 'clear', 'color', 'colspan', 'datatype', 'datetime',
 		'dir', 'face', 'frame', 'headers', 'height', 'href', 'id', 'itemid', 'itemprop', 'itemref',
@@ -159,8 +158,8 @@ ve.ce.View.prototype.isLive = function () {
  * Set live state.
  *
  * @param {boolean} live The view has been attached to the live DOM (use false on detach)
- * @fires ve.ce.View#setup
- * @fires ve.ce.View#teardown
+ * @fires setup
+ * @fires teardown
  */
 ve.ce.View.prototype.setLive = function ( live ) {
 	this.live = live;
@@ -178,7 +177,7 @@ ve.ce.View.prototype.setLive = function ( live ) {
  * @return {string} URL resolved according to the document's base
  */
 ve.ce.View.prototype.getResolvedAttribute = function ( key ) {
-	const plainValue = this.model.getAttribute( key ),
+	var plainValue = this.model.getAttribute( key ),
 		doc = this.getModelHtmlDocument();
 	return doc && typeof plainValue === 'string' ? ve.resolveUrl( plainValue, doc ) : plainValue;
 };

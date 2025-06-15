@@ -2,7 +2,6 @@
 
 namespace MediaWiki\Extension\Math;
 
-use MediaWiki\Extension\Math\InputCheck\InputCheckFactory;
 use MediaWiki\MediaWikiServices;
 use Psr\Container\ContainerInterface;
 
@@ -20,13 +19,9 @@ final class Math {
 		// should not be instantiated
 	}
 
-	public static function getMathConfig( ?ContainerInterface $services = null ): MathConfig {
+	public static function getMathConfig( ContainerInterface $services = null ): MathConfig {
 		return ( $services ?: MediaWikiServices::getInstance() )
 			->get( 'Math.Config' );
 	}
 
-	public static function getCheckerFactory( ?ContainerInterface $services = null ): InputCheckFactory {
-		return ( $services ?: MediaWikiServices::getInstance() )
-			->get( 'Math.CheckerFactory' );
-	}
 }

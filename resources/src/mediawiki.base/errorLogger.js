@@ -1,11 +1,14 @@
+/**
+ * @class mw.errorLogger
+ * @singleton
+ */
 'use strict';
 
 /**
  * Fired via mw.track when an error is not handled by local code and is caught by the
  * window.onerror handler.
  *
- * @ignore
- * @event ~'global.error'
+ * @event global_error
  * @param {string} errorMessage Error message.
  * @param {string} url URL where error was raised.
  * @param {number} line Line number where error was raised.
@@ -18,8 +21,7 @@
 /**
  * Fired via mw.track when an error is logged with mw.errorLogger#logError.
  *
- * @ignore
- * @event ~'error.caught'
+ * @event error_caught
  * @param {Error} errorObject The error object
  */
 
@@ -30,13 +32,15 @@
  *
  * @private
  * @param {Object} window
+ * @fires global_error
+ * @fires error_caught
  */
 function installGlobalHandler( window ) {
 	// We will preserve the return value of the previous handler. window.onerror works the
 	// opposite way than normal event handlers (returning true will prevent the default
 	// action, returning false will let the browser handle the error normally, by e.g.
 	// logging to the console), so our fallback old handler needs to return false.
-	const oldHandler = window.onerror || function () {
+	var oldHandler = window.onerror || function () {
 		return false;
 	};
 
@@ -58,11 +62,6 @@ function installGlobalHandler( window ) {
 	};
 }
 
-/**
- * Allows the logging of client errors for later inspections.
- *
- * @namespace mw.errorLogger
- */
 mw.errorLogger = {
 	/**
 	 * Logs an error by notifying subscribers to the given mw.track() topic
@@ -72,6 +71,7 @@ mw.errorLogger = {
 	 * @param {string} [topic='error.caught'] Error topic. Conventionally in the form
 	 *   'error.⧼component⧽' (where ⧼component⧽ identifies the code logging the error at a
 	 *   high level; e.g. an extension name).
+	 * @fires error_caught
 	 */
 	logError: function ( error, topic ) {
 		mw.track( topic || 'error.caught', error );

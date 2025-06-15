@@ -18,7 +18,6 @@
  * @file
  */
 
-use MediaWiki\Language\Language;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
 
@@ -32,7 +31,7 @@ class LanguageLa extends Language {
 	 * Convert from the nominative form of a noun to some other case
 	 *
 	 * Just used in a couple places for sitenames; special-case as necessary.
-	 * The rules are far from complete.
+	 * Rules are far from complete.
 	 *
 	 * Cases: genitive, accusative, ablative
 	 *
@@ -52,11 +51,11 @@ class LanguageLa extends Language {
 			case 'genitive':
 				// only a few declensions, and even for those mostly the singular only
 				$in = [
-					'/u[ms]$/', # 2nd declension singular
-					'/ommunia$/', # 3rd declension neuter plural (partly)
-					'/a$/', # 1st declension singular
+					'/u[ms]$/',                          # 2nd declension singular
+					'/ommunia$/',                        # 3rd declension neuter plural (partly)
+					'/a$/',                              # 1st declension singular
 					'/libri$/', '/nuntii$/', '/datae$/', # 2nd declension plural (partly)
-					'/tio$/', '/ns$/', '/as$/', # 3rd declension singular (partly)
+					'/tio$/', '/ns$/', '/as$/',          # 3rd declension singular (partly)
 					'/es$/'                              # 5th declension singular
 				];
 				$out = [
@@ -68,15 +67,14 @@ class LanguageLa extends Language {
 					'ei'
 				];
 				return preg_replace( $in, $out, $word );
-
 			case 'accusative':
 				// only a few declensions, and even for those mostly the singular only
 				$in = [
-					'/u[ms]$/', # 2nd declension singular
-					'/a$/', # 1st declension singular
-					'/ommuniam$/', # 3rd declension neuter plural (partly)
+					'/u[ms]$/',                          # 2nd declension singular
+					'/a$/',                              # 1st declension singular
+					'/ommuniam$/',                       # 3rd declension neuter plural (partly)
 					'/libri$/', '/nuntii$/', '/datam$/', # 2nd declension plural (partly)
-					'/tio$/', '/ns$/', '/as$/', # 3rd declension singular (partly)
+					'/tio$/', '/ns$/', '/as$/',          # 3rd declension singular (partly)
 					'/es$/'                              # 5th declension singular
 				];
 				$out = [
@@ -88,15 +86,14 @@ class LanguageLa extends Language {
 					'em'
 				];
 				return preg_replace( $in, $out, $word );
-
 			case 'ablative':
 				// only a few declensions, and even for those mostly the singular only
 				$in = [
-					'/u[ms]$/', # 2nd declension singular
-					'/ommunia$/', # 3rd declension neuter plural (partly)
-					'/a$/', # 1st declension singular
-					'/libri$/', '/nuntii$/', '/data$/', # 2nd declension plural (partly)
-					'/tio$/', '/ns$/', '/as$/', # 3rd declension singular (partly)
+					'/u[ms]$/',                          # 2nd declension singular
+					'/ommunia$/',                        # 3rd declension neuter plural (partly)
+					'/a$/',                              # 1st declension singular
+					'/libri$/', '/nuntii$/', '/data$/',  # 2nd declension plural (partly)
+					'/tio$/', '/ns$/', '/as$/',          # 3rd declension singular (partly)
 					'/es$/'                              # 5th declension singular
 				];
 				$out = [
@@ -108,7 +105,6 @@ class LanguageLa extends Language {
 					'e'
 				];
 				return preg_replace( $in, $out, $word );
-
 			default:
 				return $word;
 		}

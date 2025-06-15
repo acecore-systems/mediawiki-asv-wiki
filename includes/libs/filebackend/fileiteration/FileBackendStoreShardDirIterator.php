@@ -19,10 +19,6 @@
  * @ingroup FileBackend
  */
 
-namespace Wikimedia\FileBackend\FileIteration;
-
-use ArrayIterator;
-
 /**
  * Iterator for listing directories
  */
@@ -38,6 +34,3 @@ class FileBackendStoreShardDirIterator extends FileBackendStoreShardListIterator
 		}
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( FileBackendStoreShardDirIterator::class, 'FileBackendStoreShardDirIterator' );

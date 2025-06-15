@@ -36,7 +36,6 @@ use Psr\Http\Message\StreamInterface;
 class MWCallbackStream implements StreamInterface {
 	use StreamDecoratorTrait;
 
-	/** @var callable */
 	private $callback;
 
 	/** @var StreamInterface */

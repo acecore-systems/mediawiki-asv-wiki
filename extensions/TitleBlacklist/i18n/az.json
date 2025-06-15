@@ -23,6 +23,5 @@
 	"titleblacklist-override-help": "Kifayət qədər imtiyazları olan istifadəçilər bunu icazə verilməyən başlıqlar siyahısı yoxlamalarına məhəl qoymamaq üçün seçə bilərlər.",
 	"titleblacklist-warning": "<strong>Xəbərdarlıq: Bu səhifə yalnız inzibatçılar və <code>tboverride</code> hüququ olan digər istifadəçilər tərəfindən redaktə edilə bilər, çünki o, aşağıdakı icazə verilməyən ad siyahısı elementinə uyğundur:</strong><br /> <code>$1</code>",
 	"right-tboverride": "İcazə verilməyən başlıqlar və ya istifadəçi adları siyahısından təsirlənməmək",
-	"right-tboverride-account": "İcazə verilməyən istifadəçi adları siyahısından təsirlənməmək",
-	"right-titleblacklistlog": "İcazə verilməyən başlıqlar siyahısı jurnalına baxmaq"
+	"right-tboverride-account": "İcazə verilməyən istifadəçi adları siyahısından təsirlənməmək"
 }

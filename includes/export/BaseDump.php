@@ -2,7 +2,7 @@
 /**
  * Helper class for the --prefetch option of dumpTextPass.php
  *
- * Copyright © 2005 Brooke Vibber <bvibber@wikimedia.org>
+ * Copyright © 2005 Brion Vibber <brion@pobox.com>
  * https://www.mediawiki.org/
  *
  * This program is free software; you can redistribute it and/or modify
@@ -62,10 +62,7 @@ class BaseDump {
 		$this->infiles = explode( ';', $infile );
 		$this->reader = new XMLReader();
 		$infile = array_shift( $this->infiles );
-		if ( !$this->reader->open( $infile, null, LIBXML_PARSEHUGE ) ) {
-			$this->debug( __METHOD__ . ' was unable to open xml' );
-			$this->atEnd = true;
-		}
+		$this->reader->open( $infile, null, LIBXML_PARSEHUGE );
 	}
 
 	/**
@@ -86,7 +83,7 @@ class BaseDump {
 			$this->nextPage();
 		}
 		if ( $this->lastPage > $page || $this->atEnd ) {
-			$this->debug( "BaseDump::prefetch already past page $page or failed to open/read input file, "
+			$this->debug( "BaseDump::prefetch already past page $page "
 				. "looking for rev $rev  [$this->lastPage, $this->lastRev]" );
 
 			return null;
@@ -102,9 +99,10 @@ class BaseDump {
 			if ( $slot !== SlotRecord::MAIN ) {
 				$lastSlot = SlotRecord::MAIN;
 				while ( $lastSlot !== $slot ) {
-					if ( !$this->skipTo( 'content', 'revision' ) ||
-						!$this->skipTo( 'role', 'revision' )
-					) {
+					if ( !$this->skipTo( 'content', 'revision' ) ) {
+						return null;
+					}
+					if ( !$this->skipTo( 'role', 'revision' ) ) {
 						return null;
 					}
 					$lastSlot = $this->nodeContents();
@@ -140,12 +138,8 @@ class BaseDump {
 			$this->close();
 			if ( count( $this->infiles ) ) {
 				$infile = array_shift( $this->infiles );
-				if ( !$this->reader->open( $infile, null, LIBXML_PARSEHUGE ) ) {
-					$this->debug( __METHOD__ . ' was unable to open xml' );
-					$this->atEnd = true;
-				} else {
-					$this->atEnd = false;
-				}
+				$this->reader->open( $infile, null, LIBXML_PARSEHUGE );
+				$this->atEnd = false;
 			}
 		}
 	}

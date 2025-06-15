@@ -10,7 +10,7 @@
  *  name, as well as to the template the parameter belongs to
  * @param {string} name Unique symbolic name of page
  * @param {Object} [config] Configuration options
- * @param {jQuery} [config.$overlay] Overlay to render dropdowns in
+ * @cfg {jQuery} [$overlay] Overlay to render dropdowns in
  */
 ve.ui.MWAddParameterPage = function VeUiMWAddParameterPage( parameter, name, config ) {
 	// Parent constructor
@@ -49,13 +49,6 @@ ve.ui.MWAddParameterPage = function VeUiMWAddParameterPage( parameter, name, con
 
 OO.inheritClass( ve.ui.MWAddParameterPage, OO.ui.PageLayout );
 
-/* Events */
-
-/**
- * @event ve.ui.MWAddParameterPage#templateParameterAdded
- * @param {string} id Page ID
- */
-
 /* Methods */
 
 /**
@@ -92,15 +85,15 @@ ve.ui.MWAddParameterPage.prototype.initialize = function () {
 		}
 	);
 
-	const link = this.template.getTitle() || this.template.getTarget().wt;
-	const $helpText = mw.message(
+	var link = this.template.getTitle() || this.template.getTarget().wt;
+	var $helpText = mw.message(
 		'visualeditor-dialog-transclusion-add-param-help',
 		link
 	).parseDom();
 	ve.init.platform.linkCache.styleElement( link, $helpText.filter( 'a:not(.external)' ) );
 
 	// Copied from {@see OO.ui.FieldsetLayout} because there is no method to do this later
-	const helpWidget = new OO.ui.LabelWidget( {
+	var helpWidget = new OO.ui.LabelWidget( {
 		label: $helpText,
 		classes: [ 'oo-ui-inline-help' ]
 	} );
@@ -118,7 +111,13 @@ ve.ui.MWAddParameterPage.prototype.initialize = function () {
  * @inheritDoc OO.ui.PanelLayout
  */
 ve.ui.MWAddParameterPage.prototype.focus = function () {
-	this.togglePlaceholder( true );
+	if ( this.isExpanded ) {
+		this.paramInputField.focus();
+		return;
+	}
+
+	// Parent method
+	ve.ui.MWAddParameterPage.super.prototype.focus.apply( this, arguments );
 };
 
 /**
@@ -133,7 +132,7 @@ ve.ui.MWAddParameterPage.prototype.onTemplateParametersChanged = function () {
  * @param {string} value
  */
 ve.ui.MWAddParameterPage.prototype.updateParameterNameValidation = function ( value ) {
-	const paramName = value.trim(),
+	var paramName = value.trim(),
 		errors = this.getValidationErrors( paramName );
 
 	this.actionFieldLayout.setErrors( errors );
@@ -142,10 +141,10 @@ ve.ui.MWAddParameterPage.prototype.updateParameterNameValidation = function ( va
 
 /**
  * @private
- * @fires ve.ui.MWAddParameterPage#templateParameterAdded
+ * @fires templateParameterAdded
  */
 ve.ui.MWAddParameterPage.prototype.onParameterNameSubmitted = function () {
-	const name = this.paramInputField.getValue().trim();
+	var name = this.paramInputField.getValue().trim();
 	if ( !name || this.saveButton.isDisabled() ) {
 		return;
 	}
@@ -156,7 +155,7 @@ ve.ui.MWAddParameterPage.prototype.onParameterNameSubmitted = function () {
 		return;
 	}
 
-	const param = new ve.dm.MWParameterModel( this.template, name );
+	var param = new ve.dm.MWParameterModel( this.template, name );
 	this.template.addParameter( param );
 	this.emit( 'templateParameterAdded', param.getId() );
 
@@ -175,15 +174,15 @@ ve.ui.MWAddParameterPage.prototype.getValidationErrors = function ( name ) {
 		return [];
 	}
 
-	const forbiddenCharacter = name.match( /[={|}]/ );
+	var forbiddenCharacter = name.match( /[={|}]/ );
 	if ( forbiddenCharacter ) {
 		return [ mw.message( 'visualeditor-dialog-transclusion-add-param-error-forbidden-char',
 			forbiddenCharacter[ 0 ] ).parseDom() ];
 	}
 
-	const spec = this.template.getSpec();
+	var key,
+		spec = this.template.getSpec();
 
-	let key;
 	if ( spec.getParameterAliases( name ).indexOf( name ) !== -1 ) {
 		key = 'visualeditor-dialog-transclusion-add-param-error-alias';
 	} else if ( this.template.hasParameter( name ) ) {
@@ -198,7 +197,7 @@ ve.ui.MWAddParameterPage.prototype.getValidationErrors = function ( name ) {
 		return [];
 	}
 
-	const label = spec.getParameterLabel( this.template.getOriginalParameterName( name ) ),
+	var label = spec.getParameterLabel( this.template.getOriginalParameterName( name ) ),
 		// eslint-disable-next-line mediawiki/msg-doc
 		$msg = mw.message( key, name, label ).parseDom();
 	ve.targetLinksToNewWindow( $( '<div>' ).append( $msg )[ 0 ] );

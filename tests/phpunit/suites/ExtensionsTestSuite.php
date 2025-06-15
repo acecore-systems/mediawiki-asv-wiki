@@ -1,8 +1,5 @@
 <?php
 
-use MediaWiki\HookContainer\HookRunner;
-use MediaWiki\MediaWikiServices;
-use MediaWiki\Registration\ExtensionRegistry;
 use PHPUnit\Framework\TestSuite;
 use SebastianBergmann\FileIterator\Facade;
 
@@ -16,19 +13,14 @@ class ExtensionsTestSuite extends TestSuite {
 	public function __construct() {
 		parent::__construct();
 
-		if ( defined( 'MW_PHPUNIT_EXTENSIONS_TEST_PATHS' ) ) {
-			$paths = MW_PHPUNIT_EXTENSIONS_TEST_PATHS;
-		} else {
-			$paths = [];
-			// Autodiscover extension unit tests
-			$registry = ExtensionRegistry::getInstance();
-			foreach ( $registry->getAllThings() as $info ) {
-				$paths[] = dirname( $info['path'] ) . '/tests/phpunit';
-			}
-			// Extensions can return a list of files or directories
-			( new HookRunner( MediaWikiServices::getInstance()->getHookContainer() ) )->onUnitTestsList( $paths );
+		$paths = [];
+		// Autodiscover extension unit tests
+		$registry = ExtensionRegistry::getInstance();
+		foreach ( $registry->getAllThings() as $info ) {
+			$paths[] = dirname( $info['path'] ) . '/tests/phpunit';
 		}
-
+		// Extensions can return a list of files or directories
+		Hooks::runner()->onUnitTestsList( $paths );
 		foreach ( array_unique( $paths ) as $path ) {
 			if ( is_dir( $path ) ) {
 				// If the path is a directory, search for test cases.
@@ -42,9 +34,25 @@ class ExtensionsTestSuite extends TestSuite {
 				$this->addTestFile( $path );
 			}
 		}
+		if ( !$paths ) {
+			$this->addTest( new DummyExtensionsTest( 'testNothing' ) );
+		}
 	}
 
 	public static function suite() {
 		return new self;
+	}
+}
+
+/**
+ * Needed to avoid warnings like 'No tests found in class "ExtensionsTestSuite".'
+ * when no extensions with tests are used.
+ */
+class DummyExtensionsTest extends MediaWikiIntegrationTestCase {
+	/**
+	 * @coversNothing
+	 */
+	public function testNothing() {
+		$this->assertTrue( true );
 	}
 }

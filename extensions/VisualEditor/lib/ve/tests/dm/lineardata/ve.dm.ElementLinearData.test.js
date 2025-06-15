@@ -1,15 +1,15 @@
 /*!
  * VisualEditor ElementLinearData tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.dm.ElementLinearData' );
 
 /* Tests */
 
-QUnit.test( 'getAnnotationsFromOffset', ( assert ) => {
-	const cases = [
+QUnit.test( 'getAnnotationsFromOffset', function ( assert ) {
+	var cases = [
 		{
 			msg: [ 'bold #1', 'bold #2' ],
 			data: [
@@ -92,9 +92,9 @@ QUnit.test( 'getAnnotationsFromOffset', ( assert ) => {
 	];
 
 	// Run tests
-	cases.forEach( ( caseItem, i ) => {
-		const data = ve.dm.example.preprocessAnnotations( caseItem.data );
-		const doc = new ve.dm.Document( data );
+	cases.forEach( function ( caseItem, i ) {
+		var data = ve.dm.example.preprocessAnnotations( caseItem.data );
+		var doc = new ve.dm.Document( data );
 		if ( i === 0 ) {
 			assert.notStrictEqual(
 				doc.data.getAnnotationsFromOffset( 0, caseItem.ignoreClose ).getHashes(),
@@ -102,8 +102,8 @@ QUnit.test( 'getAnnotationsFromOffset', ( assert ) => {
 				'annotation set hashes are not equal by reference'
 			);
 		}
-		for ( let j = 0; j < doc.getData().length; j++ ) {
-			const annotations = doc.data.getAnnotationsFromOffset( j, caseItem.ignoreClose );
+		for ( var j = 0; j < doc.getData().length; j++ ) {
+			var annotations = doc.data.getAnnotationsFromOffset( j, caseItem.ignoreClose );
 			assert.deepEqual( annotations,
 				ve.dm.example.createAnnotationSet( doc.getStore(), caseItem.expected[ j ] ),
 				caseItem.msg[ j ]
@@ -112,8 +112,8 @@ QUnit.test( 'getAnnotationsFromOffset', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'getAnnotationsFromRange', ( assert ) => {
-	const cases = [
+QUnit.test( 'getAnnotationsFromRange', function ( assert ) {
+	var cases = [
 		{
 			msg: 'single annotations',
 			data: [
@@ -324,12 +324,12 @@ QUnit.test( 'getAnnotationsFromRange', ( assert ) => {
 		},
 		{
 			msg: 'no common coverage from all plain characters',
-			data: [ ...'ab' ],
+			data: [ 'a', 'b' ],
 			expected: []
 		},
 		{
 			msg: 'no common coverage using all from all plain characters',
-			data: [ ...'ab' ],
+			data: [ 'a', 'b' ],
 			all: true,
 			expected: []
 		},
@@ -356,9 +356,9 @@ QUnit.test( 'getAnnotationsFromRange', ( assert ) => {
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
-		const data = ve.dm.example.preprocessAnnotations( caseItem.data );
-		const doc = new ve.dm.Document( data );
+	cases.forEach( function ( caseItem ) {
+		var data = ve.dm.example.preprocessAnnotations( caseItem.data );
+		var doc = new ve.dm.Document( data );
 		assert.deepEqual(
 			doc.data.getAnnotationsFromRange( new ve.Range( 0, caseItem.data.length ), caseItem.all ).getHashes(),
 			ve.dm.example.createAnnotationSet( doc.getStore(), caseItem.expected ).getHashes(),
@@ -367,8 +367,8 @@ QUnit.test( 'getAnnotationsFromRange', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'getInsertionAnnotationsFromRange', ( assert ) => {
-	const u = ve.dm.example.underline,
+QUnit.test( 'getInsertionAnnotationsFromRange', function ( assert ) {
+	var u = ve.dm.example.underline,
 		// <h1>:0 a:1 b:2 c:3 d:4 e:5 f:6 </h1>:7 <p>:8 g:9 </p>:10 <div>:11 </div>:12
 		html = '<h1>ab<u>cd</u>ef</h1><p><u>g</u></p><div></div>',
 		cases = [
@@ -396,23 +396,25 @@ QUnit.test( 'getInsertionAnnotationsFromRange', ( assert ) => {
 			{ range: [ 5, 3 ], expected: [ u ], msg: 'backward past u end' }
 		];
 
-	const linearData = ve.dm.converter.getModelFromDom(
+	var linearData = ve.dm.converter.getModelFromDom(
 		ve.createDocumentFromHtml( html )
 	).data;
-	cases.forEach( ( caseItem ) => {
-		const observed = linearData.getInsertionAnnotationsFromRange(
+	cases.forEach( function ( caseItem ) {
+		var observed = linearData.getInsertionAnnotationsFromRange(
 			new ve.Range( caseItem.range[ 0 ], caseItem.range[ 1 ] ),
 			caseItem.startAfterAnnotations
-		).get().map( ( annotation ) => ( {
-			type: annotation.element.type,
-			attributes: annotation.element.attributes
-		} ) );
+		).get().map( function ( annotation ) {
+			return {
+				type: annotation.element.type,
+				attributes: annotation.element.attributes
+			};
+		} );
 		assert.deepEqual( observed, caseItem.expected, caseItem.msg );
 	} );
 } );
 
-QUnit.test( 'getAnnotatedRangeFromOffset', ( assert ) => {
-	const cases = [
+QUnit.test( 'getAnnotatedRangeFromOffset', function ( assert ) {
+	var cases = [
 		{
 			msg: 'a bold word',
 			data: [
@@ -497,9 +499,9 @@ QUnit.test( 'getAnnotatedRangeFromOffset', ( assert ) => {
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
-		const data = ve.dm.example.preprocessAnnotations( caseItem.data );
-		const doc = new ve.dm.Document( data );
+	cases.forEach( function ( caseItem ) {
+		var data = ve.dm.example.preprocessAnnotations( caseItem.data );
+		var doc = new ve.dm.Document( data );
 		assert.equalRange(
 			doc.data.getAnnotatedRangeFromOffset( caseItem.offset,
 				ve.dm.example.createAnnotation( caseItem.annotation ) ),
@@ -509,8 +511,8 @@ QUnit.test( 'getAnnotatedRangeFromOffset', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'trimOuterSpaceFromRange', ( assert ) => {
-	const data = [
+QUnit.test( 'trimOuterSpaceFromRange', function ( assert ) {
+	var data = [
 			// 0
 			{ type: 'paragraph' },
 			// 1
@@ -599,9 +601,9 @@ QUnit.test( 'trimOuterSpaceFromRange', ( assert ) => {
 			}
 		];
 
-	const linearData = ve.dm.example.preprocessAnnotations( data );
-	const elementData = new ve.dm.ElementLinearData( linearData.getStore(), linearData.getData() );
-	cases.forEach( ( caseItem ) => {
+	var linearData = ve.dm.example.preprocessAnnotations( data );
+	var elementData = new ve.dm.ElementLinearData( linearData.getStore(), linearData.getData() );
+	cases.forEach( function ( caseItem ) {
 		assert.equalRange(
 			elementData.trimOuterSpaceFromRange( caseItem.range ),
 			caseItem.trimmed,
@@ -610,13 +612,14 @@ QUnit.test( 'trimOuterSpaceFromRange', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'isContentOffset', ( assert ) => {
-	const data = new ve.dm.ElementLinearData( new ve.dm.HashValueStore(), [
+QUnit.test( 'isContentOffset', function ( assert ) {
+	var data = new ve.dm.ElementLinearData( new ve.dm.HashValueStore(), [
 			{ type: 'heading' },
 			'a',
 			{ type: 'inlineImage' },
 			{ type: '/inlineImage' },
-			...'bc',
+			'b',
+			'c',
 			{ type: '/heading' },
 			{ type: 'paragraph' },
 			{ type: '/paragraph' },
@@ -670,9 +673,9 @@ QUnit.test( 'isContentOffset', ( assert ) => {
 			{ msg: 'right of document', expected: false }
 		];
 
-	cases.forEach( ( caseItem, i ) => {
-		const left = data.getData( i - 1 ) ? ( data.getData( i - 1 ).type || data.getCharacterData( i - 1 ) ) : '[start]';
-		const right = data.getData( i ) ? ( data.getData( i ).type || data.getCharacterData( i ) ) : '[end]';
+	cases.forEach( function ( caseItem, i ) {
+		var left = data.getData( i - 1 ) ? ( data.getData( i - 1 ).type || data.getCharacterData( i - 1 ) ) : '[start]';
+		var right = data.getData( i ) ? ( data.getData( i ).type || data.getCharacterData( i ) ) : '[end]';
 		assert.strictEqual(
 			data.isContentOffset( i ),
 			caseItem.expected,
@@ -681,13 +684,14 @@ QUnit.test( 'isContentOffset', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'isStructuralOffset', ( assert ) => {
-	const data = new ve.dm.ElementLinearData( new ve.dm.HashValueStore(), [
+QUnit.test( 'isStructuralOffset', function ( assert ) {
+	var data = new ve.dm.ElementLinearData( new ve.dm.HashValueStore(), [
 			{ type: 'heading' },
 			'a',
 			{ type: 'inlineImage' },
 			{ type: '/inlineImage' },
-			...'bc',
+			'b',
+			'c',
 			{ type: '/heading' },
 			{ type: 'paragraph' },
 			{ type: '/paragraph' },
@@ -741,9 +745,9 @@ QUnit.test( 'isStructuralOffset', ( assert ) => {
 			{ msg: 'right of document', expected: [ true, true ] }
 		];
 
-	cases.forEach( ( caseItem, i ) => {
-		const left = data.getData( i - 1 ) ? ( data.getData( i - 1 ).type || data.getCharacterData( i - 1 ) ) : '[start]';
-		const right = data.getData( i ) ? ( data.getData( i ).type || data.getCharacterData( i ) ) : '[end]';
+	cases.forEach( function ( caseItem, i ) {
+		var left = data.getData( i - 1 ) ? ( data.getData( i - 1 ).type || data.getCharacterData( i - 1 ) ) : '[start]';
+		var right = data.getData( i ) ? ( data.getData( i ).type || data.getCharacterData( i ) ) : '[end]';
 		assert.strictEqual(
 			data.isStructuralOffset( i ),
 			caseItem.expected[ 0 ],
@@ -757,20 +761,20 @@ QUnit.test( 'isStructuralOffset', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'getCharacterData', ( assert ) => {
-	const data = [ { type: 'paragraph' }, 'a', [ 'b', [ 0 ] ], { type: '/paragraph' } ],
+QUnit.test( 'getCharacterData', function ( assert ) {
+	var data = [ { type: 'paragraph' }, 'a', [ 'b', [ 0 ] ], { type: '/paragraph' } ],
 		expected = [ '', 'a', 'b', '' ],
 		linearData = new ve.dm.ElementLinearData( new ve.dm.HashValueStore(), data );
 
-	for ( let i = 0; i < data.length; i++ ) {
+	for ( var i = 0; i < data.length; i++ ) {
 		assert.strictEqual(
 			linearData.getCharacterData( i ), expected[ i ]
 		);
 	}
 } );
 
-QUnit.test( 'isPlainText', ( assert ) => {
-	const doc = ve.dm.example.createExampleDocument();
+QUnit.test( 'isPlainText', function ( assert ) {
+	var doc = ve.dm.example.createExampleDocument();
 
 	assert.strictEqual( doc.data.isPlainText( new ve.Range( 1, 2 ), false ), true, 'Plain text' );
 	assert.strictEqual( doc.data.isPlainText( new ve.Range( 1, 3 ), true ), false, 'Annotated text' );
@@ -781,8 +785,8 @@ QUnit.test( 'isPlainText', ( assert ) => {
 	assert.strictEqual( doc.data.isPlainText( new ve.Range( 12, 26 ), true ), true, 'List (content nodes allowed)' );
 } );
 
-QUnit.test( 'getText', ( assert ) => {
-	const doc = ve.dm.example.createExampleDocument();
+QUnit.test( 'getText', function ( assert ) {
+	var doc = ve.dm.example.createExampleDocument();
 
 	assert.strictEqual( doc.data.getText( false, new ve.Range( 2, 11 ) ), 'bcd' );
 	assert.strictEqual( doc.data.getText( true, new ve.Range( 2, 11 ) ), 'bc      d'.replace( / /g, '\n' ) );
@@ -793,12 +797,12 @@ QUnit.test( 'getText', ( assert ) => {
 	);
 } );
 
-QUnit.test( 'getSourceText', ( assert ) => {
-	const data = new ve.dm.ElementLinearData(
+QUnit.test( 'getSourceText', function ( assert ) {
+	var data = new ve.dm.ElementLinearData(
 			new ve.dm.HashValueStore(),
 			[
-				{ type: 'paragraph' }, ...'foo', { type: '/paragraph' },
-				{ type: 'paragraph' }, ...'bar', { type: '/paragraph' },
+				{ type: 'paragraph' }, 'f', 'o', 'o', { type: '/paragraph' },
+				{ type: 'paragraph' }, 'b', 'a', 'r', { type: '/paragraph' },
 				{ type: 'internalList' }, { type: '/internalList' }
 			]
 		),
@@ -825,7 +829,7 @@ QUnit.test( 'getSourceText', ( assert ) => {
 			}
 		];
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		assert.strictEqual(
 			data.getSourceText( caseItem.range ),
 			caseItem.expected,
@@ -834,8 +838,8 @@ QUnit.test( 'getSourceText', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'isContentData', ( assert ) => {
-	const cases = [
+QUnit.test( 'isContentData', function ( assert ) {
+	var cases = [
 		{
 			msg: 'simple paragraph',
 			data: [ { type: 'paragraph' }, 'a', { type: '/paragraph' } ],
@@ -843,7 +847,7 @@ QUnit.test( 'isContentData', ( assert ) => {
 		},
 		{
 			msg: 'plain text',
-			data: [ ...'abc' ],
+			data: [ 'a', 'b', 'c' ],
 			expected: true
 		},
 		{
@@ -858,16 +862,16 @@ QUnit.test( 'isContentData', ( assert ) => {
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
-		const data = new ve.dm.ElementLinearData( new ve.dm.HashValueStore(), caseItem.data );
+	cases.forEach( function ( caseItem ) {
+		var data = new ve.dm.ElementLinearData( new ve.dm.HashValueStore(), caseItem.data );
 		assert.strictEqual(
 			data.isContentData(), caseItem.expected, caseItem.msg
 		);
 	} );
 } );
 
-QUnit.test( 'getRelativeOffset', ( assert ) => {
-	const cases = [
+QUnit.test( 'getRelativeOffset', function ( assert ) {
+	var cases = [
 		{
 			msg: 'document without any valid offsets returns -1',
 			offset: 0,
@@ -882,7 +886,7 @@ QUnit.test( 'getRelativeOffset', ( assert ) => {
 			msg: 'document with all valid offsets returns offset + distance',
 			offset: 0,
 			distance: 2,
-			data: [ ...'ab' ],
+			data: [ 'a', 'b' ],
 			callback: function () {
 				return true;
 			},
@@ -897,7 +901,7 @@ QUnit.test( 'getRelativeOffset', ( assert ) => {
 				{ type: 'internalList' },
 				{ type: 'internalItem' },
 				{ type: 'paragraph', internal: { generated: 'wrapper' } },
-				...'abc',
+				'a', 'b', 'c',
 				{ type: '/paragraph' },
 				{ type: '/internalItem' },
 				{ type: '/internalList' }
@@ -909,8 +913,8 @@ QUnit.test( 'getRelativeOffset', ( assert ) => {
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
-		const data = new ve.dm.ElementLinearData( new ve.dm.HashValueStore(), caseItem.data );
+	cases.forEach( function ( caseItem ) {
+		var data = new ve.dm.ElementLinearData( new ve.dm.HashValueStore(), caseItem.data );
 		if ( 'expected' in caseItem ) {
 			assert.strictEqual(
 				data.getRelativeOffset(
@@ -923,7 +927,7 @@ QUnit.test( 'getRelativeOffset', ( assert ) => {
 			);
 		} else if ( 'exception' in caseItem ) {
 			assert.throws(
-				() => {
+				function () {
 					data.getRelativeOffset(
 						caseItem.offset,
 						caseItem.distance,
@@ -937,8 +941,8 @@ QUnit.test( 'getRelativeOffset', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'getRelativeContentOffset', ( assert ) => {
-	const simpleDoc = ve.dm.example.createExampleDocument(),
+QUnit.test( 'getRelativeContentOffset', function ( assert ) {
+	var simpleDoc = ve.dm.example.createExampleDocument(),
 		annDoc = ve.dm.example.createExampleDocument( 'annotationData' ),
 		cases = [
 			{
@@ -1059,8 +1063,8 @@ QUnit.test( 'getRelativeContentOffset', ( assert ) => {
 			}
 		];
 
-	cases.forEach( ( caseItem ) => {
-		const doc = caseItem.doc || simpleDoc;
+	cases.forEach( function ( caseItem ) {
+		var doc = caseItem.doc || simpleDoc;
 		assert.strictEqual(
 			doc.data.getRelativeContentOffset( caseItem.offset, caseItem.distance ),
 			caseItem.expected,
@@ -1069,8 +1073,8 @@ QUnit.test( 'getRelativeContentOffset', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'getNearestContentOffset', ( assert ) => {
-	const doc = ve.dm.example.createExampleDocument(),
+QUnit.test( 'getNearestContentOffset', function ( assert ) {
+	var doc = ve.dm.example.createExampleDocument(),
 		cases = [
 			{
 				msg: 'unspecified direction results in shortest distance',
@@ -1115,7 +1119,7 @@ QUnit.test( 'getNearestContentOffset', ( assert ) => {
 			}
 		];
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		assert.strictEqual(
 			doc.data.getNearestContentOffset( caseItem.offset, caseItem.direction ),
 			caseItem.expected,
@@ -1124,8 +1128,8 @@ QUnit.test( 'getNearestContentOffset', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'getRelativeStructuralOffset', ( assert ) => {
-	const doc = ve.dm.example.createExampleDocument(),
+QUnit.test( 'getRelativeStructuralOffset', function ( assert ) {
+	var doc = ve.dm.example.createExampleDocument(),
 		cases = [
 			{
 				msg: 'invalid starting offset with zero distance gets corrected',
@@ -1223,7 +1227,7 @@ QUnit.test( 'getRelativeStructuralOffset', ( assert ) => {
 			}
 		];
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		assert.strictEqual(
 			doc.data.getRelativeStructuralOffset(
 				caseItem.offset, caseItem.distance, caseItem.unrestricted
@@ -1234,8 +1238,8 @@ QUnit.test( 'getRelativeStructuralOffset', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'getNearestStructuralOffset', ( assert ) => {
-	const doc = ve.dm.example.createExampleDocument(),
+QUnit.test( 'getNearestStructuralOffset', function ( assert ) {
+	var doc = ve.dm.example.createExampleDocument(),
 		cases = [
 			{
 				msg: 'unspecified direction results in shortest distance',
@@ -1340,7 +1344,7 @@ QUnit.test( 'getNearestStructuralOffset', ( assert ) => {
 			}
 		];
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		assert.strictEqual(
 			doc.data.getNearestStructuralOffset(
 				caseItem.offset, caseItem.direction, caseItem.unrestricted
@@ -1351,8 +1355,8 @@ QUnit.test( 'getNearestStructuralOffset', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'getWordRange', ( assert ) => {
-	const store = new ve.dm.HashValueStore(),
+QUnit.test( 'getWordRange', function ( assert ) {
+	var store = new ve.dm.HashValueStore(),
 		cases = [
 			{
 				phrase: 'visual editor test',
@@ -1518,16 +1522,16 @@ QUnit.test( 'getWordRange', ( assert ) => {
 			}
 		];
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		// Construct the text (inside a paragraph, because getNearestContentOffset assumes
 		// text cannot be at the very start or end of the data).
-		const data = caseItem.phrase.split( '' );
+		var data = caseItem.phrase.split( '' );
 		data.unshift( { type: 'paragraph' } );
 		data.push( { type: '/paragraph' } );
-		const elementLinearData = new ve.dm.ElementLinearData( store, data );
+		var elementLinearData = new ve.dm.ElementLinearData( store, data );
 		// Adjust offsets to account for the paragraph tag
-		const range = elementLinearData.getWordRange( caseItem.offset + 1 );
-		const word = caseItem.phrase.slice( range.start - 1, range.end - 1 );
+		var range = elementLinearData.getWordRange( caseItem.offset + 1 );
+		var word = caseItem.phrase.slice( range.start - 1, range.end - 1 );
 		assert.strictEqual( word, caseItem.expected,
 			caseItem.msg + ': ' +
 			caseItem.phrase.slice( 0, caseItem.offset ) + '│' +
@@ -1537,8 +1541,8 @@ QUnit.test( 'getWordRange', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'sanitize', ( assert ) => {
-	const bold = { type: 'textStyle/bold', attributes: { nodeName: 'b' } },
+QUnit.test( 'sanitize', function ( assert ) {
+	var bold = { type: 'textStyle/bold', attributes: { nodeName: 'b' } },
 		cases = [
 			{
 				html: '<p style="text-shadow: 0 0 1px #000;">F<b style="color:blue;">o</b>o</p>',
@@ -1557,7 +1561,7 @@ QUnit.test( 'sanitize', ( assert ) => {
 				html: '<p>B<span rel="ve:Alien">a</span>r<img src="//upload.wikimedia.org/wikipedia/commons/b/b3/Wikipedia-logo-v2-en.svg"/></p>',
 				data: [
 					{ type: 'paragraph' },
-					...'Br',
+					'B', 'r',
 					{ type: '/paragraph' },
 					{ type: 'internalList' },
 					{ type: '/internalList' }
@@ -1574,7 +1578,7 @@ QUnit.test( 'sanitize', ( assert ) => {
 				html: '<p>B<i><b>a</b>z</i></p>',
 				data: [
 					{ type: 'paragraph' },
-					...'Baz',
+					'B', 'a', 'z',
 					{ type: '/paragraph' },
 					{ type: 'internalList' },
 					{ type: '/internalList' }
@@ -1648,13 +1652,13 @@ QUnit.test( 'sanitize', ( assert ) => {
 				html: '<h1>Bar</h1><h2>Baz</h2><p>Quux</p>',
 				data: [
 					{ type: 'paragraph' },
-					...'Bar',
+					'B', 'a', 'r',
 					{ type: '/paragraph' },
 					{ type: 'paragraph' },
-					...'Baz',
+					'B', 'a', 'z',
 					{ type: '/paragraph' },
 					{ type: 'paragraph' },
-					...'Quux',
+					'Q', 'u', 'u', 'x',
 					{ type: '/paragraph' },
 					{ type: 'internalList' },
 					{ type: '/internalList' }
@@ -1666,7 +1670,7 @@ QUnit.test( 'sanitize', ( assert ) => {
 				html: '<p>Bar</p><p>Baz</p><p>Quux</p>',
 				data: [
 					{ type: 'paragraph' },
-					...'Bar',
+					'B', 'a', 'r',
 					{ type: '/paragraph' },
 					{ type: 'internalList' },
 					{ type: '/internalList' }
@@ -1679,7 +1683,7 @@ QUnit.test( 'sanitize', ( assert ) => {
 				data: [
 					// TODO: non-relevant attributes should be discarded, T130377
 					{ type: 'paragraph', attributes: { level: 1 } },
-					...'Bar',
+					'B', 'a', 'r',
 					{ type: '/paragraph' },
 					{ type: 'internalList' },
 					{ type: '/internalList' }
@@ -1691,10 +1695,10 @@ QUnit.test( 'sanitize', ( assert ) => {
 				html: '<p>Foo</p><p></p><h1></h1><p>Bar</p>',
 				data: [
 					{ type: 'paragraph' },
-					...'Foo',
+					'F', 'o', 'o',
 					{ type: '/paragraph' },
 					{ type: 'paragraph' },
-					...'Bar',
+					'B', 'a', 'r',
 					{ type: '/paragraph' },
 					{ type: 'internalList' },
 					{ type: '/internalList' }
@@ -1733,7 +1737,7 @@ QUnit.test( 'sanitize', ( assert ) => {
 				html: '<div>Foo</div>',
 				data: [
 					{ type: 'paragraph' },
-					...'Foo',
+					'F', 'o', 'o',
 					{ type: '/paragraph' },
 					{ type: 'internalList' },
 					{ type: '/internalList' }
@@ -1745,7 +1749,7 @@ QUnit.test( 'sanitize', ( assert ) => {
 				html: '<p><span style="color:red;" class="red">Foo</span></p>',
 				data: [
 					{ type: 'paragraph' },
-					...'Foo',
+					'F', 'o', 'o',
 					{ type: '/paragraph' },
 					{ type: 'internalList' },
 					{ type: '/internalList' }
@@ -1757,7 +1761,7 @@ QUnit.test( 'sanitize', ( assert ) => {
 				html: '<p><span style="color:red;"><span style="color:red;">Foo</span></span></p>',
 				data: [
 					{ type: 'paragraph' },
-					...'Foo',
+					'F', 'o', 'o',
 					{ type: '/paragraph' },
 					{ type: 'internalList' },
 					{ type: '/internalList' }
@@ -1807,7 +1811,7 @@ QUnit.test( 'sanitize', ( assert ) => {
 				html: '<p>Foo\nBar\n <b>Baz \nQ&nbsp;uu\nx</b></p>',
 				data: [
 					{ type: 'paragraph' },
-					...'Foo Bar ',
+					'F', 'o', 'o', ' ', 'B', 'a', 'r', ' ',
 					[ 'B', [ ve.dm.example.annHash( 'b' ) ] ],
 					[ 'a', [ ve.dm.example.annHash( 'b' ) ] ],
 					[ 'z', [ ve.dm.example.annHash( 'b' ) ] ],
@@ -1828,16 +1832,16 @@ QUnit.test( 'sanitize', ( assert ) => {
 				html: '<p>Foo\nBar\n </p><pre>Baz \nQu&nbsp;ux<!--comment-->\nWhee</pre><p>A&nbsp;&nbsp;B&nbsp;&nbsp;&nbsp;C</p>',
 				data: [
 					{ type: 'paragraph' },
-					...'Foo Bar',
+					'F', 'o', 'o', ' ', 'B', 'a', 'r',
 					{ type: '/paragraph' },
 					{ type: 'preformatted' },
-					...'Baz \nQu\u00a0ux',
+					'B', 'a', 'z', ' ', '\n', 'Q', 'u', '\u00a0', 'u', 'x',
 					{ type: 'comment', attributes: { text: 'comment' } },
 					{ type: '/comment' },
-					'\n', ...'Whee',
+					'\n', 'W', 'h', 'e', 'e',
 					{ type: '/preformatted' },
 					{ type: 'paragraph' },
-					...'A \u00a0B \u00a0 C',
+					'A', ' ', '\u00a0', 'B', ' ', '\u00a0', ' ', 'C',
 					{ type: '/paragraph' },
 					{ type: 'internalList' },
 					{ type: '/internalList' }
@@ -1848,10 +1852,10 @@ QUnit.test( 'sanitize', ( assert ) => {
 				html: '<p>Foo</p> \n\t <p>Bar</p>',
 				data: [
 					{ type: 'paragraph' },
-					...'Foo',
+					'F', 'o', 'o',
 					{ type: '/paragraph' },
 					{ type: 'paragraph' },
-					...'Bar',
+					'B', 'a', 'r',
 					{ type: '/paragraph' },
 					{ type: 'internalList' },
 					{ type: '/internalList' }
@@ -1862,10 +1866,10 @@ QUnit.test( 'sanitize', ( assert ) => {
 				html: '<p>Foo</p> \n\t <p>Bar</p>',
 				data: [
 					{ type: 'paragraph', internal: { whitespace: [ undefined, undefined, undefined, ' \n\t ' ] } },
-					...'Foo',
+					'F', 'o', 'o',
 					{ type: '/paragraph' },
 					{ type: 'paragraph', internal: { whitespace: [ ' \n\t ' ] } },
-					...'Bar',
+					'B', 'a', 'r',
 					{ type: '/paragraph' },
 					{ type: 'internalList' },
 					{ type: '/internalList' }
@@ -1877,12 +1881,12 @@ QUnit.test( 'sanitize', ( assert ) => {
 				html: '<p>Foo</p><p><br /></p><p>Bar</p>',
 				data: [
 					{ type: 'paragraph' },
-					...'Foo',
+					'F', 'o', 'o',
 					{ type: '/paragraph' },
 					{ type: 'paragraph' },
 					{ type: '/paragraph' },
 					{ type: 'paragraph' },
-					...'Bar',
+					'B', 'a', 'r',
 					{ type: '/paragraph' },
 					{ type: 'internalList' },
 					{ type: '/internalList' }
@@ -1894,12 +1898,12 @@ QUnit.test( 'sanitize', ( assert ) => {
 				html: '<p>Foo<br /><br />Bar</p>',
 				data: [
 					{ type: 'paragraph' },
-					...'Foo',
+					'F', 'o', 'o',
 					{ type: '/paragraph' },
 					{ type: 'paragraph' },
 					{ type: '/paragraph' },
 					{ type: 'paragraph' },
-					...'Bar',
+					'B', 'a', 'r',
 					{ type: '/paragraph' },
 					{ type: 'internalList' },
 					{ type: '/internalList' }
@@ -1911,7 +1915,7 @@ QUnit.test( 'sanitize', ( assert ) => {
 				html: '<p>A<meta foo="bar" />B</p>',
 				data: [
 					{ type: 'paragraph' },
-					...'AB',
+					'A', 'B',
 					{ type: '/paragraph' },
 					{ type: 'internalList' },
 					{ type: '/internalList' }
@@ -1923,7 +1927,7 @@ QUnit.test( 'sanitize', ( assert ) => {
 				html: '<p>A<meta foo="bar" />B</p>',
 				data: [
 					{ type: 'paragraph' },
-					...'AB',
+					'A', 'B',
 					{ type: '/paragraph' },
 					{
 						type: 'alienMeta',
@@ -1941,14 +1945,14 @@ QUnit.test( 'sanitize', ( assert ) => {
 			}
 		];
 
-	cases.forEach( ( caseItem ) => {
-		const model = ve.dm.converter.getModelFromDom( ve.createDocumentFromHtml( caseItem.html ) );
-		const data = model.data;
+	cases.forEach( function ( caseItem ) {
+		var model = ve.dm.converter.getModelFromDom( ve.createDocumentFromHtml( caseItem.html ) );
+		var data = model.data;
 		data.sanitize( caseItem.rules || {} );
 		assert.equalLinearData( data.data, caseItem.data, caseItem.msg + ': data' );
 		if ( caseItem.store ) {
-			const actualStore = {};
-			for ( const key in caseItem.store ) {
+			var actualStore = {};
+			for ( var key in caseItem.store ) {
 				actualStore[ key ] = data.getStore().value( key ).element;
 			}
 			assert.deepEqualWithDomElements( actualStore, caseItem.store, caseItem.msg + ': store' );
@@ -1956,8 +1960,8 @@ QUnit.test( 'sanitize', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'countNonInternalElements', ( assert ) => {
-	const cases = [
+QUnit.test( 'countNonInternalElements', function ( assert ) {
+	var cases = [
 		{
 			data: [
 				{ type: 'paragraph' },
@@ -1972,7 +1976,7 @@ QUnit.test( 'countNonInternalElements', ( assert ) => {
 		{
 			data: [
 				{ type: 'paragraph' },
-				...'Fo',
+				'F', 'o',
 				{ type: '/paragraph' },
 				{ type: 'internalList' },
 				{ type: 'internalItem' },
@@ -1987,14 +1991,14 @@ QUnit.test( 'countNonInternalElements', ( assert ) => {
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
-		const data = new ve.dm.ElementLinearData( new ve.dm.HashValueStore(), caseItem.data );
+	cases.forEach( function ( caseItem ) {
+		var data = new ve.dm.ElementLinearData( new ve.dm.HashValueStore(), caseItem.data );
 		assert.strictEqual( data.countNonInternalElements(), caseItem.expected, caseItem.msg );
 	} );
 } );
 
-QUnit.test( 'hasContent', ( assert ) => {
-	const cases = [
+QUnit.test( 'hasContent', function ( assert ) {
+	var cases = [
 		{
 			data: [],
 			expected: false,
@@ -2056,14 +2060,14 @@ QUnit.test( 'hasContent', ( assert ) => {
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
-		const data = new ve.dm.ElementLinearData( new ve.dm.HashValueStore(), caseItem.data );
+	cases.forEach( function ( caseItem ) {
+		var data = new ve.dm.ElementLinearData( new ve.dm.HashValueStore(), caseItem.data );
 		assert.strictEqual( data.hasContent(), caseItem.expected, caseItem.msg );
 	} );
 } );
 
-QUnit.test( 'getAnnotationHashesFromOffset', ( assert ) => {
-	const boldHash = 'h49981eab0f8056ff',
+QUnit.test( 'getAnnotationHashesFromOffset', function ( assert ) {
+	var boldHash = 'h49981eab0f8056ff',
 		italicHash = 'hefd27ef3bf2041dd',
 		linearData = ve.dm.example.preprocessAnnotations( ve.copy( ve.dm.example.data ) ),
 		elementData = new ve.dm.ElementLinearData( linearData.getStore(), linearData.getData() ),
@@ -2102,7 +2106,7 @@ QUnit.test( 'getAnnotationHashesFromOffset', ( assert ) => {
 			}
 		];
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		assert.deepEqual(
 			elementData.getAnnotationHashesFromOffset( caseItem.offset, caseItem.ignoreClose ),
 			caseItem.expected,
@@ -2110,9 +2114,9 @@ QUnit.test( 'getAnnotationHashesFromOffset', ( assert ) => {
 		);
 	} );
 
-	errorCases.forEach( ( errorCaseItem ) => {
+	errorCases.forEach( function ( errorCaseItem ) {
 		assert.throws(
-			() => {
+			function () {
 				elementData.getAnnotationHashesFromOffset( errorCaseItem.offset, errorCaseItem.ignoreClose );
 			}, new Error( 'offset ' + errorCaseItem.offset + ' out of bounds' ),
 			errorCaseItem.msg
@@ -2120,8 +2124,8 @@ QUnit.test( 'getAnnotationHashesFromOffset', ( assert ) => {
 	} );
 } );
 
-QUnit.test( 'getUsedStoreValues', ( assert ) => {
-	const bold = new ve.dm.BoldAnnotation( { type: 'textStyle/bold', attributes: { nodeName: 'b' } } ),
+QUnit.test( 'getUsedStoreValues', function ( assert ) {
+	var bold = new ve.dm.BoldAnnotation( { type: 'textStyle/bold', attributes: { nodeName: 'b' } } ),
 		italic = new ve.dm.ItalicAnnotation( { type: 'textStyle/italic', attributes: { nodeName: 'i' } } ),
 		linearData = ve.dm.example.preprocessAnnotations( ve.copy( ve.dm.example.data ) ),
 		elementData = new ve.dm.ElementLinearData( linearData.getStore(), linearData.getData() ),
@@ -2166,7 +2170,7 @@ QUnit.test( 'getUsedStoreValues', ( assert ) => {
 		return ann.element;
 	}
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		assert.deepEqual(
 			ve.copy( elementData.getUsedStoreValues( caseItem.range ), getElement ),
 			ve.copy( caseItem.expected, getElement ),
@@ -2176,8 +2180,8 @@ QUnit.test( 'getUsedStoreValues', ( assert ) => {
 
 } );
 
-QUnit.test( 'compareElements and compareElementsUnannotated', ( assert ) => {
-	const store = new ve.dm.HashValueStore(),
+QUnit.test( 'compareElements and compareElementsUnannotated', function ( assert ) {
+	var store = new ve.dm.HashValueStore(),
 		cases = [
 			{
 				a: '母',
@@ -2317,7 +2321,7 @@ QUnit.test( 'compareElements and compareElementsUnannotated', ( assert ) => {
 	store.hash( new ve.dm.BoldAnnotation( ve.dm.example.strong ) );
 	store.hash( new ve.dm.ItalicAnnotation( ve.dm.example.italic ) );
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		assert.strictEqual(
 			ve.dm.ElementLinearData.static.compareElements( caseItem.a, caseItem.b, store ),
 			caseItem.comparison,

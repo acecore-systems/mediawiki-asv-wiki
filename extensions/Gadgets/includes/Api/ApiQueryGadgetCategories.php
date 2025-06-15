@@ -1,5 +1,18 @@
 <?php
+
+namespace MediaWiki\Extension\Gadgets\Api;
+
+use ApiBase;
+use ApiQuery;
+use ApiQueryBase;
+use ApiResult;
+use MediaWiki\Extension\Gadgets\GadgetRepo;
+use Wikimedia\ParamValidator\ParamValidator;
+
 /**
+ * Created on 16 April 2011
+ * API for Gadgets extension
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -14,22 +27,8 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  * http://www.gnu.org/copyleft/gpl.html
- *
- * @file
  */
 
-namespace MediaWiki\Extension\Gadgets\Api;
-
-use MediaWiki\Api\ApiBase;
-use MediaWiki\Api\ApiQuery;
-use MediaWiki\Api\ApiQueryBase;
-use MediaWiki\Api\ApiResult;
-use MediaWiki\Extension\Gadgets\GadgetRepo;
-use Wikimedia\ParamValidator\ParamValidator;
-
-/**
- * API for Gadgets extension
- */
 class ApiQueryGadgetCategories extends ApiQueryBase {
 	/**
 	 * @var array
@@ -41,11 +40,8 @@ class ApiQueryGadgetCategories extends ApiQueryBase {
 	 */
 	private $neededNames;
 
-	private GadgetRepo $gadgetRepo;
-
-	public function __construct( ApiQuery $queryModule, $moduleName, GadgetRepo $gadgetRepo ) {
+	public function __construct( ApiQuery $queryModule, $moduleName ) {
 		parent::__construct( $queryModule, $moduleName, 'gc' );
-		$this->gadgetRepo = $gadgetRepo;
 	}
 
 	public function execute() {
@@ -66,7 +62,7 @@ class ApiQueryGadgetCategories extends ApiQueryBase {
 	private function getList() {
 		$data = [];
 		$result = $this->getResult();
-		$gadgets = $this->gadgetRepo->getStructuredList();
+		$gadgets = GadgetRepo::singleton()->getStructuredList();
 
 		if ( $gadgets ) {
 			foreach ( $gadgets as $category => $list ) {
@@ -103,7 +99,6 @@ class ApiQueryGadgetCategories extends ApiQueryBase {
 					'title',
 					'members',
 				],
-				ApiBase::PARAM_HELP_MSG_PER_VALUE => [],
 			],
 			'names' => [
 				ParamValidator::PARAM_TYPE => 'string',

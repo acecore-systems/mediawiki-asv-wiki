@@ -1,21 +1,32 @@
 <?php
 
 use MediaWiki\MediaWikiServices;
-use MediaWiki\User\User;
 use Psr\Log\LoggerInterface;
-use Wikimedia\FileBackend\FSFile\TempFSFile;
-use Wikimedia\Rdbms\IDBAccessObject;
 
 /**
  * @since 1.31
  */
 class ImportableUploadRevisionImporter implements UploadRevisionImporter {
 
-	private bool $enableUploads;
-	private LoggerInterface $logger;
+	/**
+	 * @var LoggerInterface
+	 */
+	private $logger;
 
-	private bool $shouldCreateNullRevision = true;
+	/**
+	 * @var bool
+	 */
+	private $enableUploads;
 
+	/**
+	 * @var bool
+	 */
+	private $shouldCreateNullRevision = true;
+
+	/**
+	 * @param bool $enableUploads
+	 * @param LoggerInterface $logger
+	 */
 	public function __construct(
 		$enableUploads,
 		LoggerInterface $logger
@@ -54,7 +65,7 @@ class ImportableUploadRevisionImporter implements UploadRevisionImporter {
 				$localRepo, $archiveName );
 		} else {
 			$file = $localRepo->newFile( $importableRevision->getTitle() );
-			$file->load( IDBAccessObject::READ_LATEST );
+			$file->load( File::READ_LATEST );
 			$this->logger->debug( __METHOD__ . ': Importing new file as ' . $file->getName() );
 			if ( $file->exists() && $file->getTimestamp() > $importableRevision->getTimestamp() ) {
 				$archiveName = $importableRevision->getTimestamp() . '!' . $file->getName();
@@ -128,11 +139,16 @@ class ImportableUploadRevisionImporter implements UploadRevisionImporter {
 	}
 
 	/**
+	 * @deprecated DO NOT CALL ME.
+	 * This method was introduced when factoring (Importable)UploadRevisionImporter out of
+	 * WikiRevision. It only has 1 use by the deprecated downloadSource method in WikiRevision.
+	 * Do not use this in new code, it will be made private soon.
+	 *
 	 * @param ImportableUploadRevision $wikiRevision
 	 *
 	 * @return string|false
 	 */
-	private function downloadSource( ImportableUploadRevision $wikiRevision ) {
+	public function downloadSource( ImportableUploadRevision $wikiRevision ) {
 		if ( !$this->enableUploads ) {
 			return false;
 		}

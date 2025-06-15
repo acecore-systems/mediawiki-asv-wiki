@@ -45,7 +45,11 @@ class StaticArrayWriter {
 	public static function write( array $data, $header ) {
 		$code = "<?php\n"
 			. "// " . implode( "\n// ", explode( "\n", $header ) ) . "\n"
-			. "return " . self::encodeArray( $data ) . ";\n";
+			. "return [\n";
+		foreach ( $data as $key => $value ) {
+			$code .= self::encodePair( $key, $value, 1 );
+		}
+		$code .= "];\n";
 		return $code;
 	}
 
@@ -67,35 +71,18 @@ class StaticArrayWriter {
 			. "namespace {$layout['namespace']};\n"
 			. "\n"
 			. "class {$layout['class']} {\n"
-			. "\tpublic const {$layout['const']} = " . self::encodeArray( $data, 1 ) . ";\n}\n";
-		return $code;
-	}
-
-	/**
-	 * Recursively turn an array into properly-indented PHP
-	 *
-	 * @param array $array
-	 * @param int $indent Indentation level
-	 * @return string PHP code
-	 */
-	private static function encodeArray( array $array, $indent = 0 ) {
-		$code = "[\n";
-		$tabs = str_repeat( "\t", $indent );
-		if ( array_is_list( $array ) ) {
-			foreach ( $array as $item ) {
-				$code .= self::encodeItem( $item, $indent + 1 );
-			}
-		} else {
-			foreach ( $array as $key => $value ) {
-				$code .= self::encodePair( $key, $value, $indent + 1 );
-			}
+			. "\tpublic const {$layout['const']} = [\n";
+		foreach ( $data as $key => $value ) {
+			$code .= self::encodePair( $key, $value, 2 );
 		}
-		$code .= "$tabs]";
+		$code .= "\t];\n}\n";
 		return $code;
 	}
 
 	/**
 	 * Recursively turn one k/v pair into properly-indented PHP
+	 *
+	 * @since 1.38
 	 *
 	 * @param string|int $key
 	 * @param mixed $value
@@ -112,31 +99,23 @@ class StaticArrayWriter {
 	}
 
 	/**
-	 * Recursively turn one list item into properly-indented PHP
-	 *
-	 * @param mixed $value
-	 * @param int $indent Indentation level
-	 * @return string PHP code
-	 */
-	private static function encodeItem( $value, $indent = 0 ) {
-		$tabs = str_repeat( "\t", $indent );
-		$line = $tabs . self::encodeValue( $value, $indent );
-
-		$line .= ",\n";
-		return $line;
-	}
-
-	/**
 	 * Recursively turn one value into properly-indented PHP
 	 *
 	 * @since 1.38
+	 *
 	 * @param mixed $value
 	 * @param int $indent Indentation level
 	 * @return string PHP code
 	 */
 	public static function encodeValue( $value, $indent = 0 ) {
 		if ( is_array( $value ) ) {
-			return self::encodeArray( $value, $indent );
+			$tabs = str_repeat( "\t", $indent );
+			$line = "[\n";
+			foreach ( $value as $subkey => $subvalue ) {
+				$line .= self::encodePair( $subkey, $subvalue, $indent + 1 );
+			}
+			$line .= "$tabs]";
+			return $line;
 		} else {
 			$exportedValue = var_export( $value, true );
 			if ( $exportedValue === 'NULL' ) {

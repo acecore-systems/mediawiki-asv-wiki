@@ -1,24 +1,11 @@
 <?php
 
-namespace MediaWiki\Extension\Scribunto\Engines\LuaCommon;
-
-use DateTime;
-use DateTimeZone;
-use Exception;
-use MediaWiki\Language\Language;
-use MediaWiki\Language\LanguageCode;
-use MediaWiki\Languages\LanguageNameUtils;
-use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
-use MediaWiki\Utils\MWTimestamp;
-use Wikimedia\RequestTimeout\TimeoutException;
 
-class LanguageLibrary extends LibraryBase {
+class Scribunto_LuaLanguageLibrary extends Scribunto_LuaLibraryBase {
 	/** @var Language[] */
 	public $langCache = [];
-	/** @var array[] */
+	/** @var array */
 	public $timeCache = [];
 	/** @var int */
 	public $maxLangCacheSize;
@@ -38,7 +25,6 @@ class LanguageLibrary extends LibraryBase {
 			'fetchLanguageName',
 			'fetchLanguageNames',
 			'getFallbacksFor',
-			'toBcp47Code',
 		];
 		$methods = [
 			'lcfirst',
@@ -86,7 +72,12 @@ class LanguageLibrary extends LibraryBase {
 	 */
 	public function isSupportedLanguage( $code ) {
 		$this->checkType( 'isSupportedLanguage', 1, $code, 'string' );
-		return [ MediaWikiServices::getInstance()->getLanguageNameUtils()->isSupportedLanguage( $code ) ];
+		try {
+			// There's no good reason this should throw, but it does. Sigh.
+			return [ Language::isSupportedLanguage( $code ) ];
+		} catch ( MWException $ex ) {
+			return [ false ];
+		}
 	}
 
 	/**
@@ -97,7 +88,7 @@ class LanguageLibrary extends LibraryBase {
 	 */
 	public function isKnownLanguageTag( $code ) {
 		$this->checkType( 'isKnownLanguageTag', 1, $code, 'string' );
-		return [ MediaWikiServices::getInstance()->getLanguageNameUtils()->isKnownLanguageTag( $code ) ];
+		return [ Language::isKnownLanguageTag( $code ) ];
 	}
 
 	/**
@@ -108,7 +99,7 @@ class LanguageLibrary extends LibraryBase {
 	 */
 	public function isValidCode( $code ) {
 		$this->checkType( 'isValidCode', 1, $code, 'string' );
-		return [ MediaWikiServices::getInstance()->getLanguageNameUtils()->isValidCode( $code ) ];
+		return [ Language::isValidCode( $code ) ];
 	}
 
 	/**
@@ -119,7 +110,7 @@ class LanguageLibrary extends LibraryBase {
 	 */
 	public function isValidBuiltInCode( $code ) {
 		$this->checkType( 'isValidBuiltInCode', 1, $code, 'string' );
-		return [ MediaWikiServices::getInstance()->getLanguageNameUtils()->isValidBuiltInCode( $code ) ];
+		return [ (bool)Language::isValidBuiltInCode( $code ) ];
 	}
 
 	/**
@@ -131,9 +122,8 @@ class LanguageLibrary extends LibraryBase {
 	 */
 	public function fetchLanguageName( $code, $inLanguage ) {
 		$this->checkType( 'fetchLanguageName', 1, $code, 'string' );
-		$this->checkTypeOptional( 'fetchLanguageName', 2, $inLanguage, 'string', LanguageNameUtils::AUTONYMS );
-		return [ MediaWikiServices::getInstance()->getLanguageNameUtils()
-			->getLanguageName( $code, $inLanguage ) ];
+		$this->checkTypeOptional( 'fetchLanguageName', 2, $inLanguage, 'string', null );
+		return [ Language::fetchLanguageName( $code, $inLanguage ) ];
 	}
 
 	/**
@@ -144,10 +134,9 @@ class LanguageLibrary extends LibraryBase {
 	 * @return string[][]
 	 */
 	public function fetchLanguageNames( $inLanguage, $include ) {
-		$this->checkTypeOptional( 'fetchLanguageNames', 1, $inLanguage, 'string', LanguageNameUtils::AUTONYMS );
-		$this->checkTypeOptional( 'fetchLanguageNames', 2, $include, 'string', LanguageNameUtils::DEFINED );
-		return [ MediaWikiServices::getInstance()->getLanguageNameUtils()
-			->getLanguageNames( $inLanguage, $include ) ];
+		$this->checkTypeOptional( 'fetchLanguageNames', 1, $inLanguage, 'string', null );
+		$this->checkTypeOptional( 'fetchLanguageNames', 2, $include, 'string', 'mw' );
+		return [ Language::fetchLanguageNames( $inLanguage, $include ) ];
 	}
 
 	/**
@@ -158,23 +147,11 @@ class LanguageLibrary extends LibraryBase {
 	 */
 	public function getFallbacksFor( $code ) {
 		$this->checkType( 'getFallbacksFor', 1, $code, 'string' );
-		$ret = MediaWikiServices::getInstance()->getLanguageFallback()->getAll( $code );
+		$ret = Language::getFallbacksFor( $code );
 		// Make 1-based
 		if ( count( $ret ) ) {
 			$ret = array_combine( range( 1, count( $ret ) ), $ret );
 		}
-		return [ $ret ];
-	}
-
-	/**
-	 * Handler for toBcp47Code
-	 * @internal
-	 * @param string $code a MediaWiki-internal code
-	 * @return string[] a BCP-47 language tag
-	 */
-	public function toBcp47Code( $code ) {
-		$this->checkType( 'toBcp47Code', 1, $code, 'string' );
-		$ret = LanguageCode::bcp47( $code );
 		return [ $ret ];
 	}
 
@@ -184,24 +161,19 @@ class LanguageLibrary extends LibraryBase {
 	 * @param string $name
 	 * @param array $args
 	 * @return array
-	 * @throws LuaError
+	 * @throws Scribunto_LuaError
 	 */
-	public function languageMethod( string $name, array $args ): array {
-		if ( !is_string( $args[0] ?? null ) ) {
-			throw new LuaError(
-				"invalid code property of language object when calling $name"
-			);
-		}
+	public function languageMethod( $name, $args ) {
+		$name = strval( $name );
 		$code = array_shift( $args );
 		if ( !isset( $this->langCache[$code] ) ) {
 			if ( count( $this->langCache ) > $this->maxLangCacheSize ) {
-				throw new LuaError( 'too many language codes requested' );
+				throw new Scribunto_LuaError( 'too many language codes requested' );
 			}
-			$services = MediaWikiServices::getInstance();
-			if ( $services->getLanguageNameUtils()->isValidCode( $code ) ) {
-				$this->langCache[$code] = $services->getLanguageFactory()->getLanguage( $code );
-			} else {
-				throw new LuaError( "language code '$code' is invalid" );
+			try {
+				$this->langCache[$code] = Language::factory( $code );
+			} catch ( MWException $ex ) {
+				throw new Scribunto_LuaError( "language code '$code' is invalid" );
 			}
 		}
 		$lang = $this->langCache[$code];
@@ -328,10 +300,10 @@ class LanguageLibrary extends LibraryBase {
 		$num = $args[0];
 		$this->checkType( 'formatNum', 1, $num, 'number' );
 		if ( is_infinite( $num ) ) {
-			throw new LuaError( "bad argument #1 to 'formatNum' (infinite)" );
+			throw new Scribunto_LuaError( "bad argument #1 to 'formatNum' (infinite)" );
 		}
 		if ( is_nan( $num ) ) {
-			throw new LuaError( "bad argument #1 to 'formatNum' (NaN)" );
+			throw new Scribunto_LuaError( "bad argument #1 to 'formatNum' (NaN)" );
 		}
 
 		$noCommafy = false;
@@ -353,14 +325,14 @@ class LanguageLibrary extends LibraryBase {
 	 * @param Language $lang
 	 * @param array $args
 	 * @return array
-	 * @throws LuaError
+	 * @throws Scribunto_LuaError
 	 */
 	public function formatDate( $lang, $args ) {
 		$this->checkType( 'formatDate', 1, $args[0], 'string' );
 		$this->checkTypeOptional( 'formatDate', 2, $args[1], 'string', '' );
 		$this->checkTypeOptional( 'formatDate', 3, $args[2], 'boolean', false );
 
-		[ $format, $date, $local ] = $args;
+		list( $format, $date, $local ) = $args;
 		$langcode = $lang->getCode();
 
 		if ( $date === '' ) {
@@ -390,19 +362,15 @@ class LanguageLibrary extends LibraryBase {
 		try {
 			$utc = new DateTimeZone( 'UTC' );
 			$dateObject = new DateTime( $date, $utc );
-		} catch ( TimeoutException $ex ) {
-			// Unfortunately DateTime throws a generic Exception, but we can't
-			// ignore an exception generated by the RequestTimeout library.
-			throw $ex;
 		} catch ( Exception $ex ) {
-			throw new LuaError( "bad argument #2 to 'formatDate': invalid timestamp '$date'" );
+			throw new Scribunto_LuaError( "bad argument #2 to 'formatDate' (not a valid timestamp)" );
 		}
 
 		# Set output timezone.
 		if ( $local ) {
-			$localtimezone = MediaWikiServices::getInstance()->getMainConfig()->get( MainConfigNames::Localtimezone );
-			if ( isset( $localtimezone ) ) {
-				$tz = new DateTimeZone( $localtimezone );
+			global $wgLocaltimezone;
+			if ( isset( $wgLocaltimezone ) ) {
+				$tz = new DateTimeZone( $wgLocaltimezone );
 			} else {
 				$tz = new DateTimeZone( date_default_timezone_get() );
 			}
@@ -414,9 +382,9 @@ class LanguageLibrary extends LibraryBase {
 		$ts = $dateObject->format( 'YmdHis' );
 
 		if ( $ts < 0 ) {
-			throw new LuaError( "mw.language:formatDate() only supports years from 0" );
+			throw new Scribunto_LuaError( "mw.language:formatDate() only supports years from 0" );
 		} elseif ( $ts >= 100000000000000 ) {
-			throw new LuaError( "mw.language:formatDate() only supports years up to 9999" );
+			throw new Scribunto_LuaError( "mw.language:formatDate() only supports years up to 9999" );
 		}
 
 		$ttl = null;
@@ -439,7 +407,7 @@ class LanguageLibrary extends LibraryBase {
 		$this->checkType( 'formatDuration', 1, $args[0], 'number' );
 		$this->checkTypeOptional( 'formatDuration', 2, $args[1], 'table', [] );
 
-		[ $seconds, $chosenIntervals ] = $args;
+		list( $seconds, $chosenIntervals ) = $args;
 		$chosenIntervals = array_values( $chosenIntervals );
 
 		$ret = $lang->formatDuration( $seconds, $chosenIntervals );
@@ -457,7 +425,7 @@ class LanguageLibrary extends LibraryBase {
 		$this->checkType( 'getDurationIntervals', 1, $args[0], 'number' );
 		$this->checkTypeOptional( 'getDurationIntervals', 2, $args[1], 'table', [] );
 
-		[ $seconds, $chosenIntervals ] = $args;
+		list( $seconds, $chosenIntervals ) = $args;
 		$chosenIntervals = array_values( $chosenIntervals );
 
 		$ret = $lang->getDurationIntervals( $seconds, $chosenIntervals );

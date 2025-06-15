@@ -1,11 +1,11 @@
 {
 	"@metadata": {
 		"authors": [
-			"Afalau",
-			"Ceirios",
 			"Lloffiwr",
 			"Robin Owain",
-			"Xxglennxx"
+			"Xxglennxx",
+			"Afalau",
+			"Ceirios"
 		]
 	},
 	"config-desc": "Y gosodwr ar gyfer MediaWiki",

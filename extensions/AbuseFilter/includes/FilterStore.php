@@ -6,13 +6,11 @@ use ManualLogEntry;
 use MediaWiki\Extension\AbuseFilter\ChangeTags\ChangeTagsManager;
 use MediaWiki\Extension\AbuseFilter\Consequences\ConsequencesRegistry;
 use MediaWiki\Extension\AbuseFilter\Filter\Filter;
-use MediaWiki\Extension\AbuseFilter\Filter\Flags;
 use MediaWiki\Extension\AbuseFilter\Special\SpecialAbuseFilter;
 use MediaWiki\Permissions\Authority;
-use MediaWiki\Status\Status;
-use MediaWiki\User\ActorNormalization;
 use MediaWiki\User\UserIdentity;
-use Wikimedia\Rdbms\LBFactory;
+use Status;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * @internal
@@ -23,11 +21,8 @@ class FilterStore {
 	/** @var ConsequencesRegistry */
 	private $consequencesRegistry;
 
-	/** @var LBFactory */
-	private $lbFactory;
-
-	/** @var ActorNormalization */
-	private $actorNormalization;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
 
 	/** @var FilterProfiler */
 	private $filterProfiler;
@@ -49,8 +44,7 @@ class FilterStore {
 
 	/**
 	 * @param ConsequencesRegistry $consequencesRegistry
-	 * @param LBFactory $lbFactory
-	 * @param ActorNormalization $actorNormalization
+	 * @param ILoadBalancer $loadBalancer
 	 * @param FilterProfiler $filterProfiler
 	 * @param FilterLookup $filterLookup
 	 * @param ChangeTagsManager $tagsManager
@@ -60,8 +54,7 @@ class FilterStore {
 	 */
 	public function __construct(
 		ConsequencesRegistry $consequencesRegistry,
-		LBFactory $lbFactory,
-		ActorNormalization $actorNormalization,
+		ILoadBalancer $loadBalancer,
 		FilterProfiler $filterProfiler,
 		FilterLookup $filterLookup,
 		ChangeTagsManager $tagsManager,
@@ -70,8 +63,7 @@ class FilterStore {
 		EmergencyCache $emergencyCache
 	) {
 		$this->consequencesRegistry = $consequencesRegistry;
-		$this->lbFactory = $lbFactory;
-		$this->actorNormalization = $actorNormalization;
+		$this->loadBalancer = $loadBalancer;
 		$this->filterProfiler = $filterProfiler;
 		$this->filterLookup = $filterLookup;
 		$this->tagsManager = $tagsManager;
@@ -114,7 +106,7 @@ class FilterStore {
 		// Everything went fine, so let's save the filter
 		$wasGlobal = $originalFilter->isGlobal();
 		[ $newID, $historyID ] = $this->doSaveFilter(
-			$performer->getUser(), $newFilter, $originalFilter, $differences, $filterId, $wasGlobal );
+			$performer->getUser(), $newFilter, $differences, $filterId, $wasGlobal );
 		return Status::newGood( [ $newID, $historyID ] );
 	}
 
@@ -123,7 +115,6 @@ class FilterStore {
 	 *
 	 * @param UserIdentity $userIdentity
 	 * @param Filter $newFilter
-	 * @param Filter $originalFilter
 	 * @param array $differences
 	 * @param int|null $filterId
 	 * @param bool $wasGlobal
@@ -132,17 +123,17 @@ class FilterStore {
 	private function doSaveFilter(
 		UserIdentity $userIdentity,
 		Filter $newFilter,
-		Filter $originalFilter,
 		array $differences,
 		?int $filterId,
 		bool $wasGlobal
 	): array {
-		$dbw = $this->lbFactory->getPrimaryDatabase();
-		$newRow = $this->filterToDatabaseRow( $newFilter, $originalFilter );
+		$dbw = $this->loadBalancer->getConnectionRef( DB_PRIMARY );
+		$newRow = $this->filterToDatabaseRow( $newFilter );
 
 		// Set last modifier.
 		$newRow['af_timestamp'] = $dbw->timestamp();
-		$newRow['af_actor'] = $this->actorNormalization->acquireActorId( $userIdentity, $dbw );
+		$newRow['af_user'] = $userIdentity->getId();
+		$newRow['af_user_text'] = $userIdentity->getName();
 
 		$isNew = $filterId === null;
 
@@ -150,24 +141,15 @@ class FilterStore {
 		// TODO: It might make more sense to check what was actually changed
 		$newRow['af_throttled'] = ( $newRow['af_throttled'] ?? false ) && !$newRow['af_enabled'];
 		// This is null when creating a new filter, but the DB field is NOT NULL
-		$newRow['af_hit_count'] ??= 0;
+		$newRow['af_hit_count'] = $newRow['af_hit_count'] ?? 0;
 		$rowForInsert = array_diff_key( $newRow, [ 'af_id' => true ] );
 
 		$dbw->startAtomic( __METHOD__ );
 		if ( $filterId === null ) {
-			$dbw->newInsertQueryBuilder()
-				->insertInto( 'abuse_filter' )
-				->row( $rowForInsert )
-				->caller( __METHOD__ )
-				->execute();
+			$dbw->insert( 'abuse_filter', $rowForInsert, __METHOD__ );
 			$filterId = $dbw->insertId();
 		} else {
-			$dbw->newUpdateQueryBuilder()
-				->update( 'abuse_filter' )
-				->set( $rowForInsert )
-				->where( [ 'af_id' => $filterId ] )
-				->caller( __METHOD__ )
-				->execute();
+			$dbw->update( 'abuse_filter', $rowForInsert, [ 'af_id' => $filterId ], __METHOD__ );
 		}
 		$newRow['af_id'] = $filterId;
 
@@ -197,10 +179,7 @@ class FilterStore {
 		$afhRow = [];
 
 		foreach ( AbuseFilter::HISTORY_MAPPINGS as $afCol => $afhCol ) {
-			// Some fields are expected to be missing during actor migration
-			if ( isset( $newRow[$afCol] ) ) {
-				$afhRow[$afhCol] = $newRow[$afCol];
-			}
+			$afhRow[$afhCol] = $newRow[$afCol];
 		}
 
 		$afhRow['afh_actions'] = serialize( $actions );
@@ -208,11 +187,8 @@ class FilterStore {
 		$afhRow['afh_changed_fields'] = implode( ',', $differences );
 
 		$flags = [];
-		if ( FilterUtils::isHidden( $newRow['af_hidden'] ) ) {
+		if ( $newRow['af_hidden'] ) {
 			$flags[] = 'hidden';
-		}
-		if ( FilterUtils::isProtected( $newRow['af_hidden'] ) ) {
-			$flags[] = 'protected';
 		}
 		if ( $newRow['af_enabled'] ) {
 			$flags[] = 'enabled';
@@ -229,26 +205,16 @@ class FilterStore {
 		$afhRow['afh_filter'] = $filterId;
 
 		// Do the update
-		$dbw->newInsertQueryBuilder()
-			->insertInto( 'abuse_filter_history' )
-			->row( $afhRow )
-			->caller( __METHOD__ )
-			->execute();
+		$dbw->insert( 'abuse_filter_history', $afhRow, __METHOD__ );
 		$historyID = $dbw->insertId();
 		if ( !$isNew ) {
-			$dbw->newDeleteQueryBuilder()
-				->deleteFrom( 'abuse_filter_action' )
-				->where( [ 'afa_filter' => $filterId ] )
-				->caller( __METHOD__ )
-				->execute();
+			$dbw->delete(
+				'abuse_filter_action',
+				[ 'afa_filter' => $filterId ],
+				__METHOD__
+			);
 		}
-		if ( $actionsRows ) {
-			$dbw->newInsertQueryBuilder()
-				->insertInto( 'abuse_filter_action' )
-				->rows( $actionsRows )
-				->caller( __METHOD__ )
-				->execute();
-		}
+		$dbw->insert( 'abuse_filter_action', $actionsRows, __METHOD__ );
 
 		$dbw->endAtomic( __METHOD__ );
 
@@ -282,20 +248,11 @@ class FilterStore {
 
 	/**
 	 * @todo Perhaps add validation to ensure no null values remained.
-	 * @note For simplicity, data about the last editor are omitted.
 	 * @param Filter $filter
 	 * @return array
 	 */
-	private function filterToDatabaseRow( Filter $filter, Filter $originalFilter ): array {
+	private function filterToDatabaseRow( Filter $filter ): array {
 		// T67807: integer 1's & 0's might be better understood than booleans
-
-		// If the filter is already protected, it must remain protected even if
-		// the current filter doesn't use a protected variable anymore
-		$privacyLevel = $filter->getPrivacyLevel();
-		if ( $originalFilter->isProtected() ) {
-			$privacyLevel |= Flags::FILTER_USES_PROTECTED_VARS;
-		}
-
 		return [
 			'af_id' => $filter->getID(),
 			'af_pattern' => $filter->getRules(),
@@ -305,8 +262,10 @@ class FilterStore {
 			'af_actions' => implode( ',', $filter->getActionsNames() ),
 			'af_enabled' => (int)$filter->isEnabled(),
 			'af_deleted' => (int)$filter->isDeleted(),
-			'af_hidden' => $privacyLevel,
+			'af_hidden' => (int)$filter->isHidden(),
 			'af_global' => (int)$filter->isGlobal(),
+			'af_user' => $filter->getUserID(),
+			'af_user_text' => $filter->getUserName(),
 			'af_timestamp' => $filter->getTimestamp(),
 			'af_hit_count' => $filter->getHitCount(),
 			'af_throttled' => (int)$filter->isThrottled(),

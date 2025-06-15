@@ -1,7 +1,7 @@
 /*!
  * VisualEditor Content Editable Range State class
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -89,10 +89,10 @@ OO.initClass( ve.ce.RangeState );
  * @param {boolean} selectionOnly The caller promises the content has not changed from old
  */
 ve.ce.RangeState.prototype.saveState = function ( old, root, selectionOnly ) {
-	const oldSelection = old ? old.misleadingSelection : ve.SelectionState.static.newNullSelection(),
+	var oldSelection = old ? old.misleadingSelection : ve.SelectionState.static.newNullSelection(),
 		nativeSelection = root.getElementDocument().getSelection();
 
-	let selection;
+	var selection;
 	if (
 		nativeSelection.rangeCount &&
 		OO.ui.contains( root.$element[ 0 ], nativeSelection.focusNode, true )
@@ -114,12 +114,12 @@ ve.ce.RangeState.prototype.saveState = function ( old, root, selectionOnly ) {
 		this.veRange = ve.ce.veRangeFromSelection( selection );
 	}
 
-	const focusNodeChanged = oldSelection.focusNode !== selection.focusNode;
+	var focusNodeChanged = oldSelection.focusNode !== selection.focusNode;
 
 	if ( !focusNodeChanged ) {
 		this.node = old && old.node;
 	} else {
-		const $node = $( selection.focusNode ).closest( '.ve-ce-branchNode' );
+		var $node = $( selection.focusNode ).closest( '.ve-ce-branchNode' );
 		if ( $node.length === 0 ) {
 			this.node = null;
 		} else {

@@ -20,10 +20,7 @@
  * @file
  */
 
-namespace MediaWiki\RevisionList;
-
 use MediaWiki\MediaWikiServices;
-use Wikimedia\Rdbms\SelectQueryBuilder;
 
 class RevisionList extends RevisionListBase {
 	/** @inheritDoc */
@@ -33,16 +30,21 @@ class RevisionList extends RevisionListBase {
 
 	/** @inheritDoc */
 	public function doQuery( $db ) {
-		$queryBuilder = MediaWikiServices::getInstance()->getRevisionStore()->newSelectQueryBuilder( $db )
-			->joinComment()
-			->joinPage()
-			->joinUser()
-			->where( [ 'rev_page' => $this->page->getId() ] )
-			->orderBy( 'rev_id', SelectQueryBuilder::SORT_DESC );
+		$conds = [ 'rev_page' => $this->page->getId() ];
 		if ( $this->ids !== null ) {
-			$queryBuilder->andWhere( [ 'rev_id' => array_map( 'intval', $this->ids ) ] );
+			$conds['rev_id'] = array_map( 'intval', $this->ids );
 		}
-		return $queryBuilder->caller( __METHOD__ )->fetchResultSet();
+		$revQuery = MediaWikiServices::getInstance()
+			->getRevisionStore()
+			->getQueryInfo( [ 'page', 'user' ] );
+		return $db->select(
+			$revQuery['tables'],
+			$revQuery['fields'],
+			$conds,
+			__METHOD__,
+			[ 'ORDER BY' => 'rev_id DESC' ],
+			$revQuery['joins']
+		);
 	}
 
 	/** @inheritDoc */
@@ -50,5 +52,3 @@ class RevisionList extends RevisionListBase {
 		return new RevisionItem( $this, $row );
 	}
 }
-/** @deprecated class alias since 1.43 */
-class_alias( RevisionList::class, 'RevisionList' );

@@ -21,13 +21,8 @@
  * @ingroup Installer
  */
 
-namespace MediaWiki\Installer;
-
-use InvalidArgumentException;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Status\Status;
 use Wikimedia\Rdbms\Database;
-use Wikimedia\Rdbms\DatabaseFactory;
 use Wikimedia\Rdbms\DatabasePostgres;
 use Wikimedia\Rdbms\DBConnectionError;
 use Wikimedia\Rdbms\DBQueryError;
@@ -40,7 +35,6 @@ use Wikimedia\Rdbms\DBQueryError;
  */
 class PostgresInstaller extends DatabaseInstaller {
 
-	/** @inheritDoc */
 	protected $globalNames = [
 		'wgDBserver',
 		'wgDBport',
@@ -51,17 +45,15 @@ class PostgresInstaller extends DatabaseInstaller {
 		'wgDBmwschema',
 	];
 
-	/** @inheritDoc */
 	protected $internalDefaults = [
 		'_InstallUser' => 'postgres',
 	];
 
-	/** @inheritDoc */
 	public static $minimumVersion = '10';
-	/** @inheritDoc */
 	protected static $notMinimumVersionMessage = 'config-postgres-old';
-	/** @var int */
 	public $maxRoleSearchDepth = 5;
+
+	protected $pgConns = [];
 
 	public function getName() {
 		return 'postgres';
@@ -71,12 +63,94 @@ class PostgresInstaller extends DatabaseInstaller {
 		return self::checkExtension( 'pgsql' );
 	}
 
-	public function getConnectForm( WebInstaller $webInstaller ): DatabaseConnectForm {
-		return new PostgresConnectForm( $webInstaller, $this );
+	public function getConnectForm() {
+		return $this->getTextBox(
+			'wgDBserver',
+			'config-db-host',
+			[],
+			$this->parent->getHelpBox( 'config-db-host-help' )
+		) .
+			$this->getTextBox( 'wgDBport', 'config-db-port' ) .
+			$this->getCheckBox( 'wgDBssl', 'config-db-ssl' ) .
+			Html::openElement( 'fieldset' ) .
+			Html::element( 'legend', [], wfMessage( 'config-db-wiki-settings' )->text() ) .
+			$this->getTextBox(
+				'wgDBname',
+				'config-db-name',
+				[],
+				$this->parent->getHelpBox( 'config-db-name-help' )
+			) .
+			$this->getTextBox(
+				'wgDBmwschema',
+				'config-db-schema',
+				[],
+				$this->parent->getHelpBox( 'config-db-schema-help' )
+			) .
+			Html::closeElement( 'fieldset' ) .
+			$this->getInstallUserBox();
 	}
 
-	public function getSettingsForm( WebInstaller $webInstaller ): DatabaseSettingsForm {
-		return new PostgresSettingsForm( $webInstaller, $this );
+	public function submitConnectForm() {
+		// Get variables from the request
+		$newValues = $this->setVarsFromRequest( [
+			'wgDBserver',
+			'wgDBport',
+			'wgDBssl',
+			'wgDBname',
+			'wgDBmwschema'
+		] );
+
+		// Validate them
+		$status = Status::newGood();
+		if ( !strlen( $newValues['wgDBname'] ) ) {
+			$status->fatal( 'config-missing-db-name' );
+		} elseif ( !preg_match( '/^[a-zA-Z0-9_]+$/', $newValues['wgDBname'] ) ) {
+			$status->fatal( 'config-invalid-db-name', $newValues['wgDBname'] );
+		}
+		if ( !preg_match( '/^[a-zA-Z0-9_]*$/', $newValues['wgDBmwschema'] ) ) {
+			$status->fatal( 'config-invalid-schema', $newValues['wgDBmwschema'] );
+		}
+
+		// Submit user box
+		if ( $status->isOK() ) {
+			$status->merge( $this->submitInstallUserBox() );
+		}
+		if ( !$status->isOK() ) {
+			return $status;
+		}
+
+		$status = $this->getPgConnection( 'create-db' );
+		if ( !$status->isOK() ) {
+			return $status;
+		}
+		/**
+		 * @var Database $conn
+		 */
+		$conn = $status->value;
+
+		// Check version
+		$status = static::meetsMinimumRequirement( $conn );
+		if ( !$status->isOK() ) {
+			return $status;
+		}
+
+		$this->setVar( 'wgDBuser', $this->getVar( '_InstallUser' ) );
+		$this->setVar( 'wgDBpassword', $this->getVar( '_InstallPassword' ) );
+
+		return Status::newGood();
+	}
+
+	public function getConnection() {
+		$status = $this->getPgConnection( 'create-tables' );
+		if ( $status->isOK() ) {
+			$this->db = $status->value;
+		}
+
+		return $status;
+	}
+
+	public function openConnection() {
+		return $this->openPgConnection( 'create-tables' );
 	}
 
 	/**
@@ -85,10 +159,10 @@ class PostgresInstaller extends DatabaseInstaller {
 	 * @param string $password
 	 * @param string $dbName Database name
 	 * @param string $schema Database schema
-	 * @return ConnectionStatus
+	 * @return Status
 	 */
 	protected function openConnectionWithParams( $user, $password, $dbName, $schema ) {
-		$status = new ConnectionStatus;
+		$status = Status::newGood();
 		try {
 			$db = MediaWikiServices::getInstance()->getDatabaseFactory()->create( 'postgres', [
 				'host' => $this->getVar( 'wgDBserver' ),
@@ -99,9 +173,33 @@ class PostgresInstaller extends DatabaseInstaller {
 				'dbname' => $dbName,
 				'schema' => $schema,
 			] );
-			$status->setDB( $db );
+			$status->value = $db;
 		} catch ( DBConnectionError $e ) {
 			$status->fatal( 'config-connection-error', $e->getMessage() );
+		}
+
+		return $status;
+	}
+
+	/**
+	 * Get a special type of connection
+	 * @param string $type See openPgConnection() for details.
+	 * @return Status
+	 */
+	protected function getPgConnection( $type ) {
+		if ( isset( $this->pgConns[$type] ) ) {
+			return Status::newGood( $this->pgConns[$type] );
+		}
+		$status = $this->openPgConnection( $type );
+
+		if ( $status->isOK() ) {
+			/**
+			 * @var Database $conn
+			 */
+			$conn = $status->value;
+			$conn->clearFlag( DBO_TRX );
+			$conn->commit( __METHOD__ );
+			$this->pgConns[$type] = $conn;
 		}
 
 		return $status;
@@ -123,52 +221,42 @@ class PostgresInstaller extends DatabaseInstaller {
 	 * dependencies.
 	 *
 	 * @param string $type The type of connection to get:
-	 *    - self::CONN_CREATE_DATABASE: A connection for creating DBs, suitable for pre-
-	 *                                  installation.
-	 *    - self::CONN_CREATE_SCHEMA:   A connection to the new DB, for creating schemas and
-	 *                                  other similar objects in the new DB.
-	 *    - self::CONN_CREATE_TABLES:   A connection with a role suitable for creating tables.
-	 * @return ConnectionStatus On success, a connection object will be in the value member.
+	 *    - create-db:     A connection for creating DBs, suitable for pre-
+	 *                     installation.
+	 *    - create-schema: A connection to the new DB, for creating schemas and
+	 *                     other similar objects in the new DB.
+	 *    - create-tables: A connection with a role suitable for creating tables.
+	 *
+	 * @throws MWException
+	 * @return Status On success, a connection object will be in the value member.
 	 */
-	protected function openConnection( string $type ) {
+	protected function openPgConnection( $type ) {
 		switch ( $type ) {
-			case self::CONN_CREATE_DATABASE:
+			case 'create-db':
 				return $this->openConnectionToAnyDB(
 					$this->getVar( '_InstallUser' ),
 					$this->getVar( '_InstallPassword' ) );
-			case self::CONN_CREATE_SCHEMA:
+			case 'create-schema':
 				return $this->openConnectionWithParams(
 					$this->getVar( '_InstallUser' ),
 					$this->getVar( '_InstallPassword' ),
 					$this->getVar( 'wgDBname' ),
 					$this->getVar( 'wgDBmwschema' ) );
-			case self::CONN_CREATE_TABLES:
-				$status = $this->openConnection( self::CONN_CREATE_SCHEMA );
+			case 'create-tables':
+				$status = $this->openPgConnection( 'create-schema' );
 				if ( $status->isOK() ) {
-					$status->merge( $this->changeConnTypeFromSchemaToTables( $status->getDB() ) );
+					/**
+					 * @var Database $conn
+					 */
+					$conn = $status->value;
+					$safeRole = $conn->addIdentifierQuotes( $this->getVar( 'wgDBuser' ) );
+					$conn->query( "SET ROLE $safeRole", __METHOD__ );
 				}
 
 				return $status;
 			default:
-				throw new InvalidArgumentException( "Invalid connection type: \"$type\"" );
+				throw new MWException( "Invalid special connection type: \"$type\"" );
 		}
-	}
-
-	protected function changeConnTypeFromSchemaToTables( Database $conn ) {
-		if ( !( $conn instanceof DatabasePostgres ) ) {
-			throw new InvalidArgumentException( 'Invalid connection type' );
-		}
-		$status = new ConnectionStatus( $conn );
-		$schema = $this->getVar( 'wgDBmwschema' );
-		if ( !$conn->schemaExists( $schema ) ) {
-			$status->fatal( 'config-install-pg-schema-not-exist' );
-			return $status;
-		}
-		$conn->determineCoreSchema( $schema );
-
-		$safeRole = $conn->addIdentifierQuotes( $this->getVar( 'wgDBuser' ) );
-		$conn->query( "SET ROLE $safeRole", __METHOD__ );
-		return $status;
 	}
 
 	public function openConnectionToAnyDB( $user, $password ) {
@@ -180,7 +268,7 @@ class PostgresInstaller extends DatabaseInstaller {
 			array_unshift( $dbs, $this->getVar( 'wgDBname' ) );
 		}
 		$conn = false;
-		$status = new ConnectionStatus;
+		$status = Status::newGood();
 		foreach ( $dbs as $db ) {
 			try {
 				$p = [
@@ -191,7 +279,7 @@ class PostgresInstaller extends DatabaseInstaller {
 					'ssl' => $this->getVar( 'wgDBssl' ),
 					'dbname' => $db
 				];
-				$conn = ( new DatabaseFactory() )->create( 'postgres', $p );
+				$conn = Database::factory( 'postgres', $p );
 			} catch ( DBConnectionError $error ) {
 				$conn = false;
 				$status->fatal( 'config-pg-test-error', $db,
@@ -202,18 +290,21 @@ class PostgresInstaller extends DatabaseInstaller {
 			}
 		}
 		if ( $conn !== false ) {
-			return new ConnectionStatus( $conn );
+			return Status::newGood( $conn );
 		} else {
 			return $status;
 		}
 	}
 
 	protected function getInstallUserPermissions() {
-		$status = $this->getConnection( self::CONN_CREATE_DATABASE );
+		$status = $this->getPgConnection( 'create-db' );
 		if ( !$status->isOK() ) {
 			return false;
 		}
-		$conn = $status->getDB();
+		/**
+		 * @var Database $conn
+		 */
+		$conn = $status->value;
 		$superuser = $this->getVar( '_InstallUser' );
 
 		$row = $conn->selectRow( '"pg_catalog"."pg_roles"', '*',
@@ -222,14 +313,95 @@ class PostgresInstaller extends DatabaseInstaller {
 		return $row;
 	}
 
-	public function canCreateAccounts() {
+	protected function canCreateAccounts() {
 		$perms = $this->getInstallUserPermissions();
-		return ( $perms && $perms->rolsuper ) || $perms->rolcreaterole;
+		if ( !$perms ) {
+			return false;
+		}
+
+		return $perms->rolsuper === 't' || $perms->rolcreaterole === 't';
 	}
 
 	protected function isSuperUser() {
 		$perms = $this->getInstallUserPermissions();
-		return $perms && $perms->rolsuper;
+		if ( !$perms ) {
+			return false;
+		}
+
+		return $perms->rolsuper === 't';
+	}
+
+	public function getSettingsForm() {
+		if ( $this->canCreateAccounts() ) {
+			$noCreateMsg = false;
+		} else {
+			$noCreateMsg = 'config-db-web-no-create-privs';
+		}
+		$s = $this->getWebUserBox( $noCreateMsg );
+
+		return $s;
+	}
+
+	public function submitSettingsForm() {
+		$status = $this->submitWebUserBox();
+		if ( !$status->isOK() ) {
+			return $status;
+		}
+
+		$same = $this->getVar( 'wgDBuser' ) === $this->getVar( '_InstallUser' );
+
+		if ( $same ) {
+			$exists = true;
+		} else {
+			// Check if the web user exists
+			// Connect to the database with the install user
+			$status = $this->getPgConnection( 'create-db' );
+			if ( !$status->isOK() ) {
+				return $status;
+			}
+			// @phan-suppress-next-line PhanUndeclaredMethod
+			$exists = $status->value->roleExists( $this->getVar( 'wgDBuser' ) );
+		}
+
+		// Validate the create checkbox
+		if ( $this->canCreateAccounts() && !$same && !$exists ) {
+			$create = $this->getVar( '_CreateDBAccount' );
+		} else {
+			$this->setVar( '_CreateDBAccount', false );
+			$create = false;
+		}
+
+		if ( !$create && !$exists ) {
+			if ( $this->canCreateAccounts() ) {
+				$msg = 'config-install-user-missing-create';
+			} else {
+				$msg = 'config-install-user-missing';
+			}
+
+			return Status::newFatal( $msg, $this->getVar( 'wgDBuser' ) );
+		}
+
+		if ( !$exists ) {
+			// No more checks to do
+			return Status::newGood();
+		}
+
+		// Existing web account. Test the connection.
+		$status = $this->openConnectionToAnyDB(
+			$this->getVar( 'wgDBuser' ),
+			$this->getVar( 'wgDBpassword' ) );
+		if ( !$status->isOK() ) {
+			return $status;
+		}
+
+		// The web user is conventionally the table owner in PostgreSQL
+		// installations. Make sure the install user is able to create
+		// objects on behalf of the web user.
+		if ( $same || $this->canCreateObjectsForWebUser() ) {
+			return Status::newGood();
+		} else {
+			return Status::newFatal( 'config-pg-not-in-role' );
+		}
 	}
 
 	/**
@@ -237,16 +409,16 @@ class PostgresInstaller extends DatabaseInstaller {
 	 * by the web user, false otherwise.
 	 * @return bool
 	 */
-	public function canCreateObjectsForWebUser() {
+	protected function canCreateObjectsForWebUser() {
 		if ( $this->isSuperUser() ) {
 			return true;
 		}
 
-		$status = $this->getConnection( self::CONN_CREATE_DATABASE );
+		$status = $this->getPgConnection( 'create-db' );
 		if ( !$status->isOK() ) {
 			return false;
 		}
-		$conn = $status->getDB();
+		$conn = $status->value;
 		$installerId = $conn->selectField( '"pg_catalog"."pg_roles"', 'oid',
 			[ 'rolname' => $this->getVar( '_InstallUser' ) ], __METHOD__ );
 		$webId = $conn->selectField( '"pg_catalog"."pg_roles"', 'oid',
@@ -294,6 +466,10 @@ class PostgresInstaller extends DatabaseInstaller {
 			'name' => 'user',
 			'callback' => [ $this, 'setupUser' ],
 		];
+		$commitCB = [
+			'name' => 'pg-commit',
+			'callback' => [ $this, 'commitChanges' ],
+		];
 		$plpgCB = [
 			'name' => 'pg-plpgsql',
 			'callback' => [ $this, 'setupPLpgSQL' ],
@@ -306,17 +482,18 @@ class PostgresInstaller extends DatabaseInstaller {
 		if ( $this->getVar( '_CreateDBAccount' ) ) {
 			$this->parent->addInstallStep( $createDbAccount, 'database' );
 		}
+		$this->parent->addInstallStep( $commitCB, 'interwiki' );
 		$this->parent->addInstallStep( $plpgCB, 'database' );
 		$this->parent->addInstallStep( $schemaCB, 'database' );
 	}
 
 	public function setupDatabase() {
-		$status = $this->getConnection( self::CONN_CREATE_DATABASE );
+		$status = $this->getPgConnection( 'create-db' );
 		if ( !$status->isOK() ) {
 			return $status;
 		}
+		$conn = $status->value;
 
-		$conn = $status->getDB();
 		$dbName = $this->getVar( 'wgDBname' );
 
 		$exists = (bool)$conn->selectField( '"pg_catalog"."pg_database"', '1',
@@ -331,12 +508,13 @@ class PostgresInstaller extends DatabaseInstaller {
 
 	public function setupSchema() {
 		// Get a connection to the target database
-		$status = $this->getConnection( self::CONN_CREATE_SCHEMA );
+		$status = $this->getPgConnection( 'create-schema' );
 		if ( !$status->isOK() ) {
 			return $status;
 		}
-		$conn = $status->getDB();
-		'@phan-var DatabasePostgres $conn'; /** @var DatabasePostgres $conn */
+		/** @var DatabasePostgres $conn */
+		$conn = $status->value;
+		'@phan-var DatabasePostgres $conn';
 
 		// Create the schema if necessary
 		$schema = $this->getVar( 'wgDBmwschema' );
@@ -351,6 +529,15 @@ class PostgresInstaller extends DatabaseInstaller {
 			}
 		}
 
+		// Select the new schema in the current connection
+		$conn->determineCoreSchema( $schema );
+
+		return Status::newGood();
+	}
+
+	public function commitChanges() {
+		$this->db->commit( __METHOD__ );
+
 		return Status::newGood();
 	}
 
@@ -359,12 +546,13 @@ class PostgresInstaller extends DatabaseInstaller {
 			return Status::newGood();
 		}
 
-		$status = $this->getConnection( self::CONN_CREATE_DATABASE );
+		$status = $this->getPgConnection( 'create-db' );
 		if ( !$status->isOK() ) {
 			return $status;
 		}
-		$conn = $status->getDB();
-		'@phan-var DatabasePostgres $conn'; /** @var DatabasePostgres $conn */
+		/** @var DatabasePostgres $conn */
+		$conn = $status->value;
+		'@phan-var DatabasePostgres $conn';
 
 		$safeuser = $conn->addIdentifierQuotes( $this->getVar( 'wgDBuser' ) );
 		$safepass = $conn->addQuotes( $this->getVar( 'wgDBpassword' ) );
@@ -413,6 +601,61 @@ class PostgresInstaller extends DatabaseInstaller {
 		$wgDBpassword = $this->getVar( '_InstallPassword' );
 	}
 
+	public function createTables() {
+		$schema = $this->getVar( 'wgDBmwschema' );
+
+		$status = $this->getConnection();
+		if ( !$status->isOK() ) {
+			return $status;
+		}
+
+		/** @var DatabasePostgres $conn */
+		$conn = $status->value;
+		'@phan-var DatabasePostgres $conn';
+
+		if ( $conn->tableExists( 'archive', __METHOD__ ) ) {
+			$status->warning( 'config-install-tables-exist' );
+			$this->enableLB();
+
+			return $status;
+		}
+
+		$conn->begin( __METHOD__ );
+
+		if ( !$conn->schemaExists( $schema ) ) {
+			$status->fatal( 'config-install-pg-schema-not-exist' );
+
+			return $status;
+		}
+
+		$error = $conn->sourceFile( $this->getGeneratedSchemaPath( $conn ) );
+		if ( $error !== true ) {
+			$conn->reportQueryError( $error, 0, '', __METHOD__ );
+			$conn->rollback( __METHOD__ );
+			$status->fatal( 'config-install-tables-failed', $error );
+		} else {
+			$error = $conn->sourceFile( $this->getSchemaPath( $conn ) );
+			if ( $error !== true ) {
+				$conn->reportQueryError( $error, 0, '', __METHOD__ );
+				$conn->rollback( __METHOD__ );
+				$status->fatal( 'config-install-tables-manual-failed', $error );
+			} else {
+				$conn->commit( __METHOD__ );
+			}
+		}
+		// Resume normal operations
+		if ( $status->isOK() ) {
+			$this->enableLB();
+		}
+
+		return $status;
+	}
+
+	public function createManualTables() {
+		// Already handled above. Do nothing.
+		return Status::newGood();
+	}
+
 	public function getGlobalDefaults() {
 		// The default $wgDBmwschema is null, which breaks Postgres and other DBMSes that require
 		// the use of a schema, so we need to set it here
@@ -423,17 +666,44 @@ class PostgresInstaller extends DatabaseInstaller {
 
 	public function setupPLpgSQL() {
 		// Connect as the install user, since it owns the database and so is
-		// the user that needs to run "CREATE EXTENSION"
-		$status = $this->getConnection( self::CONN_CREATE_SCHEMA );
+		// the user that needs to run "CREATE LANGUAGE"
+		$status = $this->getPgConnection( 'create-schema' );
 		if ( !$status->isOK() ) {
 			return $status;
 		}
-		$conn = $status->getDB();
-		try {
-			$conn->query( 'CREATE EXTENSION IF NOT EXISTS plpgsql', __METHOD__ );
-		} catch ( DBQueryError $e ) {
+		/**
+		 * @var Database $conn
+		 */
+		$conn = $status->value;
+
+		$exists = (bool)$conn->selectField( '"pg_catalog"."pg_language"', '1',
+			[ 'lanname' => 'plpgsql' ], __METHOD__ );
+		if ( $exists ) {
+			// Already exists, nothing to do
+			return Status::newGood();
+		}
+
+		// plpgsql is not installed, but if we have a pg_pltemplate table, we
+		// should be able to create it
+		$exists = (bool)$conn->selectField(
+			[ '"pg_catalog"."pg_class"', '"pg_catalog"."pg_namespace"' ],
+			'1',
+			[
+				'pg_namespace.oid=relnamespace',
+				'nspname' => 'pg_catalog',
+				'relname' => 'pg_pltemplate',
+			],
+			__METHOD__ );
+		if ( $exists ) {
+			try {
+				$conn->query( 'CREATE LANGUAGE plpgsql', __METHOD__ );
+			} catch ( DBQueryError $e ) {
+				return Status::newFatal( 'config-pg-no-plpgsql', $this->getVar( 'wgDBname' ) );
+			}
+		} else {
 			return Status::newFatal( 'config-pg-no-plpgsql', $this->getVar( 'wgDBname' ) );
 		}
+
 		return Status::newGood();
 	}
 }

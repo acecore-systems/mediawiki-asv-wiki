@@ -1,5 +1,7 @@
 <?php
 /**
+ * Generic interface providing Time-To-Live constants for expirable object storage
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,6 +18,7 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup Cache
  */
 
 namespace Wikimedia\LightweightObjectStore;
@@ -32,15 +35,15 @@ interface ExpirationAwareness {
 	/** @var int One minute, in seconds */
 	public const TTL_MINUTE = 60;
 	/** @var int One hour, in seconds */
-	public const TTL_HOUR = 3_600;
+	public const TTL_HOUR = 3600;
 	/** @var int One day, in seconds */
-	public const TTL_DAY = 86_400;
+	public const TTL_DAY = 86400;
 	/** @var int One week, in seconds */
-	public const TTL_WEEK = 604_800;
+	public const TTL_WEEK = 604800;
 	/** @var int One month, in seconds */
-	public const TTL_MONTH = 2_592_000;
+	public const TTL_MONTH = 2592000;
 	/** @var int One year, in seconds */
-	public const TTL_YEAR = 31_536_000;
+	public const TTL_YEAR = 31536000;
 
 	/** @var int Reasonably strict cache time that last the life of quick requests */
 	public const TTL_PROC_SHORT = 3;

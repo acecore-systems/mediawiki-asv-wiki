@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface MWSurface class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -9,7 +9,6 @@
  * @extends ve.ui.Surface
  *
  * @constructor
- * @param {ve.init.Target} target
  * @param {HTMLDocument|Array|ve.dm.LinearData|ve.dm.Document} dataOrDoc Document data to edit
  * @param {Object} [config] Configuration options
  */

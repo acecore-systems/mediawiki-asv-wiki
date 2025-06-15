@@ -1,5 +1,7 @@
 <?php
 /**
+ * Upload a file from the upload stash into the local file repo.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,10 +18,10 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- * @defgroup JobQueue JobQueue
+ * @ingroup Upload
+ * @ingroup JobQueue
  */
-
-use MediaWiki\Status\Status;
+use Wikimedia\ScopedCallback;
 
 /**
  * Upload a file from the upload stash into the local file repo.
@@ -27,13 +29,113 @@ use MediaWiki\Status\Status;
  * @ingroup Upload
  * @ingroup JobQueue
  */
-class PublishStashedFileJob extends Job implements GenericParameterJob {
-	use UploadJobTrait;
-
-	public function __construct( array $params ) {
-		parent::__construct( 'PublishStashedFile', $params );
+class PublishStashedFileJob extends Job {
+	public function __construct( Title $title, array $params ) {
+		parent::__construct( 'PublishStashedFile', $title, $params );
 		$this->removeDuplicates = true;
-		$this->initialiseUploadJob( $this->params['filekey'] );
+	}
+
+	public function run() {
+		$scope = RequestContext::importScopedSession( $this->params['session'] );
+		$this->addTeardownCallback( static function () use ( &$scope ) {
+			ScopedCallback::consume( $scope ); // T126450
+		} );
+
+		$context = RequestContext::getMain();
+		$user = $context->getUser();
+		try {
+			if ( !$user->isRegistered() ) {
+				$this->setLastError( "Could not load the author user from session." );
+
+				return false;
+			}
+
+			UploadBase::setSessionStatus(
+				$user,
+				$this->params['filekey'],
+				[ 'result' => 'Poll', 'stage' => 'publish', 'status' => Status::newGood() ]
+			);
+
+			$upload = new UploadFromStash( $user );
+			// @todo initialize() causes a GET, ideally we could frontload the antivirus
+			// checks and anything else to the stash stage (which includes concatenation and
+			// the local file is thus already there). That way, instead of GET+PUT, there could
+			// just be a COPY operation from the stash to the public zone.
+			$upload->initialize( $this->params['filekey'], $this->params['filename'] );
+
+			// Check if the local file checks out (this is generally a no-op)
+			$verification = $upload->verifyUpload();
+			if ( $verification['status'] !== UploadBase::OK ) {
+				$status = Status::newFatal( 'verification-error' );
+				$status->value = [ 'verification' => $verification ];
+				UploadBase::setSessionStatus(
+					$user,
+					$this->params['filekey'],
+					[ 'result' => 'Failure', 'stage' => 'publish', 'status' => $status ]
+				);
+				$this->setLastError( "Could not verify upload." );
+
+				return false;
+			}
+
+			// Upload the stashed file to a permanent location
+			$status = $upload->performUpload(
+				$this->params['comment'],
+				$this->params['text'],
+				$this->params['watch'],
+				$user,
+				$this->params['tags'] ?? [],
+				$this->params['watchlistexpiry'] ?? null
+			);
+			if ( !$status->isGood() ) {
+				UploadBase::setSessionStatus(
+					$user,
+					$this->params['filekey'],
+					[ 'result' => 'Failure', 'stage' => 'publish', 'status' => $status ]
+				);
+				$this->setLastError( $status->getWikiText( false, false, 'en' ) );
+
+				return false;
+			}
+
+			// Build the image info array while we have the local reference handy
+			$apiMain = new ApiMain(); // dummy object (XXX)
+			$imageInfo = $upload->getImageInfo( $apiMain->getResult() );
+
+			// Cleanup any temporary local file
+			$upload->cleanupTempFile();
+
+			// Cache the info so the user doesn't have to wait forever to get the final info
+			UploadBase::setSessionStatus(
+				$user,
+				$this->params['filekey'],
+				[
+					'result' => 'Success',
+					'stage' => 'publish',
+					'filename' => $upload->getLocalFile()->getName(),
+					'imageinfo' => $imageInfo,
+					'status' => Status::newGood()
+				]
+			);
+		} catch ( Exception $e ) {
+			UploadBase::setSessionStatus(
+				$user,
+				$this->params['filekey'],
+				[
+					'result' => 'Failure',
+					'stage' => 'publish',
+					'status' => Status::newFatal( 'api-error-publishfailed' )
+				]
+			);
+			$this->setLastError( get_class( $e ) . ": " . $e->getMessage() );
+			// To prevent potential database referential integrity issues.
+			// See T34551.
+			MWExceptionHandler::rollbackPrimaryChangesAndLog( $e );
+
+			return false;
+		}
+
+		return true;
 	}
 
 	public function getDeduplicationInfo() {
@@ -45,37 +147,7 @@ class PublishStashedFileJob extends Job implements GenericParameterJob {
 		return $info;
 	}
 
-	/**
-	 * Get the parameters for job logging
-	 *
-	 * @param Status[] $status
-	 * @return array
-	 */
-	public function logJobParams( $status ): array {
-		return [
-			'stage' => $status['stage'] ?? '-',
-			'result' => $status['result'] ?? '-',
-			'status' => (string)( $status['status'] ?? '-' ),
-			'filekey' => $this->params['filekey'],
-			'filename' => $this->params['filename'],
-			'user' => $this->user->getName(),
-		];
-	}
-
-	/**
-	 * getter for the upload
-	 *
-	 * @return UploadFromStash
-	 */
-	protected function getUpload(): UploadBase {
-		if ( $this->upload === null ) {
-			$this->upload = new UploadFromStash( $this->user );
-			// @todo initialize() causes a GET, ideally we could frontload the antivirus
-			// checks and anything else to the stash stage (which includes concatenation and
-			// the local file is thus already there). That way, instead of GET+PUT, there could
-			// just be a COPY operation from the stash to the public zone.
-			$this->upload->initialize( $this->params['filekey'], $this->params['filename'] );
-		}
-		return $this->upload;
+	public function allowRetries() {
+		return false;
 	}
 }

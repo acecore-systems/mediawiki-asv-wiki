@@ -32,18 +32,13 @@ class NewSectionMissingSubjectConstraintTest extends MediaWikiUnitTestCase {
 	use EditConstraintTestTrait;
 
 	public function testPass() {
-		$constraint = new NewSectionMissingSubjectConstraint( 'new', 'Subject', false );
+		$constraint = new NewSectionMissingSubjectConstraint( 'Subject', false );
 		$this->assertConstraintPassed( $constraint );
 	}
 
 	public function testFailure() {
-		$constraint = new NewSectionMissingSubjectConstraint( 'new', '', false );
+		$constraint = new NewSectionMissingSubjectConstraint( '', false );
 		$this->assertConstraintFailed( $constraint, IEditConstraint::AS_SUMMARY_NEEDED );
-	}
-
-	public function testNonNew() {
-		$constraint = new NewSectionMissingSubjectConstraint( 'notnew', '', false );
-		$this->assertConstraintPassed( $constraint );
 	}
 
 }

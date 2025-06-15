@@ -27,7 +27,15 @@
  * @ingroup Languages
  */
 class LanguageGan extends LanguageZh {
-	protected function getSearchIndexVariant() {
-		return 'gan-hans';
+	/**
+	 * word segmentation
+	 *
+	 * @param string $string
+	 * @param string $autoVariant
+	 * @return string
+	 */
+	public function normalizeForSearch( $string, $autoVariant = 'gan-hans' ) {
+		// LanguageZh::normalizeForSearch
+		return parent::normalizeForSearch( $string, $autoVariant );
 	}
 }

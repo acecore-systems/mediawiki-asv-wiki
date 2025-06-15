@@ -1,16 +1,27 @@
 /**
- * @classdesc Groups {@link mw.widgets.RowWidget row widgets} together to form a bidimensional
+ * A TableWidget groups {@link mw.widgets.RowWidget row widgets} together to form a bidimensional
  * grid of text inputs.
  *
  * @class
  * @extends OO.ui.Widget
- * @mixes OO.ui.mixin.GroupElement
+ * @mixins OO.ui.mixin.GroupElement
  *
  * @constructor
- * @description Create an instance of `mw.widgets.TableWidget`.
- * @param {mw.widgets.TableWidgetModel~Config} [config] Configuration options
+ * @param {Object} [config] Configuration options
+ * @cfg {Array} [rows] An array of objects containing `key` and `label` properties for every row
+ * @cfg {Array} [cols] An array of objects containing `key` and `label` properties for every column
+ * @cfg {Array} [data] An array containing all values of the table
+ * @cfg {RegExp|Function|string} [validate] Validation pattern to apply on every cell
+ * @cfg {boolean} [showHeaders=true] Whether or not to show table headers. Defaults to true.
+ * @cfg {boolean} [showRowLabels=true] Whether or not to show row labels. Defaults to true.
+ * @cfg {boolean} [allowRowInsertion=true] Whether or not to enable row insertion. Defaults to true.
+ * @cfg {boolean} [allowRowDeletion=true] Allow row deletion. Defaults to true.
  */
 mw.widgets.TableWidget = function MwWidgetsTableWidget( config ) {
+	var headerRowItems = [],
+		insertionRowItems = [],
+		columnProps, prop, i, len;
+
 	// Configuration initialization
 	config = config || {};
 
@@ -33,18 +44,16 @@ mw.widgets.TableWidget = function MwWidgetsTableWidget( config ) {
 	);
 
 	// Set up static rows
-	const columnProps = this.model.getAllColumnProperties();
+	columnProps = this.model.getAllColumnProperties();
 
 	if ( this.model.getTableProperties().showHeaders ) {
-		const headerRowItems = [];
-
 		this.headerRow = new mw.widgets.RowWidget( {
 			deletable: false,
 			label: null
 		} );
 
-		for ( let i = 0, len = columnProps.length; i < len; i++ ) {
-			const prop = columnProps[ i ];
+		for ( i = 0, len = columnProps.length; i < len; i++ ) {
+			prop = columnProps[ i ];
 			headerRowItems.push(
 				this.getHeaderRowItem( prop.label, prop.key, prop.index )
 			);
@@ -54,15 +63,13 @@ mw.widgets.TableWidget = function MwWidgetsTableWidget( config ) {
 	}
 
 	if ( this.model.getTableProperties().allowRowInsertion ) {
-		const insertionRowItems = [];
-
 		this.insertionRow = new mw.widgets.RowWidget( {
 			classes: [ 'mw-widgets-rowWidget-insertionRow' ],
 			deletable: false,
 			label: null
 		} );
 
-		for ( let i = 0, len = columnProps.length; i < len; i++ ) {
+		for ( i = 0, len = columnProps.length; i < len; i++ ) {
 			insertionRowItems.push( new OO.ui.TextInputWidget( {
 				data: columnProps[ i ].key ? columnProps[ i ].key : columnProps[ i ].index,
 				disabled: this.isDisabled()
@@ -129,18 +136,17 @@ OO.mixinClass( mw.widgets.TableWidget, OO.ui.mixin.GroupElement );
 
 /* Static Properties */
 mw.widgets.TableWidget.static.patterns = {
-
 	validate: /^[0-9]+(\.[0-9]+)?$/,
-
 	filter: /[0-9]+(\.[0-9]+)?/
 };
 
 /* Events */
 
 /**
+ * @event change
+ *
  * Change when the data within the table has been updated.
  *
- * @event mw.widgets.TableWidget.change
  * @param {number} rowIndex The index of the row that changed
  * @param {string} rowKey The key of the row that changed, or `undefined` if it doesn't exist
  * @param {number} columnIndex The index of the column that changed
@@ -149,9 +155,10 @@ mw.widgets.TableWidget.static.patterns = {
  */
 
 /**
- * Fires when a row is removed from the table.
+ * @event removeRow
  *
- * @event mw.widgets.TableWidget.removeRow
+ * Fires when a row is removed from the table
+ *
  * @param {number} index The index of the row being deleted
  * @param {string} key The key of the row being deleted
  */
@@ -159,20 +166,20 @@ mw.widgets.TableWidget.static.patterns = {
 /* Methods */
 
 /**
- * Set the value of a particular cell.
+ * Set the value of a particular cell
  *
  * @param {number|string} row The row containing the cell to edit. Can be either
  * the row index or string key if one has been set for the row.
  * @param {number|string} col The column containing the cell to edit. Can be either
  * the column index or string key if one has been set for the column.
- * @param {any} value The new value
+ * @param {Mixed} value The new value
  */
 mw.widgets.TableWidget.prototype.setValue = function ( row, col, value ) {
 	this.model.setValue( row, col, value );
 };
 
 /**
- * Set the table data.
+ * Set the table data
  *
  * @param {Array} data The new table data
  * @return {boolean} The data has been successfully changed
@@ -246,20 +253,20 @@ mw.widgets.TableWidget.prototype.clear = function () {
 };
 
 /**
- * Clears the table data, as well as all row and column properties.
+ * Clears the table data, as well as all row and column properties
  */
 mw.widgets.TableWidget.prototype.clearWithProperties = function () {
 	this.model.clearWithProperties();
 };
 
 /**
- * Filter cell input once it is changed.
+ * Filter cell input once it is changed
  *
  * @param {string} value The input value
  * @return {string} The filtered input
  */
 mw.widgets.TableWidget.prototype.filterCellInput = function ( value ) {
-	const matches = value.match( mw.widgets.TableWidget.static.patterns.filter );
+	var matches = value.match( mw.widgets.TableWidget.static.patterns.filter );
 	return ( Array.isArray( matches ) ) ? matches[ 0 ] : '';
 };
 
@@ -285,7 +292,7 @@ mw.widgets.TableWidget.prototype.getHeaderRowItem = function ( label, key, index
  * @inheritdoc
  */
 mw.widgets.TableWidget.prototype.addItems = function ( items, index ) {
-	let i, len;
+	var i, len;
 
 	OO.ui.mixin.GroupElement.prototype.addItems.call( this, items, index );
 
@@ -299,10 +306,12 @@ mw.widgets.TableWidget.prototype.addItems = function ( items, index ) {
  * @inheritdoc
  */
 mw.widgets.TableWidget.prototype.removeItems = function ( items ) {
+	var i, len, rows;
+
 	OO.ui.mixin.GroupElement.prototype.removeItems.call( this, items );
 
-	const rows = this.getItems();
-	for ( let i = 0, len = rows.length; i < len; i++ ) {
+	rows = this.getItems();
+	for ( i = 0, len = rows.length; i < len; i++ ) {
 		rows[ i ].setIndex( i );
 	}
 };
@@ -313,11 +322,11 @@ mw.widgets.TableWidget.prototype.removeItems = function ( items ) {
  * @private
  * @param {number} row The row index of the changed cell
  * @param {number} col The column index of the changed cell
- * @param {any} value The new value
- * @fires mw.widgets.TableWidget.change
+ * @param {Mixed} value The new value
+ * @fires change
  */
 mw.widgets.TableWidget.prototype.onValueChange = function ( row, col, value ) {
-	const rowProps = this.model.getRowProperties( row ),
+	var rowProps = this.model.getRowProperties( row ),
 		colProps = this.model.getColumnProperties( col );
 
 	this.getItems()[ row ].setValue( col, value );
@@ -333,17 +342,18 @@ mw.widgets.TableWidget.prototype.onValueChange = function ( row, col, value ) {
  * @param {number} index The index in which the new row was inserted
  * @param {string} key The row key
  * @param {string} label The row label
- * @fires mw.widgets.TableWidget.change
+ * @fires change
  */
 mw.widgets.TableWidget.prototype.onInsertRow = function ( data, index, key, label ) {
-	const colProps = this.model.getAllColumnProperties(),
-		keys = [];
+	var colProps = this.model.getAllColumnProperties(),
+		keys = [],
+		newRow, i, len;
 
-	for ( let i = 0, len = colProps.length; i < len; i++ ) {
+	for ( i = 0, len = colProps.length; i < len; i++ ) {
 		keys.push( ( colProps[ i ].key ) ? colProps[ i ].key : i );
 	}
 
-	const newRow = new mw.widgets.RowWidget( {
+	newRow = new mw.widgets.RowWidget( {
 		data: data,
 		keys: keys,
 		validate: this.model.getValidationPattern(),
@@ -362,7 +372,7 @@ mw.widgets.TableWidget.prototype.onInsertRow = function ( data, index, key, labe
 		this.refreshTableMarginals();
 	}
 
-	for ( let i = 0, len = data.length; i < len; i++ ) {
+	for ( i = 0, len = data.length; i < len; i++ ) {
 		this.emit( 'change', index, key, i, colProps[ i ].key, data[ i ] );
 	}
 };
@@ -376,14 +386,15 @@ mw.widgets.TableWidget.prototype.onInsertRow = function ( data, index, key, labe
  * @param {string} key The row key
  * @param {string} label The row label
  *
- * @fires mw.widgets.TableWidget.change
+ * @fires change
  */
 mw.widgets.TableWidget.prototype.onInsertColumn = function ( data, index, key, label ) {
-	const tableProps = this.model.getTableProperties(),
+	var tableProps = this.model.getTableProperties(),
 		items = this.getItems(),
-		rowProps = this.model.getAllRowProperties();
+		rowProps = this.model.getAllRowProperties(),
+		i, len;
 
-	for ( let i = 0, len = items.length; i < len; i++ ) {
+	for ( i = 0, len = items.length; i < len; i++ ) {
 		items[ i ].insertCell( data[ i ], index, key );
 		this.emit( 'change', i, rowProps[ i ].key, index, key, data[ i ] );
 	}
@@ -410,7 +421,7 @@ mw.widgets.TableWidget.prototype.onInsertColumn = function ( data, index, key, l
  * @private
  * @param {number} index The removed row index
  * @param {string} key The removed row key
- * @fires mw.widgets.TableWidget.removeRow
+ * @fires removeRow
  */
 mw.widgets.TableWidget.prototype.onRemoveRow = function ( index, key ) {
 	this.removeItems( [ this.getItems()[ index ] ] );
@@ -423,12 +434,12 @@ mw.widgets.TableWidget.prototype.onRemoveRow = function ( index, key ) {
  * @private
  * @param {number} index The removed column index
  * @param {string} key The removed column key
- * @fires mw.widgets.TableWidget.removeColumn
+ * @fires removeColumn
  */
 mw.widgets.TableWidget.prototype.onRemoveColumn = function ( index, key ) {
-	const items = this.getItems();
+	var i, items = this.getItems();
 
-	for ( let i = 0; i < items.length; i++ ) {
+	for ( i = 0; i < items.length; i++ ) {
 		items[ i ].removeCell( index );
 	}
 
@@ -442,7 +453,7 @@ mw.widgets.TableWidget.prototype.onRemoveColumn = function ( index, key ) {
  * @param {boolean} withProperties Clear row/column properties
  */
 mw.widgets.TableWidget.prototype.onClear = function ( withProperties ) {
-	let i, len, rows;
+	var i, len, rows;
 
 	if ( withProperties ) {
 		this.removeItems( this.getItems() );
@@ -462,14 +473,13 @@ mw.widgets.TableWidget.prototype.onClear = function ( withProperties ) {
  * @param {mw.widgets.RowWidget} row The row that changed
  * @param {number} colIndex The column index of the cell that changed
  * @param {string} value The new value of the input
- * @fires mw.widgets.TableWidget.change
+ * @fires change
  */
 mw.widgets.TableWidget.prototype.onRowInputChange = function ( row, colIndex, value ) {
-	const items = this.getItems();
+	var items = this.getItems(),
+		i, len, rowIndex;
 
-	let rowIndex;
-
-	for ( let i = 0, len = items.length; i < len; i++ ) {
+	for ( i = 0, len = items.length; i < len; i++ ) {
 		if ( row === items[ i ] ) {
 			rowIndex = i;
 			break;
@@ -487,11 +497,12 @@ mw.widgets.TableWidget.prototype.onRowInputChange = function ( row, colIndex, va
  * @param {string} value The new row value
  */
 mw.widgets.TableWidget.prototype.onInsertionRowInputChange = function ( colIndex, value ) {
-	const insertionRowItems = this.insertionRow.getItems(),
-		newRowData = [];
+	var insertionRowItems = this.insertionRow.getItems(),
+		newRowData = [],
+		i, len, lastRow;
 
 	if ( this.listeningToInsertionRowChanges ) {
-		for ( let i = 0, len = insertionRowItems.length; i < len; i++ ) {
+		for ( i = 0, len = insertionRowItems.length; i < len; i++ ) {
 			if ( i === colIndex ) {
 				newRowData.push( value );
 			} else {
@@ -502,7 +513,7 @@ mw.widgets.TableWidget.prototype.onInsertionRowInputChange = function ( colIndex
 		this.insertRow( newRowData );
 
 		// Focus newly inserted row
-		const lastRow = this.getItems().slice( -1 )[ 0 ];
+		lastRow = this.getItems().slice( -1 )[ 0 ];
 		lastRow.getItems()[ colIndex ].focus();
 
 		// Reset insertion row
@@ -519,9 +530,9 @@ mw.widgets.TableWidget.prototype.onInsertionRowInputChange = function ( colIndex
  * @param {mw.widgets.RowWidget} row The row that asked for the deletion
  */
 mw.widgets.TableWidget.prototype.onRowDeleteButtonClick = function ( row ) {
-	const items = this.getItems();
-
-	let i = -1, len;
+	var items = this.getItems(),
+		i = -1,
+		len;
 
 	for ( i = 0, len = items.length; i < len; i++ ) {
 		if ( items[ i ] === row ) {
@@ -543,30 +554,32 @@ mw.widgets.TableWidget.prototype.setDisabled = function ( disabled ) {
 		return;
 	}
 
-	this.getItems().forEach( ( row ) => {
+	this.getItems().forEach( function ( row ) {
 		row.setDisabled( disabled );
 	} );
 
 	if ( this.model.getTableProperties().allowRowInsertion ) {
-		this.insertionRow.getItems().forEach( ( row ) => {
+		this.insertionRow.getItems().forEach( function ( row ) {
 			row.setDisabled( disabled );
 		} );
 	}
 };
 
 /**
- * Refresh table header and insertion row.
+ * Refresh table header and insertion row
  */
 mw.widgets.TableWidget.prototype.refreshTableMarginals = function () {
-	const tableProps = this.model.getTableProperties(),
-		columnProps = this.model.getAllColumnProperties();
+	var tableProps = this.model.getTableProperties(),
+		columnProps = this.model.getAllColumnProperties(),
+		rowItems,
+		i, len, prop;
 
 	if ( tableProps.showHeaders ) {
 		this.headerRow.removeItems( this.headerRow.getItems() );
-		const rowItems = [];
+		rowItems = [];
 
-		for ( let i = 0, len = columnProps.length; i < len; i++ ) {
-			const prop = columnProps[ i ];
+		for ( i = 0, len = columnProps.length; i < len; i++ ) {
+			prop = columnProps[ i ];
 			rowItems.push(
 				this.getHeaderRowItem( prop.label, prop.key, prop.index )
 			);
@@ -579,7 +592,7 @@ mw.widgets.TableWidget.prototype.refreshTableMarginals = function () {
 		this.insertionRow.clear();
 		this.insertionRow.removeItems( this.insertionRow.getItems() );
 
-		for ( let i = 0, len = columnProps.length; i < len; i++ ) {
+		for ( i = 0, len = columnProps.length; i < len; i++ ) {
 			this.insertionRow.insertCell( '', columnProps[ i ].index, columnProps[ i ].key );
 		}
 	}

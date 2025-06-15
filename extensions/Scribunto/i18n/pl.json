@@ -6,16 +6,15 @@
 			"Darellur",
 			"Jacenty359",
 			"Matma Rex",
-			"Msz2001",
 			"Pio387",
 			"Rail",
 			"Railfail536",
 			"The Polish",
 			"WTM",
-			"Woytecr"
+			"Woytecr",
+			"Msz2001"
 		]
 	},
-	"content-model-scribunto": "Moduł Scribunto",
 	"scribunto-desc": "Framework pozwalający na osadzanie języków skryptowych na stronach MediaWiki",
 	"scribunto-line": "w linii $1",
 	"scribunto-module-line": "w module „$1”, w linii $2",
@@ -72,7 +71,5 @@
 	"scribunto-limitreport-profile-ms": "$1 ms",
 	"scribunto-limitreport-logs": "Rejestry Lua",
 	"nstab-module": "Moduł",
-	"tooltip-ca-nstab-module": "Zobacz stronę modułu",
-	"namespaceinfo-description-ns828": "Przestrzeń nazw dla modułów kodu Lua, które mogą być wywoływane ze stron wiki, oraz ich stron dokumentacji",
-	"namespaceinfo-description-ns829": "Strony dyskusji dla modułów i dokumentacji"
+	"tooltip-ca-nstab-module": "Zobacz stronę modułu"
 }

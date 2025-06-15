@@ -11,6 +11,7 @@
 	"multimediaviewer-multiple-authors-combine": "$1 e $2",
 	"multimediaviewer-license-default": "Talìa la licenza",
 	"multimediaviewer-permission-viewmore": "Ammustra àutru",
+	"multimediaviewer-about-mmv": "Nfurmazzioni supra Media Viewer",
 	"multimediaviewer-download-link": "Scàrrica stu file",
 	"multimediaviewer-link-to-file": "Liami ô file orìgginali",
 	"multimediaviewer-embed-wt": "Wikitestu",
@@ -22,5 +23,7 @@
 	"multimediaviewer-view-config": "Configurazzioni",
 	"multimediaviewer-close-popup-text": "Chiudi stu strummrntu (Esc)",
 	"multimediaviewer-title-popup-text": "Discrizzioni",
-	"multimediaviewer-title-popup-text-more": "Talìa la discrizzioni cumpreta"
+	"multimediaviewer-title-popup-text-more": "Talìa la discrizzioni cumpreta",
+	"multimediaviewer-options-learn-more": "Àutri nfurmazzioni",
+	"multimediaviewer-option-cancel-button": "Annulla"
 }

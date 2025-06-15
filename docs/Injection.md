@@ -169,11 +169,10 @@ Assume `Foo` is a class that uses the `$wgScriptPath` global and calls
 `wfGetDB()` to get a database connection, in non-static methods.
 * Add `$scriptPath` as a constructor parameter and use `$this->scriptPath`
   instead of `$wgScriptPath`.
-* Add IConnectionProvider `$dbProvider` as a constructor parameter. Use
-  `$this->dbProvider->getReplicaDatabase()` instead of `wfGetDB( DB_REPLICA )`,
-  `$this->dbProvider->->getPrimaryDatabase()` instead of `wfGetDB( DB_PRIMARY )`.
+* Add LoadBalancer `$dbLoadBalancer` as a constructor parameter. Use
+  `$this->dbLoadBalancer->getConnection()` instead of `wfGetDB()`.
 * Any code that calls `Foo`'s constructor would now need to provide the
-  `$scriptPath` and `$dbProvider`. To avoid this, avoid direct instantiation
+  `$scriptPath` and `$dbLoadBalancer`. To avoid this, avoid direct instantiation
   of services all together - see below.
 
 ### Migrate services with multiple configuration variables
@@ -348,9 +347,9 @@ For this purpose, `Thingy` uses wfGetDB().
   record's data with a single `ThingyRecord` object.
 * In the old Thingy class, replace all calls to static methods or functions,
   such as wfGetDB(), with calls to the appropriate services, such as
-  `IConnectionProvider::getReplicaDatabase()`.
+  `LoadBalancer::getConnection()`.
 * In Thingy's constructor, pull in any services needed, such as the
-  IConnectionProvider, by using `MediaWikiServices::getInstance()`. These services
+  LoadBalancer, by using `MediaWikiServices::getInstance()`. These services
   cannot be injected without changing the constructor signature, which
   is often impractical for "smart records" that get instantiated directly
   in many places in the code base.

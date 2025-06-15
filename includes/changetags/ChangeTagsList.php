@@ -16,19 +16,15 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup Change tagging
  */
 
-use MediaWiki\Context\IContextSource;
-use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\PageIdentity;
 use MediaWiki\Permissions\Authority;
-use MediaWiki\RevisionList\RevisionListBase;
-use MediaWiki\Status\Status;
 
 /**
  * Generic list for change tagging.
  *
- * @ingroup ChangeTags
  * @property ChangeTagsLogItem $current
  * @method ChangeTagsLogItem next()
  * @method ChangeTagsLogItem reset()
@@ -41,14 +37,14 @@ abstract class ChangeTagsList extends RevisionListBase {
 	}
 
 	/**
-	 * Create a ChangeTagsList instance of the given type.
+	 * Creates a ChangeTags*List of the requested type.
 	 *
 	 * @param string $typeName 'revision' or 'logentry'
 	 * @param IContextSource $context
 	 * @param PageIdentity $page
 	 * @param array $ids
 	 * @return ChangeTagsList An instance of the requested subclass
-	 * @throws InvalidArgumentException If you give an unknown $typeName
+	 * @throws Exception If you give an unknown $typeName
 	 */
 	public static function factory( $typeName, IContextSource $context,
 		PageIdentity $page, array $ids
@@ -61,7 +57,7 @@ abstract class ChangeTagsList extends RevisionListBase {
 				$className = ChangeTagsLogList::class;
 				break;
 			default:
-				throw new InvalidArgumentException( "Class $typeName requested, but does not exist" );
+				throw new Exception( "Class $typeName requested, but does not exist" );
 		}
 
 		return new $className( $context, $page, $ids );
@@ -71,7 +67,7 @@ abstract class ChangeTagsList extends RevisionListBase {
 	 * Reload the list data from the primary DB.
 	 */
 	public function reloadFromPrimary() {
-		$dbw = MediaWikiServices::getInstance()->getConnectionProvider()->getPrimaryDatabase();
+		$dbw = wfGetDB( DB_PRIMARY );
 		$this->res = $this->doQuery( $dbw );
 	}
 

@@ -1,5 +1,8 @@
 <?php
+
 /**
+ * Implements Special:FileDuplicateSearch
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,27 +19,18 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
+ * @author Raimond Spekking, based on Special:MIMESearch by Ævar Arnfjörð Bjarmason
  */
 
-namespace MediaWiki\Specials;
-
-use File;
 use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\Language\ILanguageConverter;
 use MediaWiki\Languages\LanguageConverterFactory;
-use MediaWiki\Linker\Linker;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Title\Title;
-use RepoGroup;
-use SearchEngineFactory;
 
 /**
- * Search the database for files of the requested hash, comparing this with the
+ * Searches the database for files of the requested hash, comparing this with the
  * 'img_sha1' field in the image table.
  *
  * @ingroup SpecialPage
- * @author Raimond Spekking, based on Special:MIMESearch by Ævar Arnfjörð Bjarmason
  */
 class SpecialFileDuplicateSearch extends SpecialPage {
 	/**
@@ -54,10 +48,17 @@ class SpecialFileDuplicateSearch extends SpecialPage {
 	 */
 	private $file = null;
 
-	private LinkBatchFactory $linkBatchFactory;
-	private RepoGroup $repoGroup;
-	private SearchEngineFactory $searchEngineFactory;
-	private ILanguageConverter $languageConverter;
+	/** @var LinkBatchFactory */
+	private $linkBatchFactory;
+
+	/** @var RepoGroup */
+	private $repoGroup;
+
+	/** @var SearchEngineFactory */
+	private $searchEngineFactory;
+
+	/** @var ILanguageConverter */
+	private $languageConverter;
 
 	/**
 	 * @param LinkBatchFactory $linkBatchFactory
@@ -266,6 +267,3 @@ class SpecialFileDuplicateSearch extends SpecialPage {
 		return 'media';
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialFileDuplicateSearch::class, 'SpecialFileDuplicateSearch' );

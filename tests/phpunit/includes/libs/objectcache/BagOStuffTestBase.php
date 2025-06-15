@@ -1,19 +1,13 @@
 <?php
 
-use MediaWiki\Deferred\DeferredUpdates;
-use MediaWiki\MainConfigNames;
 use Wikimedia\LightweightObjectStore\StorageAwareness;
-use Wikimedia\ObjectCache\BagOStuff;
-use Wikimedia\ObjectCache\HashBagOStuff;
-use Wikimedia\ObjectCache\MultiWriteBagOStuff;
 use Wikimedia\ScopedCallback;
 use Wikimedia\TestingAccessWrapper;
 
 /**
  * @author Matthias Mullie <mmullie@wikimedia.org>
  * @group BagOStuff
- * @covers \Wikimedia\ObjectCache\BagOStuff
- * @covers \Wikimedia\ObjectCache\MediumSpecificBagOStuff
+ * @covers BagOStuff
  */
 abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 	/** @var BagOStuff */
@@ -46,23 +40,27 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 	abstract protected function newCacheInstance();
 
 	protected function getCacheByClass( $className ) {
-		$caches = $this->getConfVar( MainConfigNames::ObjectCaches );
+		$caches = $this->getConfVar( 'ObjectCaches' );
 		foreach ( $caches as $id => $cache ) {
 			if ( ( $cache['class'] ?? '' ) === $className ) {
-				return $this->getServiceContainer()->getObjectCacheFactory()->getInstance( $id );
+				return ObjectCache::getInstance( $id );
 			}
 		}
 		$this->markTestSkipped( "No $className is configured" );
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::makeGlobalKey
+	 * @covers MediumSpecificBagOStuff::makeKeyInternal
+	 */
 	public function testMakeKey() {
-		$cache = new HashBagOStuff( [ 'keyspace' => 'local_prefix' ] );
+		$cache = new HashBagOStuff();
 
 		$localKey = $cache->makeKey( 'first', 'second', 'third' );
 		$globalKey = $cache->makeGlobalKey( 'first', 'second', 'third' );
 
 		$this->assertSame(
-			'local_prefix:first:second:third',
+			'local:first:second:third',
 			$localKey,
 			'Local key interpolates parameters'
 		);
@@ -80,18 +78,21 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		);
 
 		$this->assertNotEquals(
-			$cache->makeKey( 'a', 'bc:', 'de' ),
-			$cache->makeKey( 'a', 'bc', ':de' )
+			$cache->makeKeyInternal( 'prefix', [ 'a', 'bc:', 'de' ] ),
+			$cache->makeKeyInternal( 'prefix', [ 'a', 'bc', ':de' ] )
 		);
 
 		$keyEmptyCollection = $cache->makeKey( '', 'second', 'third' );
 		$this->assertSame(
-			'local_prefix::second:third',
+			'local::second:third',
 			$keyEmptyCollection,
 			'Local key interpolates empty parameters'
 		);
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::isKeyGlobal
+	 */
 	public function testKeyIsGlobal() {
 		$cache = new HashBagOStuff();
 
@@ -102,6 +103,10 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$this->assertTrue( $cache->isKeyGlobal( $globalKey ) );
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::merge
+	 * @covers MediumSpecificBagOStuff::mergeViaCas
+	 */
 	public function testMerge() {
 		$key = $this->cache->makeKey( $this->testKey() );
 
@@ -142,6 +147,9 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		}
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::changeTTL
+	 */
 	public function testChangeTTLRenew() {
 		$key = $this->cache->makeKey( $this->testKey() );
 		$value = 'meow';
@@ -157,6 +165,9 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$this->assertFalse( $this->cache->changeTTL( $key, 15 ) );
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::changeTTL
+	 */
 	public function testChangeTTLExpireRel() {
 		$key = $this->cache->makeKey( $this->testKey() );
 		$value = 'meow';
@@ -168,6 +179,9 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$this->assertFalse( $this->cache->changeTTL( $key, -3600 ) );
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::changeTTL
+	 */
 	public function testChangeTTLExpireAbs() {
 		$key = $this->cache->makeKey( $this->testKey() );
 		$value = 'meow';
@@ -181,6 +195,9 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$this->assertFalse( $this->cache->changeTTL( $key, (int)$now - 3600 ) );
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::changeTTLMulti
+	 */
 	public function testChangeTTLMulti() {
 		$key1 = $this->cache->makeKey( 'test-key1' );
 		$key2 = $this->cache->makeKey( 'test-key2' );
@@ -219,10 +236,17 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$this->assertTrue( $ok, "Expiry set for all keys" );
 		$this->assertSame( 1, $this->cache->get( $key1 ), "Key still live" );
 
+		$this->assertEquals( 2, $this->cache->incr( $key1 ) );
+		$this->assertEquals( 3, $this->cache->incr( $key2 ) );
+		$this->assertEquals( 4, $this->cache->incr( $key3 ) );
+
 		// cleanup
 		$this->cache->deleteMulti( [ $key1, $key2, $key3, $key4 ] );
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::add
+	 */
 	public function testAdd() {
 		$key = $this->cache->makeKey( $this->testKey() );
 		$this->assertFalse( $this->cache->get( $key ) );
@@ -242,6 +266,9 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$this->assertSame( 'test', $this->cache->get( $key ) );
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::get
+	 */
 	public function testGet() {
 		$value = [ 'this' => 'is', 'a' => 'test' ];
 
@@ -250,6 +277,11 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $this->cache->get( $key ), $value );
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::get
+	 * @covers MediumSpecificBagOStuff::set
+	 * @covers MediumSpecificBagOStuff::getWithSetCallback
+	 */
 	public function testGetWithSetCallback() {
 		$now = self::TEST_TIME;
 		$cache = new HashBagOStuff( [] );
@@ -276,6 +308,21 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$this->assertFalse( $cache->get( $key ), "Value expired" );
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::incr
+	 */
+	public function testIncr() {
+		$key = $this->cache->makeKey( $this->testKey() );
+		$this->cache->add( $key, 0, 5 );
+		$this->cache->incr( $key );
+		$expectedValue = 1;
+		$actualValue = $this->cache->get( $key );
+		$this->assertEquals( $expectedValue, $actualValue, 'Value should be 1 after incrementing' );
+	}
+
+	/**
+	 * @covers MediumSpecificBagOStuff::incrWithInit
+	 */
 	public function testIncrWithInit() {
 		$key = $this->cache->makeKey( $this->testKey() );
 
@@ -319,6 +366,9 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$this->assertSame( 4, $val );
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::getMulti
+	 */
 	public function testGetMulti() {
 		$value1 = [ 'this' => 'is', 'a' => 'test' ];
 		$value2 = [ 'this' => 'is', 'another' => 'test' ];
@@ -356,6 +406,10 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$this->cache->delete( $key4 );
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::setMulti
+	 * @covers MediumSpecificBagOStuff::deleteMulti
+	 */
 	public function testSetDeleteMulti() {
 		$map = [
 			$this->cache->makeKey( 'test-1' ) => 'Siberian',
@@ -391,6 +445,12 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$this->assertTrue( $this->cache->delete( $key, BagOStuff::WRITE_BACKGROUND ) );
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::get
+	 * @covers MediumSpecificBagOStuff::getMulti
+	 * @covers MediumSpecificBagOStuff::merge
+	 * @covers MediumSpecificBagOStuff::delete
+	 */
 	public function testSetSegmentable() {
 		$key = $this->cache->makeKey( $this->testKey() );
 		$tiny = 418;
@@ -430,7 +490,7 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 			$this->cache->set( $key, "@$value", 10, BagOStuff::WRITE_ALLOW_SEGMENTS );
 			$this->assertEquals( "@$value", $this->cache->get( $key ), "get $case" );
 			$this->assertTrue(
-				$this->cache->delete( $key, BagOStuff::WRITE_ALLOW_SEGMENTS ),
+				$this->cache->delete( $key, BagOStuff::WRITE_PRUNE_SEGMENTS ),
 				"prune $case"
 			);
 			$this->assertFalse( $this->cache->get( $key ), "pruned $case" );
@@ -440,8 +500,11 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$this->cache->set( $key, 666, 10, BagOStuff::WRITE_ALLOW_SEGMENTS );
 
 		$this->assertEquals( 666, $this->cache->get( $key ) );
-		$this->assertEquals( 667, $this->cache->incrWithInit( $key, 10 ) );
+		$this->assertEquals( 667, $this->cache->incr( $key ) );
 		$this->assertEquals( 667, $this->cache->get( $key ) );
+
+		$this->assertEquals( 664, $this->cache->decr( $key, 3 ) );
+		$this->assertEquals( 664, $this->cache->get( $key ) );
 
 		$this->assertTrue( $this->cache->delete( $key ) );
 		$this->assertFalse( $this->cache->get( $key ) );
@@ -453,6 +516,9 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 			$this->cache->set( $key, 'background', BagOStuff::WRITE_BACKGROUND ) );
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::getScopedLock
+	 */
 	public function testGetScopedLock() {
 		$key = $this->cache->makeKey( $this->testKey() );
 		$value1 = $this->cache->getScopedLock( $key, 0 );
@@ -474,6 +540,10 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$this->assertInstanceOf( ScopedCallback::class, $value2, 'Second reentrant call returned lock' );
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::__construct
+	 * @covers MediumSpecificBagOStuff::trackDuplicateKeys
+	 */
 	public function testReportDupes() {
 		$logger = $this->createMock( Psr\Log\NullLogger::class );
 		$logger->expects( $this->once() )
@@ -495,6 +565,10 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		DeferredUpdates::doUpdates();
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::lock()
+	 * @covers MediumSpecificBagOStuff::unlock()
+	 */
 	public function testLocking() {
 		$key = $this->cache->makeKey( $this->testKey() );
 		$this->assertTrue( $this->cache->lock( $key ) );
@@ -508,6 +582,11 @@ abstract class BagOStuffTestBase extends MediaWikiIntegrationTestCase {
 		$this->assertTrue( $this->cache->unlock( $key ) );
 	}
 
+	/**
+	 * @covers MediumSpecificBagOStuff::watchErrors()
+	 * @covers MediumSpecificBagOStuff::getLastError()
+	 * @covers MediumSpecificBagOStuff::setLastError()
+	 */
 	public function testErrorHandling() {
 		$key = $this->cache->makeKey( $this->testKey() );
 		$wrapper = TestingAccessWrapper::newFromObject( $this->cache );

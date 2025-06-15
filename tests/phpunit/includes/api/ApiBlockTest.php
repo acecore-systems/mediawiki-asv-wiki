@@ -1,36 +1,30 @@
 <?php
 
-namespace MediaWiki\Tests\Api;
-
 use MediaWiki\Block\DatabaseBlock;
 use MediaWiki\Block\Restriction\ActionRestriction;
 use MediaWiki\Block\Restriction\NamespaceRestriction;
 use MediaWiki\Block\Restriction\PageRestriction;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Permissions\Authority;
-use MediaWiki\Permissions\UltimateAuthority;
 use MediaWiki\Tests\Unit\Permissions\MockAuthorityTrait;
-use MediaWiki\User\User;
-use MediaWiki\User\UserRigorOptions;
-use MediaWiki\Utils\MWTimestamp;
 
 /**
  * @group API
  * @group Database
  * @group medium
  *
- * @covers \MediaWiki\Api\ApiBlock
+ * @covers ApiBlock
  */
 class ApiBlockTest extends ApiTestCase {
 	use MockAuthorityTrait;
 
-	/** @var User|null */
 	protected $mUser = null;
-	/** @var DatabaseBlockStore */
-	private $blockStore;
 
 	protected function setUp(): void {
 		parent::setUp();
+		$this->tablesUsed = array_merge(
+			$this->tablesUsed,
+			[ 'ipblocks', 'ipblocks_restrictions', 'change_tag', 'change_tag_def', 'logging' ]
+		);
 
 		$this->mUser = $this->getMutableTestUser()->getUser();
 		$this->overrideConfigValue(
@@ -40,15 +34,14 @@ class ApiBlockTest extends ApiTestCase {
 				'IPv6' => 19,
 			]
 		);
-		$this->blockStore = $this->getServiceContainer()->getDatabaseBlockStore();
 	}
 
 	/**
 	 * @param array $extraParams Extra API parameters to pass to doApiRequest
-	 * @param Authority|null $blocker User to do the blocking, null to pick arbitrarily
+	 * @param User|null $blocker User to do the blocking, null to pick arbitrarily
 	 * @return array result of doApiRequest
 	 */
-	private function doBlock( array $extraParams = [], ?Authority $blocker = null ) {
+	private function doBlock( array $extraParams = [], User $blocker = null ) {
 		$this->assertNotNull( $this->mUser );
 
 		$params = [
@@ -62,9 +55,9 @@ class ApiBlockTest extends ApiTestCase {
 		}
 		$ret = $this->doApiRequestWithToken( array_merge( $params, $extraParams ), null, $blocker );
 
-		$block = $this->blockStore->newFromTarget( $this->mUser->getName() );
+		$block = DatabaseBlock::newFromTarget( $this->mUser->getName() );
 
-		$this->assertInstanceOf( DatabaseBlock::class, $block, 'Block is valid' );
+		$this->assertTrue( $block !== null, 'Block is valid' );
 
 		$this->assertSame( $this->mUser->getName(), $block->getTargetName() );
 		$this->assertSame( 'Some reason', $block->getReasonComment()->text );
@@ -90,12 +83,15 @@ class ApiBlockTest extends ApiTestCase {
 	 * A blocked user can't block
 	 */
 	public function testBlockByBlockedUser() {
-		$this->expectApiErrorCode( 'ipbblocked' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage(
+			'You cannot block or unblock other users because you are yourself blocked.'
+		);
 
 		$blocked = $this->getMutableTestUser( [ 'sysop' ] )->getUser();
 		$block = new DatabaseBlock( [
 			'address' => $blocked->getName(),
-			'by' => $this->getTestSysop()->getUser(),
+			'by' => self::$users['sysop']->getUser(),
 			'reason' => 'Capriciousness',
 			'timestamp' => '19370101000000',
 			'expiry' => 'infinity',
@@ -106,38 +102,50 @@ class ApiBlockTest extends ApiTestCase {
 	}
 
 	public function testBlockOfNonexistentUser() {
-		$this->expectApiErrorCode( 'nosuchuser' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage(
+			'There is no user by the name "Nonexistent". Check your spelling.'
+		);
 
 		$this->doBlock( [ 'user' => 'Nonexistent' ] );
 	}
 
 	public function testBlockOfNonexistentUserId() {
 		$id = 948206325;
-		$this->expectApiErrorCode( 'nosuchuserid' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage( "There is no user with ID $id." );
 
-		$this->assertNull( $this->getServiceContainer()->getUserIdentityLookup()->getUserIdentityByUserId( $id ) );
+		$this->assertFalse( User::whoIs( $id ) );
 
 		$this->doBlock( [ 'userid' => $id ] );
 	}
 
 	public function testBlockWithTag() {
-		$this->getServiceContainer()->getChangeTagsStore()->defineTag( 'custom tag' );
+		ChangeTags::defineTag( 'custom tag' );
 
 		$this->doBlock( [ 'tags' => 'custom tag' ] );
 
-		$this->assertSame( 1, (int)$this->getDb()->newSelectQueryBuilder()
-			->select( 'COUNT(*)' )
-			->from( 'logging' )
-			->join( 'change_tag', null, 'ct_log_id = log_id' )
-			->join( 'change_tag_def', null, 'ctd_id = ct_tag_id' )
-			->where( [ 'log_type' => 'block', 'ctd_name' => 'custom tag' ] )
-			->caller( __METHOD__ )->fetchField() );
+		$dbw = wfGetDB( DB_PRIMARY );
+		$this->assertSame( 1, (int)$dbw->selectField(
+			[ 'change_tag', 'logging', 'change_tag_def' ],
+			'COUNT(*)',
+			[ 'log_type' => 'block', 'ctd_name' => 'custom tag' ],
+			__METHOD__,
+			[],
+			[
+				'change_tag' => [ 'JOIN', 'ct_log_id = log_id' ],
+				'change_tag_def' => [ 'JOIN', 'ctd_id = ct_tag_id' ],
+			]
+		) );
 	}
 
 	public function testBlockWithProhibitedTag() {
-		$this->expectApiErrorCode( 'tags-apply-no-permission' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage(
+			'You do not have permission to apply change tags along with your changes.'
+		);
 
-		$this->getServiceContainer()->getChangeTagsStore()->defineTag( 'custom tag' );
+		ChangeTags::defineTag( 'custom tag' );
 
 		$this->overrideConfigValue(
 			MainConfigNames::RevokePermissions,
@@ -148,26 +156,32 @@ class ApiBlockTest extends ApiTestCase {
 	}
 
 	public function testBlockWithHide() {
+		global $wgGroupPermissions;
+		$newPermissions = $wgGroupPermissions['sysop'];
+		$newPermissions['hideuser'] = true;
+		$this->mergeMwGlobalArrayValue( 'wgGroupPermissions',
+			[ 'sysop' => $newPermissions ] );
+
 		$res = $this->doBlock(
 			[ 'hidename' => '' ],
-			new UltimateAuthority( $this->getTestSysop()->getUser() )
+			self::$users['sysop']->getUser()
 		);
 
-		$this->assertSame( '1', $this->getDb()->newSelectQueryBuilder()
-			->select( 'bl_deleted' )
-			->from( 'block' )
-			->where( [ 'bl_id' => $res[0]['block']['id'] ] )
-			->caller( __METHOD__ )->fetchField() );
+		$this->assertSame( '1', $this->db->selectField(
+			'ipblocks',
+			'ipb_deleted',
+			[ 'ipb_id' => $res[0]['block']['id'] ],
+			__METHOD__
+		) );
 	}
 
 	public function testBlockWithProhibitedHide() {
-		$performer = $this->mockUserAuthorityWithoutPermissions(
-			$this->getTestUser()->getUser(),
-			[ 'hideuser' ]
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage(
+			"You are not allowed to execute the action you have requested."
 		);
-		$this->expectApiErrorCode( 'permissiondenied' );
 
-		$this->doBlock( [ 'hidename' => '' ], $performer );
+		$this->doBlock( [ 'hidename' => '' ] );
 	}
 
 	public function testBlockWithEmailBlock() {
@@ -177,21 +191,32 @@ class ApiBlockTest extends ApiTestCase {
 		] );
 
 		$res = $this->doBlock( [ 'noemail' => '' ] );
-		$this->assertSame( '1', $this->getDb()->newSelectQueryBuilder()
-			->select( 'bl_block_email' )
-			->from( 'block' )
-			->where( [ 'bl_id' => $res[0]['block']['id'] ] )
-			->caller( __METHOD__ )->fetchField() );
+
+		$dbw = wfGetDB( DB_PRIMARY );
+		$this->assertSame( '1', $dbw->selectField(
+			'ipblocks',
+			'ipb_block_email',
+			[ 'ipb_id' => $res[0]['block']['id'] ],
+			__METHOD__
+		) );
 	}
 
 	public function testBlockWithProhibitedEmailBlock() {
 		$this->overrideConfigValues( [
 			MainConfigNames::EnableEmail => true,
 			MainConfigNames::EnableUserEmail => true,
-			MainConfigNames::RevokePermissions => [ 'sysop' => [ 'blockemail' => true ] ],
 		] );
 
-		$this->expectApiErrorCode( 'cantblock-email' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage(
+			"You don't have permission to block users from sending email through the wiki."
+		);
+
+		$this->overrideConfigValue(
+			MainConfigNames::RevokePermissions,
+			[ 'sysop' => [ 'blockemail' => true ] ]
+		);
+
 		$this->doBlock( [ 'noemail' => '' ] );
 	}
 
@@ -199,16 +224,21 @@ class ApiBlockTest extends ApiTestCase {
 		$fakeTime = 1616432035;
 		MWTimestamp::setFakeTime( $fakeTime );
 		$res = $this->doBlock( [ 'expiry' => '1 day' ] );
-		$expiry = $this->getDb()->newSelectQueryBuilder()
-			->select( 'bl_expiry' )
-			->from( 'block' )
-			->where( [ 'bl_id' => $res[0]['block']['id'] ] )
-			->caller( __METHOD__ )->fetchField();
+
+		$dbw = wfGetDB( DB_PRIMARY );
+		$expiry = $dbw->selectField(
+			'ipblocks',
+			'ipb_expiry',
+			[ 'ipb_id' => $res[0]['block']['id'] ],
+			__METHOD__
+		);
+
 		$this->assertSame( (int)wfTimestamp( TS_UNIX, $expiry ), $fakeTime + 86400 );
 	}
 
 	public function testBlockWithInvalidExpiry() {
-		$this->expectApiErrorCode( 'invalidexpiry' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage( "Expiry time invalid." );
 
 		$this->doBlock( [ 'expiry' => '' ] );
 	}
@@ -216,7 +246,7 @@ class ApiBlockTest extends ApiTestCase {
 	public function testBlockWithoutRestrictions() {
 		$this->doBlock();
 
-		$block = $this->blockStore->newFromTarget( $this->mUser->getName() );
+		$block = DatabaseBlock::newFromTarget( $this->mUser->getName() );
 
 		$this->assertTrue( $block->isSitewide() );
 		$this->assertSame( [], $block->getRestrictions() );
@@ -224,7 +254,7 @@ class ApiBlockTest extends ApiTestCase {
 
 	public function testBlockWithRestrictionsPage() {
 		$title = 'Foo';
-		$this->getExistingTestPage( $title );
+		$page = $this->getExistingTestPage( $title );
 
 		$this->doBlock( [
 			'partial' => true,
@@ -232,7 +262,7 @@ class ApiBlockTest extends ApiTestCase {
 			'allowusertalk' => true,
 		] );
 
-		$block = $this->blockStore->newFromTarget( $this->mUser->getName() );
+		$block = DatabaseBlock::newFromTarget( $this->mUser->getName() );
 
 		$this->assertFalse( $block->isSitewide() );
 		$this->assertInstanceOf( PageRestriction::class, $block->getRestrictions()[0] );
@@ -248,7 +278,7 @@ class ApiBlockTest extends ApiTestCase {
 			'allowusertalk' => true,
 		] );
 
-		$block = $this->blockStore->newFromTarget( $this->mUser->getName() );
+		$block = DatabaseBlock::newFromTarget( $this->mUser->getName() );
 
 		$this->assertInstanceOf( NamespaceRestriction::class, $block->getRestrictions()[0] );
 		$this->assertEquals( $namespace, $block->getRestrictions()[0]->getValue() );
@@ -269,14 +299,15 @@ class ApiBlockTest extends ApiTestCase {
 			'allowusertalk' => true,
 		] );
 
-		$block = $this->blockStore->newFromTarget( $this->mUser->getName() );
+		$block = DatabaseBlock::newFromTarget( $this->mUser->getName() );
 
 		$this->assertInstanceOf( ActionRestriction::class, $block->getRestrictions()[0] );
 		$this->assertEquals( $action, $blockActionInfo->getActionFromId( $block->getRestrictions()[0]->getValue() ) );
 	}
 
 	public function testBlockingActionWithNoToken() {
-		$this->expectApiErrorCode( 'missingparam' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage( 'The "token" parameter must be set' );
 		$this->doApiRequest(
 			[
 				'action' => 'block',
@@ -285,12 +316,13 @@ class ApiBlockTest extends ApiTestCase {
 			],
 			null,
 			false,
-			$this->getTestSysop()->getUser()
+			self::$users['sysop']->getUser()
 		);
 	}
 
 	public function testBlockWithLargeRange() {
-		$this->expectApiErrorCode( 'baduser' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage( 'Invalid value "127.0.0.1/64" for user parameter "user".' );
 		$this->doApiRequestWithToken(
 			[
 				'action' => 'block',
@@ -298,12 +330,14 @@ class ApiBlockTest extends ApiTestCase {
 				'reason' => 'Some reason',
 			],
 			null,
-			$this->getTestSysop()->getUser()
+			self::$users['sysop']->getUser()
 		);
 	}
 
 	public function testBlockingTooManyPageRestrictions() {
-		$this->expectApiErrorCode( 'toomanyvalues' );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage(
+			"Too many values supplied for parameter \"pagerestrictions\". The limit is 10." );
 		$this->doApiRequestWithToken(
 			[
 				'action' => 'block',
@@ -313,18 +347,19 @@ class ApiBlockTest extends ApiTestCase {
 				'pagerestrictions' => 'One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven',
 			],
 			null,
-			$this->getTestSysop()->getUser()
+			self::$users['sysop']->getUser()
 		);
 	}
 
 	public function testRangeBlock() {
-		$this->mUser = $this->getServiceContainer()->getUserFactory()->newFromName( '128.0.0.0/16', UserRigorOptions::RIGOR_NONE );
+		$this->mUser = User::newFromName( '128.0.0.0/16', false );
 		$this->doBlock();
 	}
 
 	public function testVeryLargeRangeBlock() {
-		$this->mUser = $this->getServiceContainer()->getUserFactory()->newFromName( '128.0.0.0/1', UserRigorOptions::RIGOR_NONE );
-		$this->expectApiErrorCode( 'ip_range_toolarge' );
+		$this->mUser = User::newFromName( '128.0.0.0/1', false );
+		$this->expectException( ApiUsageException::class );
+		$this->expectExceptionMessage( "Range blocks larger than /16 are not allowed." );
 		$this->doBlock();
 	}
 

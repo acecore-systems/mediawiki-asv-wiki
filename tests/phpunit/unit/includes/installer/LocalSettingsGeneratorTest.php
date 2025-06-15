@@ -1,11 +1,7 @@
 <?php
 
-use MediaWiki\Installer\DatabaseInstaller;
-use MediaWiki\Installer\Installer;
-use MediaWiki\Installer\LocalSettingsGenerator;
-
 /**
- * @covers \MediaWiki\Installer\LocalSettingsGenerator
+ * @covers \LocalSettingsGenerator
  */
 class LocalSettingsGeneratorTest extends MediaWikiUnitTestCase {
 	private function getLocalSettingsGenerator( array $vars ): LocalSettingsGenerator {

@@ -23,22 +23,11 @@
  * @ingroup Parser
  * @internal
  */
-
-namespace MediaWiki\Parser;
-
-use LogicException;
-use StringUtils;
-
 class BlockLevelPass {
-	/** @var bool */
 	private $DTopen = false;
-	/** @var bool */
 	private $inPre = false;
-	/** @var string */
 	private $lastParagraph = '';
-	/** @var bool */
 	private $lineStart;
-	/** @var string */
 	private $text;
 
 	# State constants for the definition list colon extraction
@@ -339,9 +328,7 @@ class BlockLevelPass {
 					'/<('
 						. "\\/({$blockElems})|({$antiBlockElems})|"
 						// Never suppresses
-						. '\\/?(center|blockquote|div|hr|mw:|aside|figure)|'
-						// Used as Parser::TOC_PLACEHOLDER
-						. 'meta property="mw:'
+						. '\\/?(center|blockquote|div|hr|mw:|aside|figure)'
 						. ')\\b/iS',
 					$t
 				);
@@ -452,6 +439,7 @@ class BlockLevelPass {
 	 * @param string $str The string to split
 	 * @param string &$before Set to everything before the ':'
 	 * @param string &$after Set to everything after the ':'
+	 * @throws MWException
 	 * @return int|false The position of the ':', or false if none found
 	 */
 	private function findColonNoLinks( $str, &$before, &$after ) {
@@ -601,7 +589,7 @@ class BlockLevelPass {
 					}
 					break;
 				default:
-					throw new LogicException( "State machine error in " . __METHOD__ );
+					throw new MWException( "State machine error in " . __METHOD__ );
 			}
 		}
 		if ( $ltLevel > 0 || $lcLevel > 0 ) {
@@ -609,10 +597,8 @@ class BlockLevelPass {
 				__METHOD__ . ": Invalid input; not enough close tags " .
 				"(level $ltLevel/$lcLevel, state $state)"
 			);
+			return false;
 		}
 		return false;
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( BlockLevelPass::class, 'BlockLevelPass' );

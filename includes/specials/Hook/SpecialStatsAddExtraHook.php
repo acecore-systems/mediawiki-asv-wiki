@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\Context\IContextSource;
+use IContextSource;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

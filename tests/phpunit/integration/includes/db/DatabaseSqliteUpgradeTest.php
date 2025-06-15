@@ -1,9 +1,6 @@
 <?php
 
-use MediaWiki\Installer\DatabaseUpdater;
-use MediaWiki\Maintenance\FakeMaintenance;
 use Psr\Log\NullLogger;
-use Wikimedia\ObjectCache\HashBagOStuff;
 use Wikimedia\Rdbms\Database;
 use Wikimedia\Rdbms\DatabaseSqlite;
 use Wikimedia\Rdbms\TransactionProfiler;
@@ -27,16 +24,17 @@ class DatabaseSqliteUpgradeTest extends \MediaWikiIntegrationTestCase {
 			$this->markTestSkipped( 'No SQLite support detected' );
 		}
 		$this->db = $this->newMockDb();
-		if ( version_compare( $this->getDb()->getServerVersion(), '3.6.0', '<' ) ) {
-			$this->markTestSkipped( "SQLite at least 3.6 required, {$this->getDb()->getServerVersion()} found" );
+		if ( version_compare( $this->db->getServerVersion(), '3.6.0', '<' ) ) {
+			$this->markTestSkipped( "SQLite at least 3.6 required, {$this->db->getServerVersion()} found" );
 		}
 	}
 
 	/**
 	 * @param string|null $version
+	 * @param string|null &$sqlDump
 	 * @return \PHPUnit\Framework\MockObject\MockObject|DatabaseSqlite
 	 */
-	private function newMockDb( $version = null ) {
+	private function newMockDb( $version = null, &$sqlDump = null ) {
 		$mock = $this->getMockBuilder( DatabaseSqlite::class )
 			->setConstructorArgs( [ [
 				'dbFilePath' => ':memory:',
@@ -54,6 +52,9 @@ class DatabaseSqliteUpgradeTest extends \MediaWikiIntegrationTestCase {
 				'profiler' => null,
 				'topologyRole' => Database::ROLE_STREAMING_MASTER,
 				'trxProfiler' => new TransactionProfiler(),
+				'connLogger' => new NullLogger(),
+				'queryLogger' => new NullLogger(),
+				'replLogger' => new NullLogger(),
 				'errorLogger' => null,
 				'deprecationLogger' => new NullLogger(),
 				'srvCache' => new HashBagOStuff(),
@@ -64,7 +65,12 @@ class DatabaseSqliteUpgradeTest extends \MediaWikiIntegrationTestCase {
 
 		$mock->initConnection();
 
-		$mock->method( 'query' )->willReturn( true );
+		$sqlDump = '';
+		$mock->method( 'query' )->willReturnCallback( static function ( $sql ) use ( &$sqlDump ) {
+			$sqlDump .= "$sql;";
+
+			return true;
+		} );
 
 		if ( $version ) {
 			$mock->method( 'getServerVersion' )->willReturn( $version );
@@ -157,15 +163,16 @@ class DatabaseSqliteUpgradeTest extends \MediaWikiIntegrationTestCase {
 		}
 	}
 
-	public static function provideSupportedVersions() {
+	public function provideSupportedVersions() {
 		return [
+			[ '1.31' ],
+			[ '1.32' ],
+			[ '1.33' ],
+			[ '1.34' ],
+			[ '1.35' ],
 			[ '1.36' ],
 			[ '1.37' ],
 			[ '1.38' ],
-			[ '1.39' ],
-			[ '1.40' ],
-			[ '1.41' ],
-			[ '1.42' ],
 		];
 	}
 

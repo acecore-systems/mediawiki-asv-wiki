@@ -2,8 +2,8 @@
 
 namespace MediaWiki\User\TempUser;
 
-use MediaWiki\Status\Status;
-use MediaWiki\User\User;
+use Status;
+use User;
 
 /**
  * Status object with strongly typed value, for TempUserManager::createUser()

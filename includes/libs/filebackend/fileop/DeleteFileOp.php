@@ -21,11 +21,6 @@
  * @ingroup FileBackend
  */
 
-namespace Wikimedia\FileBackend\FileOps;
-
-use StatusValue;
-use Wikimedia\FileBackend\FileBackend;
-
 /**
  * Delete a file at the given storage path from the backend.
  * Parameters for this operation are outlined in FileBackend::doOperations().
@@ -35,19 +30,18 @@ class DeleteFileOp extends FileOp {
 		return [ [ 'src' ], [ 'ignoreMissingSource' ], [ 'src' ] ];
 	}
 
-	protected function doPrecheck(
-		FileStatePredicates $opPredicates,
-		FileStatePredicates $batchPredicates
-	) {
+	protected function doPrecheck( array &$predicates ) {
 		$status = StatusValue::newGood();
 
 		// Check source file existence
-		$srcExists = $this->resolveFileExistence( $this->params['src'], $opPredicates );
+		$srcExists = $this->fileExists( $this->params['src'], $predicates );
 		if ( $srcExists === false ) {
 			if ( $this->getParam( 'ignoreMissingSource' ) ) {
-				$this->noOp = true; // no-op
+				$this->cancelled = true; // no-op
 				// Update file existence predicates (cache 404s)
-				$batchPredicates->assumeFileDoesNotExist( $this->params['src'] );
+				$predicates[self::ASSUMED_EXISTS][$this->params['src']] = false;
+				$predicates[self::ASSUMED_SIZE][$this->params['src']] = false;
+				$predicates[self::ASSUMED_SHA1][$this->params['src']] = false;
 
 				return $status; // nothing to do
 			} else {
@@ -62,7 +56,9 @@ class DeleteFileOp extends FileOp {
 		}
 
 		// Update file existence predicates since the operation is expected to be allowed to run
-		$batchPredicates->assumeFileDoesNotExist( $this->params['src'] );
+		$predicates[self::ASSUMED_EXISTS][$this->params['src']] = false;
+		$predicates[self::ASSUMED_SIZE][$this->params['src']] = false;
+		$predicates[self::ASSUMED_SHA1][$this->params['src']] = false;
 
 		return $status; // safe to call attempt()
 	}
@@ -76,6 +72,3 @@ class DeleteFileOp extends FileOp {
 		return [ $this->params['src'] ];
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( DeleteFileOp::class, 'DeleteFileOp' );

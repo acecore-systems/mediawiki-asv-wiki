@@ -7,20 +7,19 @@
 ( function () {
 
 	/**
-	 * @classdesc Media search provider.
+	 * MediaWiki media search provider.
 	 *
 	 * @class
 	 * @extends mw.widgets.MediaResourceProvider
 	 *
 	 * @constructor
-	 * @description Create an instance of `mw.widgets.MediaSearchProvider`.
 	 * @param {string} apiurl The API url
 	 * @param {Object} [config] Configuration options
 	 */
 	mw.widgets.MediaSearchProvider = function MwWidgetsMediaSearchProvider( apiurl, config ) {
 		config = config || {};
 
-		config.staticParams = Object.assign( {
+		config.staticParams = $.extend( {
 			generator: 'search',
 			gsrnamespace: mw.config.get( 'wgNamespaceIds' ).file,
 			uselang: mw.config.get( 'wgUserLanguage' )
@@ -57,7 +56,9 @@
 	 * @inheritdoc
 	 */
 	mw.widgets.MediaSearchProvider.prototype.sort = function ( results ) {
-		return results.sort( ( a, b ) => a.index - b.index );
+		return results.sort( function ( a, b ) {
+			return a.index - b.index;
+		} );
 	};
 
 	/**

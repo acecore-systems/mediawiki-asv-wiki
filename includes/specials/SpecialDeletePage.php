@@ -1,5 +1,7 @@
 <?php
 /**
+ * Redirect from Special:DeletePage/$1 to index.php?title=$1&action=delete.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,19 +18,13 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
-use MediaWiki\SpecialPage\SpecialRedirectWithAction;
-use SearchEngineFactory;
-
 /**
- * Redirect from Special:DeletePage/$1 to index.php?title=$1&action=delete.
+ * @author Zabe
  *
  * @since 1.38
- * @ingroup SpecialPage
- * @author Zabe
  */
 class SpecialDeletePage extends SpecialRedirectWithAction {
 
@@ -45,6 +41,3 @@ class SpecialDeletePage extends SpecialRedirectWithAction {
 	// specialdeletepage-page
 	// specialdeletepage-submit
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialDeletePage::class, 'SpecialDeletePage' );

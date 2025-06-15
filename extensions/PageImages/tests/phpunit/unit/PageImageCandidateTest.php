@@ -3,9 +3,9 @@
 namespace MediaWiki\Tests\PageImages;
 
 use File;
-use MediaWiki\Title\Title;
 use MediaWikiUnitTestCase;
 use PageImages\PageImageCandidate;
+use Title;
 
 /**
  * @covers \PageImages\PageImageCandidate
@@ -28,29 +28,28 @@ class PageImageCandidateTest extends MediaWikiUnitTestCase {
 		return $file;
 	}
 
-	public static function provideTestCases() {
+	public function provideTestCases() {
 		yield 'file no width, no height' => [
-			false, false,
+			$this->fileMock( false, false ),
 			[], 'Testing', 0, 0, 0
 		];
 		yield 'file with width and height' => [
-			42, 24,
+			$this->fileMock( 42, 24 ),
 			[], 'Testing', 42, 24, 0
 		];
 		yield 'file with width and height, handler, no width' => [
-			42, 24,
+			$this->fileMock( 42, 24 ),
 			[ 'handler' => [] ], 'Testing', 42, 24, 0
 		];
 		yield 'file with width and height, handler, with width' => [
-			42, 24,
+			$this->fileMock( 42, 24 ),
 			[ 'handler' => [ 'width' => 4224 ] ], 'Testing', 42, 24, 4224
 		];
 	}
 
 	/**
 	 * @dataProvider provideTestCases
-	 * @param int|false $mockWidth
-	 * @param int|false $mockHeight
+	 * @param File $file
 	 * @param array $params
 	 * @param string $expectedName
 	 * @param int $expectedWidth
@@ -58,15 +57,13 @@ class PageImageCandidateTest extends MediaWikiUnitTestCase {
 	 * @param int $expectedHandlerWidth
 	 */
 	public function testNewFromFileAndParams(
-		$mockWidth,
-		$mockHeight,
+		File $file,
 		array $params,
 		string $expectedName,
 		int $expectedWidth,
 		int $expectedHeight,
 		int $expectedHandlerWidth
 	) {
-		$file = $this->fileMock( $mockWidth, $mockHeight );
 		$image = PageImageCandidate::newFromFileAndParams( $file, $params );
 		$this->assertSame( $expectedName, $image->getFileName() );
 		$this->assertSame( $expectedWidth, $image->getFullWidth() );
@@ -76,12 +73,10 @@ class PageImageCandidateTest extends MediaWikiUnitTestCase {
 
 	/**
 	 * @dataProvider provideTestCases
-	 * @param int|false $mockWidth
-	 * @param int|false $mockHeight
+	 * @param File $file
 	 * @param array $params
 	 */
-	public function testSerializeDeserialize( $mockWidth, $mockHeight, array $params ) {
-		$file = $this->fileMock( $mockWidth, $mockHeight );
+	public function testSerializeDeserialize( File $file, array $params ) {
 		$candidate = PageImageCandidate::newFromFileAndParams( $file, $params );
 		$deserialized = PageImageCandidate::newFromArray( $candidate->jsonSerialize() );
 		$this->assertSame( $candidate->getFileName(), $deserialized->getFileName() );

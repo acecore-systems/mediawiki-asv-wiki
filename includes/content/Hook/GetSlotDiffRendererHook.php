@@ -2,8 +2,8 @@
 
 namespace MediaWiki\Content\Hook;
 
-use MediaWiki\Content\ContentHandler;
-use MediaWiki\Context\IContextSource;
+use ContentHandler;
+use IContextSource;
 use SlotDiffRenderer;
 
 /**

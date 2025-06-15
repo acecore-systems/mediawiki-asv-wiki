@@ -23,9 +23,8 @@
 
 namespace MediaWiki\Session;
 
-use InvalidArgumentException;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Request\WebRequest;
+use WebRequest;
 
 /**
  * An ImmutableSessionProviderWithCookie doesn't persist the user, but
@@ -59,13 +58,13 @@ abstract class ImmutableSessionProviderWithCookie extends SessionProvider {
 
 		if ( isset( $params['sessionCookieName'] ) ) {
 			if ( !is_string( $params['sessionCookieName'] ) ) {
-				throw new InvalidArgumentException( 'sessionCookieName must be a string' );
+				throw new \InvalidArgumentException( 'sessionCookieName must be a string' );
 			}
 			$this->sessionCookieName = $params['sessionCookieName'];
 		}
 		if ( isset( $params['sessionCookieOptions'] ) ) {
 			if ( !is_array( $params['sessionCookieOptions'] ) ) {
-				throw new InvalidArgumentException( 'sessionCookieOptions must be an array' );
+				throw new \InvalidArgumentException( 'sessionCookieOptions must be an array' );
 			}
 			$this->sessionCookieOptions = $params['sessionCookieOptions'];
 		}

@@ -1,32 +1,22 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`App renders a typeahead search component 1`] = `
-<cdx-typeahead-search
+<cdx-typeahead-search-stub
   accesskey="f"
   aria-label="Search MediaWiki"
-  auto-expand-width="false"
-  button-label="searchbutton"
-  class="vector-typeahead-search"
-  form-action=""
-  highlight-query="true"
+  autoexpandwidth="false"
+  buttonlabel="searchbutton"
+  class=""
+  debounceinterval="120"
+  formaction=""
+  highlightquery="true"
   id="searchform"
-  initial-input-value=""
+  initialinputvalue=""
   placeholder="Search MediaWiki"
-  search-footer-url=""
-  search-results=""
-  search-results-label="searchresults"
-  show-thumbnail="true"
+  searchfooterurl=""
+  searchresults=""
+  searchresultslabel="searchresults"
+  showthumbnail="true"
   title="search"
->
-  <input
-    name="title"
-    type="hidden"
-    value="Special:Search"
-  />
-  <input
-    name="wprov"
-    type="hidden"
-    value="acrw1_-1"
-  />
-</cdx-typeahead-search>
+/>
 `;

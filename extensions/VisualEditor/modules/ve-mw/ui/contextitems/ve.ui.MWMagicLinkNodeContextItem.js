@@ -1,7 +1,7 @@
 /*!
  * VisualEditor MWMagicLinkNodeContextItem class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -11,9 +11,9 @@
  * @extends ve.ui.LinkContextItem
  *
  * @constructor
- * @param {ve.ui.LinearContext} context Context the item is in
- * @param {ve.dm.MWMagicLinkNode} model Model the item is related to
- * @param {Object} [config]
+ * @param {ve.ui.Context} context Context item is in
+ * @param {ve.dm.MWMagicLinkNode} model Model item is related to
+ * @param {Object} config Configuration options
  */
 ve.ui.MWMagicLinkNodeContextItem = function VeUiMWMagicLinkNodeContextItem() {
 	// Parent constructor
@@ -41,7 +41,7 @@ ve.ui.MWMagicLinkNodeContextItem.static.clearable = false;
 
 ve.ui.MWMagicLinkNodeContextItem.prototype.setup = function () {
 	// Set up label
-	const msg = 'visualeditor-magiclinknodeinspector-title-' +
+	var msg = 'visualeditor-magiclinknodeinspector-title-' +
 		this.model.getMagicType().toLowerCase();
 
 	// The following messages are used here:

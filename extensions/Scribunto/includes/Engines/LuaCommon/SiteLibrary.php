@@ -1,15 +1,8 @@
 <?php
 
-namespace MediaWiki\Extension\Scribunto\Engines\LuaCommon;
-
-use MediaWiki\Category\Category;
-use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\SiteStats\SiteStats;
-use MediaWiki\Specials\SpecialVersion;
-use MediaWiki\Title\Title;
 
-class SiteLibrary extends LibraryBase {
+class Scribunto_LuaSiteLibrary extends Scribunto_LuaLibraryBase {
 	/** @var string|null */
 	private static $namespacesCacheLang = null;
 	/** @var array[]|null */
@@ -20,6 +13,8 @@ class SiteLibrary extends LibraryBase {
 	private $pagesInCategoryCache = [];
 
 	public function register() {
+		global $wgNamespaceAliases;
+
 		$lib = [
 			'getNsIndex' => [ $this, 'getNsIndex' ],
 			'pagesInCategory' => [ $this, 'pagesInCategory' ],
@@ -29,13 +24,12 @@ class SiteLibrary extends LibraryBase {
 		];
 		$parser = $this->getParser();
 		$services = MediaWikiServices::getInstance();
-		$config = $services->getMainConfig();
 		$contLang = $services->getContentLanguage();
 		$info = [
-			'siteName' => $config->get( MainConfigNames::Sitename ),
-			'server' => $config->get( MainConfigNames::Server ),
-			'scriptPath' => $config->get( MainConfigNames::ScriptPath ),
-			'stylePath' => $config->get( MainConfigNames::StylePath ),
+			'siteName' => $GLOBALS['wgSitename'],
+			'server' => $GLOBALS['wgServer'],
+			'scriptPath' => $GLOBALS['wgScriptPath'],
+			'stylePath' => $GLOBALS['wgStylePath'],
 			'currentVersion' => SpecialVersion::getVersion(
 				'', $parser ? $parser->getTargetLanguage() : $contLang
 			),
@@ -75,8 +69,7 @@ class SiteLibrary extends LibraryBase {
 				}
 			}
 
-			$namespaceAliases = $config->get( MainConfigNames::NamespaceAliases );
-			$aliases = array_merge( $namespaceAliases, $contLang->getNamespaceAliases() );
+			$aliases = array_merge( $wgNamespaceAliases, $contLang->getNamespaceAliases() );
 			foreach ( $aliases as $title => $ns ) {
 				if ( !isset( $namespacesByName[$title] ) && isset( $namespaces[$ns] ) ) {
 					$ct = count( $namespaces[$ns]['aliases'] );
@@ -92,27 +85,15 @@ class SiteLibrary extends LibraryBase {
 		}
 		$info['namespaces'] = self::$namespacesCache;
 
-		if ( defined( 'MW_PHPUNIT_TEST' ) ) {
-			$info['stats'] = [
-				'pages' => 1,
-				'articles' => 1,
-				'files' => 0,
-				'edits' => 1,
-				'users' => 1,
-				'activeUsers' => 1,
-				'admins' => 1,
-			];
-		} else {
-			$info['stats'] = [
-				'pages' => (int)SiteStats::pages(),
-				'articles' => (int)SiteStats::articles(),
-				'files' => (int)SiteStats::images(),
-				'edits' => (int)SiteStats::edits(),
-				'users' => (int)SiteStats::users(),
-				'activeUsers' => (int)SiteStats::activeUsers(),
-				'admins' => (int)SiteStats::numberingroup( 'sysop' ),
-			];
-		}
+		$info['stats'] = [
+			'pages' => (int)SiteStats::pages(),
+			'articles' => (int)SiteStats::articles(),
+			'files' => (int)SiteStats::images(),
+			'edits' => (int)SiteStats::edits(),
+			'users' => (int)SiteStats::users(),
+			'activeUsers' => (int)SiteStats::activeUsers(),
+			'admins' => (int)SiteStats::numberingroup( 'sysop' ),
+		];
 
 		return $this->getEngine()->registerInterface( 'mw.site.lua', $lib, $info );
 	}
@@ -198,6 +179,7 @@ class SiteLibrary extends LibraryBase {
 	 * @return array[]
 	 */
 	public function interwikiMap( $filter = null ) {
+		global $wgLocalInterwikis, $wgExtraInterlanguageLinkPrefixes;
 		$this->checkTypeOptional( 'interwikiMap', 1, $filter, 'string', null );
 		$local = null;
 		if ( $filter === 'local' ) {
@@ -205,7 +187,7 @@ class SiteLibrary extends LibraryBase {
 		} elseif ( $filter === '!local' ) {
 			$local = false;
 		} elseif ( $filter !== null ) {
-			throw new LuaError(
+			throw new Scribunto_LuaError(
 				"bad argument #1 to 'interwikiMap' (unknown filter '$filter')"
 			);
 		}
@@ -214,25 +196,18 @@ class SiteLibrary extends LibraryBase {
 			// Not expensive because we can have a max of three cache misses in the
 			// entire page parse.
 			$interwikiMap = [];
-
-			$services = MediaWikiServices::getInstance();
-			$lookup = $services->getInterwikiLookup();
-			$config = $services->getMainConfig();
-			$urlUtils = $services->getUrlUtils();
-
+			$lookup = MediaWikiServices::getInstance()->getInterwikiLookup();
 			$prefixes = $lookup->getAllPrefixes( $local );
-			$localInterwikis = $config->get( MainConfigNames::LocalInterwikis );
-			$extraInterlanguageLinkPrefixes = $config->get( MainConfigNames::ExtraInterlanguageLinkPrefixes );
 			foreach ( $prefixes as $row ) {
 				$prefix = $row['iw_prefix'];
 				$val = [
 					'prefix' => $prefix,
-					'url' => $urlUtils->expand( $row['iw_url'], PROTO_RELATIVE ) ?? false,
-					'isProtocolRelative' => str_starts_with( $row['iw_url'], '//' ),
-					'isLocal' => (bool)( $row['iw_local'] ?? false ),
-					'isTranscludable' => (bool)( $row['iw_trans'] ?? false ),
-					'isCurrentWiki' => in_array( $prefix, $localInterwikis ),
-					'isExtraLanguageLink' => in_array( $prefix, $extraInterlanguageLinkPrefixes ),
+					'url' => wfExpandUrl( $row['iw_url'], PROTO_RELATIVE ),
+					'isProtocolRelative' => substr( $row['iw_url'], 0, 2 ) === '//',
+					'isLocal' => isset( $row['iw_local'] ) && $row['iw_local'] == '1',
+					'isTranscludable' => isset( $row['iw_trans'] ) && $row['iw_trans'] == '1',
+					'isCurrentWiki' => in_array( $prefix, $wgLocalInterwikis ),
+					'isExtraLanguageLink' => in_array( $prefix, $wgExtraInterlanguageLinkPrefixes ),
 				];
 				if ( $val['isExtraLanguageLink'] ) {
 					$displayText = wfMessage( "interlanguage-link-$prefix" );

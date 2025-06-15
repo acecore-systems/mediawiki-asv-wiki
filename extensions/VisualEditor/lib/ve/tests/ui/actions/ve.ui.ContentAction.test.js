@@ -1,22 +1,22 @@
 /*!
  * VisualEditor UserInterface Actions ContentAction tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ui.ContentAction' );
 
 /* Tests */
 
-QUnit.test( 'insert/remove/select/selectAll', ( assert ) => {
-	const cases = [
+QUnit.test( 'insert/remove/select/selectAll', function ( assert ) {
+	var cases = [
 		{
 			rangeOrSelection: new ve.Range( 3, 4 ),
 			method: 'insert',
 			args: [ 'Foo' ],
 			expectedData: function ( data ) {
 				data.splice( 3, 1,
-					...'Foo'
+					'F', 'o', 'o'
 				);
 			},
 			expectedRangeOrSelection: new ve.Range( 3, 6 ),
@@ -44,7 +44,7 @@ QUnit.test( 'insert/remove/select/selectAll', ( assert ) => {
 			args: [ 'Foo', false, true ],
 			expectedData: function ( data ) {
 				data.splice( 3, 1,
-					...'Foo'
+					'F', 'o', 'o'
 				);
 			},
 			expectedRangeOrSelection: new ve.Range( 6 ),
@@ -99,12 +99,13 @@ QUnit.test( 'insert/remove/select/selectAll', ( assert ) => {
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		ve.test.utils.runActionTest(
-			assert,
+			'content', assert, caseItem.html, caseItem.createView, caseItem.method, caseItem.args, caseItem.rangeOrSelection, caseItem.msg,
 			{
-				actionName: 'content',
-				...caseItem
+				expectedData: caseItem.expectedData,
+				expectedRangeOrSelection: caseItem.expectedRangeOrSelection,
+				undo: caseItem.undo
 			}
 		);
 	} );

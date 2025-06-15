@@ -1,50 +1,52 @@
 ( function () {
 
+	// IE 9-11 calculates the width of the 'ch' unit without including the space around characters,
+	// causing fields sized to e.g. 4ch to be too narrow to fit 4 digits. https://caniuse.com/ch-unit
+	var digitWidth = $.client.profile().name === 'msie' ? 1.15 : 1;
+
 	/**
-	 * @classdesc DateTimeInputWidgets can be used to input a date, a time, or
-	 * a date and time, in either UTC or the user's local timezone.
-	 * Please see the [OOUI documentation on MediaWiki](https://www.mediawiki.org/wiki/OOUI/Widgets/Inputs)
-	 * for more information and examples.
+	 * DateTimeInputWidgets can be used to input a date, a time, or a date and
+	 * time, in either UTC or the user's local timezone.
+	 * Please see the [OOUI documentation on MediaWiki] [1] for more information and examples.
 	 *
 	 * This widget can be used inside a HTML form, such as a OO.ui.FormLayout.
 	 *
-	 * @example
-	 * // Example of a text input widget
-	 * var dateTimeInput = new mw.widgets.datetime.DateTimeInputWidget( {} )
-	 * $( document.body ).append( dateTimeInput.$element );
+	 *     @example
+	 *     // Example of a text input widget
+	 *     var dateTimeInput = new mw.widgets.datetime.DateTimeInputWidget( {} )
+	 *     $( document.body ).append( dateTimeInput.$element );
+	 *
+	 * [1]: https://www.mediawiki.org/wiki/OOUI/Widgets/Inputs
 	 *
 	 * @class
 	 * @extends OO.ui.InputWidget
-	 * @mixes OO.ui.mixin.IconElement
-	 * @mixes OO.ui.mixin.IndicatorElement
-	 * @mixes OO.ui.mixin.PendingElement
-	 * @mixes OO.ui.mixin.FlaggedElement
+	 * @mixins OO.ui.mixin.IconElement
+	 * @mixins OO.ui.mixin.IndicatorElement
+	 * @mixins OO.ui.mixin.PendingElement
+	 * @mixins OO.ui.mixin.FlaggedElement
 	 *
 	 * @constructor
-	 * @description Create an instance of `mw.widgets.datetime.DateTimeInputWidget`.
 	 * @param {Object} [config] Configuration options
-	 * @param {string} [config.type='datetime'] Whether to act like a 'date', 'time', or 'datetime' input.
+	 * @cfg {string} [type='datetime'] Whether to act like a 'date', 'time', or 'datetime' input.
 	 *  Affects values stored in the relevant `<input>` and the formatting and
-	 *  interpretation of values passed to/from
-	 *  {@link https://doc.wikimedia.org/oojs-ui/master/js/OO.ui.InputWidget.html#getValue getValue()} and
-	 *  {@link https://doc.wikimedia.org/oojs-ui/master/js/OO.ui.InputWidget.html#setValue setValue()}.
-	 *  It's up to the user to configure the DateTimeFormatter correctly.
-	 * @param {Object|mw.widgets.datetime.DateTimeFormatter} [config.formatter={}] Configuration options for
-	 *  {@link mw.widgets.datetime.ProlepticGregorianDateTimeFormatter} (with 'format' defaulting to
+	 *  interpretation of values passed to/from getValue() and setValue(). It's up
+	 *  to the user to configure the DateTimeFormatter correctly.
+	 * @cfg {Object|mw.widgets.datetime.DateTimeFormatter} [formatter={}] Configuration options for
+	 *  mw.widgets.datetime.ProlepticGregorianDateTimeFormatter (with 'format' defaulting to
 	 *  '@date', '@time', or '@datetime' depending on 'type'), or an
-	 *  {@link mw.widgets.datetime.DateTimeFormatter} instance to use.
-	 * @param {Object|null} [config.calendar={}] Configuration options for
-	 *  {@link mw.widgets.datetime.CalendarWidget}; note certain settings will be forced based on the
+	 *  mw.widgets.datetime.DateTimeFormatter instance to use.
+	 * @cfg {Object|null} [calendar={}] Configuration options for
+	 *  mw.widgets.datetime.CalendarWidget; note certain settings will be forced based on the
 	 *  settings passed to this widget. Set null to disable the calendar.
-	 * @param {boolean} [config.required=false] Whether a value is required.
-	 * @param {boolean} [config.clearable=true] Whether to provide for blanking the value.
-	 * @param {Date|null} [config.value=null] Default value for the widget
-	 * @param {Date|string|null} [config.min=null] Minimum allowed date
-	 * @param {Date|string|null} [config.max=null] Maximum allowed date
+	 * @cfg {boolean} [required=false] Whether a value is required.
+	 * @cfg {boolean} [clearable=true] Whether to provide for blanking the value.
+	 * @cfg {Date|null} [value=null] Default value for the widget
+	 * @cfg {Date|string|null} [min=null] Minimum allowed date
+	 * @cfg {Date|string|null} [max=null] Maximum allowed date
 	 */
 	mw.widgets.datetime.DateTimeInputWidget = function MwWidgetsDatetimeDateTimeInputWidget( config ) {
 		// Configuration initialization
-		config = Object.assign( {
+		config = $.extend( {
 			type: 'datetime',
 			clearable: true,
 			required: false,
@@ -128,7 +130,7 @@
 		if ( this.type === 'time' || config.calendar === null ) {
 			this.calendar = null;
 		} else {
-			config.calendar = Object.assign( {}, config.calendar, {
+			config.calendar = $.extend( {}, config.calendar, {
 				formatter: this.formatter,
 				widget: this,
 				min: this.min,
@@ -168,11 +170,6 @@
 			.append( this.$handle );
 
 		if ( this.calendar ) {
-			const date = this.getValueAsDate();
-			this.calendar.setSelected( date );
-			if ( date ) {
-				this.calendar.setFocusedDate( date );
-			}
 			this.$element.append( this.calendar.$element );
 		}
 	};
@@ -194,7 +191,7 @@
 	/* Methods */
 
 	/**
-	 * Get the currently focused field, if any.
+	 * Get the currently focused field, if any
 	 *
 	 * @private
 	 * @return {jQuery}
@@ -204,13 +201,15 @@
 	};
 
 	/**
-	 * Convert a date string to a Date.
+	 * Convert a date string to a Date
 	 *
 	 * @private
 	 * @param {string} value
 	 * @return {Date|null}
 	 */
 	mw.widgets.datetime.DateTimeInputWidget.prototype.parseDateValue = function ( value ) {
+		var date, m;
+
 		value = String( value );
 		switch ( this.type ) {
 			case 'date':
@@ -220,10 +219,7 @@
 				value = '1970-01-01T' + value + 'Z';
 				break;
 		}
-
-		let date;
-
-		const m = /^(\d{4,})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?Z$/.exec( value );
+		m = /^(\d{4,})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?Z$/.exec( value );
 		if ( m ) {
 			if ( m[ 7 ] ) {
 				while ( m[ 7 ].length < 3 ) {
@@ -257,7 +253,7 @@
 	 * @inheritdoc
 	 */
 	mw.widgets.datetime.DateTimeInputWidget.prototype.cleanUpValue = function ( value ) {
-		let date, pad;
+		var date, pad;
 
 		if ( value === '' ) {
 			return '';
@@ -305,7 +301,7 @@
 	};
 
 	/**
-	 * Get the value of the input as a Date object.
+	 * Get the value of the input as a Date object
 	 *
 	 * @return {Date|null}
 	 */
@@ -314,14 +310,12 @@
 	};
 
 	/**
-	 * Set up the UI fields.
+	 * Set up the UI fields
 	 *
 	 * @private
 	 */
 	mw.widgets.datetime.DateTimeInputWidget.prototype.setupFields = function () {
-		let i, $field, spec, placeholder, sz, maxlength;
-
-		const
+		var i, $field, spec, placeholder, sz, maxlength,
 			spanValFunc = function ( v ) {
 				if ( v === undefined ) {
 					return this.data( 'mw-widgets-datetime-dateTimeInputWidget-value' );
@@ -361,7 +355,7 @@
 			}
 
 			if ( spec.type === 'number' ) {
-				sz = spec.size + 'ch';
+				sz = ( spec.size * digitWidth ) + 'ch';
 			} else {
 				// Add a little for padding
 				sz = ( spec.size * 1.25 ) + 'ch';
@@ -446,14 +440,13 @@
 	};
 
 	/**
-	 * Update the UI fields from the current value.
+	 * Update the UI fields from the current value
 	 *
 	 * @private
 	 */
 	mw.widgets.datetime.DateTimeInputWidget.prototype.updateFieldsFromValue = function () {
-		let i, $field, spec, intercalary, sz;
-
-		const date = this.getValueAsDate();
+		var i, $field, spec, intercalary, sz,
+			date = this.getValueAsDate();
 
 		if ( date === null ) {
 			this.components = null;
@@ -468,7 +461,7 @@
 
 				if ( spec.intercalarySize ) {
 					if ( spec.type === 'number' ) {
-						$field.width( spec.size + 'ch' );
+						$field.width( ( spec.size * digitWidth ) + 'ch' );
 					} else {
 						// Add a little for padding
 						$field.width( ( spec.size * 1.25 ) + 'ch' );
@@ -496,7 +489,7 @@
 					}
 					$field.toggleClass( 'oo-ui-element-hidden', sz <= 0 );
 					if ( spec.type === 'number' ) {
-						this.fields[ i ].width( sz + 'ch' );
+						this.fields[ i ].width( ( sz * digitWidth ) + 'ch' );
 					} else {
 						// Add a little for padding
 						this.fields[ i ].width( ( sz * 1.25 ) + 'ch' );
@@ -511,17 +504,16 @@
 	};
 
 	/**
-	 * Update the value with data from the UI fields.
+	 * Update the value with data from the UI fields
 	 *
 	 * @private
 	 */
 	mw.widgets.datetime.DateTimeInputWidget.prototype.updateValueFromFields = function () {
-		let i, v, $field, spec, curDate, newDate,
+		var i, v, $field, spec, curDate, newDate,
+			components = {},
 			anyInvalid = false,
 			anyEmpty = false,
 			allEmpty = true;
-
-		const components = {};
 
 		for ( i = 0; i < this.fields.length; i++ ) {
 			$field = this.fields[ i ];
@@ -563,12 +555,12 @@
 	};
 
 	/**
-	 * Handle change event.
+	 * Handle change event
 	 *
 	 * @private
 	 */
 	mw.widgets.datetime.DateTimeInputWidget.prototype.onChange = function () {
-		let date;
+		var date;
 
 		this.updateFieldsFromValue();
 
@@ -582,16 +574,17 @@
 	};
 
 	/**
-	 * Handle clear button click event.
+	 * Handle clear button click event
 	 *
 	 * @private
 	 */
 	mw.widgets.datetime.DateTimeInputWidget.prototype.onClearClick = function () {
-		this.blur().setValue( '' );
+		this.blur();
+		this.setValue( '' );
 	};
 
 	/**
-	 * Handle click on the widget background.
+	 * Handle click on the widget background
 	 *
 	 * @private
 	 * @param {jQuery.Event} e Click event
@@ -606,10 +599,10 @@
 	 * @private
 	 * @param {jQuery} $field
 	 * @param {jQuery.Event} e Key down event
-	 * @return {boolean|undefined} False to cancel the default event
+	 * @return {boolean} False to cancel the default event
 	 */
 	mw.widgets.datetime.DateTimeInputWidget.prototype.onFieldKeyDown = function ( $field, e ) {
-		const spec = $field.data( 'mw-widgets-datetime-dateTimeInputWidget-fieldSpec' );
+		var spec = $field.data( 'mw-widgets-datetime-dateTimeInputWidget-fieldSpec' );
 
 		if ( !this.isDisabled() ) {
 			switch ( e.which ) {
@@ -651,7 +644,7 @@
 	 * @param {jQuery.Event} e Focus event
 	 */
 	mw.widgets.datetime.DateTimeInputWidget.prototype.onFieldFocus = function ( $field ) {
-		const spec = $field.data( 'mw-widgets-datetime-dateTimeInputWidget-fieldSpec' );
+		var spec = $field.data( 'mw-widgets-datetime-dateTimeInputWidget-fieldSpec' );
 
 		if ( !this.isDisabled() ) {
 			if ( this.getValueAsDate() === null ) {
@@ -675,7 +668,7 @@
 	 * @param {jQuery.Event} e Click event
 	 */
 	mw.widgets.datetime.DateTimeInputWidget.prototype.onFieldClick = function ( $field ) {
-		const spec = $field.data( 'mw-widgets-datetime-dateTimeInputWidget-fieldSpec' );
+		var spec = $field.data( 'mw-widgets-datetime-dateTimeInputWidget-fieldSpec' );
 
 		if ( !this.isDisabled() ) {
 			if ( spec.type === 'boolean' ) {
@@ -696,13 +689,13 @@
 	 * @param {jQuery.Event} e Blur event
 	 */
 	mw.widgets.datetime.DateTimeInputWidget.prototype.onFieldBlur = function ( $field ) {
-		let v;
-		const spec = $field.data( 'mw-widgets-datetime-dateTimeInputWidget-fieldSpec' );
+		var v, date,
+			spec = $field.data( 'mw-widgets-datetime-dateTimeInputWidget-fieldSpec' );
 
 		this.updateValueFromFields();
 
 		// Normalize
-		const date = this.getValueAsDate();
+		date = this.getValueAsDate();
 		if ( !date ) {
 			$field.val( '' );
 		} else {
@@ -730,11 +723,11 @@
 	 * @private
 	 * @param {jQuery} $field
 	 * @param {jQuery.Event} e Change event
-	 * @return {boolean|undefined} False to cancel the default event
+	 * @return {boolean} False to cancel the default event
 	 */
 	mw.widgets.datetime.DateTimeInputWidget.prototype.onFieldWheel = function ( $field, e ) {
-		let delta = 0;
-		const spec = $field.data( 'mw-widgets-datetime-dateTimeInputWidget-fieldSpec' );
+		var delta = 0,
+			spec = $field.data( 'mw-widgets-datetime-dateTimeInputWidget-fieldSpec' );
 
 		if ( this.isDisabled() || !this.getFocusedField().length ) {
 			return;
@@ -776,12 +769,12 @@
 	};
 
 	/**
-	 * Handle calendar change event.
+	 * Handle calendar change event
 	 *
 	 * @private
 	 */
 	mw.widgets.datetime.DateTimeInputWidget.prototype.onCalendarChange = function () {
-		const curDate = this.getValueAsDate(),
+		var curDate = this.getValueAsDate(),
 			newDate = this.calendar.getSelected()[ 0 ];
 
 		if ( newDate ) {

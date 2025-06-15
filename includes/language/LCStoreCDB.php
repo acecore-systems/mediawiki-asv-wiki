@@ -85,7 +85,7 @@ class LCStoreCDB implements LCStore {
 
 	public function startWrite( $code ) {
 		if ( !is_dir( $this->directory ) && !wfMkdirParents( $this->directory, null, __METHOD__ ) ) {
-			throw new RuntimeException( "Unable to create the localisation store " .
+			throw new MWException( "Unable to create the localisation store " .
 				"directory \"{$this->directory}\"" );
 		}
 
@@ -94,12 +94,21 @@ class LCStoreCDB implements LCStore {
 			$this->readers[$code]->close();
 		}
 
-		$this->writer = Writer::open( $this->getFileName( $code ) );
+		try {
+			$this->writer = Writer::open( $this->getFileName( $code ) );
+		} catch ( CdbException $e ) {
+			throw new MWException( $e->getMessage() );
+		}
 		$this->currentLang = $code;
 	}
 
 	public function finishWrite() {
-		$this->writer->close();
+		// Close the writer
+		try {
+			$this->writer->close();
+		} catch ( CdbException $e ) {
+			throw new MWException( $e->getMessage() );
+		}
 		$this->writer = null;
 		unset( $this->readers[$this->currentLang] );
 		$this->currentLang = null;
@@ -107,14 +116,18 @@ class LCStoreCDB implements LCStore {
 
 	public function set( $key, $value ) {
 		if ( $this->writer === null ) {
-			throw new LogicException( __CLASS__ . ': must call startWrite() before calling set()' );
+			throw new MWException( __CLASS__ . ': must call startWrite() before calling set()' );
 		}
-		$this->writer->set( $key, serialize( $value ) );
+		try {
+			$this->writer->set( $key, serialize( $value ) );
+		} catch ( CdbException $e ) {
+			throw new MWException( $e->getMessage() );
+		}
 	}
 
 	protected function getFileName( $code ) {
 		if ( strval( $code ) === '' || strpos( $code, '/' ) !== false ) {
-			throw new InvalidArgumentException( __METHOD__ . ": Invalid language \"$code\"" );
+			throw new MWException( __METHOD__ . ": Invalid language \"$code\"" );
 		}
 
 		return "{$this->directory}/l10n_cache-$code.cdb";

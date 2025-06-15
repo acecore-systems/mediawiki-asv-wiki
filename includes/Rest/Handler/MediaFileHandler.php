@@ -19,8 +19,11 @@ use Wikimedia\ParamValidator\ParamValidator;
 class MediaFileHandler extends SimpleHandler {
 	use MediaFileTrait;
 
-	private RepoGroup $repoGroup;
-	private PageLookup $pageLookup;
+	/** @var RepoGroup */
+	private $repoGroup;
+
+	/** @var PageLookup */
+	private $pageLookup;
 
 	/**
 	 * @var ExistingPageRecord|false|null
@@ -32,6 +35,10 @@ class MediaFileHandler extends SimpleHandler {
 	 */
 	private $file = false;
 
+	/**
+	 * @param RepoGroup $repoGroup
+	 * @param PageLookup $pageLookup
+	 */
 	public function __construct(
 		RepoGroup $repoGroup,
 		PageLookup $pageLookup
@@ -104,10 +111,10 @@ class MediaFileHandler extends SimpleHandler {
 	 * @return array response data
 	 */
 	private function getResponse( File $file ): array {
-		[ $maxWidth, $maxHeight ] = self::getImageLimitsFromOption(
+		list( $maxWidth, $maxHeight ) = self::getImageLimitsFromOption(
 			$this->getAuthority()->getUser(), 'imagesize'
 		);
-		[ $maxThumbWidth, $maxThumbHeight ] = self::getImageLimitsFromOption(
+		list( $maxThumbWidth, $maxThumbHeight ) = self::getImageLimitsFromOption(
 			$this->getAuthority()->getUser(), 'thumbsize'
 		);
 		$transforms = [
@@ -169,6 +176,6 @@ class MediaFileHandler extends SimpleHandler {
 	 */
 	protected function hasRepresentation() {
 		$file = $this->getFile();
-		return $file && $file->exists();
+		return $file ? $file->exists() : false;
 	}
 }

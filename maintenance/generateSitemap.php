@@ -3,7 +3,7 @@
  * Creates a sitemap for the site.
  *
  * Copyright © 2005, Ævar Arnfjörð Bjarmason, Jens Frank <jeluf@gmx.de> and
- * Brooke Vibber <bvibber@wikimedia.org>
+ * Brion Vibber <brion@pobox.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,14 +27,11 @@
  */
 
 use MediaWiki\MainConfigNames;
-use MediaWiki\Title\Title;
-use MediaWiki\WikiMap\WikiMap;
+use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IResultWrapper;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script that generates a sitemap for the site.
@@ -177,12 +174,6 @@ class GenerateSitemap extends Maintenance {
 			false,
 			true
 		);
-		$this->addOption(
-			'namespaces',
-			'Only include pages in these namespaces in the sitemap, ' .
-			'defaults to the value of wgSitemapNamespaces if not defined.',
-			false, true, false, true
-		);
 	}
 
 	/**
@@ -208,7 +199,7 @@ class GenerateSitemap extends Maintenance {
 		$this->identifier = $this->getOption( 'identifier', $dbDomain );
 		$this->compress = $this->getOption( 'compress', 'yes' ) !== 'no';
 		$this->skipRedirects = $this->hasOption( 'skip-redirects' );
-		$this->dbr = $this->getReplicaDB();
+		$this->dbr = $this->getDB( DB_REPLICA );
 		$this->generateNamespaces();
 		$this->timestamp = wfTimestamp( TS_ISO_8601, wfTimestampNow() );
 		$encIdentifier = rawurlencode( $this->identifier );
@@ -221,7 +212,7 @@ class GenerateSitemap extends Maintenance {
 
 		// Custom main namespaces
 		$this->priorities[self::GS_MAIN] = '0.5';
-		// Custom talk namespaces
+		// Custom talk namesspaces
 		$this->priorities[self::GS_TALK] = '0.1';
 		// MediaWiki standard namespaces
 		$this->priorities[NS_MAIN] = '1.0';
@@ -262,14 +253,6 @@ class GenerateSitemap extends Maintenance {
 	 * Generate a one-dimensional array of existing namespaces
 	 */
 	private function generateNamespaces() {
-		// Use the namespaces passed in via command line arguments if they are set.
-		$sitemapNamespacesFromConfig = $this->getOption( 'namespaces' );
-		if ( is_array( $sitemapNamespacesFromConfig ) && count( $sitemapNamespacesFromConfig ) > 0 ) {
-			$this->namespaces = $sitemapNamespacesFromConfig;
-
-			return;
-		}
-
 		// Only generate for specific namespaces if $wgSitemapNamespaces is an array.
 		$sitemapNamespaces = $this->getConfig()->get( MainConfigNames::SitemapNamespaces );
 		if ( is_array( $sitemapNamespaces ) ) {
@@ -278,12 +261,15 @@ class GenerateSitemap extends Maintenance {
 			return;
 		}
 
-		$res = $this->dbr->newSelectQueryBuilder()
-			->select( [ 'page_namespace' ] )
-			->from( 'page' )
-			->groupBy( 'page_namespace' )
-			->orderBy( 'page_namespace' )
-			->caller( __METHOD__ )->fetchResultSet();
+		$res = $this->dbr->select( 'page',
+			[ 'page_namespace' ],
+			[],
+			__METHOD__,
+			[
+				'GROUP BY' => 'page_namespace',
+				'ORDER BY' => 'page_namespace',
+			]
+		);
 
 		foreach ( $res as $row ) {
 			$this->namespaces[] = $row->page_namespace;
@@ -309,7 +295,7 @@ class GenerateSitemap extends Maintenance {
 	 * @return string
 	 */
 	private function guessPriority( $namespace ) {
-		return $this->getServiceContainer()->getNamespaceInfo()->isSubject( $namespace )
+		return MediaWikiServices::getInstance()->getNamespaceInfo()->isSubject( $namespace )
 			? $this->priorities[self::GS_MAIN]
 			: $this->priorities[self::GS_TALK];
 	}
@@ -321,22 +307,37 @@ class GenerateSitemap extends Maintenance {
 	 * @return IResultWrapper
 	 */
 	private function getPageRes( $namespace ) {
-		return $this->dbr->newSelectQueryBuilder()
-			->select( [ 'page_namespace', 'page_title', 'page_touched', 'page_is_redirect', 'pp_propname' ] )
-			->from( 'page' )
-			->leftJoin( 'page_props', null, [ 'page_id = pp_page', 'pp_propname' => 'noindex' ] )
-			->where( [ 'page_namespace' => $namespace ] )
-			->caller( __METHOD__ )->fetchResultSet();
+		return $this->dbr->select(
+			[ 'page', 'page_props' ],
+			[
+				'page_namespace',
+				'page_title',
+				'page_touched',
+				'page_is_redirect',
+				'pp_propname',
+			],
+			[ 'page_namespace' => $namespace ],
+			__METHOD__,
+			[],
+			[
+				'page_props' => [
+					'LEFT JOIN',
+					[
+						'page_id = pp_page',
+						'pp_propname' => 'noindex'
+					]
+				]
+			]
+		);
 	}
 
 	/**
 	 * Main loop
 	 */
 	public function main() {
-		$services = $this->getServiceContainer();
+		$services = MediaWikiServices::getInstance();
 		$contLang = $services->getContentLanguage();
 		$langConverter = $services->getLanguageConverterFactory()->getLanguageConverter( $contLang );
-		$serverUrl = $services->getUrlUtils()->getServer( PROTO_CANONICAL ) ?? '';
 
 		fwrite( $this->findex, $this->openIndex() );
 
@@ -373,7 +374,7 @@ class GenerateSitemap extends Maintenance {
 					$filename = $this->sitemapFilename( $namespace, $smcount++ );
 					$this->file = $this->open( $this->fspath . $filename, 'wb' );
 					$this->write( $this->file, $this->openFile() );
-					fwrite( $this->findex, $this->indexEntry( $filename, $serverUrl ) );
+					fwrite( $this->findex, $this->indexEntry( $filename ) );
 					$this->output( "\t$this->fspath$filename\n" );
 					$length = $this->limit[0];
 					$i = 1;
@@ -391,7 +392,7 @@ class GenerateSitemap extends Maintenance {
 							continue; // we don't want default variant
 						}
 						$entry = $this->fileEntry(
-							$title->getCanonicalURL( [ 'variant' => $vCode ] ),
+							$title->getCanonicalURL( '', $vCode ),
 							$date,
 							$this->priority( $namespace )
 						);
@@ -428,7 +429,7 @@ class GenerateSitemap extends Maintenance {
 	private function open( $file, $flags ) {
 		$resource = $this->compress ? gzopen( $file, $flags ) : fopen( $file, $flags );
 		if ( $resource === false ) {
-			throw new RuntimeException( __METHOD__
+			throw new MWException( __METHOD__
 				. " error opening file $file with flags $flags. Check permissions?" );
 		}
 
@@ -443,7 +444,7 @@ class GenerateSitemap extends Maintenance {
 	 */
 	private function write( &$handle, $str ) {
 		if ( $handle === true || $handle === false ) {
-			throw new InvalidArgumentException( __METHOD__ . " was passed a boolean as a file handle.\n" );
+			throw new MWException( __METHOD__ . " was passed a boolean as a file handle.\n" );
 		}
 		if ( $this->compress ) {
 			gzwrite( $handle, $str );
@@ -509,12 +510,11 @@ class GenerateSitemap extends Maintenance {
 	 * Return the XML for a single sitemap indexfile entry
 	 *
 	 * @param string $filename The filename of the sitemap file
-	 * @param string $serverUrl Current server url
 	 * @return string
 	 */
-	private function indexEntry( $filename, $serverUrl ) {
+	private function indexEntry( $filename ) {
 		return "\t<sitemap>\n" .
-			"\t\t<loc>" . $serverUrl .
+			"\t\t<loc>" . wfGetServerUrl( PROTO_CANONICAL ) .
 				( substr( $this->urlpath, 0, 1 ) === "/" ? "" : "/" ) .
 				"{$this->urlpath}$filename</loc>\n" .
 			"\t\t<lastmod>{$this->timestamp}</lastmod>\n" .
@@ -586,7 +586,5 @@ class GenerateSitemap extends Maintenance {
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = GenerateSitemap::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

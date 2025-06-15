@@ -19,7 +19,6 @@
  * @author Niklas Laxström
  */
 
-use MediaWiki\Language\Language;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\User\UserIdentity;
@@ -30,6 +29,14 @@ use MediaWiki\User\UserIdentity;
  * @ingroup Languages
  */
 class LanguageFi extends Language {
+	/**
+	 * Convert from the nominative form of a noun to some other case
+	 * Invoked with {{grammar:case|word}}
+	 *
+	 * @param string $word
+	 * @param string $case
+	 * @return string
+	 */
 	public function convertGrammar( $word, $case ) {
 		$grammarForms =
 			MediaWikiServices::getInstance()->getMainConfig()->get( MainConfigNames::GrammarForms );
@@ -40,7 +47,7 @@ class LanguageFi extends Language {
 		# These rules don't cover the whole language.
 		# They are used only for site names.
 
-		# vowel harmony flag
+		# wovel harmony flag
 		$aou = preg_match( '/[aou][^äöy]*$/i', $word );
 
 		# The flag should be false for compounds where the last word has only neutral vowels (e/i).
@@ -83,7 +90,7 @@ class LanguageFi extends Language {
 	 * @param int $now Current timestamp, for formatting relative block durations
 	 * @return string
 	 */
-	public function translateBlockExpiry( $str, ?UserIdentity $user = null, $now = 0 ) {
+	public function translateBlockExpiry( $str, UserIdentity $user = null, $now = 0 ) {
 		/*
 			'ago', 'now', 'today', 'this', 'next',
 			'first', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth',
@@ -149,7 +156,7 @@ class LanguageFi extends Language {
 		foreach ( $tokens as $item ) {
 			if ( !is_numeric( $item ) ) {
 				if ( count( explode( '-', $item ) ) == 3 && strlen( $item ) == 10 ) {
-					[ $yyyy, $mm, $dd ] = explode( '-', $item );
+					list( $yyyy, $mm, $dd ) = explode( '-', $item );
 					$final .= ' ' . $this->date( "{$yyyy}{$mm}{$dd}000000" );
 					continue;
 				}

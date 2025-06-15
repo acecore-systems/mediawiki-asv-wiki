@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel MWGalleryImageCaptionNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2016 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -29,7 +29,7 @@ ve.dm.MWGalleryImageCaptionNode.static.matchTagNames = [];
 ve.dm.MWGalleryImageCaptionNode.static.parentNodeTypes = [ 'mwGalleryImage' ];
 
 ve.dm.MWGalleryImageCaptionNode.static.toDomElements = function ( dataElement, doc ) {
-	const div = doc.createElement( 'div' );
+	var div = doc.createElement( 'div' );
 	div.classList.add( 'gallerytext' );
 	return [ div ];
 };

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor initialization support checker.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 ( function () {
@@ -12,26 +12,16 @@
 	 * use this to check for feature compatibility this file must be ES3-parsable.
 	 *
 	 * @method VisualEditorSupportCheck
-	 * @memberof ve
+	 * @member global
 	 * @return {boolean} True if the environment should support VisualEditor.
 	 */
 	window.VisualEditorSupportCheck = function () {
 		return (
-			/* ES6 */
+			/* ES5 */
 			( function () {
-				try {
-					// eslint-disable-next-line no-new, no-new-func
-					new Function( '(a = 0) => a' );
-					return true;
-				} catch ( e ) {
-					return false;
-				}
+				'use strict';
+				return !this && !!Function.prototype.bind && !!window.JSON;
 			}() ) &&
-
-			/* ES6 RegExp.prototype.flags */
-			/./g.flags === 'g' &&
-
-			// TODO: Most of the below checks can probably be removed as they are supported in all ES6 browsers.
 
 			/* contentEditable */
 			!!( 'contentEditable' in document.createElement( 'div' ) ) &&
@@ -41,7 +31,7 @@
 
 			/* DOMParser */
 			( function () {
-				let doc;
+				var doc;
 				try {
 					doc = new DOMParser().parseFromString( '<body></body>', 'text/html' );
 				} catch ( e ) {}

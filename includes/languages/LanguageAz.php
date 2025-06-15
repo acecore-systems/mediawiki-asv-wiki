@@ -18,8 +18,6 @@
  * @file
  */
 
-use MediaWiki\Language\Language;
-
 /**
  * Azerbaijani (Azərbaycan) specific code.
  *
@@ -27,10 +25,14 @@ use MediaWiki\Language\Language;
  */
 class LanguageAz extends Language {
 
-	public function ucfirst( $str ) {
-		if ( substr( $str, 0, 1 ) === 'i' ) {
-			return 'İ' . substr( $str, 1 );
+	/**
+	 * @param string $string
+	 * @return mixed|string
+	 */
+	public function ucfirst( $string ) {
+		if ( substr( $string, 0, 1 ) === 'i' ) {
+			return 'İ' . substr( $string, 1 );
 		}
-		return parent::ucfirst( $str );
+		return parent::ucfirst( $string );
 	}
 }

@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright © 2007 Roan Kattouw <roan.kattouw@gmail.com>
+ * Copyright © 2007 Roan Kattouw "<Firstname>.<Lastname>@gmail.com"
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,16 +20,10 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
-use LogicException;
 use MediaWiki\MainConfigNames;
 use MediaWiki\Page\MovePageFactory;
-use MediaWiki\Status\Status;
-use MediaWiki\Title\Title;
-use MediaWiki\User\Options\UserOptionsLookup;
+use MediaWiki\User\UserOptionsLookup;
 use MediaWiki\Watchlist\WatchlistManager;
-use RepoGroup;
 use Wikimedia\ParamValidator\ParamValidator;
 
 /**
@@ -40,12 +34,15 @@ class ApiMove extends ApiBase {
 
 	use ApiWatchlistTrait;
 
-	private MovePageFactory $movePageFactory;
-	private RepoGroup $repoGroup;
+	/** @var MovePageFactory */
+	private $movePageFactory;
+
+	/** @var RepoGroup */
+	private $repoGroup;
 
 	public function __construct(
 		ApiMain $mainModule,
-		string $moduleName,
+		$moduleName,
 		MovePageFactory $movePageFactory,
 		RepoGroup $repoGroup,
 		WatchlistManager $watchlistManager,
@@ -107,6 +104,11 @@ class ApiMove extends ApiBase {
 			} elseif ( !$this->getAuthority()->isAllowed( 'reupload-shared' ) ) {
 				$this->dieWithError( 'apierror-cantoverwrite-sharedfile' );
 			}
+		}
+
+		// Rate limit
+		if ( $user->pingLimiter( 'move' ) ) {
+			$this->dieWithError( 'apierror-ratelimited' );
 		}
 
 		// Move the page
@@ -279,6 +281,3 @@ class ApiMove extends ApiBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Move';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiMove::class, 'ApiMove' );

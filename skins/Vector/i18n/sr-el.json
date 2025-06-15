@@ -1,7 +1,6 @@
 {
 	"@metadata": {
 		"authors": [
-			"BadDog",
 			"Kizule",
 			"Michaello",
 			"Milicevic01",
@@ -9,7 +8,8 @@
 			"Rancher",
 			"Zoranzoki21",
 			"Жељко Тодоровић",
-			"Сербијана"
+			"Сербијана",
+			"BadDog"
 		]
 	},
 	"skinname-vector": "Vektorsko (2010)",
@@ -28,6 +28,7 @@
 	"vector-language-button-label": "{{PLURAL:$1|$1 jezik|$1 jezika}}",
 	"vector-no-language-button-label": "Dodaj jezike",
 	"vector-no-language-button-aria-label": "Ovaj članak postoji samo na ovom jeziku. Dodajte druge jezike.",
+	"vector-language-redirect-to-top": "Jezičke veze se nalaze na vrhu stranice pored naslova članka. [[#p-lang-btn|Idite na vrh]].",
 	"vector-language-variant-switcher-label": "Promeni varijantu jezika",
 	"vector-action-addsection": "Dodaj temu",
 	"vector-action-delete": "Izbriši",
@@ -46,7 +47,7 @@
 	"vector-more-actions": "Više",
 	"vector-search-loader": "Učitavam predloge pretrage",
 	"vector-searchsuggest-containing": "Pretraži stranice koje sadrže <strong class=\"cdx-typeahead-search__search-footer__query\">$1</strong>",
-	"vector-toc-label": "Sadržaj",
+	"vector-toc-heading": "Sadržaj",
 	"vector-toc-beginning": "Početak",
 	"vector-anon-user-menu-pages": "Stranice za odjavljene urednike",
 	"vector-anon-user-menu-pages-learn": "detaljnije",
@@ -54,15 +55,7 @@
 	"vector-main-menu-tooltip": "Glavni meni",
 	"vector-toc-menu-tooltip": "Sadržaj",
 	"vector-toc-collapsible-button-label": "Prikaži/sakrij sadržaj",
+	"vector-article-tools-nav-label": "Alatke",
 	"vector-site-nav-label": "Sajt",
-	"vector-main-menu-label": "Glavni meni",
-	"vector-page-tools-label": "Alatke",
-	"vector-page-tools-general-label": "Opšte",
-	"vector-page-tools-actions-label": "Radnje",
-	"vector-pin-element-label": "pomeri na stranu",
-	"vector-unpin-element-label": "sakrij",
-	"tooltip-vector-anon-user-menu-title": "Više opcija",
-	"vector-prefs-limited-width": "Režim ograničene širine",
-	"vector-prefs-limited-width-help": "Omogućava režim ograničene širine za poboljšano čitačko iskustvo",
-	"empty-language-selector-body": "Sadržaj stranice nije podržan na drugim jezicima"
+	"tooltip-vector-anon-user-menu-title": "Više opcija"
 }

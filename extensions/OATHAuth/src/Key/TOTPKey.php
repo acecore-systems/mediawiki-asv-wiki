@@ -21,17 +21,17 @@ namespace MediaWiki\Extension\OATHAuth\Key;
 
 use Base32\Base32;
 use DomainException;
+use EmptyBagOStuff;
 use Exception;
 use jakobo\HOTP\HOTP;
 use MediaWiki\Extension\OATHAuth\IAuthKey;
-use MediaWiki\Extension\OATHAuth\Notifications\Manager;
-use MediaWiki\Extension\OATHAuth\OATHAuthServices;
 use MediaWiki\Extension\OATHAuth\OATHUser;
+use MediaWiki\Extension\OATHAuth\OATHUserRepository;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
 use MWException;
+use ObjectCache;
 use Psr\Log\LoggerInterface;
-use Wikimedia\ObjectCache\EmptyBagOStuff;
 
 /**
  * Class representing a two-factor key
@@ -41,8 +41,17 @@ use Wikimedia\ObjectCache\EmptyBagOStuff;
  * @ingroup Extensions
  */
 class TOTPKey implements IAuthKey {
-	/** @var int|null */
-	private ?int $id;
+	/**
+	 * Represents that a token corresponds to the main secret
+	 * @see verify
+	 */
+	private const MAIN_TOKEN = 1;
+
+	/**
+	 * Represents that a token corresponds to a recovery code
+	 * @see verify
+	 */
+	private const SCRATCH_TOKEN = -1;
 
 	/** @var array Two factor binary secret */
 	private $secret;
@@ -51,27 +60,11 @@ class TOTPKey implements IAuthKey {
 	private $recoveryCodes = [];
 
 	/**
-	 * The upper threshold number of recovery codes that if a user has less than, we'll try and notify them...
-	 */
-	private const RECOVERY_CODES_NOTIFICATION_NUMBER = 2;
-
-	/**
-	 * Number of recovery codes to be generated
-	 */
-	public const RECOVERY_CODES_COUNT = 10;
-
-	/**
-	 * Length (in bytes) that recovery codes should be
-	 */
-	private const RECOVERY_CODE_LENGTH = 10;
-
-	/**
 	 * @return TOTPKey
 	 * @throws Exception
 	 */
 	public static function newFromRandom() {
 		$object = new self(
-			null,
 			Base32::encode( random_bytes( 10 ) ),
 			[]
 		);
@@ -82,6 +75,20 @@ class TOTPKey implements IAuthKey {
 	}
 
 	/**
+	 * Create key from json encoded string
+	 *
+	 * @param string $data
+	 * @return TOTPKey|null on invalid data
+	 */
+	public static function newFromString( $data ) {
+		$data = json_decode( $data, true );
+		if ( json_last_error() !== JSON_ERROR_NONE ) {
+			return null;
+		}
+		return static::newFromArray( $data );
+	}
+
+	/**
 	 * @param array $data
 	 * @return TOTPKey|null on invalid data
 	 */
@@ -89,17 +96,14 @@ class TOTPKey implements IAuthKey {
 		if ( !isset( $data['secret'] ) || !isset( $data['scratch_tokens'] ) ) {
 			return null;
 		}
-		return new static( $data['id'] ?? null, $data['secret'], $data['scratch_tokens'] );
+		return new static( $data['secret'], $data['scratch_tokens'] );
 	}
 
 	/**
-	 * @param int|null $id the database id of this key
 	 * @param string $secret
 	 * @param array $recoveryCodes
 	 */
-	public function __construct( ?int $id, $secret, array $recoveryCodes ) {
-		$this->id = $id;
-
+	public function __construct( $secret, array $recoveryCodes ) {
 		// Currently hardcoded values; might be used in the future
 		$this->secret = [
 			'mode' => 'hotp',
@@ -108,13 +112,6 @@ class TOTPKey implements IAuthKey {
 			'algorithm' => 'SHA1',
 		];
 		$this->recoveryCodes = array_values( $recoveryCodes );
-	}
-
-	/**
-	 * @return int|null
-	 */
-	public function getId(): ?int {
-		return $this->id;
 	}
 
 	/**
@@ -134,7 +131,7 @@ class TOTPKey implements IAuthKey {
 	/**
 	 * @param array $data
 	 * @param OATHUser $user
-	 * @return bool
+	 * @return bool|int
 	 * @throws MWException
 	 */
 	public function verify( $data, OATHUser $user ) {
@@ -147,17 +144,22 @@ class TOTPKey implements IAuthKey {
 		}
 
 		// Prevent replay attacks
-		$services = MediaWikiServices::getInstance();
-		$store = $services->getMainObjectStash();
+		$store = MediaWikiServices::getInstance()->getMainObjectStash();
 
 		if ( $store instanceof EmptyBagOStuff ) {
 			// Try and find some usable cache if the MainObjectStash isn't useful
-			$store = $services->getObjectCacheFactory()->getLocalServerInstance( CACHE_ANYTHING );
+			$store = ObjectCache::getLocalServerInstance( CACHE_ANYTHING );
 		}
 
-		$key = $store->makeKey( 'oathauth-totp', 'usedtokens', $user->getCentralId() );
+		$uid = MediaWikiServices::getInstance()
+			->getCentralIdLookupFactory()
+			->getLookup()
+			->centralIdFromLocalUser( $user->getUser() );
+
+		$key = $store->makeKey( 'oathauth-totp', 'usedtokens', $uid );
 		$lastWindow = (int)$store->get( $key );
 
+		$retval = false;
 		$results = HOTP::generateByTimeWindow(
 			Base32::decode( $this->secret['secret'] ),
 			$this->secret['period'],
@@ -166,6 +168,7 @@ class TOTPKey implements IAuthKey {
 		);
 
 		// Remove any whitespace from the received token, which can be an intended group separator
+		// or trimmeable whitespace
 		$token = preg_replace( '/\s+/', '', $token );
 
 		$clientIP = $user->getUser()->getRequest()->getIP();
@@ -177,62 +180,69 @@ class TOTPKey implements IAuthKey {
 		foreach ( $results as $window => $result ) {
 			if ( $window > $lastWindow && hash_equals( $result->toHOTP( 6 ), $token ) ) {
 				$lastWindow = $window;
+				$retval = self::MAIN_TOKEN;
 
 				$logger->info( 'OATHAuth user {user} entered a valid OTP from {clientip}', [
 					'user' => $user->getAccount(),
 					'clientip' => $clientIP,
 				] );
-
-				$store->set(
-					$key,
-					$lastWindow,
-					$this->secret['period'] * ( 1 + 2 * $wgOATHAuthWindowRadius )
-				);
-
-				return true;
+				break;
 			}
 		}
 
-		// See if the user is using a recovery code
-		foreach ( $this->recoveryCodes as $i => $recoveryCode ) {
-			if ( hash_equals( $token, $recoveryCode ) ) {
-				// If we used a recovery code, remove it from the recovery code list.
-				// This is saved below via OATHUserRepository::persist
-				array_splice( $this->recoveryCodes, $i, 1 );
+		// See if the user is using a scratch token
+		if ( !$retval ) {
+			foreach ( $this->scratchTokens as $i => $scratchToken ) {
+				if ( hash_equals( $token, $scratchToken ) ) {
+					// If we used a scratch token, remove it from the scratch token list.
+					// This is saved below via OATHUserRepository::persist, TOTP::getDataFromUser.
+					array_splice( $this->scratchTokens, $i, 1 );
 
-				// TODO: Probably a better home for this...
-				// It could go in OATHUserRepository::persist(), but then we start having to hard code checks
-				// for Keys being TOTPKey...
-				// And eventually we want to do T232336 to split them to their own 2FA method...
-				if ( count( $this->recoveryCodes ) <= self::RECOVERY_CODES_NOTIFICATION_NUMBER ) {
-					Manager::notifyRecoveryTokensRemaining(
-						$user,
-						self::RECOVERY_CODES_NOTIFICATION_NUMBER,
-						self::RECOVERY_CODES_COUNT
-					);
+					$logger->info( 'OATHAuth user {user} used a recovery token from {clientip}', [
+						'user' => $user->getAccount(),
+						'clientip' => $clientIP,
+					] );
+
+					$auth = MediaWikiServices::getInstance()->getService( 'OATHAuth' );
+					$module = $auth->getModuleByKey( 'totp' );
+
+					/** @var OATHUserRepository $userRepo */
+					$userRepo = MediaWikiServices::getInstance()->getService( 'OATHUserRepository' );
+					$user->addKey( $this );
+					$user->setModule( $module );
+					$userRepo->persist( $user, $clientIP );
+					// Only return true if we removed it from the database
+					$retval = self::SCRATCH_TOKEN;
+					break;
 				}
-
-				$logger->info( 'OATHAuth user {user} used a recovery token from {clientip}', [
-					'user' => $user->getAccount(),
-					'clientip' => $clientIP,
-				] );
-
-				OATHAuthServices::getInstance()
-					->getUserRepository()
-					->updateKey( $user, $this );
-				return true;
 			}
 		}
 
-		return false;
+		if ( $retval ) {
+			$store->set(
+				$key,
+				$lastWindow,
+				$this->secret['period'] * ( 1 + 2 * $wgOATHAuthWindowRadius )
+			);
+		} else {
+			$logger->info( 'OATHAuth user {user} failed OTP/scratch token from {clientip}', [
+				'user' => $user->getAccount(),
+				'clientip' => $clientIP,
+			] );
+
+			// Increase rate limit counter for failed request
+			$user->getUser()->pingLimiter( 'badoath' );
+		}
+
+		return $retval;
 	}
 
 	public function regenerateScratchTokens() {
-		$codes = [];
-		for ( $i = 0; $i < self::RECOVERY_CODES_COUNT; $i++ ) {
-			$codes[] = Base32::encode( random_bytes( self::RECOVERY_CODE_LENGTH ) );
+		$scratchTokens = [];
+		for ( $i = 0; $i < 10; $i++ ) {
+			$scratchTokens[] = Base32::encode( random_bytes( 10 ) );
 		}
-		$this->recoveryCodes = $codes;
+		$this->recoveryCodes = $scratchTokens;
 	}
 
 	/**

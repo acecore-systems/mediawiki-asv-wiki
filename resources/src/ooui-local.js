@@ -1,5 +1,5 @@
 ( function () {
-	let isMobile;
+	var isMobile;
 	// Connect OOUI to MediaWiki's localisation system
 	OO.ui.getUserLanguages = mw.language.getFallbackLanguageChain;
 	OO.ui.msg = mw.msg;
@@ -13,8 +13,5 @@
 			isMobile = !!mw.config.get( 'wgMFMode' );
 		}
 		return isMobile;
-	};
-	OO.ui.getTeleportTarget = function () {
-		return require( 'mediawiki.page.ready' ).teleportTarget;
 	};
 }() );

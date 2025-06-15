@@ -9,6 +9,7 @@ use Wikimedia\Assert\PreconditionException;
 
 /**
  * @covers \MediaWiki\Rest\HeaderParser\Origin
+ * @package MediaWiki\Tests\Rest\HeaderParser
  */
 class OriginTest extends MediaWikiUnitTestCase {
 
@@ -35,7 +36,7 @@ class OriginTest extends MediaWikiUnitTestCase {
 			->getSingleOrigin();
 	}
 
-	public static function provideOriginParse() {
+	public function provideOriginParse() {
 		yield 'Single origin' =>
 			[ 'https://en.wikipedia.org', [ 'https://en.wikipedia.org' ], false ];
 		yield 'Multiple origins' =>
@@ -51,7 +52,7 @@ class OriginTest extends MediaWikiUnitTestCase {
 		$this->assertSame( $isMulti, $header->isMultiOrigin() );
 	}
 
-	public static function provideMatch() {
+	public function provideMatch() {
 		yield 'null origin' => [ 'null', [ 'null' ], [], false ];
 		yield 'empty allow list' => [ 'https://en.wikipedia.org', [], [], false ];
 		yield 'empty exclude list' => [ 'https://en.wikipedia.org', [ 'en.wikipedia.org' ], [], true ];

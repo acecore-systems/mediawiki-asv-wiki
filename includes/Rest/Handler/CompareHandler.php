@@ -2,8 +2,6 @@
 
 namespace MediaWiki\Rest\Handler;
 
-use MediaWiki\Content\TextContent;
-use MediaWiki\Parser\ParserFactory;
 use MediaWiki\Rest\Handler;
 use MediaWiki\Rest\LocalizedHttpException;
 use MediaWiki\Rest\StringStream;
@@ -12,12 +10,17 @@ use MediaWiki\Revision\RevisionLookup;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\SlotRecord;
 use MediaWiki\Revision\SuppressedDataException;
+use Parser;
+use TextContent;
 use Wikimedia\Message\MessageValue;
 use Wikimedia\ParamValidator\ParamValidator;
 
 class CompareHandler extends Handler {
-	private RevisionLookup $revisionLookup;
-	private ParserFactory $parserFactory;
+	/** @var RevisionLookup */
+	private $revisionLookup;
+
+	/** @var Parser */
+	private $parser;
 
 	/** @var RevisionRecord[] */
 	private $revisions = [];
@@ -27,10 +30,10 @@ class CompareHandler extends Handler {
 
 	public function __construct(
 		RevisionLookup $revisionLookup,
-		ParserFactory $parserFactory
+		Parser $parser
 	) {
 		$this->revisionLookup = $revisionLookup;
-		$this->parserFactory = $parserFactory;
+		$this->parser = $parser;
 	}
 
 	public function execute() {
@@ -165,7 +168,7 @@ class CompareHandler extends Handler {
 	 */
 	private function getSectionInfo( $paramName ) {
 		$text = $this->getRevisionText( $paramName );
-		$parserSections = $this->parserFactory->getInstance()->getFlatSectionInfo( $text );
+		$parserSections = $this->parser->getFlatSectionInfo( $text );
 		$sections = [];
 		foreach ( $parserSections as $i => $parserSection ) {
 			// Skip section zero, which comes before the first heading, since
@@ -179,13 +182,6 @@ class CompareHandler extends Handler {
 			}
 		}
 		return $sections;
-	}
-
-	/**
-	 * @inheritDoc
-	 */
-	public function needsWriteAccess() {
-		return false;
 	}
 
 	public function getParamSettings() {

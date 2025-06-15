@@ -1,7 +1,4 @@
-/**
- * Utility library for managing components using the [CSS checkbox hack]{@link https://css-tricks.com/the-checkbox-hack/}.
- * To access call ```require('mediawiki.page.ready').checkboxHack```.
- *
+/*!
  * The checkbox hack works without JavaScript for graphical user-interface users, but relies on
  * enhancements to work well for screen reader users. This module provides required a11y
  * interactivity for updating the `aria-expanded` accessibility state, and optional enhancements
@@ -112,21 +109,20 @@
  * described as a succeeding sibling of the input, but this requires a mixin implementation that
  * duplicates the rules for each relation selector.
  *
- * Exposed APIs should be considered stable.
+ * Exposed APIs should be considered stable. @ignore is used for JSDoc compatibility (see T138401).
  *
  * Accompanying checkbox hack styles are tracked in T252774.
  *
  * [0]: https://developer.mozilla.org/docs/Web/HTML/Element/details
- *
- * @namespace CheckboxHack
- * @memberof module:mediawiki.page.ready
  */
+
 /**
  * Revise the button's `aria-expanded` state to match the checked state.
  *
- * @memberof module:mediawiki.page.ready.CheckboxHack
  * @param {HTMLInputElement} checkbox
  * @param {HTMLElement} button
+ * @return {void}
+ * @ignore
  */
 function updateAriaExpanded( checkbox, button ) {
 	if ( button ) {
@@ -159,13 +155,14 @@ function updateAriaExpanded( checkbox, button ) {
  *
  * @param {HTMLInputElement} checkbox
  * @param {boolean} checked
+ * @return {void}
  * @ignore
  */
 function setCheckedState( checkbox, checked ) {
+	/** @type {Event} @ignore */
 	checkbox.checked = checked;
 	// Chrome and Firefox sends the builtin Event with .bubbles == true and .composed == true.
-	/** @type {Event} */
-	let e;
+	var e;
 	if ( typeof Event === 'function' ) {
 		e = new Event( 'input', { bubbles: true, composed: true } );
 	} else {
@@ -206,6 +203,7 @@ function containsEventTarget( checkbox, button, target, event ) {
  * @param {HTMLElement} button
  * @param {Node} target
  * @param {Event} event
+ * @return {void}
  * @ignore
  */
 function dismissIfExternalEventTarget( checkbox, button, target, event ) {
@@ -217,17 +215,17 @@ function dismissIfExternalEventTarget( checkbox, button, target, event ) {
 /**
  * Update the `aria-expanded` attribute based on checkbox state (target visibility) changes.
  *
- * @memberof module:mediawiki.page.ready.CheckboxHack
  * @param {HTMLInputElement} checkbox
  * @param {HTMLElement} button
  * @return {function(): void} Cleanup function that removes the added event listeners.
+ * @ignore
  */
 function bindUpdateAriaExpandedOnInput( checkbox, button ) {
 	if ( button ) {
 		mw.log.warn( '[1.38] The button parameter in bindUpdateAriaExpandedOnInput is deprecated, aria-expanded will be applied to the checkbox going forward. View the updated checkbox hack documentation for more details.' );
 	}
 
-	const listener = updateAriaExpanded.bind( undefined, checkbox, button );
+	var listener = updateAriaExpanded.bind( undefined, checkbox, button );
 	// Whenever the checkbox state changes, update the `aria-expanded` state.
 	checkbox.addEventListener( 'input', listener );
 
@@ -239,10 +237,10 @@ function bindUpdateAriaExpandedOnInput( checkbox, button ) {
 /**
  * Manually change the checkbox state to avoid a focus change when using a pointing device.
  *
- * @memberof module:mediawiki.page.ready.CheckboxHack
  * @param {HTMLInputElement} checkbox
  * @param {HTMLElement} button
  * @return {function(): void} Cleanup function that removes the added event listeners.
+ * @ignore
  */
 function bindToggleOnClick( checkbox, button ) {
 	function listener( event ) {
@@ -261,20 +259,20 @@ function bindToggleOnClick( checkbox, button ) {
 /**
  * Manually change the checkbox state when the button is focused and SPACE is pressed.
  *
- * @deprecated Use `bindToggleOnEnter` instead.
- * @memberof module:mediawiki.page.ready.CheckboxHack
+ * @deprecated
  * @param {HTMLInputElement} checkbox
  * @param {HTMLElement} button
  * @return {function(): void} Cleanup function that removes the added event listeners.
+ * @ignore
  */
 function bindToggleOnSpaceEnter( checkbox, button ) {
 	mw.log.warn( '[1.38] bindToggleOnSpaceEnter is deprecated. Use `bindToggleOnEnter` instead.' );
 
-	function isEnterOrSpace( /** @type {KeyboardEvent} */ event ) {
+	function isEnterOrSpace( /** @type {KeyboardEvent} @ignore */ event ) {
 		return event.key === ' ' || event.key === 'Enter';
 	}
 
-	function onKeydown( /** @type {KeyboardEvent} */ event ) {
+	function onKeydown( /** @type {KeyboardEvent} @ignore */ event ) {
 		// Only handle SPACE and ENTER.
 		if ( !isEnterOrSpace( event ) ) {
 			return;
@@ -287,7 +285,7 @@ function bindToggleOnSpaceEnter( checkbox, button ) {
 		event.preventDefault();
 	}
 
-	function onKeyup( /** @type {KeyboardEvent} */ event ) {
+	function onKeyup( /** @type {KeyboardEvent} @ignore */ event ) {
 		// Only handle SPACE and ENTER.
 		if ( !isEnterOrSpace( event ) ) {
 			return;
@@ -312,12 +310,12 @@ function bindToggleOnSpaceEnter( checkbox, button ) {
 /**
  * Manually change the checkbox state when the button is focused and Enter is pressed.
  *
- * @memberof module:mediawiki.page.ready.CheckboxHack
  * @param {HTMLInputElement} checkbox
  * @return {function(): void} Cleanup function that removes the added event listeners.
+ * @ignore
  */
 function bindToggleOnEnter( checkbox ) {
-	function onKeyup( /** @type {KeyboardEvent} */ event ) {
+	function onKeyup( /** @type {KeyboardEvent} @ignore */ event ) {
 		// Only handle ENTER.
 		if ( event.key !== 'Enter' ) {
 			return;
@@ -337,15 +335,15 @@ function bindToggleOnEnter( checkbox ) {
  * Dismiss the target when clicking elsewhere and update the `aria-expanded` attribute based on
  * checkbox state (target visibility).
  *
- * @memberof module:mediawiki.page.ready.CheckboxHack
- * @param {window} window
+ * @param {Window} window
  * @param {HTMLInputElement} checkbox
  * @param {HTMLElement} button
  * @param {Node} target
  * @return {function(): void} Cleanup function that removes the added event listeners.
+ * @ignore
  */
 function bindDismissOnClickOutside( window, checkbox, button, target ) {
-	const listener = dismissIfExternalEventTarget.bind( undefined, checkbox, button, target );
+	var listener = dismissIfExternalEventTarget.bind( undefined, checkbox, button, target );
 	window.addEventListener( 'click', listener, true );
 
 	return function () {
@@ -357,17 +355,17 @@ function bindDismissOnClickOutside( window, checkbox, button, target ) {
  * Dismiss the target when focusing elsewhere and update the `aria-expanded` attribute based on
  * checkbox state (target visibility).
  *
- * @param {window} window
+ * @param {Window} window
  * @param {HTMLInputElement} checkbox
  * @param {HTMLElement} button
  * @param {Node} target
  * @return {function(): void} Cleanup function that removes the added event listeners.
- * @memberof module:mediawiki.page.ready.CheckboxHack
+ * @ignore
  */
 function bindDismissOnFocusLoss( window, checkbox, button, target ) {
 	// If focus is given to any element outside the target, dismiss the target. Setting a focusout
 	// listener on the target would be preferable, but this interferes with the click listener.
-	const listener = dismissIfExternalEventTarget.bind( undefined, checkbox, button, target );
+	var listener = dismissIfExternalEventTarget.bind( undefined, checkbox, button, target );
 	window.addEventListener( 'focusin', listener, true );
 
 	return function () {
@@ -382,16 +380,12 @@ function bindDismissOnFocusLoss( window, checkbox, button, target ) {
  * @param {HTMLInputElement} checkbox
  * @param {Node} target
  * @return {function(): void} Cleanup function that removes the added event listeners.
- * @memberof module:mediawiki.page.ready.CheckboxHack
+ * @ignore
  */
 function bindDismissOnClickLink( checkbox, target ) {
 	function dismissIfClickLinkEvent( event ) {
 		// Handle clicks to links and link children elements
-		if (
-			// check that the element wasn't removed from the DOM.
-			event.target && event.target.parentNode &&
-			( event.target.nodeName === 'A' || event.target.parentNode.nodeName === 'A' )
-		) {
+		if ( event.target.nodeName === 'A' || event.target.parentNode.nodeName === 'A' ) {
 			setCheckedState( checkbox, false );
 		}
 	}
@@ -410,17 +404,17 @@ function bindDismissOnClickLink( checkbox, target ) {
  * This function calls the other bind* functions and is the only expected interaction for most use
  * cases. It's constituents are provided distinctly for the other use cases.
  *
- * @memberof module:mediawiki.page.ready.CheckboxHack
- * @param {window} window
+ * @param {Window} window
  * @param {HTMLInputElement} checkbox The underlying hidden checkbox that controls target
  *   visibility.
  * @param {HTMLElement} button The visible label icon associated with the checkbox. This button
  *   toggles the state of the underlying checkbox.
  * @param {Node} target The Node to toggle visibility of based on checkbox state.
  * @return {function(): void} Cleanup function that removes the added event listeners.
+ * @ignore
  */
 function bind( window, checkbox, button, target ) {
-	const cleanups = [
+	var cleanups = [
 		bindUpdateAriaExpandedOnInput( checkbox ),
 		bindToggleOnClick( checkbox, button ),
 		bindToggleOnEnter( checkbox ),
@@ -430,20 +424,20 @@ function bind( window, checkbox, button, target ) {
 	];
 
 	return function () {
-		cleanups.forEach( ( cleanup ) => {
+		cleanups.forEach( function ( cleanup ) {
 			cleanup();
 		} );
 	};
 }
 
 module.exports = {
-	updateAriaExpanded,
-	bindUpdateAriaExpandedOnInput,
-	bindToggleOnClick,
-	bindToggleOnSpaceEnter,
-	bindToggleOnEnter,
-	bindDismissOnClickOutside,
-	bindDismissOnFocusLoss,
-	bindDismissOnClickLink,
-	bind
+	updateAriaExpanded: updateAriaExpanded,
+	bindUpdateAriaExpandedOnInput: bindUpdateAriaExpandedOnInput,
+	bindToggleOnClick: bindToggleOnClick,
+	bindToggleOnSpaceEnter: bindToggleOnSpaceEnter,
+	bindToggleOnEnter: bindToggleOnEnter,
+	bindDismissOnClickOutside: bindDismissOnClickOutside,
+	bindDismissOnFocusLoss: bindDismissOnFocusLoss,
+	bindDismissOnClickLink: bindDismissOnClickLink,
+	bind: bind
 };

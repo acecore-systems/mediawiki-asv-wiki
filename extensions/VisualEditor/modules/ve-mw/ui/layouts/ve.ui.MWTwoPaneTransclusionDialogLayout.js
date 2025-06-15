@@ -67,8 +67,8 @@ OO.inheritClass( ve.ui.MWTwoPaneTransclusionDialogLayout, OO.ui.MenuLayout );
  */
 ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.onFilterPagesByName = function ( visibility ) {
 	this.currentPageName = null;
-	for ( const pageName in visibility ) {
-		const page = this.getPage( pageName );
+	for ( var pageName in visibility ) {
+		var page = this.getPage( pageName );
 		if ( page ) {
 			page.toggle( visibility[ pageName ] );
 		}
@@ -83,18 +83,11 @@ ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.onFilterPagesByName = function
 ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.onReplacePart = function ( removed, added, newPosition ) {
 	this.sidebar.onReplacePart( removed, added, newPosition );
 
-	const keys = Object.keys( this.pages ),
-		isMultiPart = keys.length > 1,
+	var keys = Object.keys( this.pages ),
 		isLastPlaceholder = keys.length === 1 &&
 			this.pages[ keys[ 0 ] ] instanceof ve.ui.MWTemplatePlaceholderPage;
-
 	// TODO: In other cases this is disabled rather than hidden. See T311303
 	this.outlineControlsWidget.removeButton.toggle( !isLastPlaceholder );
-
-	if ( isMultiPart ) {
-		// Warning, this is intentionally never turned off again
-		this.outlineControlsWidget.toggle( true );
-	}
 };
 
 /**
@@ -103,8 +96,8 @@ ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.onReplacePart = function ( rem
  */
 ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.onStackLayoutFocus = function ( e ) {
 	// Find the page that an element was focused within
-	const $target = $( e.target ).closest( '.oo-ui-pageLayout' );
-	for ( const name in this.pages ) {
+	var $target = $( e.target ).closest( '.oo-ui-pageLayout' );
+	for ( var name in this.pages ) {
 		if ( this.pages[ name ].$element[ 0 ] === $target[ 0 ] ) {
 			this.setPage( name );
 			break;
@@ -118,7 +111,7 @@ ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.onStackLayoutFocus = function 
  * If the focus is already in an element on the current page, nothing will happen.
  */
 ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.focus = function () {
-	const page = this.pages[ this.currentPageName ];
+	var page = this.pages[ this.currentPageName ];
 	if ( !page ) {
 		return;
 	}
@@ -148,7 +141,7 @@ ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.focusPart = function ( pageNam
 ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.onSidebarItemSelected = function ( pageName, soft ) {
 	this.setPage( pageName );
 
-	const page = this.pages[ pageName ];
+	var page = this.pages[ pageName ];
 	if ( page ) {
 		// Warning, scrolling must be done before focussing. The browser will trigger a conflicting
 		// scroll when the focussed element is out of view.
@@ -168,11 +161,12 @@ ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.onSidebarItemSelected = functi
 ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.toggleOutline = function ( show ) {
 	this.toggleMenu( show );
 	if ( show ) {
+		var self = this;
 		// HACK: Kill dumb scrollbars when the sidebar stops animating, see T161798.
 		// Only necessary when outline controls are present, delay matches transition on
 		// `.oo-ui-menuLayout-menu`.
-		setTimeout( () => {
-			OO.ui.Element.static.reconsiderScrollbars( this.outlinePanel.$element[ 0 ] );
+		setTimeout( function () {
+			OO.ui.Element.static.reconsiderScrollbars( self.outlinePanel.$element[ 0 ] );
 		}, OO.ui.theme.getDialogTransitionDuration() );
 	}
 };
@@ -213,7 +207,7 @@ ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.getCurrentPage = function () {
  *  parameter is selected null is returned.
  */
 ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.getSelectedTopLevelPartId = function () {
-	const page = this.getCurrentPage(),
+	var page = this.getCurrentPage(),
 		isParameter = page instanceof ve.ui.MWParameterPage || page instanceof ve.ui.MWAddParameterPage;
 	return page && !isParameter ? page.getName() : null;
 };
@@ -235,17 +229,18 @@ ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.getTopLevelPartIdForSelection 
  * @param {number} index Index of the insertion point
  */
 ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.addPages = function ( pages, index ) {
-	const stackLayoutPages = this.stackLayout.getItems();
+	var i, name, page,
+		stackLayoutPages = this.stackLayout.getItems();
 
 	// Remove pages with same names
-	const remove = [];
-	for ( let i = 0; i < pages.length; i++ ) {
-		const page = pages[ i ];
-		const name = page.getName();
+	var remove = [];
+	for ( i = 0; i < pages.length; i++ ) {
+		page = pages[ i ];
+		name = page.getName();
 
 		if ( Object.prototype.hasOwnProperty.call( this.pages, name ) ) {
 			// Correct the insertion index
-			const currentIndex = stackLayoutPages.indexOf( this.pages[ name ] );
+			var currentIndex = stackLayoutPages.indexOf( this.pages[ name ] );
 			if ( currentIndex !== -1 && currentIndex + 1 < index ) {
 				index--;
 			}
@@ -257,10 +252,10 @@ ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.addPages = function ( pages, i
 	}
 
 	// Add new pages
-	for ( let i = 0; i < pages.length; i++ ) {
-		const page = pages[ i ];
-		const name = page.getName();
-		this.pages[ name ] = page;
+	for ( i = 0; i < pages.length; i++ ) {
+		page = pages[ i ];
+		name = page.getName();
+		this.pages[ page.getName() ] = page;
 	}
 
 	this.stackLayout.addItems( pages, index );
@@ -270,19 +265,20 @@ ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.addPages = function ( pages, i
  * @param {string[]} pagesNamesToRemove
  */
 ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.removePages = function ( pagesNamesToRemove ) {
-	const pagesToRemove = [],
-		isCurrentParameter = this.pages[ this.currentPageName ] instanceof ve.ui.MWParameterPage;
-	let isCurrentPageRemoved = false,
+	var layout = this,
+		pagesToRemove = [],
+		isCurrentParameter = this.pages[ this.currentPageName ] instanceof ve.ui.MWParameterPage,
+		isCurrentPageRemoved = false,
 		prevSelectionCandidate, nextSelectionCandidate;
 
-	this.stackLayout.getItems().forEach( ( page ) => {
-		const pageName = page.getName();
+	this.stackLayout.getItems().forEach( function ( page ) {
+		var pageName = page.getName();
 
 		if ( pagesNamesToRemove.indexOf( pageName ) !== -1 ) {
 			pagesToRemove.push( page );
-			delete this.pages[ pageName ];
-			if ( this.currentPageName === pageName ) {
-				this.currentPageName = null;
+			delete layout.pages[ pageName ];
+			if ( layout.currentPageName === pageName ) {
+				layout.currentPageName = null;
 				isCurrentPageRemoved = true;
 			}
 			return;
@@ -319,13 +315,13 @@ ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.clearPages = function () {
  * @param {string} [name] Symbolic name of page. Omit to remove current selection.
  */
 ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.setPage = function ( name ) {
-	const page = this.pages[ name ];
+	var page = this.pages[ name ];
 
 	if ( page && name === this.currentPageName ) {
 		return;
 	}
 
-	const previousPage = this.currentPageName ? this.pages[ this.currentPageName ] : null;
+	var previousPage = this.currentPageName ? this.pages[ this.currentPageName ] : null;
 	this.currentPageName = name;
 
 	if ( previousPage ) {
@@ -335,7 +331,7 @@ ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.setPage = function ( name ) {
 		if ( !OO.ui.isMobile() &&
 			( !page || OO.ui.findFocusable( page.$element ).length !== 0 )
 		) {
-			const $focused = previousPage.$element.find( ':focus' );
+			var $focused = previousPage.$element.find( ':focus' );
 			if ( $focused.length ) {
 				$focused[ 0 ].blur();
 			}
@@ -350,17 +346,17 @@ ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.setPage = function ( name ) {
  * @private
  */
 ve.ui.MWTwoPaneTransclusionDialogLayout.prototype.refreshControls = function () {
-	const partId = this.getSelectedTopLevelPartId(),
+	var partId = this.getSelectedTopLevelPartId(),
+		canMoveUp, canMoveDown = false,
 		canBeDeleted = !!partId;
 
-	let canMoveUp, canMoveDown = false;
 	if ( partId ) {
-		const pages = this.stackLayout.getItems(),
+		var pages = this.stackLayout.getItems(),
 			page = this.getPage( partId ),
 			index = pages.indexOf( page );
 		canMoveUp = index > 0;
 		// Check if there is at least one more top-level part below the current one
-		for ( let i = index + 1; i < pages.length; i++ ) {
+		for ( var i = index + 1; i < pages.length; i++ ) {
 			if ( !( pages[ i ] instanceof ve.ui.MWParameterPage || pages[ i ] instanceof ve.ui.MWAddParameterPage ) ) {
 				canMoveDown = true;
 				break;

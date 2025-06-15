@@ -1,5 +1,7 @@
 <?php
 /**
+ * Redirect from Special:PermanentLink/### to index.php?oldid=###.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,13 +18,8 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
-
-namespace MediaWiki\Specials;
-
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\SpecialPage\RedirectSpecialPage;
-use MediaWiki\Title\Title;
 
 /**
  * Redirect from Special:PermanentLink/### to index.php?oldid=###.
@@ -84,9 +81,3 @@ class SpecialPermanentLink extends RedirectSpecialPage {
 		return 'redirects';
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialPermanentLink::class, 'SpecialPermanentLink' );

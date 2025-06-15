@@ -18,7 +18,6 @@
  * @file
  */
 
-use MediaWiki\Language\Language;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
 
@@ -29,6 +28,11 @@ use MediaWiki\MediaWikiServices;
  */
 class LanguageHu extends Language {
 
+	/**
+	 * @param string $word
+	 * @param string $case
+	 * @return string
+	 */
 	public function convertGrammar( $word, $case ) {
 		$grammarForms = MediaWikiServices::getInstance()->getMainConfig()
 			->get( MainConfigNames::GrammarForms );

@@ -3,7 +3,7 @@
 namespace MediaWiki\Deferred\LinksUpdate;
 
 use MediaWiki\Page\PageReferenceValue;
-use MediaWiki\Title\Title;
+use Title;
 
 /**
  * An abstract base class for tables that link to local titles.
@@ -28,7 +28,8 @@ abstract class TitleLinksTable extends LinksTable {
 	 * @return Title
 	 */
 	protected function makeTitle( $linkId ): Title {
-		return Title::newFromPageReference( $this->makePageReferenceValue( $linkId ) );
+		// @phan-suppress-next-line PhanTypeMismatchReturnNullable castFrom does not return null here
+		return Title::castFromPageReference( $this->makePageReferenceValue( $linkId ) );
 	}
 
 	/**
@@ -59,12 +60,11 @@ abstract class TitleLinksTable extends LinksTable {
 	/**
 	 * Get a link set as an array of Title objects. This is memory-inefficient.
 	 *
-	 * @deprecated since 1.38, hard-deprecated since 1.43
+	 * @deprecated since 1.38
 	 * @param int $setType
 	 * @return Title[]
 	 */
 	public function getTitleArray( $setType ) {
-		wfDeprecated( __METHOD__, '1.43' );
 		$linkIds = $this->getDeduplicatedLinkIds( $setType );
 		$titles = [];
 		foreach ( $linkIds as $linkId ) {

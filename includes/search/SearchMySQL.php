@@ -2,7 +2,7 @@
 /**
  * MySQL search engine
  *
- * Copyright (C) 2004 Brooke Vibber <bvibber@wikimedia.org>
+ * Copyright (C) 2004 Brion Vibber <brion@pobox.com>
  * https://www.mediawiki.org/
  *
  * This program is free software; you can redistribute it and/or modify
@@ -26,20 +26,14 @@
 
 use MediaWiki\MediaWikiServices;
 use Wikimedia\AtEase\AtEase;
-use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\IExpression;
-use Wikimedia\Rdbms\LikeValue;
-use Wikimedia\Rdbms\SelectQueryBuilder;
 
 /**
  * Search engine hook for MySQL
  * @ingroup Search
  */
 class SearchMySQL extends SearchDatabase {
-	/** @var bool */
 	protected $strictMatching = true;
 
-	/** @var int|null */
 	private static $mMinSearchLength;
 
 	/**
@@ -66,7 +60,7 @@ class SearchMySQL extends SearchDatabase {
 			$langConverter = $services->getLanguageConverterFactory()->getLanguageConverter( $contLang );
 			foreach ( $m as $bits ) {
 				AtEase::suppressWarnings();
-				[ /* all */, $modifier, $term, $nonQuoted, $wildcard ] = $bits;
+				list( /* all */, $modifier, $term, $nonQuoted, $wildcard ) = $bits;
 				AtEase::restoreWarnings();
 
 				if ( $nonQuoted != '' ) {
@@ -134,7 +128,7 @@ class SearchMySQL extends SearchDatabase {
 			wfDebug( __METHOD__ . ": Can't understand search query '{$filteredText}'" );
 		}
 
-		$dbr = $this->dbProvider->getReplicaDatabase();
+		$dbr = $this->lb->getConnectionRef( DB_REPLICA );
 		$searchon = $dbr->addQuotes( $searchon );
 		$field = $this->getIndexField( $fulltext );
 		return [
@@ -196,12 +190,19 @@ class SearchMySQL extends SearchDatabase {
 		}
 
 		$filteredTerm = $this->filter( $term );
-		$queryBuilder = $this->getQueryBuilder( $filteredTerm, $fulltext );
-		$resultSet = $queryBuilder->caller( __METHOD__ )->fetchResultSet();
+		$query = $this->getQuery( $filteredTerm, $fulltext );
+		$dbr = $this->lb->getConnectionRef( DB_REPLICA );
+		$resultSet = $dbr->select(
+			$query['tables'], $query['fields'], $query['conds'],
+			__METHOD__, $query['options'], $query['joins']
+		);
 
 		$total = null;
-		$queryBuilder = $this->getCountQueryBuilder( $filteredTerm, $fulltext );
-		$totalResult = $queryBuilder->caller( __METHOD__ )->fetchResultSet();
+		$query = $this->getCountQuery( $filteredTerm, $fulltext );
+		$totalResult = $dbr->select(
+			$query['tables'], $query['fields'], $query['conds'],
+			__METHOD__, $query['options'], $query['joins']
+		);
 
 		$row = $totalResult->fetchObject();
 		if ( $row ) {
@@ -223,51 +224,65 @@ class SearchMySQL extends SearchDatabase {
 
 	/**
 	 * Add special conditions
-	 * @param SelectQueryBuilder $queryBuilder
+	 * @param array &$query
 	 * @since 1.18
 	 */
-	protected function queryFeatures( SelectQueryBuilder $queryBuilder ) {
+	protected function queryFeatures( &$query ) {
 		foreach ( $this->features as $feature => $value ) {
 			if ( $feature === 'title-suffix-filter' && $value ) {
-				$dbr = $this->dbProvider->getReplicaDatabase();
-				$queryBuilder->andWhere(
-					$dbr->expr( 'page_title', IExpression::LIKE, new LikeValue( $dbr->anyString(), $value ) )
-				);
+				$dbr = $this->lb->getConnectionRef( DB_REPLICA );
+				$query['conds'][] = 'page_title' . $dbr->buildLike( $dbr->anyString(), $value );
 			}
 		}
 	}
 
 	/**
 	 * Add namespace conditions
-	 * @param SelectQueryBuilder $queryBuilder
+	 * @param array &$query
 	 * @since 1.18 (changed)
 	 */
-	private function queryNamespaces( $queryBuilder ) {
+	private function queryNamespaces( &$query ) {
 		if ( is_array( $this->namespaces ) ) {
 			if ( count( $this->namespaces ) === 0 ) {
 				$this->namespaces[] = NS_MAIN;
 			}
-			$queryBuilder->andWhere( [ 'page_namespace' => $this->namespaces ] );
+			$query['conds']['page_namespace'] = $this->namespaces;
 		}
 	}
 
 	/**
-	 * Construct the SQL query builder to do the search.
+	 * Add limit options
+	 * @param array &$query
+	 * @since 1.18
+	 */
+	protected function limitResult( &$query ) {
+		$query['options']['LIMIT'] = $this->limit;
+		$query['options']['OFFSET'] = $this->offset;
+	}
+
+	/**
+	 * Construct the SQL query to do the search.
+	 * The guts shoulds be constructed in queryMain()
 	 * @param string $filteredTerm
 	 * @param bool $fulltext
-	 * @return SelectQueryBuilder
-	 * @since 1.41
+	 * @return array
+	 * @since 1.18 (changed)
 	 */
-	private function getQueryBuilder( $filteredTerm, $fulltext ): SelectQueryBuilder {
-		$queryBuilder = $this->dbProvider->getReplicaDatabase()->newSelectQueryBuilder();
+	private function getQuery( $filteredTerm, $fulltext ) {
+		$query = [
+			'tables' => [],
+			'fields' => [],
+			'conds' => [],
+			'options' => [],
+			'joins' => [],
+		];
 
-		$this->queryMain( $queryBuilder, $filteredTerm, $fulltext );
-		$this->queryFeatures( $queryBuilder );
-		$this->queryNamespaces( $queryBuilder );
-		$queryBuilder->limit( $this->limit )
-			->offset( $this->offset );
+		$this->queryMain( $query, $filteredTerm, $fulltext );
+		$this->queryFeatures( $query );
+		$this->queryNamespaces( $query );
+		$this->limitResult( $query );
 
-		return $queryBuilder;
+		return $query;
 	}
 
 	/**
@@ -282,38 +297,44 @@ class SearchMySQL extends SearchDatabase {
 	/**
 	 * Get the base part of the search query.
 	 *
-	 * @param SelectQueryBuilder $queryBuilder Search query builder
+	 * @param array &$query Search query array
 	 * @param string $filteredTerm
 	 * @param bool $fulltext
 	 * @since 1.18 (changed)
 	 */
-	private function queryMain( SelectQueryBuilder $queryBuilder, $filteredTerm, $fulltext ) {
+	private function queryMain( &$query, $filteredTerm, $fulltext ) {
 		$match = $this->parseQuery( $filteredTerm, $fulltext );
-		$queryBuilder->select( [ 'page_id', 'page_namespace', 'page_title' ] )
-			->from( 'page' )
-			->join( 'searchindex', null, 'page_id=si_page' )
-			->where( $match[0] )
-			->orderBy( $match[1] );
+		$query['tables'][] = 'page';
+		$query['tables'][] = 'searchindex';
+		$query['fields'][] = 'page_id';
+		$query['fields'][] = 'page_namespace';
+		$query['fields'][] = 'page_title';
+		$query['conds'][] = 'page_id=si_page';
+		$query['conds'][] = $match[0];
+		$query['options']['ORDER BY'] = $match[1];
 	}
 
 	/**
-	 * @since 1.41 (changed)
+	 * @since 1.18 (changed)
 	 * @param string $filteredTerm
 	 * @param bool $fulltext
-	 * @return SelectQueryBuilder
+	 * @return array
 	 */
-	private function getCountQueryBuilder( $filteredTerm, $fulltext ): SelectQueryBuilder {
+	private function getCountQuery( $filteredTerm, $fulltext ) {
 		$match = $this->parseQuery( $filteredTerm, $fulltext );
-		$queryBuilder = $this->dbProvider->getReplicaDatabase()->newSelectQueryBuilder()
-			->select( [ 'c' => 'COUNT(*)' ] )
-			->from( 'page' )
-			->join( 'searchindex', null, 'page_id=si_page' )
-			->where( $match[0] );
 
-		$this->queryFeatures( $queryBuilder );
-		$this->queryNamespaces( $queryBuilder );
+		$query = [
+			'tables' => [ 'page', 'searchindex' ],
+			'fields' => [ 'COUNT(*) as c' ],
+			'conds' => [ 'page_id=si_page', $match[0] ],
+			'options' => [],
+			'joins' => [],
+		];
 
-		return $queryBuilder;
+		$this->queryFeatures( $query );
+		$this->queryNamespaces( $query );
+
+		return $query;
 	}
 
 	/**
@@ -325,15 +346,17 @@ class SearchMySQL extends SearchDatabase {
 	 * @param string $text
 	 */
 	public function update( $id, $title, $text ) {
-		$this->dbProvider->getPrimaryDatabase()->newReplaceQueryBuilder()
-			->replaceInto( 'searchindex' )
-			->uniqueIndexFields( [ 'si_page' ] )
-			->row( [
+		$dbw = $this->lb->getConnectionRef( DB_PRIMARY );
+		$dbw->replace(
+			'searchindex',
+			'si_page',
+			[
 				'si_page' => $id,
 				'si_title' => $this->normalizeText( $title ),
 				'si_text' => $this->normalizeText( $text )
-			] )
-			->caller( __METHOD__ )->execute();
+			],
+			__METHOD__
+		);
 	}
 
 	/**
@@ -344,11 +367,12 @@ class SearchMySQL extends SearchDatabase {
 	 * @param string $title
 	 */
 	public function updateTitle( $id, $title ) {
-		$this->dbProvider->getPrimaryDatabase()->newUpdateQueryBuilder()
-			->update( 'searchindex' )
-			->set( [ 'si_title' => $this->normalizeText( $title ) ] )
-			->where( [ 'si_page' => $id ] )
-			->caller( __METHOD__ )->execute();
+		$dbw = $this->lb->getConnectionRef( DB_PRIMARY );
+		$dbw->update( 'searchindex',
+			[ 'si_title' => $this->normalizeText( $title ) ],
+			[ 'si_page' => $id ],
+			__METHOD__
+		);
 	}
 
 	/**
@@ -359,17 +383,15 @@ class SearchMySQL extends SearchDatabase {
 	 * @param string $title Title of page that was deleted
 	 */
 	public function delete( $id, $title ) {
-		$this->dbProvider->getPrimaryDatabase()->newDeleteQueryBuilder()
-			->deleteFrom( 'searchindex' )
-			->where( [ 'si_page' => $id ] )
-			->caller( __METHOD__ )->execute();
+		$dbw = $this->lb->getConnectionRef( DB_PRIMARY );
+		$dbw->delete( 'searchindex', [ 'si_page' => $id ], __METHOD__ );
 	}
 
 	/**
 	 * Converts some characters for MySQL's indexing to grok it correctly,
 	 * and pads short words to overcome limitations.
 	 * @param string $string
-	 * @return string
+	 * @return mixed|string
 	 */
 	public function normalizeText( $string ) {
 		$out = parent::normalizeText( $string );
@@ -426,10 +448,7 @@ class SearchMySQL extends SearchDatabase {
 		if ( self::$mMinSearchLength === null ) {
 			$sql = "SHOW GLOBAL VARIABLES LIKE 'ft\\_min\\_word\\_len'";
 
-			$dbr = $this->dbProvider->getReplicaDatabase();
-			// The real type is still IDatabase, but IReplicaDatabase is used for safety.
-			'@phan-var IDatabase $dbr';
-			// phpcs:ignore MediaWiki.Usage.DbrQueryUsage.DbrQueryFound
+			$dbr = $this->lb->getConnectionRef( DB_REPLICA );
 			$result = $dbr->query( $sql, __METHOD__ );
 			$row = $result->fetchObject();
 			$result->free();

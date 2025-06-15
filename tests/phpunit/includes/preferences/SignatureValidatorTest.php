@@ -1,9 +1,6 @@
 <?php
 
-use MediaWiki\MainConfigNames;
-use MediaWiki\Parser\ParserOptions;
 use MediaWiki\Preferences\SignatureValidator;
-use MediaWiki\Registration\ExtensionRegistry;
 use Wikimedia\TestingAccessWrapper;
 
 /**
@@ -27,31 +24,13 @@ use Wikimedia\TestingAccessWrapper;
 
 /**
  * @group Preferences
- * @group Database
  */
 class SignatureValidatorTest extends MediaWikiIntegrationTestCase {
 
-	/** @var SignatureValidator */
 	private $validator;
 
 	protected function setUp(): void {
 		parent::setUp();
-		$this->overrideConfigValue( MainConfigNames::ParsoidSettings, [
-			'linting' => true
-		] );
-		// For testing SignatureAllowedLintErrors in ::testValidateSignature
-		$this->overrideConfigValue( MainConfigNames::SignatureAllowedLintErrors, [
-			// No allowed lint errors in default set up
-		] );
-		// For testing hidden category support in ::testValidateSignature
-		$this->overrideConfigValue( 'LinterCategories', [
-			// No hidden categories in default set up
-		] );
-		$extReg = $this->createMock( ExtensionRegistry::class );
-		$extReg->method( 'isLoaded' )->willReturnCallback( static function ( string $which ) {
-			return $which == 'Linter';
-		} );
-		$this->setService( 'ExtensionRegistry', $extReg );
 		$this->validator = $this->getSignatureValidator();
 	}
 
@@ -73,7 +52,7 @@ class SignatureValidatorTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Preferences\SignatureValidator::applyPreSaveTransform()
+	 * @covers MediaWiki\Preferences\SignatureValidator::applyPreSaveTransform()
 	 * @dataProvider provideApplyPreSaveTransform
 	 */
 	public function testApplyPreSaveTransform( $signature, $expected ) {
@@ -81,7 +60,7 @@ class SignatureValidatorTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expected, $pstSig );
 	}
 
-	public static function provideApplyPreSaveTransform() {
+	public function provideApplyPreSaveTransform() {
 		return [
 			'Pipe trick' =>
 				[ '[[test|]]', '[[test|test]]' ],
@@ -95,7 +74,7 @@ class SignatureValidatorTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Preferences\SignatureValidator::checkUserLinks()
+	 * @covers MediaWiki\Preferences\SignatureValidator::checkUserLinks()
 	 * @dataProvider provideCheckUserLinks
 	 */
 	public function testCheckUserLinks( $signature, $expected ) {
@@ -103,7 +82,7 @@ class SignatureValidatorTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expected, $isValid );
 	}
 
-	public static function provideCheckUserLinks() {
+	public function provideCheckUserLinks() {
 		return [
 			'Perfect' =>
 				[ '[[User:SignatureValidatorTest|Signature]] ([[User talk:SignatureValidatorTest|talk]])', true ],
@@ -123,83 +102,7 @@ class SignatureValidatorTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \MediaWiki\Preferences\SignatureValidator::checkLintErrors()
-	 * @dataProvider provideCheckLintErrors
-	 */
-	public function testCheckLintErrors( $signature, $expected ) {
-		$errors = $this->validator->checkLintErrors( $signature );
-		$this->assertSame( $expected, $errors );
-	}
-
-	public static function provideCheckLintErrors() {
-			yield 'Perfect' => [ '<strong>Foo</strong>', [] ];
-			yield 'Unclosed tag' => [
-				'<strong>Foo',
-				[
-					[
-						'type' => 'missing-end-tag',
-						'dsr' => [ 0, 11, 8, 0 ],
-						'templateInfo' => null,
-						'params' => [
-							'name' => 'strong',
-							'inTable' => false,
-						]
-					]
-				]
-			];
-	}
-
-	/**
-	 * @covers \MediaWiki\Preferences\SignatureValidator::validateSignature()
-	 * @dataProvider provideValidateSignature
-	 */
-	public function testValidateSignature( string $signature, $expected ) {
-		$result = $this->validator->validateSignature( $signature );
-		if ( is_string( $expected ) ) {
-			// All special cases should report errors here.
-			$expected = true;
-		}
-		$this->assertSame( $expected, $result );
-	}
-
-	/**
-	 * @covers \MediaWiki\Preferences\SignatureValidator::validateSignature()
-	 * @dataProvider provideValidateSignature
-	 */
-	public function testValidateSignatureAllowed( string $signature, $expected ) {
-		$this->overrideConfigValue( MainConfigNames::SignatureAllowedLintErrors, [
-			'obsolete-tag'
-		] );
-		$this->validator = $this->getSignatureValidator();
-		$result = $this->validator->validateSignature( $signature );
-		if ( $expected === 'allowed' ) {
-			$expected = false;
-		} elseif ( is_string( $expected ) ) {
-			$expected = true;
-		}
-		$this->assertSame( $expected, $result );
-	}
-
-	public function provideValidateSignature() {
-		yield 'Perfect' => [
-			'[[User:SignatureValidatorTest|Signature]] ([[User talk:SignatureValidatorTest|talk]])',
-			// no complaints from lint
-			false
-		];
-		yield 'Missing end tag' => [
-			'<span>[[User:SignatureValidatorTest|Signature]] ([[User talk:SignatureValidatorTest|talk]])',
-			// missing-end-tag is never allowed
-			true
-		];
-		yield 'Obsolete tag' => [
-			'<font color="red">RED</font> [[User:SignatureValidatorTest|Signature]] ([[User talk:SignatureValidatorTest|talk]])',
-			// This is allowed by SignatureAllowedLintErrors
-			'allowed'
-		];
-	}
-
-	/**
-	 * @covers \MediaWiki\Preferences\SignatureValidator::checkLineBreaks()
+	 * @covers MediaWiki\Preferences\SignatureValidator::checkLineBreaks()
 	 * @dataProvider provideCheckLineBreaks
 	 */
 	public function testCheckLineBreaks( $signature, $expected ) {
@@ -207,7 +110,7 @@ class SignatureValidatorTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $expected, $isValid );
 	}
 
-	public static function provideCheckLineBreaks() {
+	public function provideCheckLineBreaks() {
 		return [
 			'Perfect' =>
 				[ '[[User:SignatureValidatorTest|Signature]] ([[User talk:SignatureValidatorTest|talk]])', true ],

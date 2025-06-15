@@ -20,7 +20,6 @@
  */
 namespace MediaWiki\ResourceLoader;
 
-use DomainException;
 use InvalidArgumentException;
 use Wikimedia\Minify\CSSMin;
 
@@ -31,8 +30,6 @@ use Wikimedia\Minify\CSSMin;
  * @since 1.25
  */
 class ImageModule extends Module {
-	/** @var bool */
-	private $useMaskImage;
 	/** @var array|null */
 	protected $definition;
 
@@ -42,7 +39,6 @@ class ImageModule extends Module {
 	 */
 	protected $localBasePath = '';
 
-	/** @inheritDoc */
 	protected $origin = self::ORIGIN_CORE_SITEWIDE;
 
 	/** @var Image[][]|null */
@@ -51,7 +47,6 @@ class ImageModule extends Module {
 	protected $images = [];
 	/** @var string|null */
 	protected $defaultColor = null;
-	/** @var bool */
 	protected $useDataURI = true;
 	/** @var array|null */
 	protected $globalVariants = null;
@@ -59,10 +54,9 @@ class ImageModule extends Module {
 	protected $variants = [];
 	/** @var string|null */
 	protected $prefix = null;
-	/** @var string */
 	protected $selectorWithoutVariant = '.{prefix}-{name}';
-	/** @var string */
 	protected $selectorWithVariant = '.{prefix}-{name}-{variant}';
+	protected $targets = [ 'desktop', 'mobile' ];
 
 	/**
 	 * Constructs a new module from an options array.
@@ -76,9 +70,6 @@ class ImageModule extends Module {
 	 * @par Construction options:
 	 * @code
 	 *     [
-	 *         // When set the icon will use mask-image instead of background-image for the CSS output. Using mask-image
-	 *         // allows colorization of SVGs in Codex. Defaults to false for backwards compatibility.
-	 *         'useMaskImage' => false,
 	 *         // Base path to prepend to all local paths in $options. Defaults to $IP
 	 *         'localBasePath' => [base path],
 	 *         // Path to JSON file that contains any of the settings below
@@ -123,7 +114,6 @@ class ImageModule extends Module {
 	 * @endcode
 	 */
 	public function __construct( array $options = [], $localBasePath = null ) {
-		$this->useMaskImage = $options['useMaskImage'] ?? false;
 		$this->localBasePath = static::extractLocalBasePath( $options, $localBasePath );
 
 		$this->definition = $options;
@@ -194,7 +184,7 @@ class ImageModule extends Module {
 						// Backwards compatibility
 						$option = [ 'default' => $option ];
 					}
-					foreach ( $option as $data ) {
+					foreach ( $option as $skin => $data ) {
 						if ( !is_array( $data ) ) {
 							throw new InvalidArgumentException(
 								"Invalid list error. '$data' given, array expected."
@@ -336,14 +326,7 @@ class ImageModule extends Module {
 
 		// Build CSS rules
 		$rules = [];
-
-		$sources = $oldSources = $context->getResourceLoader()->getSources();
-		$this->getHookRunner()->onResourceLoaderModifyEmbeddedSourceUrls( $sources );
-		if ( array_keys( $sources ) !== array_keys( $oldSources ) ) {
-			throw new DomainException( 'ResourceLoaderModifyEmbeddedSourceUrls hook must not add or remove sources' );
-		}
-		$script = $sources[ $this->getSource() ];
-
+		$script = $context->getResourceLoader()->getLoadScript( $this->getSource() );
 		$selectors = $this->getSelectors();
 
 		foreach ( $this->getImages( $context ) as $name => $image ) {
@@ -373,13 +356,12 @@ class ImageModule extends Module {
 		}
 
 		$style = implode( "\n", $rules );
-
 		return [ 'all' => $style ];
 	}
 
 	/**
 	 * This method must not be used by getDefinitionSummary as doing so would cause
-	 * an infinite loop (we use Image::getUrl below which calls
+	 * an infinite loop (we use ResourceLoaderImage::getUrl below which calls
 	 * Module:getVersionHash, which calls Module::getDefinitionSummary).
 	 *
 	 * @param Context $context
@@ -397,35 +379,31 @@ class ImageModule extends Module {
 		$imageDataUri = $this->useDataURI ? $image->getDataUri( $context, $variant, 'original' ) : false;
 		$primaryUrl = $imageDataUri ?: $image->getUrl( $context, $script, $variant, 'original' );
 		$declarations = $this->getCssDeclarations(
-			$primaryUrl
+			$primaryUrl,
+			$image->getUrl( $context, $script, $variant, 'rasterized' )
 		);
 		return implode( "\n\t", $declarations );
 	}
 
 	/**
-	 * Format the CSS declaration for the image as a background-image property.
+	 * SVG support using a transparent gradient to guarantee cross-browser
+	 * compatibility (browsers able to understand gradient syntax support also SVG).
+	 * http://pauginer.tumblr.com/post/36614680636/invisible-gradient-technique
+	 *
+	 * Keep synchronized with the .background-image-svg LESS mixin in
+	 * /resources/src/mediawiki.less/mediawiki.mixins.less.
 	 *
 	 * @param string $primary Primary URI
-	 * @return string[] CSS declarations
+	 * @param string $fallback Fallback URI
+	 * @return string[] CSS declarations to use given URIs as background-image
 	 */
-	protected function getCssDeclarations( $primary ): array {
+	protected function getCssDeclarations( $primary, $fallback ): array {
 		$primaryUrl = CSSMin::buildUrlValue( $primary );
-		if ( $this->supportsMaskImage() ) {
-			return [
-				"-webkit-mask-image: $primaryUrl;",
-				"mask-image: $primaryUrl;",
-			];
-		}
+		$fallbackUrl = CSSMin::buildUrlValue( $fallback );
 		return [
-			"background-image: $primaryUrl;",
+			"background-image: $fallbackUrl;",
+			"background-image: linear-gradient(transparent, transparent), $primaryUrl;",
 		];
-	}
-
-	/**
-	 * @return bool
-	 */
-	public function supportsMaskImage() {
-		return $this->useMaskImage;
 	}
 
 	/**
@@ -472,7 +450,7 @@ class ImageModule extends Module {
 	private function getFileHashes( Context $context ) {
 		$this->loadFromDefinition();
 		$files = [];
-		foreach ( $this->getImages( $context ) as $image ) {
+		foreach ( $this->getImages( $context ) as $name => $image ) {
 			$files[] = $image->getPath( $context );
 		}
 		$files = array_values( array_unique( $files ) );
@@ -502,11 +480,15 @@ class ImageModule extends Module {
 	public static function extractLocalBasePath( array $options, $localBasePath = null ) {
 		global $IP;
 
+		if ( $localBasePath === null ) {
+			$localBasePath = $IP;
+		}
+
 		if ( array_key_exists( 'localBasePath', $options ) ) {
 			$localBasePath = (string)$options['localBasePath'];
 		}
 
-		return $localBasePath ?? $IP;
+		return $localBasePath;
 	}
 
 	/**
@@ -516,3 +498,6 @@ class ImageModule extends Module {
 		return self::LOAD_STYLES;
 	}
 }
+
+/** @deprecated since 1.39 */
+class_alias( ImageModule::class, 'ResourceLoaderImageModule' );

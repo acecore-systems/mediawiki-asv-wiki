@@ -3,12 +3,11 @@
 namespace MediaWiki\Tests\Rest\HeaderParser;
 
 use MediaWiki\Rest\HeaderParser\IfNoneMatch;
-use MediaWikiUnitTestCase;
 
 /**
  * @covers \MediaWiki\Rest\HeaderParser\IfNoneMatch
  */
-class IfNoneMatchTest extends MediaWikiUnitTestCase {
+class IfNoneMatchTest extends \MediaWikiUnitTestCase {
 	public static function provideParseHeaderList() {
 		return [
 			'empty array' => [

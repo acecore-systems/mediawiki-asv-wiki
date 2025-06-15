@@ -22,7 +22,7 @@
 
 namespace MediaWiki\Shell;
 
-use MediaWiki\HookContainer\HookRunner;
+use Hooks;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
 use Shellbox\Shellbox;
@@ -168,39 +168,34 @@ class Shell {
 	}
 
 	/**
-	 * Generate a Command object to run a MediaWiki maintenance script.
+	 * Generate a Command object to run a MediaWiki CLI script.
 	 * Note that $parameters should be a flat array and an option with an argument
 	 * should consist of two consecutive items in the array (do not use "--option value").
 	 *
 	 * @note You should check Shell::isDisabled() before calling this
-	 * @param string $script MediaWiki CLI script in a form accepted by run.php, e.g.
-	 *        an absolute path, a class name, or the plain name of a script in the
-	 *        maintenance directory.
+	 * @param string $script MediaWiki CLI script with full path
 	 * @param string[] $parameters Arguments and options to the script
 	 * @param array $options Associative array of options:
 	 *     'php': The path to the php executable
-	 *     'wrapper': Path to a wrapper to run the maintenance script
+	 *     'wrapper': Path to a PHP wrapper to handle the maintenance script
 	 * @phan-param array{php?:string,wrapper?:string} $options
 	 * @return Command
 	 */
 	public static function makeScriptCommand(
-		string $script, array $parameters, array $options = []
+		string $script, array $parameters, $options = []
 	): Command {
-		$services = MediaWikiServices::getInstance();
-		$phpCli = $services->getMainConfig()->get( MainConfigNames::PhpCli );
+		$phpCli = MediaWikiServices::getInstance()->getMainConfig()->get( MainConfigNames::PhpCli );
 		// Give site config file a chance to run the script in a wrapper.
 		// The caller may likely want to call wfBasename() on $script.
-		( new HookRunner( $services->getHookContainer() ) )->onWfShellWikiCmd( $script, $parameters, $options );
-		$cmd = [];
-		$cmd[] = $options['php'] ?? $phpCli;
-		$cmd[] = $options['wrapper'] ?? ( MW_INSTALL_PATH . '/maintenance/run.php' );
+		Hooks::runner()->onWfShellWikiCmd( $script, $parameters, $options );
+		$cmd = [ $options['php'] ?? $phpCli ];
+		if ( isset( $options['wrapper'] ) ) {
+			$cmd[] = $options['wrapper'];
+		}
 		$cmd[] = $script;
 
 		return self::command( $cmd )
 			->params( $parameters )
-			// Not much point in trying to sandbox maintenance scripts when they run unsandboxed
-			// most of the time, and doing so can cause permission problems.
-			->disableSandbox();
+			->restrict( self::RESTRICT_DEFAULT & ~self::NO_LOCALSETTINGS );
 	}
-
 }

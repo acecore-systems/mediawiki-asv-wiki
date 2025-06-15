@@ -20,13 +20,8 @@
  * @file
  */
 
-namespace MediaWiki\User;
-
-use MediaWiki\HookContainer\HookRunner;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Title\Title;
-use Wikimedia\Rdbms\IDBAccessObject;
+use MediaWiki\User\UserRigorOptions;
 
 /**
  * Class to parse and build external user names
@@ -34,8 +29,15 @@ use Wikimedia\Rdbms\IDBAccessObject;
  */
 class ExternalUserNames {
 
-	private string $usernamePrefix;
-	private bool $assignKnownUsers;
+	/**
+	 * @var string
+	 */
+	private $usernamePrefix;
+
+	/**
+	 * @var bool
+	 */
+	private $assignKnownUsers;
 
 	/**
 	 * @var bool[]
@@ -104,27 +106,23 @@ class ExternalUserNames {
 	 *  username), otherwise the name with the prefix prepended.
 	 */
 	public function applyPrefix( $name ) {
-		$services = MediaWikiServices::getInstance();
-		$userNameUtils = $services->getUserNameUtils();
+		$userNameUtils = MediaWikiServices::getInstance()->getUserNameUtils();
 		if ( $userNameUtils->getCanonical( $name, UserRigorOptions::RIGOR_USABLE ) === false ) {
 			return $name;
 		}
 
 		if ( $this->assignKnownUsers ) {
-			$userIdentityLookup = $services->getUserIdentityLookup();
-			$userIdentity = $userIdentityLookup->getUserIdentityByName( $name );
-			if ( $userIdentity && $userIdentity->isRegistered() ) {
+			if ( User::idFromName( $name ) ) {
 				return $name;
 			}
 
 			// See if any extension wants to create it.
 			if ( !isset( $this->triedCreations[$name] ) ) {
 				$this->triedCreations[$name] = true;
-				if ( !( new HookRunner( $services->getHookContainer() ) )->onImportHandleUnknownUser( $name ) ) {
-					$userIdentity = $userIdentityLookup->getUserIdentityByName( $name, IDBAccessObject::READ_LATEST );
-					if ( $userIdentity && $userIdentity->isRegistered() ) {
-						return $name;
-					}
+				if ( !Hooks::runner()->onImportHandleUnknownUser( $name ) &&
+					User::idFromName( $name, User::READ_LATEST )
+				) {
+					return $name;
 				}
 			}
 		}
@@ -149,7 +147,7 @@ class ExternalUserNames {
 	 * @return bool true if it's external, false otherwise.
 	 */
 	public static function isExternal( $username ) {
-		return str_contains( $username, '>' );
+		return strpos( $username, '>' ) !== false;
 	}
 
 	/**
@@ -167,6 +165,3 @@ class ExternalUserNames {
 	}
 
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( ExternalUserNames::class, 'ExternalUserNames' );

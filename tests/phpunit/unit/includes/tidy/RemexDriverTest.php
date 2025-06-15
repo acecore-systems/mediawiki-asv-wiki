@@ -1,12 +1,10 @@
 <?php
 
-use MediaWiki\Config\HashConfig;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Parser\Sanitizer;
 
 class RemexDriverTest extends MediaWikiUnitTestCase {
-	private const REMEX_TIDY_TEST_DATA = [
+	private static $remexTidyTestData = [
 		[
 			'Empty string',
 			"",
@@ -212,8 +210,10 @@ class RemexDriverTest extends MediaWikiUnitTestCase {
 		[
 			'Complex pwrap test 6',
 			'<i>a<div>b</div>c<b>d<div>e</div>f</b>g</i>',
+			// PHP 5 does not allow concatenation in initialisation of a class static variable
 			'<p><i>a</i></p><i><div>b</div></i><p><i>c<b>d</b></i></p><i><b><div>e</div></b></i><p><i><b>f</b>g</i></p>'
 		],
+		// phpcs:enable
 		/* FIXME the second <b> causes a stack split which clones the <i> even
 		 * though no <p> is actually generated
 		[
@@ -295,9 +295,14 @@ class RemexDriverTest extends MediaWikiUnitTestCase {
 			'<mw:editsection page="foo" section="bar">foo</mw:editsection>',
 		],
 		[
-			'TOC_PLACEHOLDER should survive tidy',
-			'<meta property="mw:PageProp/toc" />',
-			'<meta property="mw:PageProp/toc" />',
+			'<editsection> should survive tidy',
+			'<editsection page="foo" section="bar">foo</editsection>',
+			'<editsection page="foo" section="bar">foo</editsection>',
+		],
+		[
+			'<mw:toc> should survive tidy',
+			'<mw:toc>foo</mw:toc>',
+			'<mw:toc>foo</mw:toc>',
 		],
 		[
 			'<link> should survive tidy',
@@ -316,7 +321,7 @@ class RemexDriverTest extends MediaWikiUnitTestCase {
 		],
 	];
 
-	public static function provider() {
+	public function provider() {
 		$testMathML = <<<'MathML'
 <math xmlns="http://www.w3.org/1998/Math/MathML">
     <mrow>
@@ -336,7 +341,7 @@ class RemexDriverTest extends MediaWikiUnitTestCase {
   </math>
 MathML;
 		$testMathML = Sanitizer::normalizeCharReferences( $testMathML );
-		return array_merge( self::REMEX_TIDY_TEST_DATA, [ [
+		return array_merge( self::$remexTidyTestData, [ [
 			'<math> should survive tidy',
 			$testMathML,
 			$testMathML,
@@ -345,10 +350,10 @@ MathML;
 
 	/**
 	 * @dataProvider provider
-	 * @covers \MediaWiki\Tidy\RemexCompatFormatter
-	 * @covers \MediaWiki\Tidy\RemexCompatMunger
-	 * @covers \MediaWiki\Tidy\RemexDriver
-	 * @covers \MediaWiki\Tidy\RemexMungerData
+	 * @covers MediaWiki\Tidy\RemexCompatFormatter
+	 * @covers MediaWiki\Tidy\RemexCompatMunger
+	 * @covers MediaWiki\Tidy\RemexDriver
+	 * @covers MediaWiki\Tidy\RemexMungerData
 	 */
 	public function testTidy( $desc, $input, $expected ) {
 		$r = new MediaWiki\Tidy\RemexDriver(
@@ -364,7 +369,7 @@ MathML;
 		$this->assertEquals( $expected, $result, $desc );
 	}
 
-	public static function html5libProvider() {
+	public function html5libProvider() {
 		$files = json_decode( file_get_contents( __DIR__ . '/html5lib-tests.json' ), true );
 		$tests = [];
 		foreach ( $files as $file => $fileTests ) {

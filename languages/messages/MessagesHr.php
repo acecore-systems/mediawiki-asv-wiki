@@ -1,6 +1,8 @@
 <?php
 /** Croatian (hrvatski)
  *
+ * To improve a translation please visit https://translatewiki.net
+ *
  * @file
  * @ingroup Languages
  */
@@ -94,7 +96,6 @@ $specialPageAliases = [
 	'Randomredirect'            => [ 'Slučajno_preusmjeravanje' ],
 	'Recentchanges'             => [ 'Nedavne_promjene' ],
 	'Recentchangeslinked'       => [ 'Povezane_promjene' ],
-	'Renameuser'                => [ 'Preimenuj_suradnika' ],
 	'Revisiondelete'            => [ 'Brisanje_izmjene' ],
 	'Search'                    => [ 'Traži' ],
 	'Shortpages'                => [ 'Kratke_stranice' ],
@@ -180,7 +181,7 @@ $magicWords = [
 	'img_top'                   => [ '1', 'vrh', 'top' ],
 	'img_upright'               => [ '1', 'uspravno=$1', 'uspravno $1', 'upright', 'upright=$1', 'upright $1' ],
 	'index'                     => [ '1', '__KAZALO__', '__INDEX__' ],
-	'language'                  => [ '0', '#JEZIK', '#LANGUAGE' ],
+	'language'                  => [ '0', '#JEZIK:', '#LANGUAGE:' ],
 	'lc'                        => [ '0', 'MS:', 'LC:' ],
 	'lcfirst'                   => [ '0', 'MSPRVO:', 'LCFIRST:' ],
 	'localday'                  => [ '1', 'MJESNIDAN', 'LOCALDAY' ],
@@ -259,6 +260,8 @@ $magicWords = [
 $datePreferences = [
 	'default',
 	'dmy hr',
+	'mdy',
+	'ymd',
 	'ISO 8601',
 ];
 
@@ -266,8 +269,16 @@ $defaultDateFormat = 'dmy hr';
 
 $dateFormats = [
 	'dmy hr time' => 'H:i',
-	'dmy hr date' => 'j. xg Y.',
-	'dmy hr both' => 'H:i, j. xg Y.',
+	'dmy hr date' => 'j. F Y.',
+	'dmy hr both' => 'H:i, j. F Y.',
+
+	'mdy time' => 'H:i',
+	'mdy date' => 'F j, Y',
+	'mdy both' => 'H:i, F j, Y',
+
+	'ymd time' => 'H:i',
+	'ymd date' => 'Y F j',
+	'ymd both' => 'H:i, Y F j',
 
 	'ISO 8601 time' => 'xnH:xni:xns',
 	'ISO 8601 date' => 'xnY-xnm-xnd',
@@ -278,4 +289,4 @@ $separatorTransformTable = [ ',' => '.', '.' => ',' ];
 
 $fallback8bitEncoding = 'iso-8859-2';
 
-$linkTrail = '/^(\p{L}+)(.*)$/sDu';
+$linkTrail = '/^([čšžćđßa-z]+)(.*)$/sDu';

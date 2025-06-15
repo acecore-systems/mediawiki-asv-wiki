@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\Pager\HistoryPager;
+use HistoryPager;
 
 // phpcs:disable Squiz.Classes.ValidClassName.NotCamelCaps
 /**

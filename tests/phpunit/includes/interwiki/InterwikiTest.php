@@ -1,10 +1,9 @@
 <?php
 
 use MediaWiki\MainConfigNames;
-use Wikimedia\Rdbms\Platform\ISQLPlatform;
 
 /**
- * @covers \Interwiki
+ * @covers Interwiki
  * @group Database
  */
 class InterwikiTest extends MediaWikiIntegrationTestCase {
@@ -19,7 +18,7 @@ class InterwikiTest extends MediaWikiIntegrationTestCase {
 			0
 		);
 
-		$this->overrideConfigValue( MainConfigNames::LanguageCode, 'qqx' );
+		$this->setContentLang( 'qqx' );
 
 		$this->assertSame( '(interwiki-name-xyz)', $interwiki->getName() );
 		$this->assertSame( '(interwiki-desc-xyz)', $interwiki->getDescription() );
@@ -43,16 +42,14 @@ class InterwikiTest extends MediaWikiIntegrationTestCase {
 	//// tests for static data access methods below ///////////////////////////////////////////////
 
 	private function populateDB( $iwrows ) {
-		$dbw = $this->getDb();
-		$dbw->newDeleteQueryBuilder()
-			->deleteFrom( 'interwiki' )
-			->where( ISQLPlatform::ALL_ROWS )
-			->caller( __METHOD__ )->execute();
-		$dbw->newInsertQueryBuilder()
-			->insertInto( 'interwiki' )
-			->rows( $iwrows )
-			->caller( __METHOD__ )
-			->execute();
+		$dbw = wfGetDB( DB_PRIMARY );
+		$dbw->delete( 'interwiki', '*', __METHOD__ );
+		$dbw->insert( 'interwiki', array_values( $iwrows ), __METHOD__ );
+		$this->tablesUsed[] = 'interwiki';
+	}
+
+	private function setWgInterwikiCache( $interwikiCache ) {
+		$this->overrideConfigValue( MainConfigNames::InterwikiCache, $interwikiCache );
 	}
 
 	public function testDatabaseStorage() {
@@ -78,7 +75,7 @@ class InterwikiTest extends MediaWikiIntegrationTestCase {
 
 		$this->populateDB( [ $dewiki, $zzwiki ] );
 
-		$this->overrideConfigValue( MainConfigNames::InterwikiCache, false );
+		$this->setWgInterwikiCache( false );
 
 		$interwikiLookup = $this->getServiceContainer()->getInterwikiLookup();
 		$this->assertEquals(

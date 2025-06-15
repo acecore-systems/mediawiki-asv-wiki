@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Unwatchedpages
+ *
  * Copyright © 2005 Ævar Arnfjörð Bjarmason
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,48 +20,42 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- */
-
-namespace MediaWiki\Specials;
-
-use HtmlArmor;
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Html\Html;
-use MediaWiki\Language\ILanguageConverter;
-use MediaWiki\Languages\LanguageConverterFactory;
-use MediaWiki\Linker\Linker;
-use MediaWiki\SpecialPage\QueryPage;
-use MediaWiki\Title\Title;
-use Skin;
-use stdClass;
-use Wikimedia\Rdbms\IConnectionProvider;
-use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\IResultWrapper;
-
-/**
- * List of pages that are not on anyone's watchlist.
- *
  * @ingroup SpecialPage
  * @author Ævar Arnfjörð Bjarmason <avarab@gmail.com>
  */
+
+use MediaWiki\Cache\LinkBatchFactory;
+use MediaWiki\Languages\LanguageConverterFactory;
+use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\ILoadBalancer;
+use Wikimedia\Rdbms\IResultWrapper;
+
+/**
+ * A special page that displays a list of pages that are not on anyone's watchlist.
+ *
+ * @ingroup SpecialPage
+ */
 class SpecialUnwatchedPages extends QueryPage {
 
-	private LinkBatchFactory $linkBatchFactory;
-	private ILanguageConverter $languageConverter;
+	/** @var LinkBatchFactory */
+	private $linkBatchFactory;
+
+	/** @var ILanguageConverter */
+	private $languageConverter;
 
 	/**
 	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param LanguageConverterFactory $languageConverterFactory
 	 */
 	public function __construct(
 		LinkBatchFactory $linkBatchFactory,
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		LanguageConverterFactory $languageConverterFactory
 	) {
 		parent::__construct( 'Unwatchedpages', 'unwatchedpages' );
 		$this->linkBatchFactory = $linkBatchFactory;
-		$this->setDatabaseProvider( $dbProvider );
+		$this->setDBLoadBalancer( $loadBalancer );
 		$this->languageConverter = $languageConverterFactory->getLanguageConverter( $this->getContentLanguage() );
 	}
 
@@ -92,7 +88,7 @@ class SpecialUnwatchedPages extends QueryPage {
 	}
 
 	public function getQueryInfo() {
-		$dbr = $this->getDatabaseProvider()->getReplicaDatabase();
+		$dbr = $this->getDBLoadBalancer()->getConnectionRef( ILoadBalancer::DB_REPLICA );
 		return [
 			'tables' => [ 'page', 'watchlist' ],
 			'fields' => [
@@ -101,9 +97,9 @@ class SpecialUnwatchedPages extends QueryPage {
 				'value' => 'page_namespace'
 			],
 			'conds' => [
-				'wl_title' => null,
+				'wl_title IS NULL',
 				'page_is_redirect' => 0,
-				$dbr->expr( 'page_namespace', '!=', NS_MEDIAWIKI ),
+				'page_namespace != ' . $dbr->addQuotes( NS_MEDIAWIKI ),
 			],
 			'join_conds' => [ 'watchlist' => [
 				'LEFT JOIN', [ 'wl_title = page_title',
@@ -160,9 +156,3 @@ class SpecialUnwatchedPages extends QueryPage {
 		return 'maintenance';
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialUnwatchedPages::class, 'SpecialUnwatchedPages' );

@@ -23,13 +23,16 @@
 
 namespace MediaWiki\Cache;
 
-use MediaWiki\Language\Language;
+use GenderCache;
+use Language;
+use LinkBatch;
+use LinkCache;
 use MediaWiki\Linker\LinksMigration;
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\Page\PageReference;
-use MediaWiki\Title\TitleFormatter;
 use Psr\Log\LoggerInterface;
-use Wikimedia\Rdbms\IConnectionProvider;
+use TitleFormatter;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * @ingroup Cache
@@ -58,9 +61,9 @@ class LinkBatchFactory {
 	private $genderCache;
 
 	/**
-	 * @var IConnectionProvider
+	 * @var ILoadBalancer
 	 */
-	private $dbProvider;
+	private $loadBalancer;
 
 	/** @var LinksMigration */
 	private $linksMigration;
@@ -73,7 +76,7 @@ class LinkBatchFactory {
 		TitleFormatter $titleFormatter,
 		Language $contentLanguage,
 		GenderCache $genderCache,
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		LinksMigration $linksMigration,
 		LoggerInterface $logger
 	) {
@@ -81,7 +84,7 @@ class LinkBatchFactory {
 		$this->titleFormatter = $titleFormatter;
 		$this->contentLanguage = $contentLanguage;
 		$this->genderCache = $genderCache;
-		$this->dbProvider = $dbProvider;
+		$this->loadBalancer = $loadBalancer;
 		$this->linksMigration = $linksMigration;
 		$this->logger = $logger;
 	}
@@ -98,7 +101,7 @@ class LinkBatchFactory {
 			$this->titleFormatter,
 			$this->contentLanguage,
 			$this->genderCache,
-			$this->dbProvider,
+			$this->loadBalancer,
 			$this->linksMigration,
 			$this->logger
 		);

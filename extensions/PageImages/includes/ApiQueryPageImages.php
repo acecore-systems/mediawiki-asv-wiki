@@ -2,12 +2,11 @@
 
 namespace PageImages;
 
-use MediaWiki\Api\ApiBase;
-use MediaWiki\Api\ApiQuery;
-use MediaWiki\Api\ApiQueryBase;
-use MediaWiki\Page\PageReference;
-use MediaWiki\Page\PageReferenceValue;
-use RepoGroup;
+use ApiBase;
+use ApiQuery;
+use ApiQueryBase;
+use MediaWiki\MediaWikiServices;
+use Title;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\TypeDef\IntegerDef;
 
@@ -23,38 +22,29 @@ use Wikimedia\ParamValidator\TypeDef\IntegerDef;
  * @author Sam Smith
  */
 class ApiQueryPageImages extends ApiQueryBase {
-	/** @var RepoGroup */
-	private $repoGroup;
-
 	/**
 	 * @param ApiQuery $query API query module
 	 * @param string $moduleName Name of this query module
-	 * @param RepoGroup $repoGroup
 	 */
-	public function __construct(
-		ApiQuery $query,
-		$moduleName,
-		RepoGroup $repoGroup
-	) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'pi' );
-		$this->repoGroup = $repoGroup;
 	}
 
 	/**
 	 * Gets the set of titles to get page images for.
 	 *
 	 * Note well that the set of titles comprises the set of "good" titles
-	 * (see {@see ApiPageSet::getGoodPages}) union the set of "missing"
+	 * (see {@see ApiPageSet::getGoodTitles}) union the set of "missing"
 	 * titles in the File namespace that might correspond to foreign files.
 	 * The latter are included because titles in the File namespace are
 	 * expected to be found with {@see \RepoGroup::findFile}.
 	 *
-	 * @return PageReference[] A map of page ID, which will be negative in the case
-	 *  of missing titles in the File namespace, to PageReference object
+	 * @return Title[] A map of page ID, which will be negative in the case
+	 *  of missing titles in the File namespace, to Title object
 	 */
 	protected function getTitles() {
 		$pageSet = $this->getPageSet();
-		$titles = $pageSet->getGoodPages();
+		$titles = $pageSet->getGoodTitles();
 
 		// T98791: We want foreign files to be treated like local files
 		// in #execute, so include the set of missing filespace pages,
@@ -66,7 +56,7 @@ class ApiQueryPageImages extends ApiQueryBase {
 		// whereas $missingFileTitles is a map of title text to ID.
 		// Do not use array_merge here as it doesn't preserve keys.
 		foreach ( $missingFileTitles as $dbkey => $id ) {
-			$titles[$id] = PageReferenceValue::localReference( NS_FILE, $dbkey );
+			$titles[$id] = Title::makeTitle( NS_FILE, $dbkey );
 		}
 
 		return $titles;
@@ -115,7 +105,7 @@ class ApiQueryPageImages extends ApiQueryBase {
 		// Find any titles in the file namespace so we can handle those separately
 		$filePageTitles = [];
 		foreach ( $titles as $id => $title ) {
-			if ( $title->getNamespace() === NS_FILE ) {
+			if ( $title->inNamespace( NS_FILE ) ) {
 				$filePageTitles[$id] = $title;
 				unset( $titles[$id] );
 			}
@@ -178,11 +168,12 @@ class ApiQueryPageImages extends ApiQueryBase {
 	protected function setResultValues( array $prop, $pageId, $fileName, $size, $lang ) {
 		$vals = [];
 		if ( isset( $prop['thumbnail'] ) || isset( $prop['original'] ) ) {
-			$file = $this->repoGroup->findFile( $fileName );
+			$file = MediaWikiServices::getInstance()->getRepoGroup()->findFile( $fileName );
 			if ( $file ) {
 				if ( isset( $prop['thumbnail'] ) ) {
 					$thumb = $file->transform( [
 						'width' => $size,
+						'height' => $size,
 						'lang' => $lang
 					] );
 					if ( $thumb && $thumb->getUrl() ) {
@@ -238,7 +229,6 @@ class ApiQueryPageImages extends ApiQueryBase {
 				ParamValidator::PARAM_TYPE => [ 'thumbnail', 'name', 'original' ],
 				ParamValidator::PARAM_ISMULTI => true,
 				ParamValidator::PARAM_DEFAULT => 'thumbnail|name',
-				ApiBase::PARAM_HELP_MSG_PER_VALUE => [],
 			],
 			'thumbsize' => [
 				ParamValidator::PARAM_TYPE => 'integer',
@@ -255,7 +245,6 @@ class ApiQueryPageImages extends ApiQueryBase {
 				ParamValidator::PARAM_TYPE => [ PageImages::LICENSE_FREE, PageImages::LICENSE_ANY ],
 				ParamValidator::PARAM_ISMULTI => false,
 				ParamValidator::PARAM_DEFAULT => $this->getConfig()->get( 'PageImagesAPIDefaultLicense' ),
-				ApiBase::PARAM_HELP_MSG_PER_VALUE => [],
 			],
 			'continue' => [
 				ParamValidator::PARAM_TYPE => 'integer',

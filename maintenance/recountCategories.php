@@ -21,13 +21,17 @@
  * @ingroup Maintenance
  */
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
+
+use MediaWiki\MediaWikiServices;
 
 /**
  * Maintenance script that refreshes category membership counts in the category
  * table.
+ *
+ * (The populateCategory.php script will also recalculate counts, but
+ * recountCategories only updates rows that need to be updated, making it more
+ * efficient.)
  *
  * @ingroup Maintenance
  */
@@ -95,7 +99,6 @@ TEXT
 
 			// do the work, batch by batch
 			$affectedRows = 0;
-			// phpcs:ignore Generic.CodeAnalysis.AssignmentInCondition.FoundInWhileCondition
 			while ( ( $result = $this->doWork( $mode ) ) !== false ) {
 				$affectedRows += $result;
 				usleep( $this->getOption( 'throttle', 0 ) * 1000 );
@@ -133,29 +136,32 @@ TEXT
 		$this->output( "Finding up to {$this->getBatchSize()} drifted rows " .
 			"greater than cat_id {$this->minimumId}...\n" );
 
-		$dbr = $this->getDB( DB_REPLICA, 'vslow' );
-		$queryBuilder = $dbr->newSelectQueryBuilder()
-			->select( 'COUNT(*)' )
-			->from( 'categorylinks' )
-			->where( 'cl_to = cat_title' );
+		$countingConds = [ 'cl_to = cat_title' ];
 		if ( $mode === 'subcats' ) {
-			$queryBuilder->andWhere( [ 'cl_type' => 'subcat' ] );
+			$countingConds['cl_type'] = 'subcat';
 		} elseif ( $mode === 'files' ) {
-			$queryBuilder->andWhere( [ 'cl_type' => 'file' ] );
+			$countingConds['cl_type'] = 'file';
 		}
 
-		$countingSubquery = $queryBuilder->caller( __METHOD__ )->getSQL();
+		$dbr = $this->getDB( DB_REPLICA, 'vslow' );
+		$countingSubquery = $dbr->selectSQLText( 'categorylinks',
+			'COUNT(*)',
+			$countingConds,
+			__METHOD__ );
 
 		// First, let's find out which categories have drifted and need to be updated.
 		// The query counts the categorylinks for each category on the replica DB,
 		// but this data can't be used for updating the master, so we don't include it
 		// in the results.
-		$idsToUpdate = $dbr->newSelectQueryBuilder()
-			->select( 'cat_id' )
-			->from( 'category' )
-			->where( [ $dbr->expr( 'cat_id', '>', (int)$this->minimumId ), "cat_{$mode} != ($countingSubquery)" ] )
-			->limit( $this->getBatchSize() )
-			->caller( __METHOD__ )->fetchFieldValues();
+		$idsToUpdate = $dbr->selectFieldValues( 'category',
+			'cat_id',
+			[
+				'cat_id > ' . (int)$this->minimumId,
+				"cat_{$mode} != ($countingSubquery)"
+			],
+			__METHOD__,
+			[ 'LIMIT' => $this->getBatchSize() ]
+		);
 		if ( !$idsToUpdate ) {
 			return false;
 		}
@@ -169,12 +175,11 @@ TEXT
 		$this->minimumId = end( $idsToUpdate );
 
 		// Now, on master, find the correct counts for these categories.
-		$dbw = $this->getPrimaryDB();
-		$res = $dbw->newSelectQueryBuilder()
-			->select( [ 'cat_id', 'count' => "($countingSubquery)" ] )
-			->from( 'category' )
-			->where( [ 'cat_id' => $idsToUpdate ] )
-			->caller( __METHOD__ )->fetchResultSet();
+		$dbw = $this->getDB( DB_PRIMARY );
+		$res = $dbw->select( 'category',
+			[ 'cat_id', 'count' => "($countingSubquery)" ],
+			[ 'cat_id' => $idsToUpdate ],
+			__METHOD__ );
 
 		// Update the category counts on the rows we just identified.
 		// This logic is equivalent to Category::refreshCounts, except here, we
@@ -183,25 +188,21 @@ TEXT
 		// cleanupEmptyCategories.php.
 		$affectedRows = 0;
 		foreach ( $res as $row ) {
-			$dbw->newUpdateQueryBuilder()
-				->update( 'category' )
-				->set( [ "cat_{$mode}" => $row->count ] )
-				->where( [
+			$dbw->update( 'category',
+				[ "cat_{$mode}" => $row->count ],
+				[
 					'cat_id' => $row->cat_id,
-					$dbw->expr( "cat_{$mode}", '!=', (int)$row->count ),
-				] )
-				->caller( __METHOD__ )
-				->execute();
+					"cat_{$mode} != " . (int)( $row->count ),
+				],
+				__METHOD__ );
 			$affectedRows += $dbw->affectedRows();
 		}
 
-		$this->waitForReplication();
+		MediaWikiServices::getInstance()->getDBLoadBalancerFactory()->waitForReplication();
 
 		return $affectedRows;
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = RecountCategories::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

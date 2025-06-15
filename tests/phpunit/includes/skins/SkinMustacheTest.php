@@ -1,16 +1,12 @@
 <?php
 
-use MediaWiki\Context\RequestContext;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Output\OutputPage;
-use MediaWiki\Request\ContentSecurityPolicy;
-use MediaWiki\Title\Title;
 use PHPUnit\Framework\MockObject\MockObject;
 
 /**
- * @covers \SkinMustache
- * @group Skin
- * @group Database
+ * @covers SkinMustache
+ *
+ * @group Output
  */
 class SkinMustacheTest extends MediaWikiIntegrationTestCase {
 
@@ -21,6 +17,9 @@ class SkinMustacheTest extends MediaWikiIntegrationTestCase {
 	 */
 	private function getMockOutputPage( $html, $title ) {
 		$mockContentSecurityPolicy = $this->createMock( ContentSecurityPolicy::class );
+
+		$mockContentSecurityPolicy->method( 'getNonce' )
+			->willReturn( 'secret' );
 
 		$mock = $this->createMock( OutputPage::class );
 		$mock->method( 'getHTML' )
@@ -34,13 +33,15 @@ class SkinMustacheTest extends MediaWikiIntegrationTestCase {
 		$mock->method( 'getTitle' )
 			->willReturn( $title );
 		$mock->method( 'getIndicators' )
-			->willReturn( [ '' ] );
+			->willReturn( '' );
 		$mock->method( 'getLanguageLinks' )
 			->willReturn( [] );
+		$mock->method( 'getCSP' )
+			->willReturn( $mockContentSecurityPolicy );
 		$mock->method( 'isTOCEnabled' )
 			->willReturn( true );
-		$mock->method( 'getTOCData' )
-			->willReturn( null );
+		$mock->method( 'getSections' )
+			->willReturn( [] );
 		return $mock;
 	}
 
@@ -51,7 +52,7 @@ class SkinMustacheTest extends MediaWikiIntegrationTestCase {
 			return;
 		} elseif ( is_array( $value ) ) {
 			$this->assertTrue(
-				str_starts_with( $key, 'data-' ) || str_starts_with( $key, 'array-' ),
+				strpos( $key, 'data-' ) === 0 || strpos( $key, 'array-' ) === 0,
 				"Template data that is an object should be associated with a key" .
 				" prefixed with `data-` or `array-` ($key)"
 			);
@@ -69,20 +70,20 @@ class SkinMustacheTest extends MediaWikiIntegrationTestCase {
 				}
 			}
 		} elseif ( is_string( $value ) ) {
-			if ( str_contains( $value, '<' ) ) {
+			if ( strpos( $value, '<' ) !== false ) {
 				$this->assertTrue(
-					str_starts_with( $key, 'html-' ) || $key === 'html',
+					strpos( $key, 'html-' ) === 0 || $key === 'html',
 					"Template data containing HTML must be prefixed with `html-` ($key)"
 				);
 			}
 		} elseif ( is_bool( $value ) ) {
 			$this->assertTrue(
-				str_starts_with( $key, 'is-' ) || str_starts_with( $key, 'has-' ),
+				strpos( $key, 'is-' ) === 0 || strpos( $key, 'has-' ) === 0,
 				"Template data containing booleans must be prefixed with `is-` or `has-` ($key)"
 			);
 		} elseif ( is_numeric( $value ) ) {
 			$this->assertTrue(
-				str_starts_with( $key, 'number-' ),
+				strpos( $key, 'number-' ) === 0,
 				"Template data containing numbers must be prefixed with `number-` ($key)"
 			);
 		} else {
@@ -93,11 +94,10 @@ class SkinMustacheTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * @covers \Skin
-	 * @covers \MediaWiki\Skin\SkinComponentLogo
-	 * @covers \MediaWiki\Skin\SkinComponentSearch
-	 * @covers \MediaWiki\Skin\SkinComponentTableOfContents
-	 * @covers \MediaWiki\Skin\SkinComponentFooter
+	 * @covers Skin::getTemplateData
+	 * @covers MediaWiki\Skin\SkinComponentLogo::getTemplateData
+	 * @covers MediaWiki\Skin\SkinComponentSearch::getTemplateData
+	 * @covers MediaWiki\Skin\SkinComponentTableOfContents::getTemplateData
 	 */
 	public function testGetTemplateData() {
 		$config = $this->getServiceContainer()->getMainConfig();
@@ -117,13 +117,13 @@ class SkinMustacheTest extends MediaWikiIntegrationTestCase {
 		$data = $skin->getTemplateData();
 
 		// Validate the default template data respects the naming rules
-		foreach ( $data as $key => $_ ) {
+		foreach ( array_keys( $data ) as $key ) {
 			$this->validateTemplateData( $data, $key );
 		}
 
 		// Validate search data
 		$searchData = $data['data-search-box'];
-		foreach ( $searchData as $key => $_ ) {
+		foreach ( array_keys( $searchData ) as $key ) {
 			$this->validateTemplateData( $searchData, $key );
 		}
 	}

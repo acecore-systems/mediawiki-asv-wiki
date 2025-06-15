@@ -20,16 +20,8 @@
  * @file
  */
 
-namespace MediaWiki\Api;
-
-use MediaWiki\ExternalLinks\LinkFilter;
-use MediaWiki\Parser\Parser;
-use MediaWiki\Title\Title;
-use MediaWiki\Utils\UrlUtils;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\TypeDef\IntegerDef;
-use Wikimedia\Rdbms\IExpression;
-use Wikimedia\Rdbms\LikeValue;
 
 /**
  * A query module to list all external URLs found on a given set of pages.
@@ -38,12 +30,8 @@ use Wikimedia\Rdbms\LikeValue;
  */
 class ApiQueryExternalLinks extends ApiQueryBase {
 
-	private UrlUtils $urlUtils;
-
-	public function __construct( ApiQuery $query, string $moduleName, UrlUtils $urlUtils ) {
+	public function __construct( ApiQuery $query, $moduleName ) {
 		parent::__construct( $query, $moduleName, 'el' );
-
-		$this->urlUtils = $urlUtils;
 	}
 
 	public function execute() {
@@ -56,23 +44,33 @@ class ApiQueryExternalLinks extends ApiQueryBase {
 		$db = $this->getDB();
 
 		$query = $params['query'];
-		$protocol = LinkFilter::getProtocolPrefix( $params['protocol'] );
+		$protocol = ApiQueryExtLinksUsage::getProtocolPrefix( $params['protocol'] );
 
-		$fields = [ 'el_from' ];
-		$fields[] = 'el_to_domain_index';
-		$fields[] = 'el_to_path';
-		$continueField = 'el_to_domain_index';
-		$this->addFields( $fields );
+		$this->addFields( [
+			'el_from',
+			'el_to'
+		] );
 
 		$this->addTables( 'externallinks' );
 		$this->addWhereFld( 'el_from', array_keys( $pages ) );
 
+		$orderBy = [];
+
+		// Don't order by el_from if it's constant in the WHERE clause
+		if ( count( $pages ) !== 1 ) {
+			$orderBy[] = 'el_from';
+		}
+
 		if ( $query !== null && $query !== '' ) {
+			if ( $protocol === null ) {
+				$protocol = 'http://';
+			}
+
 			// Normalize query to match the normalization applied for the externallinks table
-			$query = Parser::normalizeLinkUrl( $query );
+			$query = Parser::normalizeLinkUrl( $protocol . $query );
 
 			$conds = LinkFilter::getQueryConditions( $query, [
-				'protocol' => $protocol,
+				'protocol' => '',
 				'oneWildcard' => true,
 				'db' => $db
 			] );
@@ -80,26 +78,40 @@ class ApiQueryExternalLinks extends ApiQueryBase {
 				$this->dieWithError( 'apierror-badquery' );
 			}
 			$this->addWhere( $conds );
+			if ( !isset( $conds['el_index_60'] ) ) {
+				$orderBy[] = 'el_index_60';
+			}
 		} else {
+			$orderBy[] = 'el_index_60';
+
 			if ( $protocol !== null ) {
-				$this->addWhere(
-					$db->expr( $continueField, IExpression::LIKE, new LikeValue( "$protocol", $db->anyString() ) )
-				);
+				$this->addWhere( 'el_index_60' . $db->buildLike( "$protocol", $db->anyString() ) );
+			} else {
+				// We're querying all protocols, filter out duplicate protocol-relative links
+				$this->addWhere( $db->makeList( [
+					'el_to NOT' . $db->buildLike( '//', $db->anyString() ),
+					'el_index_60 ' . $db->buildLike( 'http://', $db->anyString() ),
+				], LIST_OR ) );
 			}
 		}
 
-		$orderBy = [ 'el_id' ];
-
+		$orderBy[] = 'el_id';
 		$this->addOption( 'ORDER BY', $orderBy );
 		$this->addFields( $orderBy ); // Make sure
 
 		$this->addOption( 'LIMIT', $params['limit'] + 1 );
 
 		if ( $params['continue'] !== null ) {
-			$cont = $this->parseContinueParamOrDie( $params['continue'],
-				array_fill( 0, count( $orderBy ), 'string' ) );
-			$conds = array_combine( $orderBy, array_map( 'rawurldecode', $cont ) );
-			$this->addWhere( $db->buildComparison( '>=', $conds ) );
+			$cont = explode( '|', $params['continue'] );
+			$this->dieContinueUsageIf( count( $cont ) !== count( $orderBy ) );
+			$i = count( $cont ) - 1;
+			$cond = $orderBy[$i] . ' >= ' . $db->addQuotes( rawurldecode( $cont[$i] ) );
+			while ( $i-- > 0 ) {
+				$field = $orderBy[$i];
+				$v = $db->addQuotes( rawurldecode( $cont[$i] ) );
+				$cond = "($field > $v OR ($field = $v AND $cond))";
+			}
+			$this->addWhere( $cond );
 		}
 
 		$res = $this->select( __METHOD__ );
@@ -113,10 +125,10 @@ class ApiQueryExternalLinks extends ApiQueryBase {
 				break;
 			}
 			$entry = [];
-			$to = LinkFilter::reverseIndexes( $row->el_to_domain_index ) . $row->el_to_path;
+			$to = $row->el_to;
 			// expand protocol-relative urls
 			if ( $params['expandurl'] ) {
-				$to = (string)$this->urlUtils->expand( $to, PROTO_CANONICAL );
+				$to = wfExpandUrl( $to, PROTO_CANONICAL );
 			}
 			ApiResult::setContentValue( $entry, 'url', $to );
 			$fit = $this->addPageSubItem( $row->el_from, $entry );
@@ -152,15 +164,11 @@ class ApiQueryExternalLinks extends ApiQueryBase {
 				ApiBase::PARAM_HELP_MSG => 'api-help-param-continue',
 			],
 			'protocol' => [
-				ParamValidator::PARAM_TYPE => LinkFilter::prepareProtocols(),
+				ParamValidator::PARAM_TYPE => ApiQueryExtLinksUsage::prepareProtocols(),
 				ParamValidator::PARAM_DEFAULT => '',
 			],
 			'query' => null,
-			'expandurl' => [
-				ParamValidator::PARAM_TYPE => 'boolean',
-				ParamValidator::PARAM_DEFAULT => false,
-				ParamValidator::PARAM_DEPRECATED => true,
-			],
+			'expandurl' => false,
 		];
 	}
 
@@ -178,6 +186,3 @@ class ApiQueryExternalLinks extends ApiQueryBase {
 		return 'https://www.mediawiki.org/wiki/Special:MyLanguage/API:Extlinks';
 	}
 }
-
-/** @deprecated class alias since 1.43 */
-class_alias( ApiQueryExternalLinks::class, 'ApiQueryExternalLinks' );

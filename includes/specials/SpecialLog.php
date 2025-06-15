@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Log
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,31 +18,16 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
-use ChangeTags;
-use LogEventsList;
-use LogFormatterFactory;
-use LogPage;
 use MediaWiki\Cache\LinkBatchFactory;
 use MediaWiki\HookContainer\HookRunner;
-use MediaWiki\Html\FormOptions;
-use MediaWiki\Html\Html;
-use MediaWiki\Html\ListToggle;
 use MediaWiki\MainConfigNames;
-use MediaWiki\MediaWikiServices;
-use MediaWiki\Pager\LogPager;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Title\Title;
 use MediaWiki\User\ActorNormalization;
 use MediaWiki\User\UserIdentityLookup;
-use MediaWiki\User\UserNameUtils;
-use MediaWiki\Utils\MWTimestamp;
-use PermissionsError;
 use Wikimedia\IPUtils;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\ILoadBalancer;
 use Wikimedia\Timestamp\TimestampException;
 
 /**
@@ -50,41 +37,35 @@ use Wikimedia\Timestamp\TimestampException;
  */
 class SpecialLog extends SpecialPage {
 
-	private LinkBatchFactory $linkBatchFactory;
+	/** @var LinkBatchFactory */
+	private $linkBatchFactory;
 
-	private IConnectionProvider $dbProvider;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
 
-	private ActorNormalization $actorNormalization;
+	/** @var ActorNormalization */
+	private $actorNormalization;
 
-	private UserIdentityLookup $userIdentityLookup;
-
-	private UserNameUtils $userNameUtils;
-
-	private LogFormatterFactory $logFormatterFactory;
+	/** @var UserIdentityLookup */
+	private $userIdentityLookup;
 
 	/**
 	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param ActorNormalization $actorNormalization
 	 * @param UserIdentityLookup $userIdentityLookup
-	 * @param UserNameUtils $userNameUtils
-	 * @param LogFormatterFactory $logFormatterFactory
 	 */
 	public function __construct(
 		LinkBatchFactory $linkBatchFactory,
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		ActorNormalization $actorNormalization,
-		UserIdentityLookup $userIdentityLookup,
-		UserNameUtils $userNameUtils,
-		LogFormatterFactory $logFormatterFactory
+		UserIdentityLookup $userIdentityLookup
 	) {
 		parent::__construct( 'Log' );
 		$this->linkBatchFactory = $linkBatchFactory;
-		$this->dbProvider = $dbProvider;
+		$this->loadBalancer = $loadBalancer;
 		$this->actorNormalization = $actorNormalization;
 		$this->userIdentityLookup = $userIdentityLookup;
-		$this->userNameUtils = $userNameUtils;
-		$this->logFormatterFactory = $logFormatterFactory;
 	}
 
 	public function execute( $par ) {
@@ -104,7 +85,6 @@ class SpecialLog extends SpecialPage {
 		$opts->add( 'month', null, FormOptions::INTNULL );
 		$opts->add( 'day', null, FormOptions::INTNULL );
 		$opts->add( 'tagfilter', '' );
-		$opts->add( 'tagInvert', false );
 		$opts->add( 'offset', '' );
 		$opts->add( 'dir', '' );
 		$opts->add( 'offender', '' );
@@ -112,14 +92,14 @@ class SpecialLog extends SpecialPage {
 		$opts->add( 'logid', '' );
 
 		// Set values
-		if ( $par !== null ) {
-			$this->parseParams( (string)$par );
-		}
 		$opts->fetchValuesFromRequest( $this->getRequest() );
+		if ( $par !== null ) {
+			$this->parseParams( $opts, (string)$par );
+		}
 
 		// Set date values
 		$dateString = $this->getRequest()->getVal( 'wpdate' );
-		if ( $dateString ) {
+		if ( !empty( $dateString ) ) {
 			try {
 				$dateStamp = MWTimestamp::getInstance( $dateString . ' 00:00:00' );
 			} catch ( TimestampException $e ) {
@@ -134,28 +114,33 @@ class SpecialLog extends SpecialPage {
 			}
 		}
 
+		# Don't let the user get stuck with a certain date
+		if ( $opts->getValue( 'offset' ) || $opts->getValue( 'dir' ) == 'prev' ) {
+			$opts->setValue( 'year', '' );
+			$opts->setValue( 'month', '' );
+		}
+
 		// If the user doesn't have the right permission to view the specific
 		// log type, throw a PermissionsError
+		// If the log type is invalid, just show all public logs
 		$logRestrictions = $this->getConfig()->get( MainConfigNames::LogRestrictions );
 		$type = $opts->getValue( 'type' );
-		if ( isset( $logRestrictions[$type] )
+		if ( !LogPage::isLogType( $type ) ) {
+			$opts->setValue( 'type', '' );
+		} elseif ( isset( $logRestrictions[$type] )
 			&& !$this->getAuthority()->isAllowed( $logRestrictions[$type] )
 		) {
 			throw new PermissionsError( $logRestrictions[$type] );
 		}
 
-		# TODO: Move this into LogPager like other query conditions.
 		# Handle type-specific inputs
 		$qc = [];
-		$offenderName = $opts->getValue( 'offender' );
-		if ( $opts->getValue( 'type' ) == 'suppress' && $offenderName !== '' ) {
-			$dbr = $this->dbProvider->getReplicaDatabase();
+		if ( $opts->getValue( 'type' ) == 'suppress' ) {
+			$dbr = $this->loadBalancer->getConnectionRef( DB_REPLICA );
+			$offenderName = $opts->getValue( 'offender' );
 			$offenderId = $this->actorNormalization->findActorIdByName( $offenderName, $dbr );
 			if ( $offenderId ) {
-				$qc = [ 'ls_field' => 'target_author_actor', 'ls_value' => strval( $offenderId ) ];
-			} else {
-				// Unknown offender, thus results have to be empty
-				$qc = [ '1=0' ];
+				$qc = [ 'ls_field' => 'target_author_actor', 'ls_value' => $offenderId ];
 			}
 		} else {
 			// Allow extensions to add relations to their search types
@@ -163,7 +148,6 @@ class SpecialLog extends SpecialPage {
 				$opts->getValue( 'type' ), $this->getRequest(), $qc );
 		}
 
-		# TODO: Move this into LogEventList and use it as filter-callback in the field descriptor.
 		# Some log types are only for a 'User:' title but we might have been given
 		# only the username instead of the full title 'User:username'. This part try
 		# to lookup for a user by that name and eventually fix user input. See T3697.
@@ -176,19 +160,16 @@ class SpecialLog extends SpecialPage {
 					$page = IPUtils::sanitizeRange( $target->getText() );
 				}
 				# User forgot to add 'User:', we are adding it for him
-				$target = Title::makeTitleSafe( NS_USER, $page );
+				$opts->setValue( 'page',
+					Title::makeTitleSafe( NS_USER, $page )
+				);
 			} elseif ( $target && $target->getNamespace() === NS_USER
 				&& IPUtils::isValidRange( $target->getText() )
 			) {
-				$ipOrRange = IPUtils::sanitizeRange( $target->getText() );
-				if ( $ipOrRange !== $target->getText() ) {
-					$target = Title::makeTitleSafe( NS_USER, $ipOrRange );
+				$page = IPUtils::sanitizeRange( $target->getText() );
+				if ( $page !== $target->getText() ) {
+					$opts->setValue( 'page', Title::makeTitleSafe( NS_USER, $page ) );
 				}
-			}
-			if ( $target !== null ) {
-				$page = $target->getPrefixedText();
-				$opts->setValue( 'page', $page );
-				$this->getRequest()->setVal( 'page', $page );
 			}
 		}
 
@@ -206,7 +187,7 @@ class SpecialLog extends SpecialPage {
 	 * @param HookRunner|null $runner
 	 * @return array
 	 */
-	public static function getLogTypesOnUser( ?HookRunner $runner = null ) {
+	public static function getLogTypesOnUser( HookRunner $runner = null ) {
 		static $types = null;
 		if ( $types !== null ) {
 			return $types;
@@ -215,11 +196,9 @@ class SpecialLog extends SpecialPage {
 			'block',
 			'newusers',
 			'rights',
-			'renameuser',
 		];
 
-		( $runner ?? new HookRunner( MediaWikiServices::getInstance()->getHookContainer() ) )
-			->onGetLogTypesOnUser( $types );
+		( $runner ?? Hooks::runner() )->onGetLogTypesOnUser( $types );
 		return $types;
 	}
 
@@ -241,21 +220,23 @@ class SpecialLog extends SpecialPage {
 	 * - Two parts: Special:Log/logtype/username
 	 * - Otherwise, assume the whole subpage is a username.
 	 *
+	 * @param FormOptions $opts
 	 * @param string $par
 	 */
-	private function parseParams( string $par ) {
+	private function parseParams( FormOptions $opts, $par ) {
 		# Get parameters
-		$parms = explode( '/', $par, 2 );
+		$par = $par ?? '';
+		$parms = explode( '/', $par );
 		$symsForAll = [ '*', 'all' ];
-		if ( $parms[0] !== '' &&
-			( in_array( $parms[0], LogPage::validTypes() ) || in_array( $parms[0], $symsForAll ) )
+		if ( $parms[0] != '' &&
+			( in_array( $par, LogPage::validTypes() ) || in_array( $par, $symsForAll ) )
 		) {
-			$this->getRequest()->setVal( 'type', $parms[0] );
-			if ( count( $parms ) === 2 ) {
-				$this->getRequest()->setVal( 'user', $parms[1] );
-			}
-		} elseif ( $par !== '' ) {
-			$this->getRequest()->setVal( 'user', $par );
+			$opts->setValue( 'type', $par );
+		} elseif ( count( $parms ) == 2 ) {
+			$opts->setValue( 'type', $parms[0] );
+			$opts->setValue( 'user', $parms[1] );
+		} elseif ( $par != '' ) {
+			$opts->setValue( 'user', $par );
 		}
 	}
 
@@ -280,37 +261,33 @@ class SpecialLog extends SpecialPage {
 			$opts->getValue( 'subtype' ),
 			$opts->getValue( 'logid' ),
 			$this->linkBatchFactory,
-			$this->actorNormalization,
-			$this->logFormatterFactory,
-			$opts->getValue( 'tagInvert' )
+			$this->loadBalancer,
+			$this->actorNormalization
 		);
+
+		$this->addHeader( $opts->getValue( 'type' ) );
 
 		# Set relevant user
 		$performer = $pager->getPerformer();
 		if ( $performer ) {
 			$performerUser = $this->userIdentityLookup->getUserIdentityByName( $performer );
-			// Only set valid local user as the relevant user (T344886)
-			// Uses the same condition as the SpecialContributions class did
-			if ( $performerUser && !IPUtils::isValidRange( $performer ) &&
-				( $this->userNameUtils->isIP( $performer ) || $performerUser->isRegistered() )
-			) {
+			if ( $performerUser ) {
 				$this->getSkin()->setRelevantUser( $performerUser );
 			}
 		}
 
 		# Show form options
-		$succeed = $loglist->showOptions(
-			$opts->getValue( 'type' ),
-			$opts->getValue( 'year' ),
-			$opts->getValue( 'month' ),
-			$opts->getValue( 'day' )
-		);
-		if ( !$succeed ) {
-			return;
-		}
-
-		$this->getOutput()->setPageTitleMsg(
-			( new LogPage( $opts->getValue( 'type' ) ) )->getName()
+		$loglist->showOptions(
+			$pager->getType(),
+			$performer,
+			$pager->getPage(),
+			$pager->getPattern(),
+			$pager->getYear(),
+			$pager->getMonth(),
+			$pager->getDay(),
+			$pager->getFilterParams(),
+			$pager->getTagFilter(),
+			$pager->getAction()
 		);
 
 		# Insert list
@@ -345,7 +322,20 @@ class SpecialLog extends SpecialPage {
 			'form',
 			[ 'action' => wfScript(), 'id' => 'mw-log-deleterevision-submit' ]
 		) . "\n";
+		$s .= Html::hidden( 'action', 'historysubmit' ) . "\n";
 		$s .= Html::hidden( 'type', 'logging' ) . "\n";
+
+		// If no title is set, the fallback is to use the main page, as defined
+		// by MediaWiki:Mainpage
+		// On wikis where the main page can be translated, MediaWiki:Mainpage
+		// is sometimes set to use Special:MyLanguage to redirect to the
+		// appropriate version. This is interpreted as a special page, and
+		// Action::getActionName forces the action to be 'view' if the title
+		// cannot be used as a WikiPage, which includes all pages in NS_SPECIAL.
+		// Set a dummy title to avoid this. The title provided is unused
+		// by the SpecialPageAction class and does not matter.
+		// See T205908
+		$s .= Html::hidden( 'title', 'Unused' ) . "\n";
 
 		$buttons = '';
 		if ( $canRevDelete ) {
@@ -353,8 +343,8 @@ class SpecialLog extends SpecialPage {
 				'button',
 				[
 					'type' => 'submit',
-					'name' => 'title',
-					'value' => SpecialPage::getTitleFor( 'Revisiondelete' )->getPrefixedDBkey(),
+					'name' => 'revisiondelete',
+					'value' => '1',
 					'class' => "deleterevision-log-submit mw-log-deleterevision-button mw-ui-button"
 				],
 				$this->msg( 'showhideselectedlogentries' )->text()
@@ -365,8 +355,8 @@ class SpecialLog extends SpecialPage {
 				'button',
 				[
 					'type' => 'submit',
-					'name' => 'title',
-					'value' => SpecialPage::getTitleFor( 'EditTags' )->getPrefixedDBkey(),
+					'name' => 'editchangetags',
+					'value' => '1',
 					'class' => "editchangetags-log-submit mw-log-editchangetags-button mw-ui-button"
 				],
 				$this->msg( 'log-edit-tags' )->text()
@@ -381,10 +371,19 @@ class SpecialLog extends SpecialPage {
 		return $s;
 	}
 
+	/**
+	 * Set page title and show header for this log type
+	 * @param string $type
+	 * @since 1.19
+	 */
+	protected function addHeader( $type ) {
+		$page = new LogPage( $type );
+		$this->getOutput()->setPageTitle( $page->getName() );
+		$this->getOutput()->addHTML( $page->getDescription()
+			->setContext( $this->getContext() )->parseAsBlock() );
+	}
+
 	protected function getGroupName() {
 		return 'changes';
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialLog::class, 'SpecialLog' );

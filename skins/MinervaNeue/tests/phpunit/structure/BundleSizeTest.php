@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Skins\MinervaNeue\Tests\Structure;
 
-class BundleSizeTest extends \MediaWiki\Tests\Structure\BundleSizeTestBase {
+class BundleSizeTest extends \MediaWiki\Tests\Structure\BundleSizeTest {
 
 	/** @inheritDoc */
 	public function getBundleSizeConfig(): string {

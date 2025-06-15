@@ -1,15 +1,15 @@
 /*!
  * VisualEditor ContentEditable Document tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ce.RangeState' );
 
 /* Tests */
 
-QUnit.test( 'Basic tests', ( assert ) => {
-	const view = ve.test.utils.createSurfaceViewFromHtml( ve.dm.example.html ),
+QUnit.test( 'Basic tests', function ( assert ) {
+	var view = ve.test.utils.createSurfaceViewFromHtml( ve.dm.example.html ),
 		nativeSelection = view.nativeSelection,
 		doc = view.getDocument().getDocumentNode(),
 		cases = [
@@ -118,11 +118,11 @@ QUnit.test( 'Basic tests', ( assert ) => {
 		};
 	}
 
-	let oldState = null;
-	cases.forEach( ( caseItem ) => {
+	var oldState = null;
+	cases.forEach( function ( caseItem ) {
 		nativeSelection.removeAllRanges();
 		if ( caseItem.range ) {
-			const nativeRange = document.createRange();
+			var nativeRange = document.createRange();
 			nativeRange.setStart( caseItem.range.startNode, caseItem.range.startOffset );
 			if ( caseItem.range.endNode ) {
 				nativeRange.setEnd( caseItem.range.endNode, caseItem.range.endOffset );
@@ -132,7 +132,7 @@ QUnit.test( 'Basic tests', ( assert ) => {
 		if ( caseItem.resetOld ) {
 			oldState = null;
 		}
-		const rangeState = new ve.ce.RangeState( oldState, doc );
+		var rangeState = new ve.ce.RangeState( oldState, doc );
 		assert.deepEqualWithNodeTree(
 			getSummary( rangeState ),
 			getSummary( caseItem.expected ),

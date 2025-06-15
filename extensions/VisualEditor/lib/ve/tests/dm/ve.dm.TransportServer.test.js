@@ -1,21 +1,21 @@
 /*!
  * VisualEditor DataModel transport server tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.dm.TransportServer' );
 
-QUnit.test( 'Create', ( assert ) => {
-	const done = assert.async(),
+QUnit.test( 'Create', function ( assert ) {
+	var done = assert.async(),
 		log = [],
 		io = ve.dm.FakeSocket.static.makeServer();
 
-	const protocolServer = {
+	var protocolServer = {
 		context: null,
 		ensureLoaded: Promise.resolve.bind( Promise ),
 		authenticate: function ( docName, authorId, token ) {
-			const context = { docName: docName, authorId: authorId, token: token };
+			var context = { docName: docName, authorId: authorId, token: token };
 			log.push( [ 'authenticate', ve.copy( context ) ] );
 			return context;
 		},
@@ -42,31 +42,31 @@ QUnit.test( 'Create', ( assert ) => {
 		}
 	};
 
-	const transportServer = new ve.dm.TransportServer( protocolServer, protocolServer );
-	const socket = new ve.dm.FakeSocket( io, { docName: 'Foo', authorId: 1, token: 'xxx' } );
-	socket.on( 'registered', ( data ) => {
+	var transportServer = new ve.dm.TransportServer( protocolServer, protocolServer );
+	var socket = new ve.dm.FakeSocket( io, { docName: 'Foo', authorId: 1, token: 'xxx' } );
+	socket.on( 'registered', function ( data ) {
 		log.push( [ 'registered', data ] );
 	} );
-	socket.on( 'authorChange', ( data ) => {
+	socket.on( 'authorChange', function ( data ) {
 		log.push( [ 'broadcast', 'authorChange', data ] );
 	} );
-	socket.on( 'initDoc', ( data ) => {
+	socket.on( 'initDoc', function ( data ) {
 		log.push( [ 'initDoc', data ] );
 	} );
-	socket.on( 'newChange', ( data ) => {
+	socket.on( 'newChange', function ( data ) {
 		log.push( [ 'broadcast', 'newChange', data ] );
 	} );
-	socket.on( 'authorDisconnect', ( authorId ) => {
+	socket.on( 'authorDisconnect', function ( authorId ) {
 		log.push( [ 'broadcast', 'authorDisconnect', authorId ] );
 	} );
 
-	transportServer.onConnection( io.sockets.in.bind( io.sockets ), socket ).then( () => {
+	transportServer.onConnection( io.sockets.in.bind( io.sockets ), socket ).then( function () {
 		socket.receive( 'submitChange', 'foo' );
 		socket.receive( 'logEvent', 'bar' );
 		socket.receive( 'changeAuthor', 1 );
 		socket.receive( 'disconnect' );
 		return socket.wait();
-	} ).then( () => {
+	} ).then( function () {
 		assert.deepEqual( log, [
 			[ 'authenticate', { docName: 'Foo', authorId: 1, token: 'xxx' } ],
 			[ 'registered', 1 ],
@@ -80,7 +80,7 @@ QUnit.test( 'Create', ( assert ) => {
 			[ 'disconnect' ],
 			[ 'broadcast', 'authorDisconnect', 1 ]
 		], 'Correct events received in correct order' );
-	} ).catch( ( err ) => {
+	} ).catch( function ( err ) {
 		assert.true( false, 'Exception: ' + err );
 	} ).finally( () => done() );
 } );

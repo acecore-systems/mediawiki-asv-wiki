@@ -25,13 +25,13 @@ use Wikimedia\Assert\ParameterAssertionException;
 use Wikimedia\Assert\PreconditionException;
 
 /**
- * @covers \MediaWiki\Page\PageIdentityValue
+ * @covers MediaWiki\Page\PageIdentityValue
  *
  * @group Title
  */
 class PageIdentityValueTest extends MediaWikiUnitTestCase {
 
-	public static function goodConstructorProvider() {
+	public function goodConstructorProvider() {
 		return [
 			[ 0, NS_MAIN, 'Test', false ],
 			[ 7, NS_MAIN, 'Test', false ],
@@ -76,7 +76,7 @@ class PageIdentityValueTest extends MediaWikiUnitTestCase {
 		$pageIdentity->getId();
 	}
 
-	public static function badConstructorProvider() {
+	public function badConstructorProvider() {
 		return [
 			[ -1, NS_MAIN, 'Test', false ],
 			[ 0, NS_MAIN, 'Test', 2.3 ],
@@ -101,7 +101,7 @@ class PageIdentityValueTest extends MediaWikiUnitTestCase {
 		$this->assertNull( PageIdentityValue::tryNew( $pageId, $namespace, $dbKey, $wikiId ) );
 	}
 
-	public static function provideToString() {
+	public function provideToString() {
 		yield [
 			new PageIdentityValue( 5, 0, 'Foo', PageIdentity::LOCAL ),
 			'[0:Foo]'
@@ -126,7 +126,7 @@ class PageIdentityValueTest extends MediaWikiUnitTestCase {
 		);
 	}
 
-	public static function provideIsSamePageAs() {
+	public function provideIsSamePageAs() {
 		yield [
 			new PageIdentityValue( 1, 0, 'Foo', PageIdentity::LOCAL ),
 			new PageIdentityValue( 1, 0, 'Foo', PageIdentity::LOCAL ),

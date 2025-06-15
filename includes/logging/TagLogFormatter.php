@@ -16,9 +16,6 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 
-use MediaWiki\Message\Message;
-use MediaWiki\SpecialPage\SpecialPage;
-
 /**
  * This class formats tag log entries.
  *
@@ -64,10 +61,8 @@ class TagLogFormatter extends LogFormatter {
 		}
 
 		if ( $isRevLink ) {
-			// @phan-suppress-next-line SecurityCheck-XSS Unlikely positive, only if language format is bad
 			$params[3] = Message::rawParam( $link );
 		} else {
-			// @phan-suppress-next-line SecurityCheck-XSS Unlikely positive, only if language format is bad
 			$params[4] = Message::rawParam( $link );
 		}
 
@@ -76,13 +71,13 @@ class TagLogFormatter extends LogFormatter {
 
 	protected function getMessageKey() {
 		$key = parent::getMessageKey();
-		$rawParams = $this->entry->getParameters();
+		$params = $this->getMessageParameters();
 
-		$add = ( $rawParams['7:number:tagsAddedCount'] > 0 );
-		$remove = ( $rawParams['9:number:tagsRemovedCount'] > 0 );
+		$add = ( isset( $params[6] ) && isset( $params[6]['num'] ) && $params[6]['num'] );
+		$remove = ( isset( $params[8] ) && isset( $params[8]['num'] ) && $params[8]['num'] );
 		$key .= ( $remove ? ( $add ? '' : '-remove' ) : '-add' );
 
-		if ( $rawParams['4::revid'] ) {
+		if ( isset( $params[3] ) && $params[3] ) {
 			// Messages: logentry-tag-update-add-revision, logentry-tag-update-remove-revision,
 			// logentry-tag-update-revision
 			$key .= '-revision';

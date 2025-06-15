@@ -1,15 +1,16 @@
 {
 	"@metadata": {
 		"authors": [
-			"Af420",
 			"Ahmed-Najib-Biabani-Ibrahimkhel",
 			"Amjad Khan",
 			"Baloch Khan",
+			"Af420",
 			"شاه زمان پټان"
 		]
 	},
 	"minerva-last-modified-date": "وروستی سمون په $1 نېته په $2 بجو شوی",
 	"minerva-watchlist-cta": "د دې مخ او د هغې د بدلونو څار وکړئ.",
+	"minerva-talk-add-topic": "خبري آترې ورګډول",
 	"mobile-frontend-cookies-required": "د ليد بڼې لپاره کوکيز اړين دی.\nمهرباني وکړئ، چارن يې کړئ او بيا هڅه وکړئ.",
 	"mobile-frontend-editor-edit": "سمول",
 	"minerva-download": "پي‌ډي‌اېف کښته کول",
@@ -31,6 +32,7 @@
 	"mobile-frontend-meta-data-issues-categories": "د دې وېشنيزې په اړه",
 	"mobile-frontend-meta-data-issues-header": "د مخ ستونزې",
 	"minerva-meta-data-issues-section-header": "د برخې ستونزې",
+	"mobile-frontend-meta-data-issues-header-talk": "د دې مخ په اړه",
 	"mobile-frontend-pageaction-edit-tooltip": "د دې مخ پيل برخه سمول.",
 	"mobile-frontend-placeholder": "{{SITENAME}} پلټل",
 	"mobile-frontend-random-button": "ناټاکلی",
@@ -46,21 +48,12 @@
 	"mobile-frontend-user-page-talk": "خبرې اترې",
 	"minerva-user-menu-button": "کارن غورنۍ",
 	"minerva-user-navigation": "کارن چلند",
-	"minerva-page-actions-editfull": "بشپړ مخ سمول",
 	"minerva-page-actions-overflow": "نور",
 	"minerva-page-actions-language-switcher": "ژبې",
 	"minerva-page-actions-history": "پېښليک",
-	"minerva-prefs-talkpage": "[https://www.mediawiki.org/wiki/Skin_talk:Minerva_Neue Discussion]",
 	"minerva-skin-desc": "موبايل لومړۍ ځوابگره پوښۍ",
 	"skin-minerva-issue-learn-more": "نور مالومات",
-	"skin-minerva-time-ago-seconds": "{{PLURAL:$1|$1 ثانيه|$1 ثانيې}} دمخه",
-	"skin-minerva-time-ago-minutes": "{{PLURAL:$1|$1 دقيقه|$1 دقيقې}} دمخه",
-	"skin-minerva-time-ago-hours": "{{PLURAL:$1|$1 ساعت|$1 ساعته}} دمخه",
-	"skin-minerva-time-ago-days": "{{PLURAL:$1|$1 ورځ|$1 ورځې}} دمخه",
-	"skin-minerva-time-ago-months": "{{PLURAL:$1|$1 مياشت|$1 مياشتې}} دمخه",
-	"skin-minerva-time-ago-years": "{{PLURAL:$1|$1 کال|$1 کاله}} دمخه",
 	"skin-minerva-mobile-option-MinervaShowCategories": "وېشنيزې",
 	"skin-minerva-mobile-option-MinervaShowCategories-description": "مخونو وېشنيزې کتل",
-	"skin-minerva-recentchanges-warning-enhanced-not-supported": "له بده مرغه، د مخ له مخې د ډلبندي کولو پايلې په موبايل کې د لاسرسي وړ نه دی. که تاسو د مخ له مخې د ډلبندۍ بڼه کارول غواړئ، نو مهرباني وکړئ، ډېسکټاپ بڼه وگورئ.",
-	"skin-minerva-night-mode-unavailable": "مخ يوازې له \"روښانه\" رنگ شاليد سره د لاسرسي وړ دی."
+	"skin-minerva-recentchanges-warning-enhanced-not-supported": "له بده مرغه، د مخ له مخې د ډلبندي کولو پايلې په موبايل کې د لاسرسي وړ نه دی. که تاسو د مخ له مخې د ډلبندۍ بڼه کارول غواړئ، نو مهرباني وکړئ، ډېسکټاپ بڼه وگورئ."
 }

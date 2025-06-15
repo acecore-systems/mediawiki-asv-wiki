@@ -3,7 +3,7 @@
 namespace MediaWiki\Extension\SpamBlacklist;
 
 use LogFormatter;
-use MediaWiki\Message\Message;
+use Message;
 
 class SpamBlacklistLogFormatter extends LogFormatter {
 	/**

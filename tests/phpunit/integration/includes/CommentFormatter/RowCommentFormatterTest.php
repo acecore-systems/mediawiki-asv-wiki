@@ -3,25 +3,23 @@
 namespace MediaWiki\Tests\Integration\CommentFormatter;
 
 use MediaWiki\CommentFormatter\CommentParser;
+use MediaWiki\CommentFormatter\CommentParserFactory;
 use MediaWiki\CommentFormatter\RowCommentFormatter;
 use MediaWiki\Linker\LinkTarget;
 use MediaWiki\Tests\Unit\CommentFormatter\CommentFormatterTestUtils;
-use MediaWiki\Tests\Unit\DummyServicesTrait;
 
 /**
  * @covers \MediaWiki\CommentFormatter\RowCommentFormatter
  * @covers \MediaWiki\CommentFormatter\RowCommentIterator
  */
 class RowCommentFormatterTest extends \MediaWikiIntegrationTestCase {
-	use DummyServicesTrait;
-
 	private function getParser() {
 		return new class extends CommentParser {
 			public function __construct() {
 			}
 
 			public function preprocess(
-				string $comment, ?LinkTarget $selfLinkTarget = null, $samePage = false,
+				string $comment, LinkTarget $selfLinkTarget = null, $samePage = false,
 				$wikiId = null, $enableSectionLinks = true
 			) {
 				if ( $comment === '' || $comment === '*' ) {
@@ -38,9 +36,24 @@ class RowCommentFormatterTest extends \MediaWikiIntegrationTestCase {
 		};
 	}
 
+	private function getParserFactory() {
+		$parser = $this->getParser();
+		return new class( $parser ) extends CommentParserFactory {
+			private $parser;
+
+			public function __construct( $parser ) {
+				$this->parser = $parser;
+			}
+
+			public function create() {
+				return $this->parser;
+			}
+		};
+	}
+
 	private function newCommentFormatter() {
 		return new RowCommentFormatter(
-			$this->getDummyCommentParserFactory( $this->getParser() ),
+			$this->getParserFactory(),
 			$this->getServiceContainer()->getCommentStore()
 		);
 	}

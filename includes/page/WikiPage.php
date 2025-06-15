@@ -18,13 +18,7 @@
  * @file
  */
 
-use MediaWiki\Category\Category;
-use MediaWiki\CommentStore\CommentStoreComment;
-use MediaWiki\Content\Content;
-use MediaWiki\Content\ContentHandler;
-use MediaWiki\Context\IContextSource;
 use MediaWiki\DAO\WikiAwareEntityTrait;
-use MediaWiki\Deferred\DeferredUpdates;
 use MediaWiki\Edit\PreparedEdit;
 use MediaWiki\HookContainer\ProtectedHookAccessorTrait;
 use MediaWiki\Linker\LinkTarget;
@@ -38,51 +32,34 @@ use MediaWiki\Page\PageRecord;
 use MediaWiki\Page\PageReference;
 use MediaWiki\Page\PageStoreRecord;
 use MediaWiki\Page\ParserOutputAccess;
-use MediaWiki\Parser\ParserOptions;
-use MediaWiki\Parser\ParserOutput;
 use MediaWiki\Permissions\Authority;
+use MediaWiki\Revision\MutableRevisionRecord;
 use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\RevisionStore;
 use MediaWiki\Revision\SlotRecord;
-use MediaWiki\Status\Status;
 use MediaWiki\Storage\DerivedPageDataUpdater;
 use MediaWiki\Storage\EditResult;
 use MediaWiki\Storage\PageUpdater;
 use MediaWiki\Storage\PageUpdaterFactory;
-use MediaWiki\Storage\PageUpdateStatus;
 use MediaWiki\Storage\PreparedUpdate;
 use MediaWiki\Storage\RevisionSlotsUpdate;
-use MediaWiki\Title\Title;
-use MediaWiki\Title\TitleArrayFromResult;
-use MediaWiki\User\User;
-use MediaWiki\User\UserArrayFromResult;
 use MediaWiki\User\UserIdentity;
-use MediaWiki\Utils\MWTimestamp;
-use MediaWiki\WikiMap\WikiMap;
+use MediaWiki\User\UserIdentityValue;
 use Wikimedia\Assert\Assert;
 use Wikimedia\Assert\PreconditionException;
 use Wikimedia\NonSerializable\NonSerializableTrait;
 use Wikimedia\Rdbms\FakeResultWrapper;
 use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\IDBAccessObject;
 use Wikimedia\Rdbms\ILoadBalancer;
-use Wikimedia\Rdbms\IReadableDatabase;
-use Wikimedia\Rdbms\RawSQLValue;
-use Wikimedia\Rdbms\SelectQueryBuilder;
-
-/**
- * @defgroup Page Page
- */
+use Wikimedia\RequestTimeout\TimeoutException;
 
 /**
  * Base representation for an editable wiki page.
  *
  * Some fields are public only for backwards-compatibility. Use accessor methods.
  * In the past, this class was part of Article.php and everything was public.
- *
- * @ingroup Page
  */
-class WikiPage implements Stringable, Page, PageRecord {
+class WikiPage implements Page, IDBAccessObject, PageRecord {
 	use NonSerializableTrait;
 	use ProtectedHookAccessorTrait;
 	use WikiAwareEntityTrait;
@@ -108,9 +85,29 @@ class WikiPage implements Stringable, Page, PageRecord {
 	private $mPageIsRedirectField = false;
 
 	/**
+	 * Boolean if the redirect status is definitively known.
+	 * If this is true, getRedirectTarget() must return non-null.
+	 *
+	 * @var bool|null
+	 */
+	private $mHasRedirectTarget = null;
+
+	/**
+	 * The cache of the redirect target
+	 *
+	 * @var Title|null
+	 */
+	protected $mRedirectTarget = null;
+
+	/**
 	 * @var bool
 	 */
 	private $mIsNew = false;
+
+	/**
+	 * @var bool
+	 */
+	private $mIsRedirect = false;
 
 	/**
 	 * @var int|false False means "not loaded"
@@ -132,7 +129,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 	/**
 	 * @var int One of the READ_* constants
 	 */
-	protected $mDataLoadedFrom = IDBAccessObject::READ_NONE;
+	protected $mDataLoadedFrom = self::READ_NONE;
 
 	/**
 	 * @var RevisionRecord|null
@@ -171,11 +168,12 @@ class WikiPage implements Stringable, Page, PageRecord {
 		$pageIdentity->assertWiki( PageIdentity::LOCAL );
 
 		// TODO: remove the need for casting to Title.
-		$title = Title::newFromPageIdentity( $pageIdentity );
+		$title = Title::castFromPageIdentity( $pageIdentity );
 		if ( !$title->canExist() ) {
 			throw new InvalidArgumentException( "WikiPage constructed on a Title that cannot exist as a page: $title" );
 		}
 
+		// @phan-suppress-next-line PhanPossiblyNullTypeMismatchProperty castFrom does not return null here
 		$this->mTitle = $title;
 	}
 
@@ -188,6 +186,52 @@ class WikiPage implements Stringable, Page, PageRecord {
 	}
 
 	/**
+	 * Create a WikiPage object of the appropriate class for the given PageIdentity.
+	 * The PageIdentity must represent a proper page that can exist on the wiki,
+	 * that is, not a special page or media link or section link or interwiki link.
+	 *
+	 * @param PageIdentity $pageIdentity
+	 *
+	 * @throws MWException
+	 * @return WikiPage|WikiCategoryPage|WikiFilePage
+	 * @deprecated since 1.36, use WikiPageFactory::newFromTitle instead
+	 */
+	public static function factory( PageIdentity $pageIdentity ) {
+		return MediaWikiServices::getInstance()->getWikiPageFactory()->newFromTitle( $pageIdentity );
+	}
+
+	/**
+	 * Constructor from a page id
+	 *
+	 * @param int $id Article ID to load
+	 * @param string|int $from One of the following values:
+	 *        - "fromdb" or WikiPage::READ_NORMAL to select from a replica DB
+	 *        - "fromdbmaster" or WikiPage::READ_LATEST to select from the primary database
+	 *
+	 * @return WikiPage|null
+	 * @deprecated since 1.36, use WikiPageFactory::newFromID instead
+	 */
+	public static function newFromID( $id, $from = 'fromdb' ) {
+		return MediaWikiServices::getInstance()->getWikiPageFactory()->newFromID( $id, $from );
+	}
+
+	/**
+	 * Constructor from a database row
+	 *
+	 * @since 1.20
+	 * @param stdClass $row Database row containing at least fields returned by getQueryInfo().
+	 * @param string|int $from Source of $data:
+	 *        - "fromdb" or WikiPage::READ_NORMAL: from a replica DB
+	 *        - "fromdbmaster" or WikiPage::READ_LATEST: from the primary DB
+	 *        - "forupdate" or WikiPage::READ_LOCKING: from the primary DB using SELECT FOR UPDATE
+	 * @return WikiPage
+	 * @deprecated since 1.36, use WikiPageFactory::newFromRow instead
+	 */
+	public static function newFromRow( $row, $from = 'fromdb' ) {
+		return MediaWikiServices::getInstance()->getWikiPageFactory()->newFromRow( $row, $from );
+	}
+
+	/**
 	 * Convert 'fromdb', 'fromdbmaster' and 'forupdate' to READ_* constants.
 	 *
 	 * @param stdClass|string|int $type
@@ -196,11 +240,11 @@ class WikiPage implements Stringable, Page, PageRecord {
 	public static function convertSelectType( $type ) {
 		switch ( $type ) {
 			case 'fromdb':
-				return IDBAccessObject::READ_NORMAL;
+				return self::READ_NORMAL;
 			case 'fromdbmaster':
-				return IDBAccessObject::READ_LATEST;
+				return self::READ_LATEST;
 			case 'forupdate':
-				return IDBAccessObject::READ_LOCKING;
+				return self::READ_LOCKING;
 			default:
 				// It may already be an integer or whatever else
 				return $type;
@@ -266,7 +310,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 */
 	public function clear() {
 		$this->mDataLoaded = false;
-		$this->mDataLoadedFrom = IDBAccessObject::READ_NONE;
+		$this->mDataLoadedFrom = self::READ_NONE;
 
 		$this->clearCacheFields();
 	}
@@ -277,6 +321,8 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 */
 	protected function clearCacheFields() {
 		$this->mId = null;
+		$this->mRedirectTarget = null; // Title object if set
+		$this->mHasRedirectTarget = null;
 		$this->mPageIsRedirectField = false;
 		$this->mLastRevision = null; // Latest revision
 		$this->mTouched = '19700101000000';
@@ -284,6 +330,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 		$this->mLinksUpdated = '19700101000000';
 		$this->mTimestamp = '';
 		$this->mIsNew = false;
+		$this->mIsRedirect = false;
 		$this->mLatest = false;
 		// T59026: do not clear $this->derivedDataUpdater since getDerivedDataUpdater() already
 		// checks the requested rev ID and content against the cached one. For most
@@ -305,12 +352,9 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * a new page object.
 	 * @since 1.31
 	 * @return array[] With three keys:
-	 *   - tables: (string[]) to include in the `$table` to `IReadableDatabase->select()` or
-	 *     `SelectQueryBuilder::tables`
-	 *   - fields: (string[]) to include in the `$vars` to `IReadableDatabase->select()` or
-	 *     `SelectQueryBuilder::fields`
-	 *   - joins: (array) to include in the `$join_conds` to `IReadableDatabase->select()` or
-	 *     `SelectQueryBuilder::joinConds`
+	 *   - tables: (string[]) to include in the `$table` to `IDatabase->select()` or `SelectQueryBuilder::tables`
+	 *   - fields: (string[]) to include in the `$vars` to `IDatabase->select()` or `SelectQueryBuilder::fields`
+	 *   - joins: (array) to include in the `$join_conds` to `IDatabase->select()` or `SelectQueryBuilder::joinConds`
 	 * @phan-return array{tables:string[],fields:string[],joins:array}
 	 */
 	public static function getQueryInfo() {
@@ -344,7 +388,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 
 	/**
 	 * Fetch a page record with the given conditions
-	 * @param IReadableDatabase $dbr
+	 * @param IDatabase $dbr
 	 * @param array $conditions
 	 * @param array $options
 	 * @return stdClass|false Database result resource, or false on failure
@@ -355,12 +399,14 @@ class WikiPage implements Stringable, Page, PageRecord {
 		$this->getHookRunner()->onArticlePageDataBefore(
 			$this, $pageQuery['fields'], $pageQuery['tables'], $pageQuery['joins'] );
 
-		$row = $dbr->newSelectQueryBuilder()
-			->queryInfo( $pageQuery )
-			->where( $conditions )
-			->caller( __METHOD__ )
-			->options( $options )
-			->fetchRow();
+		$row = $dbr->selectRow(
+			$pageQuery['tables'],
+			$pageQuery['fields'],
+			$conditions,
+			__METHOD__,
+			$options,
+			$pageQuery['joins']
+		);
 
 		$this->getHookRunner()->onArticlePageDataAfter( $this, $row );
 
@@ -371,20 +417,14 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * Fetch a page record matching the Title object's namespace and title
 	 * using a sanitized title string
 	 *
-	 * @param IReadableDatabase $dbr
+	 * @param IDatabase $dbr
 	 * @param Title $title
-	 * @param int $recency
+	 * @param array $options
 	 * @return stdClass|false Database result resource, or false on failure
 	 */
-	public function pageDataFromTitle( $dbr, $title, $recency = IDBAccessObject::READ_NORMAL ) {
+	public function pageDataFromTitle( $dbr, $title, $options = [] ) {
 		if ( !$title->canExist() ) {
 			return false;
-		}
-		$options = [];
-		if ( ( $recency & IDBAccessObject::READ_EXCLUSIVE ) == IDBAccessObject::READ_EXCLUSIVE ) {
-			$options[] = 'FOR UPDATE';
-		} elseif ( ( $recency & IDBAccessObject::READ_LOCKING ) == IDBAccessObject::READ_LOCKING ) {
-			$options[] = 'LOCK IN SHARE MODE';
 		}
 
 		return $this->pageData( $dbr, [
@@ -395,7 +435,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 	/**
 	 * Fetch a page record matching the requested ID
 	 *
-	 * @param IReadableDatabase $dbr
+	 * @param IDatabase $dbr
 	 * @param int $id
 	 * @param array $options
 	 * @return stdClass|false Database result resource, or false on failure
@@ -409,9 +449,9 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 *
 	 * @param stdClass|string|int $from One of the following:
 	 *   - A DB query result object.
-	 *   - "fromdb" or IDBAccessObject::READ_NORMAL to get from a replica DB.
-	 *   - "fromdbmaster" or IDBAccessObject::READ_LATEST to get from the primary DB.
-	 *   - "forupdate"  or IDBAccessObject::READ_LOCKING to get from the primary DB
+	 *   - "fromdb" or WikiPage::READ_NORMAL to get from a replica DB.
+	 *   - "fromdbmaster" or WikiPage::READ_LATEST to get from the primary DB.
+	 *   - "forupdate"  or WikiPage::READ_LOCKING to get from the primary DB
 	 *     using SELECT FOR UPDATE.
 	 *
 	 * @return void
@@ -424,28 +464,25 @@ class WikiPage implements Stringable, Page, PageRecord {
 		}
 
 		if ( is_int( $from ) ) {
+			list( $index, $opts ) = DBAccessObjectUtils::getDBOptions( $from );
 			$loadBalancer = $this->getDBLoadBalancer();
-			if ( ( $from & IDBAccessObject::READ_LATEST ) == IDBAccessObject::READ_LATEST ) {
-				$index = DB_PRIMARY;
-			} else {
-				$index = DB_REPLICA;
-			}
-			$db = $loadBalancer->getConnection( $index );
-			$data = $this->pageDataFromTitle( $db, $this->mTitle, $from );
+			$db = $loadBalancer->getConnectionRef( $index );
+			$data = $this->pageDataFromTitle( $db, $this->mTitle, $opts );
 
 			if ( !$data
 				&& $index == DB_REPLICA
-				&& $loadBalancer->hasReplicaServers()
+				&& $loadBalancer->getServerCount() > 1
 				&& $loadBalancer->hasOrMadeRecentPrimaryChanges()
 			) {
-				$from = IDBAccessObject::READ_LATEST;
-				$db = $loadBalancer->getConnection( DB_PRIMARY );
-				$data = $this->pageDataFromTitle( $db, $this->mTitle, $from );
+				$from = self::READ_LATEST;
+				list( $index, $opts ) = DBAccessObjectUtils::getDBOptions( $from );
+				$db = $loadBalancer->getConnectionRef( $index );
+				$data = $this->pageDataFromTitle( $db, $this->mTitle, $opts );
 			}
 		} else {
 			// No idea from where the caller got this data, assume replica DB.
 			$data = $from;
-			$from = IDBAccessObject::READ_NORMAL;
+			$from = self::READ_NORMAL;
 		}
 
 		$this->loadFromRow( $data, $from );
@@ -457,9 +494,9 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * @since 1.32
 	 *
 	 * @param string|int $from One of the following:
-	 *   - "fromdb" or IDBAccessObject::READ_NORMAL to get from a replica DB.
-	 *   - "fromdbmaster" or IDBAccessObject::READ_LATEST to get from the primary DB.
-	 *   - "forupdate"  or IDBAccessObject::READ_LOCKING to get from the primary DB
+	 *   - "fromdb" or WikiPage::READ_NORMAL to get from a replica DB.
+	 *   - "fromdbmaster" or WikiPage::READ_LATEST to get from the primary DB.
+	 *   - "forupdate"  or WikiPage::READ_LOCKING to get from the primary DB
 	 *     using SELECT FOR UPDATE.
 	 *
 	 * @return bool
@@ -469,7 +506,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 
 		if ( !is_int( $from ) ) {
 			// No idea from where the caller got this data, assume replica DB.
-			$from = IDBAccessObject::READ_NORMAL;
+			$from = self::READ_NORMAL;
 		}
 
 		if ( $from <= $this->mDataLoadedFrom ) {
@@ -483,11 +520,11 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * Load the object from a database row
 	 *
 	 * @since 1.20
-	 * @param stdClass|false $data DB row containing fields returned by getQueryInfo() or false
+	 * @param stdClass|bool $data DB row containing fields returned by getQueryInfo() or false
 	 * @param string|int $from One of the following:
-	 *        - "fromdb" or IDBAccessObject::READ_NORMAL if the data comes from a replica DB
-	 *        - "fromdbmaster" or IDBAccessObject::READ_LATEST if the data comes from the primary DB
-	 *        - "forupdate"  or IDBAccessObject::READ_LOCKING if the data comes from
+	 *        - "fromdb" or WikiPage::READ_NORMAL if the data comes from a replica DB
+	 *        - "fromdbmaster" or WikiPage::READ_LATEST if the data comes from the primary DB
+	 *        - "forupdate"  or WikiPage::READ_LOCKING if the data comes from
 	 *          the primary DB using SELECT FOR UPDATE
 	 */
 	public function loadFromRow( $data, $from ) {
@@ -506,6 +543,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 				: MWTimestamp::convert( TS_MW, $data->page_links_updated );
 			$this->mPageIsRedirectField = (bool)$data->page_is_redirect;
 			$this->mIsNew = (bool)( $data->page_is_new ?? 0 );
+			$this->mIsRedirect = (bool)( $data->page_is_redirect ?? 0 );
 			$this->mLatest = intval( $data->page_latest );
 			// T39225: $latest may no longer match the cached latest RevisionRecord object.
 			// Double-check the ID of any cached latest RevisionRecord object for consistency.
@@ -570,13 +608,27 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * @return bool
 	 */
 	public function isRedirect() {
-		$this->loadPageData();
-		if ( $this->mPageIsRedirectField ) {
-			return MediaWikiServices::getInstance()->getRedirectLookup()
-					->getRedirectTarget( $this->getTitle() ) !== null;
+		if ( !$this->mDataLoaded ) {
+			$this->loadPageData();
 		}
 
-		return false;
+		return $this->mIsRedirect;
+	}
+
+	/**
+	 * Get the value of the page_is_redirect field in the DB. This is probably
+	 * not what you want. Use WikiPage::isRedirect() to test if the page is a
+	 * redirect. Use Title::isRedirect() for a fast check for the purposes of
+	 * linking to a page.
+	 *
+	 * @since 1.36
+	 * @return bool
+	 */
+	public function getPageIsRedirectField() {
+		if ( !$this->mDataLoaded ) {
+			$this->loadPageData();
+		}
+		return $this->mPageIsRedirectField;
 	}
 
 	/**
@@ -650,7 +702,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 
 	/**
 	 * Get the page_touched field
-	 * @return string Timestamp in TS_MW format
+	 * @return string Containing GMT timestamp
 	 */
 	public function getTouched() {
 		if ( !$this->mDataLoaded ) {
@@ -672,7 +724,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 
 	/**
 	 * Get the page_links_updated field
-	 * @return string|null Timestamp in TS_MW format
+	 * @return string|null Containing GMT timestamp
 	 */
 	public function getLinksTimestamp() {
 		if ( !$this->mDataLoaded ) {
@@ -683,7 +735,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 
 	/**
 	 * Get the page_latest field
-	 * @param string|false $wikiId
+	 * @param bool $wikiId
 	 * @return int The rev_id of current revision
 	 */
 	public function getLatest( $wikiId = self::LOCAL ) {
@@ -709,7 +761,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 			return; // page doesn't exist or is missing page_latest info
 		}
 
-		if ( $this->mDataLoadedFrom == IDBAccessObject::READ_LOCKING ) {
+		if ( $this->mDataLoadedFrom == self::READ_LOCKING ) {
 			// T39225: if session S1 loads the page row FOR UPDATE, the result always
 			// includes the latest changes committed. This is true even within REPEATABLE-READ
 			// transactions, where S1 normally only sees changes committed before the first S1
@@ -718,13 +770,13 @@ class WikiPage implements Stringable, Page, PageRecord {
 			// happened after the first S1 SELECT.
 			// https://dev.mysql.com/doc/refman/5.7/en/set-transaction.html#isolevel_repeatable-read
 			$revision = $this->getRevisionStore()
-				->getRevisionByPageId( $this->getId(), $latest, IDBAccessObject::READ_LOCKING );
-		} elseif ( $this->mDataLoadedFrom == IDBAccessObject::READ_LATEST ) {
+				->getRevisionByPageId( $this->getId(), $latest, RevisionStore::READ_LOCKING );
+		} elseif ( $this->mDataLoadedFrom == self::READ_LATEST ) {
 			// Bug T93976: if page_latest was loaded from the primary DB, fetch the
 			// revision from there as well, as it may not exist yet on a replica DB.
 			// Also, this keeps the queries in the same REPEATABLE-READ snapshot.
 			$revision = $this->getRevisionStore()
-				->getRevisionByPageId( $this->getId(), $latest, IDBAccessObject::READ_LATEST );
+				->getRevisionByPageId( $this->getId(), $latest, RevisionStore::READ_LATEST );
 		} else {
 			$revision = $this->getRevisionStore()->getKnownCurrentRevision( $this->getTitle(), $latest );
 		}
@@ -752,7 +804,10 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 */
 	public function getRevisionRecord() {
 		$this->loadLastEdit();
-		return $this->mLastRevision;
+		if ( $this->mLastRevision ) {
+			return $this->mLastRevision;
+		}
+		return null;
 	}
 
 	/**
@@ -768,7 +823,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 *
 	 * @since 1.21
 	 */
-	public function getContent( $audience = RevisionRecord::FOR_PUBLIC, ?Authority $performer = null ) {
+	public function getContent( $audience = RevisionRecord::FOR_PUBLIC, Authority $performer = null ) {
 		$this->loadLastEdit();
 		if ( $this->mLastRevision ) {
 			return $this->mLastRevision->getContent( SlotRecord::MAIN, $audience, $performer );
@@ -807,7 +862,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 *   a user no fallback is provided and the RevisionRecord method will throw an error)
 	 * @return int User ID for the user that made the last article revision
 	 */
-	public function getUser( $audience = RevisionRecord::FOR_PUBLIC, ?Authority $performer = null ) {
+	public function getUser( $audience = RevisionRecord::FOR_PUBLIC, Authority $performer = null ) {
 		$this->loadLastEdit();
 		if ( $this->mLastRevision ) {
 			$revUser = $this->mLastRevision->getUser( $audience, $performer );
@@ -828,7 +883,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 *   a user no fallback is provided and the RevisionRecord method will throw an error)
 	 * @return UserIdentity|null
 	 */
-	public function getCreator( $audience = RevisionRecord::FOR_PUBLIC, ?Authority $performer = null ) {
+	public function getCreator( $audience = RevisionRecord::FOR_PUBLIC, Authority $performer = null ) {
 		$revRecord = $this->getRevisionStore()->getFirstRevision( $this->getTitle() );
 		if ( $revRecord ) {
 			return $revRecord->getUser( $audience, $performer );
@@ -847,7 +902,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 *   a user no fallback is provided and the RevisionRecord method will throw an error)
 	 * @return string Username of the user that made the last article revision
 	 */
-	public function getUserText( $audience = RevisionRecord::FOR_PUBLIC, ?Authority $performer = null ) {
+	public function getUserText( $audience = RevisionRecord::FOR_PUBLIC, Authority $performer = null ) {
 		$this->loadLastEdit();
 		if ( $this->mLastRevision ) {
 			$revUser = $this->mLastRevision->getUser( $audience, $performer );
@@ -868,7 +923,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * @return string|null Comment stored for the last article revision, or null if the specified
 	 *  audience does not have access to the comment.
 	 */
-	public function getComment( $audience = RevisionRecord::FOR_PUBLIC, ?Authority $performer = null ) {
+	public function getComment( $audience = RevisionRecord::FOR_PUBLIC, Authority $performer = null ) {
 		$this->loadLastEdit();
 		if ( $this->mLastRevision ) {
 			$revComment = $this->mLastRevision->getComment( $audience, $performer );
@@ -896,15 +951,15 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * Determine whether a page would be suitable for being counted as an
 	 * article in the site_stats table based on the title & its content
 	 *
-	 * @param PreparedEdit|PreparedUpdate|false $editInfo (false):
+	 * @param PreparedEdit|PreparedUpdate|bool $editInfo (false):
 	 *   An object returned by prepareTextForEdit() or getCurrentUpdate() respectively;
 	 *   If false is given, the current database state will be used.
 	 *
 	 * @return bool
 	 */
 	public function isCountable( $editInfo = false ) {
-		$mwServices = MediaWikiServices::getInstance();
-		$articleCountMethod = $mwServices->getMainConfig()->get( MainConfigNames::ArticleCountMethod );
+		$articleCountMethod = MediaWikiServices::getInstance()->getMainConfig()->get(
+			MainConfigNames::ArticleCountMethod );
 
 		// NOTE: Keep in sync with DerivedPageDataUpdater::isCountable.
 
@@ -940,12 +995,8 @@ class WikiPage implements Stringable, Page, PageRecord {
 			} else {
 				// NOTE: keep in sync with RevisionRenderer::getLinkCount
 				// NOTE: keep in sync with DerivedPageDataUpdater::isCountable
-				$dbr = $mwServices->getConnectionProvider()->getReplicaDatabase();
-				$hasLinks = (bool)$dbr->newSelectQueryBuilder()
-					->select( '1' )
-					->from( 'pagelinks' )
-					->where( [ 'pl_from' => $this->getId() ] )
-					->caller( __METHOD__ )->fetchField();
+				$hasLinks = (bool)wfGetDB( DB_REPLICA )->selectField( 'pagelinks', '1',
+					[ 'pl_from' => $this->getId() ], __METHOD__ );
 			}
 		}
 
@@ -960,26 +1011,130 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * If this page is a redirect, get its target
 	 *
 	 * The target will be fetched from the redirect table if possible.
+	 * If this page doesn't have an entry there, call insertRedirect()
 	 *
 	 * @deprecated since 1.38 Use RedirectLookup::getRedirectTarget() instead.
 	 *
 	 * @return Title|null Title object, or null if this page is not a redirect
 	 */
 	public function getRedirectTarget() {
-		$target = MediaWikiServices::getInstance()->getRedirectLookup()->getRedirectTarget( $this );
-		return Title::castFromLinkTarget( $target );
+		if ( $this->mRedirectTarget !== null ) {
+			return $this->mRedirectTarget;
+		}
+
+		if ( $this->mHasRedirectTarget === false || !$this->getPageIsRedirectField() ) {
+			return null;
+		}
+
+		// Query the redirect table
+		$dbr = wfGetDB( DB_REPLICA );
+		$row = $dbr->selectRow( 'redirect',
+			[ 'rd_namespace', 'rd_title', 'rd_fragment', 'rd_interwiki' ],
+			[ 'rd_from' => $this->getId() ],
+			__METHOD__
+		);
+
+		// rd_fragment and rd_interwiki were added later, populate them if empty
+		if ( $row && $row->rd_fragment !== null && $row->rd_interwiki !== null ) {
+			// (T203942) We can't redirect to Media namespace because it's virtual.
+			// We don't want to modify Title objects farther down the
+			// line. So, let's fix this here by changing to File namespace.
+			if ( $row->rd_namespace == NS_MEDIA ) {
+				$namespace = NS_FILE;
+			} else {
+				$namespace = $row->rd_namespace;
+			}
+			// T261347: be defensive when fetching data from the redirect table.
+			// Use Title::makeTitleSafe(), and if that returns null, ignore the
+			// row. In an ideal world, the DB would be cleaned up after a
+			// namespace change, but nobody could be bothered to do that.
+			$this->mRedirectTarget = Title::makeTitleSafe(
+				$namespace, $row->rd_title,
+				$row->rd_fragment, $row->rd_interwiki
+			);
+			$this->mHasRedirectTarget = $this->mRedirectTarget !== null;
+			return $this->mRedirectTarget;
+		}
+
+		// This page doesn't have an entry in the redirect table
+		$this->mRedirectTarget = $this->insertRedirect();
+		$this->mHasRedirectTarget = $this->mRedirectTarget !== null;
+		return $this->mRedirectTarget;
+	}
+
+	/**
+	 * Insert an entry for this page into the redirect table if the content is a redirect
+	 *
+	 * The database update will be deferred via DeferredUpdates
+	 *
+	 * Don't call this function directly unless you know what you're doing.
+	 * @return Title|null Title object or null if not a redirect
+	 */
+	public function insertRedirect() {
+		$content = $this->getContent();
+		$retval = $content ? $content->getRedirectTarget() : null;
+		if ( !$retval ) {
+			return null;
+		}
+
+		// Update the DB post-send if the page has not cached since now
+		$latest = $this->getLatest();
+		DeferredUpdates::addCallableUpdate(
+			function () use ( $retval, $latest ) {
+				$this->insertRedirectEntry( $retval, $latest );
+			},
+			DeferredUpdates::POSTSEND,
+			wfGetDB( DB_PRIMARY )
+		);
+
+		return $retval;
 	}
 
 	/**
 	 * Insert or update the redirect table entry for this page to indicate it redirects to $rt
-	 * @deprecated since 1.43; use {@link RedirectStore::updateRedirectTarget()} instead.
 	 * @param LinkTarget $rt Redirect target
 	 * @param int|null $oldLatest Prior page_latest for check and set
 	 * @return bool Success
 	 */
 	public function insertRedirectEntry( LinkTarget $rt, $oldLatest = null ) {
-		return MediaWikiServices::getInstance()->getRedirectStore()
-			->updateRedirectTarget( $this, $rt );
+		$rt = Title::castFromLinkTarget( $rt );
+		if ( !$rt->isValidRedirectTarget() ) {
+			// Don't put a bad redirect into the database (T278367)
+			return false;
+		}
+
+		$dbw = wfGetDB( DB_PRIMARY );
+		$dbw->startAtomic( __METHOD__ );
+
+		if ( !$oldLatest || $oldLatest == $this->lockAndGetLatest() ) {
+			$contLang = MediaWikiServices::getInstance()->getContentLanguage();
+			$truncatedFragment = $contLang->truncateForDatabase( $rt->getFragment(), 255 );
+			$dbw->upsert(
+				'redirect',
+				[
+					'rd_from' => $this->getId(),
+					'rd_namespace' => $rt->getNamespace(),
+					'rd_title' => $rt->getDBkey(),
+					'rd_fragment' => $truncatedFragment,
+					'rd_interwiki' => $rt->getInterwiki(),
+				],
+				'rd_from',
+				[
+					'rd_namespace' => $rt->getNamespace(),
+					'rd_title' => $rt->getDBkey(),
+					'rd_fragment' => $truncatedFragment,
+					'rd_interwiki' => $rt->getInterwiki(),
+				],
+				__METHOD__
+			);
+			$success = true;
+		} else {
+			$success = false;
+		}
+
+		$dbw->endAtomic( __METHOD__ );
+
+		return $success;
 	}
 
 	/**
@@ -996,7 +1151,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * objects for same-wiki, non-special redirects and URLs for everything
 	 * else.
 	 * @param Title $rt Redirect target
-	 * @return Title|string|false False, Title object of local target, or string with URL
+	 * @return bool|Title|string False, Title object of local target, or string with URL
 	 */
 	public function getRedirectURL( $rt ) {
 		if ( !$rt ) {
@@ -1042,38 +1197,44 @@ class WikiPage implements Stringable, Page, PageRecord {
 	public function getContributors() {
 		// @todo: This is expensive; cache this info somewhere.
 
-		$services = MediaWikiServices::getInstance();
-		$dbr = $services->getConnectionProvider()->getReplicaDatabase();
-		$actorNormalization = $services->getActorNormalization();
-		$userIdentityLookup = $services->getUserIdentityLookup();
+		$dbr = wfGetDB( DB_REPLICA );
 
+		$actorMigration = ActorMigration::newMigration();
+		$actorQuery = $actorMigration->getJoin( 'rev_user' );
+
+		$tables = array_merge( [ 'revision' ], $actorQuery['tables'], [ 'user' ] );
+
+		$revactor_actor = $actorQuery['fields']['rev_actor'];
+		$fields = [
+			'user_id' => $actorQuery['fields']['rev_user'],
+			'user_name' => $actorQuery['fields']['rev_user_text'],
+			'actor_id' => "MIN($revactor_actor)",
+			'user_real_name' => 'MIN(user_real_name)',
+			'timestamp' => 'MAX(rev_timestamp)',
+		];
+
+		$conds = [ 'rev_page' => $this->getId() ];
+
+		// The user who made the top revision gets credited as "this page was last edited by
+		// John, based on contributions by Tom, Dick and Harry", so don't include them twice.
 		$user = $this->getUser()
 			? User::newFromId( $this->getUser() )
 			: User::newFromName( $this->getUserText(), false );
+		$conds[] = 'NOT(' . $actorMigration->getWhere( $dbr, 'rev_user', $user )['conds'] . ')';
 
-		$res = $dbr->newSelectQueryBuilder()
-			->select( [
-				'user_id' => 'actor_user',
-				'user_name' => 'actor_name',
-				'actor_id' => 'MIN(rev_actor)',
-				'user_real_name' => 'MIN(user_real_name)',
-				'timestamp' => 'MAX(rev_timestamp)',
-			] )
-			->from( 'revision' )
-			->join( 'actor', null, 'rev_actor = actor_id' )
-			->leftJoin( 'user', null, 'actor_user = user_id' )
-			->where( [
-				'rev_page' => $this->getId(),
-				// The user who made the top revision gets credited as "this page was last edited by
-				// John, based on contributions by Tom, Dick and Harry", so don't include them twice.
-				$dbr->expr( 'rev_actor', '!=', $actorNormalization->findActorId( $user, $dbr ) ),
-				// Username hidden?
-				$dbr->bitAnd( 'rev_deleted', RevisionRecord::DELETED_USER ) . ' = 0',
-			] )
-			->groupBy( [ 'actor_user', 'actor_name' ] )
-			->orderBy( 'timestamp', SelectQueryBuilder::SORT_DESC )
-			->caller( __METHOD__ )
-			->fetchResultSet();
+		// Username hidden?
+		$conds[] = "{$dbr->bitAnd( 'rev_deleted', RevisionRecord::DELETED_USER )} = 0";
+
+		$jconds = [
+			'user' => [ 'LEFT JOIN', $actorQuery['fields']['rev_user'] . ' = user_id' ],
+		] + $actorQuery['joins'];
+
+		$options = [
+			'GROUP BY' => [ $fields['user_id'], $fields['user_name'] ],
+			'ORDER BY' => 'timestamp DESC',
+		];
+
+		$res = $dbr->select( $tables, $fields, $conds, __METHOD__, $options, $jconds );
 		return new UserArrayFromResult( $res );
 	}
 
@@ -1105,7 +1266,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * @param null|int $oldid Revision ID to get the text from, passing null or 0 will
 	 *   get the current revision (default value)
 	 * @param bool $noCache Do not read from or write to caches.
-	 * @return ParserOutput|false ParserOutput or false if the revision was not found or is not public
+	 * @return bool|ParserOutput ParserOutput or false if the revision was not found or is not public
 	 */
 	public function getParserOutput(
 		?ParserOptions $parserOptions = null, $oldid = null, $noCache = false
@@ -1141,7 +1302,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 	public function doViewUpdates(
 		Authority $performer,
 		$oldid = 0,
-		?RevisionRecord $oldRev = null
+		RevisionRecord $oldRev = null
 	) {
 		if ( MediaWikiServices::getInstance()->getReadOnlyMode()->isReadOnly() ) {
 			return;
@@ -1199,7 +1360,6 @@ class WikiPage implements Stringable, Page, PageRecord {
 			MediaWikiServices::getInstance()->getMessageCache()
 				->updateMessageOverride( $this->mTitle, $this->getContent() );
 		}
-		InfoAction::invalidateCache( $this->mTitle, $this->getLatest() );
 
 		return true;
 	}
@@ -1216,16 +1376,15 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * @param IDatabase $dbw
 	 * @param int|null $pageId Custom page ID that will be used for the insert statement
 	 *
-	 * @return int|false The newly created page_id key; false if the row was not
+	 * @return bool|int The newly created page_id key; false if the row was not
 	 *   inserted, e.g. because the title already existed or because the specified
 	 *   page ID is already in use.
 	 */
 	public function insertOn( $dbw, $pageId = null ) {
 		$pageIdForInsert = $pageId ? [ 'page_id' => $pageId ] : [];
-		$dbw->newInsertQueryBuilder()
-			->insertInto( 'page' )
-			->ignore()
-			->row( [
+		$dbw->insert(
+			'page',
+			[
 				'page_namespace'    => $this->mTitle->getNamespace(),
 				'page_title'        => $this->mTitle->getDBkey(),
 				'page_is_redirect'  => 0, // Will set this shortly...
@@ -1234,8 +1393,10 @@ class WikiPage implements Stringable, Page, PageRecord {
 				'page_touched'      => $dbw->timestamp(),
 				'page_latest'       => 0, // Fill this in shortly...
 				'page_len'          => 0, // Fill this in shortly...
-			] + $pageIdForInsert )
-			->caller( __METHOD__ )->execute();
+			] + $pageIdForInsert,
+			__METHOD__,
+			[ 'IGNORE' ]
+		);
 
 		if ( $dbw->affectedRows() > 0 ) {
 			$newid = $pageId ? (int)$pageId : $dbw->insertId();
@@ -1273,8 +1434,12 @@ class WikiPage implements Stringable, Page, PageRecord {
 		// NOTE: when doing that, make sure cached fields get reset in doUserEditContent,
 		// and in the compat stub!
 
-		$revId = $revision->getId();
-		Assert::parameter( $revId > 0, '$revision->getId()', 'must be > 0' );
+		// Assertion to try to catch T92046
+		if ( (int)$revision->getId() === 0 ) {
+			throw new InvalidArgumentException(
+				__METHOD__ . ': revision has ID ' . var_export( $revision->getId(), true )
+			);
+		}
 
 		$content = $revision->getContent( SlotRecord::MAIN );
 		$len = $content ? $content->getSize() : 0;
@@ -1289,6 +1454,9 @@ class WikiPage implements Stringable, Page, PageRecord {
 			$conditions['page_latest'] = $lastRevision;
 		}
 
+		$revId = $revision->getId();
+		Assert::parameter( $revId > 0, '$revision->getId()', 'must be > 0' );
+
 		$model = $revision->getSlot( SlotRecord::MAIN, RevisionRecord::RAW )->getModel();
 
 		$row = [ /* SET */
@@ -1300,26 +1468,27 @@ class WikiPage implements Stringable, Page, PageRecord {
 			'page_content_model' => $model,
 		];
 
-		$dbw->newUpdateQueryBuilder()
-			->update( 'page' )
-			->set( $row )
-			->where( $conditions )
-			->caller( __METHOD__ )->execute();
+		$dbw->update( 'page',
+			$row,
+			$conditions,
+			__METHOD__ );
 
 		$result = $dbw->affectedRows() > 0;
 		if ( $result ) {
 			$insertedRow = $this->pageData( $dbw, [ 'page_id' => $this->getId() ] );
 
 			if ( !$insertedRow ) {
-				throw new RuntimeException( 'Failed to load freshly inserted row' );
+				throw new MWException( 'Failed to load freshly inserted row' );
 			}
 
 			$this->mTitle->loadFromRow( $insertedRow );
-			MediaWikiServices::getInstance()->getRedirectStore()
-				->updateRedirectTarget( $this, $rt, $lastRevIsRedirect );
+			$this->updateRedirectOn( $dbw, $rt, $lastRevIsRedirect );
 			$this->setLastEdit( $revision );
+			$this->mRedirectTarget = null;
+			$this->mHasRedirectTarget = null;
 			$this->mPageIsRedirectField = (bool)$rt;
 			$this->mIsNew = $isNew;
+			$this->mIsRedirect = $isRedirect;
 
 			// Update the LinkCache.
 			$linkCache = MediaWikiServices::getInstance()->getLinkCache();
@@ -1333,12 +1502,50 @@ class WikiPage implements Stringable, Page, PageRecord {
 	}
 
 	/**
+	 * Add row to the redirect table if this is a redirect, remove otherwise.
+	 *
+	 * @param IDatabase $dbw
+	 * @param Title|null $redirectTitle Title object pointing to the redirect target,
+	 *   or NULL if this is not a redirect
+	 * @param null|bool $lastRevIsRedirect If given, will optimize adding and
+	 *   removing rows in redirect table.
+	 * @return bool True on success, false on failure
+	 * @internal
+	 */
+	public function updateRedirectOn( $dbw, $redirectTitle, $lastRevIsRedirect = null ) {
+		// Always update redirects (target link might have changed)
+		// Update/Insert if we don't know if the last revision was a redirect or not
+		// Delete if changing from redirect to non-redirect
+		$isRedirect = $redirectTitle !== null;
+
+		if ( !$isRedirect && $lastRevIsRedirect === false ) {
+			return true;
+		}
+
+		if ( $isRedirect ) {
+			$success = $this->insertRedirectEntry( $redirectTitle );
+		} else {
+			// This is not a redirect, remove row from redirect table
+			$where = [ 'rd_from' => $this->getId() ];
+			$dbw->delete( 'redirect', $where, __METHOD__ );
+			$success = true;
+		}
+
+		if ( $this->getTitle()->getNamespace() === NS_FILE ) {
+			MediaWikiServices::getInstance()->getRepoGroup()->getLocalRepo()
+				->invalidateImageRedirect( $this->getTitle() );
+		}
+
+		return $success;
+	}
+
+	/**
 	 * Helper method for checking whether two revisions have differences that go
 	 * beyond the main slot.
 	 *
 	 * MCR migration note: this method should go away!
 	 *
-	 * @deprecated since 1.43; Use only as a stop-gap before refactoring to support MCR.
+	 * @deprecated Use only as a stop-gap before refactoring to support MCR.
 	 *
 	 * @param RevisionRecord $a
 	 * @param RevisionRecord $b
@@ -1367,13 +1574,14 @@ class WikiPage implements Stringable, Page, PageRecord {
 	}
 
 	/**
-	 * @param string|int|null|false $sectionId Section identifier as a number or string
+	 * @param string|int|null|bool $sectionId Section identifier as a number or string
 	 * (e.g. 0, 1 or 'T-1'), null/false or an empty string for the whole page
 	 * or 'new' for a new section.
 	 * @param Content $sectionContent New content of the section.
 	 * @param string $sectionTitle New section's subject, only if $section is "new".
 	 * @param string $edittime Revision timestamp or null to use the current revision.
 	 *
+	 * @throws MWException
 	 * @return Content|null New complete article content, or null if error.
 	 *
 	 * @since 1.21
@@ -1391,11 +1599,11 @@ class WikiPage implements Stringable, Page, PageRecord {
 			// the revision could be generalized into RevisionStore, but we don't want
 			// to encourage loading of revisions by timestamp.
 			if ( !$rev
-				&& $lb->hasReplicaServers()
+				&& $lb->getServerCount() > 1
 				&& $lb->hasOrMadeRecentPrimaryChanges()
 			) {
 				$rev = $this->getRevisionStore()->getRevisionByTimestamp(
-					$this->mTitle, $edittime, IDBAccessObject::READ_LATEST );
+					$this->mTitle, $edittime, RevisionStore::READ_LATEST );
 			}
 			if ( $rev ) {
 				$baseRevId = $rev->getId();
@@ -1406,13 +1614,14 @@ class WikiPage implements Stringable, Page, PageRecord {
 	}
 
 	/**
-	 * @param string|int|null|false $sectionId Section identifier as a number or string
+	 * @param string|int|null|bool $sectionId Section identifier as a number or string
 	 * (e.g. 0, 1 or 'T-1'), null/false or an empty string for the whole page
 	 * or 'new' for a new section.
 	 * @param Content $sectionContent New content of the section.
 	 * @param string $sectionTitle New section's subject, only if $section is "new".
 	 * @param int|null $baseRevId
 	 *
+	 * @throws MWException
 	 * @return Content|null New complete article content, or null if error.
 	 *
 	 * @since 1.24
@@ -1425,7 +1634,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 			$newContent = $sectionContent;
 		} else {
 			if ( !$this->supportsSections() ) {
-				throw new BadMethodCallException( "sections not supported for content model " .
+				throw new MWException( "sections not supported for content model " .
 					$this->getContentHandler()->getModelID() );
 			}
 
@@ -1503,9 +1712,9 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * @return DerivedPageDataUpdater
 	 */
 	private function getDerivedDataUpdater(
-		?UserIdentity $forUser = null,
-		?RevisionRecord $forRevision = null,
-		?RevisionSlotsUpdate $forUpdate = null,
+		UserIdentity $forUser = null,
+		RevisionRecord $forRevision = null,
+		RevisionSlotsUpdate $forUpdate = null,
 		$forEdit = false
 	) {
 		if ( !$forRevision && !$forUpdate ) {
@@ -1564,7 +1773,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 *
 	 * @return PageUpdater
 	 */
-	public function newPageUpdater( $performer, ?RevisionSlotsUpdate $forUpdate = null ) {
+	public function newPageUpdater( $performer, RevisionSlotsUpdate $forUpdate = null ) {
 		if ( $performer instanceof Authority ) {
 			// TODO: Deprecate this. But better get rid of this method entirely.
 			$performer = $performer->getUser();
@@ -1613,17 +1822,17 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * error will be returned. These two conditions are also possible with
 	 * auto-detection due to MediaWiki's performance-optimised locking strategy.
 	 *
-	 * @param int|false $originalRevId: The ID of an original revision that the edit
+	 * @param bool|int $originalRevId: The ID of an original revision that the edit
 	 * restores or repeats. The new revision is expected to have the exact same content as
 	 * the given original revision. This is used with rollbacks and with dummy "null" revisions
-	 * which are created to record things like page moves. Default is false, meaning we are not
-	 * making a rollback edit.
+	 * which are created to record things like page moves.
 	 * @param array|null $tags Change tags to apply to this edit
 	 * Callers are responsible for permission checks
 	 * (with ChangeTags::canAddTagsAccompanyingChange)
 	 * @param int $undidRevId Id of revision that was undone or 0
 	 *
-	 * @return PageUpdateStatus Possible errors:
+	 * @throws MWException
+	 * @return Status Possible errors:
 	 *     edit-hook-aborted: The ArticleSave hook aborted the edit but didn't
 	 *       set the fatal flag of $status.
 	 *     edit-gone-missing: In update mode, but the article didn't exist.
@@ -1647,7 +1856,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 		$originalRevId = false,
 		$tags = [],
 		$undidRevId = 0
-	): PageUpdateStatus {
+	) {
 		$useNPPatrol = MediaWikiServices::getInstance()->getMainConfig()->get(
 			MainConfigNames::UseNPPatrol );
 		$useRCPatrol = MediaWikiServices::getInstance()->getMainConfig()->get(
@@ -1742,11 +1951,21 @@ class WikiPage implements Stringable, Page, PageRecord {
 	) {
 		$options = ParserOptions::newCanonical( $context );
 
-		$title = Title::newFromPageReference( $pageRef );
+		$title = Title::castFromPageReference( $pageRef );
 		if ( $title->isConversionTable() ) {
 			// @todo ConversionTable should become a separate content model, so
 			// we don't need special cases like this one, but see T313455.
 			$options->disableContentConversion();
+		}
+		if ( $contentModel !== CONTENT_MODEL_WIKITEXT ) {
+			$textModelsToParse = MediaWikiServices::getInstance()->getMainConfig()->get(
+				MainConfigNames::TextModelsToParse );
+			if ( in_array( $contentModel, $textModelsToParse, true ) ) {
+				// @todo Content model should have a means to tweak options, so
+				// we don't need special cases like this one. (T313455)
+				// ( See TextContentHandler::fillParserOutput() )
+				$options->setSuppressTOC(); # T307691
+			}
 		}
 
 		return $options;
@@ -1847,7 +2066,8 @@ class WikiPage implements Stringable, Page, PageRecord {
 	/**
 	 * Update the parser cache.
 	 *
-	 * @note This does not update links tables. Use doSecondaryDataUpdates() for that.
+	 * @note This is a temporary workaround until there is a proper data updater class.
+	 *   It will become deprecated soon.
 	 *
 	 * @param array $options
 	 *   - causeAction: an arbitrary string identifying the reason for the update.
@@ -1877,7 +2097,8 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * a new revision; normally PageUpdater::doUpdates should be used instead (which includes
 	 * secondary data updates). This method is provided for partial purges.
 	 *
-	 * @note This does not update the parser cache. Use updateParserCache() for that.
+	 * @note This is a temporary workaround until there is a proper data updater class.
+	 *   It will become deprecated soon.
 	 *
 	 * @param array $options
 	 *   - recursive (bool, default true): whether to do a recursive update (update pages that
@@ -1900,7 +2121,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * @since 1.32
 	 */
 	public function doSecondaryDataUpdates( array $options = [] ) {
-		$options['recursive'] ??= true;
+		$options['recursive'] = $options['recursive'] ?? true;
 		$revision = $this->getRevisionRecord();
 		if ( !$revision || !$revision->getId() ) {
 			LoggerFactory::getInstance( 'wikipage' )->info(
@@ -1932,14 +2153,13 @@ class WikiPage implements Stringable, Page, PageRecord {
 	public function doUpdateRestrictions( array $limit, array $expiry,
 		&$cascade, $reason, UserIdentity $user, $tags = []
 	) {
-		$services = MediaWikiServices::getInstance();
-		$readOnlyMode = $services->getReadOnlyMode();
+		$readOnlyMode = MediaWikiServices::getInstance()->getReadOnlyMode();
 		if ( $readOnlyMode->isReadOnly() ) {
 			return Status::newFatal( wfMessage( 'readonlytext', $readOnlyMode->getReason() ) );
 		}
 
 		$this->loadPageData( 'fromdbmaster' );
-		$restrictionStore = $services->getRestrictionStore();
+		$restrictionStore = MediaWikiServices::getInstance()->getRestrictionStore();
 		$restrictionStore->loadRestrictions( $this->mTitle, IDBAccessObject::READ_LATEST );
 		$restrictionTypes = $restrictionStore->listApplicableRestrictionTypes( $this->mTitle );
 		$id = $this->getId();
@@ -1957,7 +2177,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 		$protect = false;
 		$changed = false;
 
-		$dbw = $services->getConnectionProvider()->getPrimaryDatabase();
+		$dbw = wfGetDB( DB_PRIMARY );
 
 		foreach ( $restrictionTypes as $action ) {
 			if ( !isset( $expiry[$action] ) || $expiry[$action] === $dbw->getInfinity() ) {
@@ -2015,7 +2235,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 		$nullRevisionRecord = null;
 
 		if ( $id ) { // Protection of existing page
-			$legacyUser = $services->getUserFactory()->newFromUserIdentity( $user );
+			$legacyUser = MediaWikiServices::getInstance()->getUserFactory()->newFromUserIdentity( $user );
 			if ( !$this->getHookRunner()->onArticleProtect( $this, $legacyUser, $limit, $reason ) ) {
 				return Status::newGood();
 			}
@@ -2031,7 +2251,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 				$editrestriction[$key] = 'editsemiprotected'; // backwards compatibility
 			}
 
-			$cascadingRestrictionLevels = $services->getMainConfig()
+			$cascadingRestrictionLevels = MediaWikiServices::getInstance()->getMainConfig()
 				->get( MainConfigNames::CascadingRestrictionLevels );
 
 			foreach ( array_keys( $cascadingRestrictionLevels, 'sysop' ) as $key ) {
@@ -2068,33 +2288,39 @@ class WikiPage implements Stringable, Page, PageRecord {
 			// On MySQL and derivatives, unconditionally deleting by page ID (pr_page) would.
 			// place a gap lock if there are no matching rows. This can deadlock when another
 			// thread modifies protection settings for page IDs in the same gap.
-			$existingProtectionIds = $dbw->newSelectQueryBuilder()
-				->select( 'pr_id' )
-				->from( 'page_restrictions' )
-				->where( [ 'pr_page' => $id, 'pr_type' => array_map( 'strval', array_keys( $limit ) ) ] )
-				->caller( __METHOD__ )->fetchFieldValues();
+			$existingProtectionIds = $dbw->selectFieldValues(
+				'page_restrictions',
+				'pr_id',
+				[
+					'pr_page' => $id,
+					'pr_type' => array_map( 'strval', array_keys( $limit ) )
+				],
+				__METHOD__
+			);
 
 			if ( $existingProtectionIds ) {
-				$dbw->newDeleteQueryBuilder()
-					->deleteFrom( 'page_restrictions' )
-					->where( [ 'pr_id' => $existingProtectionIds ] )
-					->caller( __METHOD__ )->execute();
+				$dbw->delete(
+					'page_restrictions',
+					[ 'pr_id' => $existingProtectionIds ],
+					__METHOD__
+				);
 			}
 
 			// Update restrictions table
 			foreach ( $limit as $action => $restrictions ) {
 				if ( $restrictions != '' ) {
 					$cascadeValue = ( $cascade && $action == 'edit' ) ? 1 : 0;
-					$dbw->newInsertQueryBuilder()
-						->insertInto( 'page_restrictions' )
-						->row( [
+					$dbw->insert(
+						'page_restrictions',
+						[
 							'pr_page' => $id,
 							'pr_type' => $action,
 							'pr_level' => $restrictions,
 							'pr_cascade' => $cascadeValue,
 							'pr_expiry' => $dbw->encodeExpiry( $expiry[$action] )
-						] )
-						->caller( __METHOD__ )->execute();
+						],
+						__METHOD__
+					);
 					$logRelationsValues[] = $dbw->insertId();
 					$logParamsDetails[] = [
 						'type' => $action,
@@ -2114,37 +2340,34 @@ class WikiPage implements Stringable, Page, PageRecord {
 			$cascade = false;
 
 			if ( $limit['create'] != '' ) {
-				$commentFields = $services->getCommentStore()->insert( $dbw, 'pt_reason', $reason );
-				$dbw->newReplaceQueryBuilder()
-					->table( 'protected_titles' )
-					->uniqueIndexFields( [ 'pt_namespace', 'pt_title' ] )
-					->rows( [
+				$commentFields = CommentStore::getStore()->insert( $dbw, 'pt_reason', $reason );
+				$dbw->replace( 'protected_titles',
+					[ [ 'pt_namespace', 'pt_title' ] ],
+					[
 						'pt_namespace' => $this->mTitle->getNamespace(),
 						'pt_title' => $this->mTitle->getDBkey(),
 						'pt_create_perm' => $limit['create'],
 						'pt_timestamp' => $dbw->timestamp(),
 						'pt_expiry' => $dbw->encodeExpiry( $expiry['create'] ),
 						'pt_user' => $user->getId(),
-					] + $commentFields )
-					->caller( __METHOD__ )->execute();
+					] + $commentFields, __METHOD__
+				);
 				$logParamsDetails[] = [
 					'type' => 'create',
 					'level' => $limit['create'],
 					'expiry' => $expiry['create'],
 				];
 			} else {
-				$dbw->newDeleteQueryBuilder()
-					->deleteFrom( 'protected_titles' )
-					->where( [
+				$dbw->delete( 'protected_titles',
+					[
 						'pt_namespace' => $this->mTitle->getNamespace(),
 						'pt_title' => $this->mTitle->getDBkey()
-					] )
-					->caller( __METHOD__ )->execute();
+					], __METHOD__
+				);
 			}
 		}
 
-		$services->getRestrictionStore()->flushRestrictions( $this->mTitle );
-
+		$this->mTitle->flushRestrictions();
 		InfoAction::invalidateCache( $this->mTitle );
 
 		if ( $logAction == 'unprotect' ) {
@@ -2227,7 +2450,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 		string $reason,
 		UserIdentity $user
 	): ?RevisionRecord {
-		$dbw = MediaWikiServices::getInstance()->getConnectionProvider()->getPrimaryDatabase();
+		$dbw = wfGetDB( DB_PRIMARY );
 
 		// Prepare a null revision to be added to the history
 		$editComment = wfMessage(
@@ -2375,7 +2598,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 		$deleteRevisionsBatchSize = MediaWikiServices::getInstance()
 			->getMainConfig()->get( MainConfigNames::DeleteRevisionsBatchSize );
 
-		$dbr = MediaWikiServices::getInstance()->getConnectionProvider()->getReplicaDatabase();
+		$dbr = wfGetDB( DB_REPLICA );
 		$revCount = $this->getRevisionStore()->countRevisionsByPageId( $dbr, $this->getId() );
 		$revCount += $safetyMargin;
 
@@ -2409,6 +2632,8 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * @return Status Status object; if successful, $status->value is the log_id of the
 	 *   deletion log entry. If the page couldn't be deleted because it wasn't
 	 *   found, $status is a non-fatal 'cannotdelete' error
+	 * @throws FatalError
+	 * @throws MWException
 	 */
 	public function doDeleteArticleReal(
 		$reason, UserIdentity $deleter, $suppress = false, $u1 = null, &$error = '', $u2 = null,
@@ -2440,25 +2665,108 @@ class WikiPage implements Stringable, Page, PageRecord {
 	}
 
 	/**
+	 * Back-end article deletion
+	 *
+	 * Only invokes batching via the job queue if necessary per $wgDeleteRevisionsBatchSize.
+	 * Deletions can often be completed inline without involving the job queue.
+	 *
+	 * Potentially called many times per deletion operation for pages with many revisions.
+	 * @deprecated since 1.37 No external caller besides DeletePageJob should use this.
+	 *
+	 * @param string $reason
+	 * @param bool $suppress
+	 * @param UserIdentity $deleter
+	 * @param string[] $tags
+	 * @param string $logsubtype
+	 * @param bool $immediate
+	 * @param string|null $webRequestId
+	 * @return Status
+	 */
+	public function doDeleteArticleBatched(
+		$reason, $suppress, UserIdentity $deleter, $tags,
+		$logsubtype, $immediate = false, $webRequestId = null
+	) {
+		$services = MediaWikiServices::getInstance();
+		$deletePage = $services->getDeletePageFactory()->newDeletePage(
+			$this,
+			$services->getUserFactory()->newFromUserIdentity( $deleter )
+		);
+
+		$status = $deletePage
+			->setSuppress( $suppress )
+			->setTags( $tags )
+			->setLogSubtype( $logsubtype )
+			->forceImmediate( $immediate )
+			->deleteInternal( $this, DeletePage::PAGE_BASE, $reason, $webRequestId );
+		if ( $status->isGood() ) {
+			// BC with old return format
+			if ( $deletePage->deletionsWereScheduled()[DeletePage::PAGE_BASE] ) {
+				$status->warning( 'delete-scheduled', wfEscapeWikiText( $this->getTitle()->getPrefixedText() ) );
+			} else {
+				$status->value = $deletePage->getSuccessfulDeletionsIDs()[DeletePage::PAGE_BASE];
+			}
+		}
+		return $status;
+	}
+
+	/**
 	 * Lock the page row for this title+id and return page_latest (or 0)
 	 *
 	 * @return int Returns 0 if no row was found with this title+id
 	 * @since 1.27
 	 */
 	public function lockAndGetLatest() {
-		$dbw = MediaWikiServices::getInstance()->getConnectionProvider()->getPrimaryDatabase();
-		return (int)$dbw->newSelectQueryBuilder()
-			->select( 'page_latest' )
-			->forUpdate()
-			->from( 'page' )
-			->where( [
+		return (int)wfGetDB( DB_PRIMARY )->selectField(
+			'page',
+			'page_latest',
+			[
 				'page_id' => $this->getId(),
 				// Typically page_id is enough, but some code might try to do
 				// updates assuming the title is the same, so verify that
 				'page_namespace' => $this->getTitle()->getNamespace(),
 				'page_title' => $this->getTitle()->getDBkey()
-			] )
-			->caller( __METHOD__ )->fetchField();
+			],
+			__METHOD__,
+			[ 'FOR UPDATE' ]
+		);
+	}
+
+	/**
+	 * Do some database updates after deletion
+	 *
+	 * @deprecated since 1.37 With no replacement.
+	 *
+	 * @param int $id The page_id value of the page being deleted
+	 * @param Content|null $content Page content to be used when determining
+	 *   the required updates. This may be needed because $this->getContent()
+	 *   may already return null when the page proper was deleted.
+	 * @param RevisionRecord|null $revRecord The current page revision at the time of
+	 *   deletion, used when determining the required updates. This may be needed because
+	 *   $this->getRevisionRecord() may already return null when the page proper was deleted.
+	 * @param UserIdentity|null $user The user that caused the deletion
+	 */
+	public function doDeleteUpdates(
+		$id,
+		Content $content = null,
+		RevisionRecord $revRecord = null,
+		UserIdentity $user = null
+	) {
+		wfDeprecated( __METHOD__, '1.37' );
+		if ( !$revRecord ) {
+			throw new BadMethodCallException( __METHOD__ . ' now requires a RevisionRecord' );
+		}
+		if ( $id !== $this->getId() ) {
+			throw new InvalidArgumentException( 'Mismatching page ID' );
+		}
+
+		$user = $user ?? new UserIdentityValue( 0, 'unknown' );
+		$services = MediaWikiServices::getInstance();
+		$deletePage = $services->getDeletePageFactory()->newDeletePage(
+			$this,
+			$services->getUserFactory()->newFromUserIdentity( $user )
+		);
+
+		$deletePage->doDeleteUpdates( $this, $revRecord );
 	}
 
 	/**
@@ -2471,10 +2779,8 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * This is called on page move and undelete, as well as edit
 	 *
 	 * @param Title $title
-	 * @param bool $maybeIsRedirect True if the page may have been created as a redirect.
-	 *   If false, this is used as a hint to skip some unnecessary updates.
 	 */
-	public static function onArticleCreate( Title $title, $maybeIsRedirect = true ) {
+	public static function onArticleCreate( Title $title ) {
 		// TODO: move this into a PageEventEmitter service
 
 		// Update existence markers on article/talk tabs...
@@ -2489,11 +2795,13 @@ class WikiPage implements Stringable, Page, PageRecord {
 
 		$services->getLinkCache()->invalidateTitle( $title );
 
-		DeferredUpdates::addCallableUpdate(
-			static function () use ( $title, $maybeIsRedirect ) {
-				self::queueBacklinksJobs( $title, true, $maybeIsRedirect, 'create-page' );
-			}
+		// Invalidate caches of articles which include this page
+		$job = HTMLCacheUpdateJob::newForBacklinks(
+			$title,
+			'templatelinks',
+			[ 'causeAction' => 'page-create' ]
 		);
+		$services->getJobQueueGroup()->lazyPush( $job );
 
 		if ( $title->getNamespace() === NS_CATEGORY ) {
 			// Load the Category object, which will schedule a job to create
@@ -2530,10 +2838,15 @@ class WikiPage implements Stringable, Page, PageRecord {
 			$services->getMessageCache()->updateMessageOverride( $title, null );
 		}
 
-		// Invalidate caches of articles which include this page
-		DeferredUpdates::addCallableUpdate( static function () use ( $title ) {
-			self::queueBacklinksJobs( $title, true, true, 'delete-page' );
-		} );
+		// Images
+		if ( $title->getNamespace() === NS_FILE ) {
+			$job = HTMLCacheUpdateJob::newForBacklinks(
+				$title,
+				'imagelinks',
+				[ 'causeAction' => 'page-delete' ]
+			);
+			$services->getJobQueueGroup()->lazyPush( $job );
+		}
 
 		// User talk pages
 		if ( $title->getNamespace() === NS_USER_TALK ) {
@@ -2559,29 +2872,34 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * @param RevisionRecord|null $revRecord revision that was just saved, may be null
 	 * @param string[]|null $slotsChanged The role names of the slots that were changed.
 	 *        If not given, all slots are assumed to have changed.
-	 * @param bool $maybeRedirectChanged True if the page's redirect target may have changed in the
-	 *   latest revision. If false, this is used as a hint to skip some unnecessary updates.
 	 */
 	public static function onArticleEdit(
 		Title $title,
-		?RevisionRecord $revRecord = null,
-		$slotsChanged = null,
-		$maybeRedirectChanged = true
+		RevisionRecord $revRecord = null,
+		$slotsChanged = null
 	) {
 		// TODO: move this into a PageEventEmitter service
 
-		DeferredUpdates::addCallableUpdate(
-			static function () use ( $title, $slotsChanged, $maybeRedirectChanged ) {
-				self::queueBacklinksJobs(
-					$title,
-					$slotsChanged === null || in_array( SlotRecord::MAIN, $slotsChanged ),
-					$maybeRedirectChanged,
-					'edit-page'
-				);
-			}
+		$jobs = [];
+		if ( $slotsChanged === null || in_array( SlotRecord::MAIN, $slotsChanged ) ) {
+			// Invalidate caches of articles which include this page.
+			// Only for the main slot, because only the main slot is transcluded.
+			// TODO: MCR: not true for TemplateStyles! [SlotHandler]
+			$jobs[] = HTMLCacheUpdateJob::newForBacklinks(
+				$title,
+				'templatelinks',
+				[ 'causeAction' => 'page-edit' ]
+			);
+		}
+		// Invalidate the caches of all pages which redirect here
+		$jobs[] = HTMLCacheUpdateJob::newForBacklinks(
+			$title,
+			'redirect',
+			[ 'causeAction' => 'page-edit' ]
 		);
-
 		$services = MediaWikiServices::getInstance();
+		$services->getJobQueueGroup()->lazyPush( $jobs );
+
 		$services->getLinkCache()->invalidateTitle( $title );
 
 		$hcu = MediaWikiServices::getInstance()->getHtmlCacheUpdater();
@@ -2597,48 +2915,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 		self::purgeInterwikiCheckKey( $title );
 	}
 
-	private static function queueBacklinksJobs(
-		Title $title, $mainSlotChanged, $maybeRedirectChanged, $causeAction
-	) {
-		$services = MediaWikiServices::getInstance();
-		$backlinkCache = $services->getBacklinkCacheFactory()->getBacklinkCache( $title );
-
-		$jobs = [];
-		if ( $mainSlotChanged
-			&& $backlinkCache->hasLinks( 'templatelinks' )
-		) {
-			// Invalidate caches of articles which include this page.
-			// Only for the main slot, because only the main slot is transcluded.
-			// TODO: MCR: not true for TemplateStyles! [SlotHandler]
-			$jobs[] = HTMLCacheUpdateJob::newForBacklinks(
-				$title,
-				'templatelinks',
-				[ 'causeAction' => $causeAction ]
-			);
-		}
-		// Images
-		if ( $maybeRedirectChanged && $title->getNamespace() === NS_FILE
-			&& $backlinkCache->hasLinks( 'imagelinks' )
-		) {
-			// Process imagelinks in case the redirect target has changed
-			$jobs[] = HTMLCacheUpdateJob::newForBacklinks(
-				$title,
-				'imagelinks',
-				[ 'causeAction' => $causeAction ]
-			);
-		}
-		// Invalidate the caches of all pages which redirect here
-		if ( $backlinkCache->hasLinks( 'redirect' ) ) {
-			$jobs[] = HTMLCacheUpdateJob::newForBacklinks(
-				$title,
-				'redirect',
-				[ 'causeAction' => $causeAction ]
-			);
-		}
-		if ( $jobs ) {
-			$services->getJobQueueGroup()->push( $jobs );
-		}
-	}
+	/** #@- */
 
 	/**
 	 * Purge the check key for cross-wiki cache entries referencing this page
@@ -2672,23 +2949,22 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * Returns a list of categories this page is a member of.
 	 * Results will include hidden categories
 	 *
-	 * @return TitleArrayFromResult
+	 * @return TitleArray
 	 */
 	public function getCategories() {
-		$services = MediaWikiServices::getInstance();
 		$id = $this->getId();
 		if ( $id == 0 ) {
-			return $services->getTitleFactory()->newTitleArrayFromResult( new FakeResultWrapper( [] ) );
+			return TitleArray::newFromResult( new FakeResultWrapper( [] ) );
 		}
 
-		$dbr = $services->getConnectionProvider()->getReplicaDatabase();
-		$res = $dbr->newSelectQueryBuilder()
-			->select( [ 'page_title' => 'cl_to', 'page_namespace' => (string)NS_CATEGORY ] )
-			->from( 'categorylinks' )
-			->where( [ 'cl_from' => $id ] )
-			->caller( __METHOD__ )->fetchResultSet();
+		$dbr = wfGetDB( DB_REPLICA );
+		$res = $dbr->select( 'categorylinks',
+			[ 'page_title' => 'cl_to', 'page_namespace' => NS_CATEGORY ],
+			[ 'cl_from' => $id ],
+			__METHOD__
+		);
 
-		return $services->getTitleFactory()->newTitleArrayFromResult( $res );
+		return TitleArray::newFromResult( $res );
 	}
 
 	/**
@@ -2705,17 +2981,17 @@ class WikiPage implements Stringable, Page, PageRecord {
 			return [];
 		}
 
-		$dbr = MediaWikiServices::getInstance()->getConnectionProvider()->getReplicaDatabase();
-		$res = $dbr->newSelectQueryBuilder()
-			->select( [ 'cl_to' ] )
-			->from( 'categorylinks' )
-			->join( 'page', null, 'page_title=cl_to' )
-			->join( 'page_props', null, 'pp_page=page_id' )
-			->where( [ 'cl_from' => $id, 'pp_propname' => 'hiddencat', 'page_namespace' => NS_CATEGORY ] )
-			->caller( __METHOD__ )->fetchResultSet();
+		$dbr = wfGetDB( DB_REPLICA );
+		$res = $dbr->select( [ 'categorylinks', 'page_props', 'page' ],
+			[ 'cl_to' ],
+			[ 'cl_from' => $id, 'pp_page=page_id', 'pp_propname' => 'hiddencat',
+				'page_namespace' => NS_CATEGORY, 'page_title=cl_to' ],
+			__METHOD__ );
 
-		foreach ( $res as $row ) {
-			$result[] = Title::makeTitle( NS_CATEGORY, $row->cl_to );
+		if ( $res !== false ) {
+			foreach ( $res as $row ) {
+				$result[] = Title::makeTitle( NS_CATEGORY, $row->cl_to );
+			}
 		}
 
 		return $result;
@@ -2725,7 +3001,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 * Auto-generates a deletion reason
 	 *
 	 * @param bool &$hasHistory Whether the page has a history
-	 * @return string|false String containing deletion reason or empty string, or boolean false
+	 * @return string|bool String containing deletion reason or empty string, or boolean false
 	 *    if no revision occurred
 	 */
 	public function getAutoDeleteReason( &$hasHistory = false ) {
@@ -2754,62 +3030,63 @@ class WikiPage implements Stringable, Page, PageRecord {
 		$type = MediaWikiServices::getInstance()->getNamespaceInfo()->
 			getCategoryLinkType( $this->getTitle()->getNamespace() );
 
-		$addFields = [ 'cat_pages' => new RawSQLValue( 'cat_pages + 1' ) ];
-		$removeFields = [ 'cat_pages' => new RawSQLValue( 'cat_pages - 1' ) ];
+		$addFields = [ 'cat_pages = cat_pages + 1' ];
+		$removeFields = [ 'cat_pages = cat_pages - 1' ];
 		if ( $type !== 'page' ) {
-			$addFields["cat_{$type}s"] = new RawSQLValue( "cat_{$type}s + 1" );
-			$removeFields["cat_{$type}s"] = new RawSQLValue( "cat_{$type}s - 1" );
+			$addFields[] = "cat_{$type}s = cat_{$type}s + 1";
+			$removeFields[] = "cat_{$type}s = cat_{$type}s - 1";
 		}
 
-		$dbw = MediaWikiServices::getInstance()->getConnectionProvider()->getPrimaryDatabase();
-		$res = $dbw->newSelectQueryBuilder()
-			->select( [ 'cat_id', 'cat_title' ] )
-			->from( 'category' )
-			->where( [ 'cat_title' => array_merge( $added, $deleted ) ] )
-			->caller( __METHOD__ )
-			->fetchResultSet();
-		$existingCategories = [];
-		foreach ( $res as $row ) {
-			$existingCategories[$row->cat_id] = $row->cat_title;
-		}
-		$existingAdded = array_intersect( $existingCategories, $added );
-		$existingDeleted = array_intersect( $existingCategories, $deleted );
-		$missingAdded = array_diff( $added, $existingAdded );
+		$dbw = wfGetDB( DB_PRIMARY );
 
-		// For category rows that already exist, do a plain
-		// UPDATE instead of INSERT...ON DUPLICATE KEY UPDATE
-		// to avoid creating gaps in the cat_id sequence.
-		if ( $existingAdded ) {
-			$dbw->newUpdateQueryBuilder()
-				->update( 'category' )
-				->set( $addFields )
-				->where( [ 'cat_id' => array_keys( $existingAdded ) ] )
-				->caller( __METHOD__ )->execute();
-		}
+		if ( count( $added ) ) {
+			$existingAdded = $dbw->selectFieldValues(
+				'category',
+				'cat_title',
+				[ 'cat_title' => $added ],
+				__METHOD__
+			);
 
-		if ( $missingAdded ) {
-			$queryBuilder = $dbw->newInsertQueryBuilder()
-				->insertInto( 'category' )
-				->onDuplicateKeyUpdate()
-				->uniqueIndexFields( [ 'cat_title' ] )
-				->set( $addFields );
-			foreach ( $missingAdded as $cat ) {
-				$queryBuilder->row( [
-					'cat_title'   => $cat,
-					'cat_pages'   => 1,
-					'cat_subcats' => ( $type === 'subcat' ) ? 1 : 0,
-					'cat_files'   => ( $type === 'file' ) ? 1 : 0,
-				] );
+			// For category rows that already exist, do a plain
+			// UPDATE instead of INSERT...ON DUPLICATE KEY UPDATE
+			// to avoid creating gaps in the cat_id sequence.
+			if ( count( $existingAdded ) ) {
+				$dbw->update(
+					'category',
+					$addFields,
+					[ 'cat_title' => $existingAdded ],
+					__METHOD__
+				);
 			}
-			$queryBuilder->caller( __METHOD__ )->execute();
+
+			$missingAdded = array_diff( $added, $existingAdded );
+			if ( count( $missingAdded ) ) {
+				$insertRows = [];
+				foreach ( $missingAdded as $cat ) {
+					$insertRows[] = [
+						'cat_title'   => $cat,
+						'cat_pages'   => 1,
+						'cat_subcats' => ( $type === 'subcat' ) ? 1 : 0,
+						'cat_files'   => ( $type === 'file' ) ? 1 : 0,
+					];
+				}
+				$dbw->upsert(
+					'category',
+					$insertRows,
+					'cat_title',
+					$addFields,
+					__METHOD__
+				);
+			}
 		}
 
-		if ( $existingDeleted ) {
-			$dbw->newUpdateQueryBuilder()
-				->update( 'category' )
-				->set( $removeFields )
-				->where( [ 'cat_id' => array_keys( $existingDeleted ) ] )
-				->caller( __METHOD__ )->execute();
+		if ( count( $deleted ) ) {
+			$dbw->update(
+				'category',
+				$removeFields,
+				[ 'cat_title' => $deleted ],
+				__METHOD__
+			);
 		}
 
 		foreach ( $added as $catName ) {
@@ -2869,7 +3146,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 			// queue a high-priority LinksUpdate job, to ensure that we really protect all
 			// content that is currently transcluded onto the page. This is important, because
 			// wikitext supports conditional statements based on the current time, which enables
-			// transcluding of a different subpage based on which day it is, and then show that
+			// transcluding of a different sub page based on which day it is, and then show that
 			// information on the Main Page, without the Main Page itself being edited.
 			MediaWikiServices::getInstance()->getJobQueueGroup()->lazyPush(
 				RefreshLinksJob::newPrioritized( $this->mTitle, $params )
@@ -2886,8 +3163,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 			if ( $this->getLinksTimestamp() > $this->getTouched() ) {
 				// If a page is uncacheable, do not keep spamming a job for it.
 				// Although it would be de-duplicated, it would still waste I/O.
-				$services = MediaWikiServices::getInstance()->getObjectCacheFactory();
-				$cache = $services->getLocalClusterInstance();
+				$cache = ObjectCache::getLocalClusterInstance();
 				$key = $cache->makeKey( 'dynamic-linksupdate', 'last', $this->getId() );
 				$ttl = max( $parserOutput->getCacheExpiry(), 3600 );
 				if ( $cache->add( $key, time(), $ttl ) ) {
@@ -2897,6 +3173,54 @@ class WikiPage implements Stringable, Page, PageRecord {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Returns a list of updates to be performed when this page is deleted. The
+	 * updates should remove any information about this page from secondary data
+	 * stores such as links tables.
+	 *
+	 * @deprecated since 1.37 With no replacement.
+	 *
+	 * @param RevisionRecord|Content|null $rev The revision being deleted. Also accepts a Content
+	 *       object for backwards compatibility.
+	 * @return DeferrableUpdate[]
+	 */
+	public function getDeletionUpdates( $rev = null ) {
+		wfDeprecated( __METHOD__, '1.37' );
+		$user = new UserIdentityValue( 0, 'Legacy code hater' );
+		$services = MediaWikiServices::getInstance();
+		$deletePage = $services->getDeletePageFactory()->newDeletePage(
+			$this,
+			$services->getUserFactory()->newFromUserIdentity( $user )
+		);
+
+		if ( !$rev ) {
+			wfDeprecated( __METHOD__ . ' without a RevisionRecord', '1.32' );
+
+			try {
+				$rev = $this->getRevisionRecord();
+			} catch ( TimeoutException $e ) {
+				throw $e;
+			} catch ( Exception $ex ) {
+				// If we can't load the content, something is wrong. Perhaps that's why
+				// the user is trying to delete the page, so let's not fail in that case.
+				// Note that doDeleteArticleReal() will already have logged an issue with
+				// loading the content.
+				wfDebug( __METHOD__ . ' failed to load current revision of page ' . $this->getId() );
+			}
+		}
+		if ( !$rev ) {
+			// Use an empty RevisionRecord
+			$newRev = new MutableRevisionRecord( $this );
+		} elseif ( $rev instanceof Content ) {
+			wfDeprecated( __METHOD__ . ' with a Content object instead of a RevisionRecord', '1.32' );
+			$newRev = new MutableRevisionRecord( $this );
+			$newRev->setSlot( SlotRecord::newUnsaved( SlotRecord::MAIN, $rev ) );
+		} else {
+			$newRev = $rev;
+		}
+		return $deletePage->getDeletionUpdates( $this, $newRev );
 	}
 
 	/**
@@ -2935,6 +3259,17 @@ class WikiPage implements Stringable, Page, PageRecord {
 	 */
 	public function getSourceURL() {
 		return $this->getTitle()->getCanonicalURL();
+	}
+
+	/**
+	 * @param WANObjectCache $cache
+	 * @return string[]
+	 * @since 1.28
+	 */
+	public function getMutableCacheKeys( WANObjectCache $cache ) {
+		$linkCache = MediaWikiServices::getInstance()->getLinkCache();
+
+		return $linkCache->getMutableCacheKeys( $cache, $this->getTitle() );
 	}
 
 	/**
@@ -2995,12 +3330,23 @@ class WikiPage implements Stringable, Page, PageRecord {
 	/**
 	 * @inheritDoc
 	 * @since 1.36
+	 *
+	 * @param PageReference $other
+	 * @return bool
 	 */
 	public function isSamePageAs( PageReference $other ): bool {
-		// NOTE: keep in sync with PageReferenceValue::isSamePageAs()!
-		return $this->getWikiId() === $other->getWikiId()
-			&& $this->getNamespace() === $other->getNamespace()
-			&& $this->getDBkey() === $other->getDBkey();
+		// NOTE: keep in sync with PageIdentityValue::isSamePageAs()!
+
+		if ( $other->getWikiId() !== $this->getWikiId() ) {
+			return false;
+		}
+
+		if ( $other->getNamespace() !== $this->getNamespace()
+			|| $other->getDBkey() !== $this->getDBkey() ) {
+			return false;
+		}
+
+		return true;
 	}
 
 	/**
@@ -3033,7 +3379,7 @@ class WikiPage implements Stringable, Page, PageRecord {
 				'page_title' => $this->mTitle->getDBkey(),
 				'page_latest' => $this->mLatest,
 				'page_is_new' => $this->mIsNew ? 1 : 0,
-				'page_is_redirect' => $this->mPageIsRedirectField ? 1 : 0,
+				'page_is_redirect' => $this->mIsRedirect ? 1 : 0,
 				'page_touched' => $this->getTouched(),
 				'page_lang' => $this->getLanguage()
 			],

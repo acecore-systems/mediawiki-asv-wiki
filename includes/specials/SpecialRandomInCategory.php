@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:RandomInCategory
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,21 +18,15 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
+ * @author Brian Wolff
  */
 
-namespace MediaWiki\Specials;
-
-use BadMethodCallException;
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\SpecialPage\FormSpecialPage;
-use MediaWiki\Status\Status;
-use MediaWiki\Title\Title;
-use stdClass;
-use Wikimedia\Rdbms\IConnectionProvider;
-use Wikimedia\Rdbms\SelectQueryBuilder;
+use Wikimedia\Rdbms\ILoadBalancer;
+use Wikimedia\RequestTimeout\TimeoutException;
 
 /**
- * Redirect to a random page in a category
+ * Special page to direct the user to a random page
  *
  * @note The method used here is rather biased. It is assumed that
  * the use of this page will be people wanting to get a random page
@@ -52,28 +48,28 @@ use Wikimedia\Rdbms\SelectQueryBuilder;
  * won't have the same page selected 99% of the time.
  *
  * @ingroup SpecialPage
- * @author Brian Wolff
  */
 class SpecialRandomInCategory extends FormSpecialPage {
-	/** @var string[] Extra SQL statements */
-	protected $extra = [];
-	/** @var Title|false Title object of category */
-	protected $category = false;
-	/** @var int Max amount to fudge randomness by */
-	protected $maxOffset = 30;
+	/** @var string[] */
+	protected $extra = []; // Extra SQL statements
+	/** @var Title|false */
+	protected $category = false; // Title object of category
+	/** @var int */
+	protected $maxOffset = 30; // Max amount to fudge randomness by.
 	/** @var int|null */
 	private $maxTimestamp = null;
 	/** @var int|null */
 	private $minTimestamp = null;
 
-	private IConnectionProvider $dbProvider;
+	/** @var ILoadBalancer */
+	private $loadBalancer;
 
 	/**
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 */
-	public function __construct( IConnectionProvider $dbProvider ) {
+	public function __construct( ILoadBalancer $loadBalancer ) {
 		parent::__construct( 'RandomInCategory' );
-		$this->dbProvider = $dbProvider;
+		$this->loadBalancer = $loadBalancer;
 	}
 
 	/**
@@ -100,7 +96,11 @@ class SpecialRandomInCategory extends FormSpecialPage {
 		];
 	}
 
-	public function requiresPost() {
+	public function requiresWrite() {
+		return false;
+	}
+
+	public function requiresUnblock() {
 		return false;
 	}
 
@@ -112,8 +112,9 @@ class SpecialRandomInCategory extends FormSpecialPage {
 		$form->setSubmitTextMsg( 'randomincategory-submit' );
 	}
 
-	protected function getSubpageField() {
-		return 'category';
+	protected function setParameter( $par ) {
+		// if subpage present, fake form submission
+		$this->onSubmit( [ 'category' => $par ] );
 	}
 
 	public function onSubmit( array $data ) {
@@ -160,7 +161,7 @@ class SpecialRandomInCategory extends FormSpecialPage {
 
 	/**
 	 * Choose a random title.
-	 * @return Title|null Title object or null if nothing to choose from
+	 * @return Title|null Title object (or null if nothing to choose from)
 	 */
 	public function getRandomTitle() {
 		// Convert to float, since we do math with the random number.
@@ -201,44 +202,51 @@ class SpecialRandomInCategory extends FormSpecialPage {
 	}
 
 	/**
+	 * @param float|false $rand Random number between 0 and 1
+	 * @param int $offset Extra offset to fudge randomness
+	 * @param bool $up True to get the result above the random number, false for below
+	 * @return array Query information.
+	 * @throws MWException
 	 * @note The $up parameter is supposed to counteract what would happen if there
 	 *   was a large gap in the distribution of cl_timestamp values. This way instead
 	 *   of things to the right of the gap being favoured, both sides of the gap
 	 *   are favoured.
-	 *
-	 * @param float|false $rand Random number between 0 and 1
-	 * @param int $offset Extra offset to fudge randomness
-	 * @param bool $up True to get the result above the random number, false for below
-	 * @return SelectQueryBuilder
 	 */
-	protected function getQueryBuilder( $rand, $offset, $up ) {
+	protected function getQueryInfo( $rand, $offset, $up ) {
+		$op = $up ? '>=' : '<=';
+		$dir = $up ? 'ASC' : 'DESC';
 		if ( !$this->category instanceof Title ) {
-			throw new BadMethodCallException( 'No category set' );
+			throw new MWException( 'No category set' );
 		}
-		$dbr = $this->dbProvider->getReplicaDatabase();
-		$queryBuilder = $dbr->newSelectQueryBuilder()
-			->select( [ 'page_title', 'page_namespace' ] )
-			->from( 'categorylinks' )
-			->join( 'page', null, 'cl_from = page_id' )
-			->where( [ 'cl_to' => $this->category->getDBkey() ] )
-			->andWhere( $this->extra )
-			->orderBy( 'cl_timestamp', $up ? SelectQueryBuilder::SORT_ASC : SelectQueryBuilder::SORT_DESC )
-			->limit( 1 )
-			->offset( $offset );
+		$qi = [
+			'tables' => [ 'categorylinks', 'page' ],
+			'fields' => [ 'page_title', 'page_namespace' ],
+			'conds' => array_merge( [
+				'cl_to' => $this->category->getDBkey(),
+			], $this->extra ),
+			'options' => [
+				'ORDER BY' => 'cl_timestamp ' . $dir,
+				'LIMIT' => 1,
+				'OFFSET' => $offset
+			],
+			'join_conds' => [
+				'page' => [ 'JOIN', 'cl_from = page_id' ]
+			]
+		];
 
+		$dbr = $this->loadBalancer->getConnectionRef( ILoadBalancer::DB_REPLICA );
 		$minClTime = $this->getTimestampOffset( $rand );
 		if ( $minClTime ) {
-			$op = $up ? '>=' : '<=';
-			$queryBuilder->andWhere(
-				$dbr->expr( 'cl_timestamp', $op, $dbr->timestamp( $minClTime ) )
-			);
+			$qi['conds'][] = 'cl_timestamp ' . $op . ' ' .
+				$dbr->addQuotes( $dbr->timestamp( $minClTime ) );
 		}
 
-		return $queryBuilder;
+		return $qi;
 	}
 
 	/**
 	 * @param float|false $rand Random number between 0 and 1
+	 *
 	 * @return int|false A random (unix) timestamp from the range of the category or false on failure
 	 */
 	protected function getTimestampOffset( $rand ) {
@@ -246,12 +254,14 @@ class SpecialRandomInCategory extends FormSpecialPage {
 			return false;
 		}
 		if ( !$this->minTimestamp || !$this->maxTimestamp ) {
-			$minAndMax = $this->getMinAndMaxForCat();
-			if ( $minAndMax === null ) {
-				// No entries in this category.
+			try {
+				list( $this->minTimestamp, $this->maxTimestamp ) = $this->getMinAndMaxForCat( $this->category );
+			} catch ( TimeoutException $e ) {
+				throw $e;
+			} catch ( Exception $e ) {
+				// Possibly no entries in category.
 				return false;
 			}
-			[ $this->minTimestamp, $this->maxTimestamp ] = $minAndMax;
 		}
 
 		$ts = ( $this->maxTimestamp - $this->minTimestamp ) * $rand + $this->minTimestamp;
@@ -262,17 +272,25 @@ class SpecialRandomInCategory extends FormSpecialPage {
 	/**
 	 * Get the lowest and highest timestamp for a category.
 	 *
-	 * @return array|null The lowest and highest timestamp, or null if the category has no entries.
+	 * @param Title $category
+	 * @return array The lowest and highest timestamp
+	 * @throws MWException If category has no entries.
 	 */
-	protected function getMinAndMaxForCat() {
-		$dbr = $this->dbProvider->getReplicaDatabase();
-		$res = $dbr->newSelectQueryBuilder()
-			->select( [ 'low' => 'MIN( cl_timestamp )', 'high' => 'MAX( cl_timestamp )' ] )
-			->from( 'categorylinks' )
-			->where( [ 'cl_to' => $this->category->getDBkey(), ] )
-			->caller( __METHOD__ )->fetchRow();
+	protected function getMinAndMaxForCat( Title $category ) {
+		$dbr = $this->loadBalancer->getConnectionRef( ILoadBalancer::DB_REPLICA );
+		$res = $dbr->selectRow(
+			'categorylinks',
+			[
+				'low' => 'MIN( cl_timestamp )',
+				'high' => 'MAX( cl_timestamp )'
+			],
+			[
+				'cl_to' => $this->category->getDBkey(),
+			],
+			__METHOD__
+		);
 		if ( !$res ) {
-			return null;
+			throw new MWException( 'No entries in category' );
 		}
 
 		return [ (int)wfTimestamp( TS_UNIX, $res->low ), (int)wfTimestamp( TS_UNIX, $res->high ) ];
@@ -285,17 +303,23 @@ class SpecialRandomInCategory extends FormSpecialPage {
 	 * @param string $fname The name of the calling method
 	 * @return stdClass|false Info for the title selected.
 	 */
-	private function selectRandomPageFromDB( $rand, $offset, $up, $fname ) {
-		return $this->getQueryBuilder( $rand, $offset, $up )->caller( $fname )->fetchRow();
+	private function selectRandomPageFromDB( $rand, $offset, $up, $fname = __METHOD__ ) {
+		$dbr = $this->loadBalancer->getConnectionRef( ILoadBalancer::DB_REPLICA );
+
+		$query = $this->getQueryInfo( $rand, $offset, $up );
+		$res = $dbr->select(
+			$query['tables'],
+			$query['fields'],
+			$query['conds'],
+			$fname,
+			$query['options'],
+			$query['join_conds']
+		);
+
+		return $res->fetchObject();
 	}
 
 	protected function getGroupName() {
 		return 'redirects';
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialRandomInCategory::class, 'SpecialRandomInCategory' );

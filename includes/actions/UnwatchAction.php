@@ -20,9 +20,6 @@
  * @ingroup Actions
  */
 
-use MediaWiki\Context\IContextSource;
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\Watchlist\WatchedItemStore;
 use MediaWiki\Watchlist\WatchlistManager;
 
 /**
@@ -32,21 +29,22 @@ use MediaWiki\Watchlist\WatchlistManager;
  */
 class UnwatchAction extends WatchAction {
 
-	private WatchlistManager $watchlistManager;
+	/** @var WatchlistManager */
+	private $watchlistManager;
 
 	/**
-	 * @param Article $article
+	 * @param Page $page
 	 * @param IContextSource $context
 	 * @param WatchlistManager $watchlistManager
 	 * @param WatchedItemStore $watchedItemStore
 	 */
 	public function __construct(
-		Article $article,
+		Page $page,
 		IContextSource $context,
 		WatchlistManager $watchlistManager,
 		WatchedItemStore $watchedItemStore
 	) {
-		parent::__construct( $article, $context, $watchlistManager, $watchedItemStore );
+		parent::__construct( $page, $context, $watchlistManager, $watchedItemStore );
 		$this->watchlistManager = $watchlistManager;
 	}
 

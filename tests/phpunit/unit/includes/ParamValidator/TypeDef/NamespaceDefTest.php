@@ -1,21 +1,21 @@
 <?php
 
-namespace MediaWiki\Tests\ParamValidator\TypeDef;
+namespace MediaWiki\ParamValidator\TypeDef;
 
-use MediaWiki\Api\ApiResult;
+use ApiResult;
 use MediaWiki\HookContainer\HookContainer;
-use MediaWiki\ParamValidator\TypeDef\NamespaceDef;
 use MediaWiki\Tests\Unit\DummyServicesTrait;
 use Wikimedia\Message\DataMessageValue;
 use Wikimedia\ParamValidator\ParamValidator;
 use Wikimedia\ParamValidator\SimpleCallbacks;
 use Wikimedia\ParamValidator\TypeDef\EnumDef;
+use Wikimedia\ParamValidator\TypeDef\TypeDefTestCase;
 use Wikimedia\ParamValidator\ValidationException;
 
 /**
- * @covers \MediaWiki\ParamValidator\TypeDef\NamespaceDef
+ * @covers MediaWiki\ParamValidator\TypeDef\NamespaceDef
  */
-class NamespaceDefTest extends TypeDefUnitTestCase {
+class NamespaceDefTest extends TypeDefTestCase {
 	use DummyServicesTrait;
 
 	private function getNamespaceInfo() {

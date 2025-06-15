@@ -1,18 +1,20 @@
-const SavedLinksListItemWidget = require( './SavedLinksListItemWidget.js' );
+var SavedLinksListItemWidget = require( './SavedLinksListItemWidget.js' ),
+	SavedLinksListWidget;
 
 /**
- * Quick links widget.
+ * Quick links widget
  *
  * @class mw.rcfilters.ui.SavedLinksListWidget
- * @ignore
  * @extends OO.ui.ButtonMenuSelectWidget
+ *
+ * @constructor
  * @param {mw.rcfilters.Controller} controller Controller
  * @param {mw.rcfilters.dm.SavedQueriesModel} model View model
  * @param {Object} [config] Configuration object
- * @param {jQuery} [config.$overlay] A jQuery object serving as overlay for popups
+ * @cfg {jQuery} [$overlay] A jQuery object serving as overlay for popups
  */
-const SavedLinksListWidget = function MwRcfiltersUiSavedLinksListWidget( controller, model, config ) {
-	const $labelNoEntries = $( '<div>' )
+SavedLinksListWidget = function MwRcfiltersUiSavedLinksListWidget( controller, model, config ) {
+	var $labelNoEntries = $( '<div>' )
 		.append(
 			$( '<div>' )
 				.addClass( 'mw-rcfilters-ui-savedLinksListWidget-placeholder-title' )
@@ -25,7 +27,7 @@ const SavedLinksListWidget = function MwRcfiltersUiSavedLinksListWidget( control
 	config = config || {};
 
 	// Parent
-	SavedLinksListWidget.super.call( this, Object.assign( {
+	SavedLinksListWidget.parent.call( this, $.extend( {
 		classes: [ 'mw-rcfilters-ui-savedLinksListWidget-button' ],
 		label: mw.msg( 'rcfilters-quickfilters' ),
 		icon: 'bookmark',

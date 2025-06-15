@@ -11,7 +11,6 @@
 			"පසිඳු කාවින්ද"
 		]
 	},
-	"ooui-copytextlayout-copy": "Копиране",
 	"ooui-outline-control-move-down": "Преместване на елемента надолу",
 	"ooui-outline-control-move-up": "Преместване на елемента нагоре",
 	"ooui-outline-control-remove": "Премахване на обекта",
@@ -27,6 +26,7 @@
 	"ooui-dialog-process-continue": "Продължаване",
 	"ooui-combobox-button-label": "Падащи настройки",
 	"ooui-selectfile-button-select": "Избиране на файл",
+	"ooui-selectfile-not-supported": "Избраният файл не се поддържа",
 	"ooui-selectfile-placeholder": "Не е избран файл",
 	"ooui-selectfile-dragdrop-placeholder": "Пуснете файла тук",
 	"ooui-field-help": "Помощ"

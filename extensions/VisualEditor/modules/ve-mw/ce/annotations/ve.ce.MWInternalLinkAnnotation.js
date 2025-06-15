@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable MWInternalLinkAnnotation class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -48,12 +48,12 @@ ve.ce.MWInternalLinkAnnotation.static.getDescription = function ( model ) {
  * Update CSS classes form model state
  */
 ve.ce.MWInternalLinkAnnotation.prototype.updateClasses = function () {
-	const model = this.getModel();
+	var model = this.getModel();
 
 	if ( model.element.originalDomElementsHash ) {
 		// If the link came from Parsoid, use the 'new' class to
 		// determine if this is a 'missing' link.
-		const entry = {};
+		var entry = {};
 		entry[ model.getAttribute( 'lookupTitle' ) ] = {
 			// eslint-disable-next-line no-jquery/no-class-state
 			missing: this.$anchor.hasClass( 'new' )

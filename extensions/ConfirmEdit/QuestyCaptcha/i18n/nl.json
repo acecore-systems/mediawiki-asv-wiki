@@ -2,8 +2,8 @@
 	"@metadata": {
 		"authors": [
 			"HanV",
-			"McDutchie",
-			"Siebrand"
+			"Siebrand",
+			"McDutchie"
 		]
 	},
 	"questycaptcha-desc": "Questy CAPTCHA-generator voor Confirm Edit",

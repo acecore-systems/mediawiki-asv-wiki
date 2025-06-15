@@ -1,5 +1,16 @@
 <?php
 /**
+ * @defgroup LockManager Lock management
+ * @ingroup FileBackend
+ */
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
+use Wikimedia\RequestTimeout\RequestTimeout;
+use Wikimedia\WaitConditionLoop;
+
+/**
+ * Resource locking handling.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,20 +27,11 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
- */
-
-use Psr\Log\LoggerInterface;
-use Psr\Log\NullLogger;
-use Wikimedia\RequestTimeout\RequestTimeout;
-use Wikimedia\WaitConditionLoop;
-
-/**
- * @defgroup LockManager Lock management
- * @ingroup FileBackend
+ * @ingroup LockManager
  */
 
 /**
- * Resource locking handling.
+ * @brief Class for handling resource locking.
  *
  * Locks on resource keys can either be shared or exclusive.
  *
@@ -58,10 +60,8 @@ abstract class LockManager {
 	/** @var array Map of (resource path => lock type => count) */
 	protected $locksHeld = [];
 
-	/** @var string domain (usually wiki ID) */
-	protected $domain;
-	/** @var int maximum time locks can be held */
-	protected $lockTTL;
+	protected $domain; // string; domain (usually wiki ID)
+	protected $lockTTL; // integer; maximum time locks can be held
 
 	/** @var string Random 32-char hex number */
 	protected $session;
@@ -191,6 +191,18 @@ abstract class LockManager {
 	 */
 	final protected function sha1Base36Absolute( $path ) {
 		return Wikimedia\base_convert( sha1( "{$this->domain}:{$path}" ), 16, 36, 31 );
+	}
+
+	/**
+	 * Get the base 16 SHA-1 of a string, padded to 31 digits.
+	 * Before hashing, the path will be prefixed with the domain ID.
+	 * This should be used internally for lock key or file names.
+	 *
+	 * @param string $path
+	 * @return string
+	 */
+	final protected function sha1Base16Absolute( $path ) {
+		return sha1( "{$this->domain}:{$path}" );
 	}
 
 	/**

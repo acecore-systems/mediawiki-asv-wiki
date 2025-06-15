@@ -1,9 +1,7 @@
 <?php
 
-use MediaWiki\Extension\ConfirmEdit\QuestyCaptcha\QuestyCaptcha;
-
 /**
- * @covers \MediaWiki\Extension\ConfirmEdit\QuestyCaptcha\QuestyCaptcha
+ * @covers QuestyCaptcha
  */
 class QuestyCaptchaTest extends MediaWikiIntegrationTestCase {
 
@@ -12,17 +10,20 @@ class QuestyCaptchaTest extends MediaWikiIntegrationTestCase {
 
 		$this->mergeMwGlobalArrayValue(
 			'wgAutoloadClasses',
-			[ 'MediaWiki\\Extension\\ConfirmEdit\\QuestyCaptcha\\QuestyCaptcha'
-				=> __DIR__ . '/../../QuestyCaptcha/includes/QuestyCaptcha.php' ]
+			[ 'QuestyCaptcha' => __DIR__ . '/../../QuestyCaptcha/includes/QuestyCaptcha.php' ]
 		);
 	}
 
 	/**
-	 * @covers \MediaWiki\Extension\ConfirmEdit\QuestyCaptcha\QuestyCaptcha::getCaptcha
+	 * @covers QuestyCaptcha::getCaptcha
 	 * @dataProvider provideGetCaptcha
 	 */
 	public function testGetCaptcha( $config, $expected ) {
-		$this->overrideConfigValue( 'CaptchaQuestions', $config );
+		# setMwGlobals() requires $wgCaptchaQuestion to be set
+		if ( !isset( $GLOBALS['wgCaptchaQuestions'] ) ) {
+			$GLOBALS['wgCaptchaQuestions'] = [];
+		}
+		$this->setMwGlobals( 'wgCaptchaQuestions', $config );
 
 		$qc = new QuestyCaptcha();
 		$this->assertEquals( $expected, $qc->getCaptcha() );

@@ -27,7 +27,7 @@
 	"nuke-delete-more": "[[Special:Nuke|ลบหน้าเพิ่ม]]",
 	"nuke-pattern": "แบบรูปสำหรับชื่อหน้า:",
 	"nuke-nopages-global": "ไม่มีหน้าใหม่ใน[[Special:RecentChanges|การเปลี่ยนแปลงล่าสุด]]",
-	"nuke-viewchanges": "ประวัติ",
+	"nuke-viewchanges": "ดูการเปลี่ยนแปลง",
 	"nuke-namespace": "จำกัดที่เนมสเปซ:",
 	"nuke-linkoncontribs": "การลบเป็นกลุ่ม",
 	"nuke-linkoncontribs-text": "ลบหน้าเป็นกลุ่มที่{{GENDER:$1|ผู้ใช้นี้}}เป็นผู้เขียนเพียงคนเดียว"

@@ -1,25 +1,25 @@
 /*!
  * VisualEditor PreviewElement tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ui.PreviewElement' );
 
 /* Tests */
 
-QUnit.test( 'Basic tests', ( assert ) => {
-	const done = assert.async(),
+QUnit.test( 'Basic tests', function ( assert ) {
+	var done = assert.async(),
 		doc = ve.dm.example.createExampleDocument(),
 		modelNode = doc.getDocumentNode().getChildren()[ 0 ];
 
-	const simplePreview = new ve.ui.PreviewElement();
+	var simplePreview = new ve.ui.PreviewElement();
 	assert.deepEqual( simplePreview.isGenerating(), false, 'not isGenerating if constructed without model' );
 	simplePreview.setModel( modelNode );
 	assert.strictEqual( simplePreview.model, modelNode, 'setModel' );
 	assert.strictEqual( simplePreview.isGenerating(), true, 'isGenerating after setModel' );
 
-	simplePreview.once( 'render', () => {
+	simplePreview.once( 'render', function () {
 		assert.deepEqual( simplePreview.isGenerating(), false, 'not isGenerating after render' );
 		assert.equalDomElement(
 			simplePreview.$element[ 0 ],
@@ -29,9 +29,9 @@ QUnit.test( 'Basic tests', ( assert ) => {
 		done();
 	} );
 
-	const useViewPreview = new ve.ui.PreviewElement( modelNode, { useView: true } );
+	var useViewPreview = new ve.ui.PreviewElement( modelNode, { useView: true } );
 	assert.strictEqual( useViewPreview.isGenerating(), true, 'isGenerating after construction with model' );
-	useViewPreview.once( 'render', () => {
+	useViewPreview.once( 'render', function () {
 		assert.deepEqual( simplePreview.isGenerating(), false, 'not isGenerating after useView render' );
 		assert.equalDomElement(
 			simplePreview.$element[ 0 ],

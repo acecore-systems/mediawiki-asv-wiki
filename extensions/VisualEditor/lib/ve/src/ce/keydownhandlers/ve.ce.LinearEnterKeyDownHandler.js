@@ -1,7 +1,7 @@
 /*!
  * VisualEditor ContentEditable linear enter key down handler
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /* istanbul ignore next */
@@ -36,10 +36,10 @@ ve.ce.LinearEnterKeyDownHandler.static.supportedSelections = [ 'linear' ];
  * @inheritdoc
  */
 ve.ce.LinearEnterKeyDownHandler.static.execute = function ( surface, e ) {
-	const documentModel = surface.model.getDocument(),
-		emptyParagraph = [ { type: 'paragraph' }, { type: '/paragraph' } ];
-	let range = surface.model.getSelection().getRange(),
+	var range = surface.model.getSelection().getRange(),
 		cursor = range.from,
+		documentModel = surface.model.getDocument(),
+		emptyParagraph = [ { type: 'paragraph' }, { type: '/paragraph' } ],
 		advanceCursor = true,
 		outermostNode = null,
 		nodeModel = null,
@@ -52,7 +52,7 @@ ve.ce.LinearEnterKeyDownHandler.static.execute = function ( surface, e ) {
 		return false;
 	}
 
-	const focusedNode = surface.getFocusedNode();
+	var focusedNode = surface.getFocusedNode();
 	if ( focusedNode ) {
 		if ( focusedNode.getModel().isEditable() ) {
 			focusedNode.executeCommand();
@@ -64,7 +64,7 @@ ve.ce.LinearEnterKeyDownHandler.static.execute = function ( surface, e ) {
 		return true;
 	}
 
-	let node = surface.getDocument().getBranchNodeFromOffset( range.from );
+	var node = surface.getDocument().getBranchNodeFromOffset( range.from );
 
 	if ( !node.isMultiline() ) {
 		return true;
@@ -72,7 +72,7 @@ ve.ce.LinearEnterKeyDownHandler.static.execute = function ( surface, e ) {
 
 	// Handle removal first
 	if ( !range.isCollapsed() ) {
-		const txRemove = ve.dm.TransactionBuilder.static.newFromRemoval( documentModel, range );
+		var txRemove = ve.dm.TransactionBuilder.static.newFromRemoval( documentModel, range );
 		range = txRemove.translateRange( range );
 		// We do want this to propagate to the surface
 		surface.model.change( txRemove, new ve.dm.LinearSelection( range ) );
@@ -86,7 +86,7 @@ ve.ce.LinearEnterKeyDownHandler.static.execute = function ( surface, e ) {
 		nodeModelRange = nodeModel.getRange();
 	}
 
-	let txInsert;
+	var txInsert;
 	// Handle insertion
 	if ( node === null ) {
 		throw new Error( 'node === null' );
@@ -115,8 +115,8 @@ ve.ce.LinearEnterKeyDownHandler.static.execute = function ( surface, e ) {
 	} else if ( !node.splitOnEnter() ) {
 		// Cannot split, so insert some appropriate node
 
-		let insertEmptyParagraph = false;
-		let prevContentOffset;
+		var insertEmptyParagraph = false;
+		var prevContentOffset;
 		if ( documentModel.hasSlugAtOffset( range.from ) ) {
 			insertEmptyParagraph = true;
 		} else {
@@ -147,8 +147,8 @@ ve.ce.LinearEnterKeyDownHandler.static.execute = function ( surface, e ) {
 	// Assertion: if txInsert === undefined then node.splitOnEnter() === true
 
 	function getSplitData( n ) {
-		const stack = [];
-		n.traverseUpstream( ( parent ) => {
+		var stack = [];
+		n.traverseUpstream( function ( parent ) {
 			if ( !parent.splitOnEnter() ) {
 				return false;
 			}
@@ -156,7 +156,7 @@ ve.ce.LinearEnterKeyDownHandler.static.execute = function ( surface, e ) {
 				stack.length / 2,
 				0,
 				{ type: '/' + parent.type },
-				parent.getModel().getClonedElement( true, true )
+				parent.getModel().getClonedElement( true )
 			);
 			outermostNode = parent;
 			if ( e.shiftKey ) {
@@ -172,10 +172,10 @@ ve.ce.LinearEnterKeyDownHandler.static.execute = function ( surface, e ) {
 		// This node has splitOnEnter = true. Traverse upstream until the first node
 		// that has splitOnEnter = false, splitting each node as it is reached. Set
 		// outermostNode to the last splittable node.
-		let splitData = getSplitData( node );
+		var splitData = getSplitData( node );
 
-		const outerParent = outermostNode.getParent();
-		const outerChildrenCount = outerParent.getChildren().length;
+		var outerParent = outermostNode.getParent();
+		var outerChildrenCount = outerParent.getChildren().length;
 
 		if (
 			// Parent removes empty last children
@@ -189,7 +189,7 @@ ve.ce.LinearEnterKeyDownHandler.static.execute = function ( surface, e ) {
 			)
 		) {
 			// Enter was pressed in an empty last child
-			const container = outerParent.getParent();
+			var container = outerParent.getParent();
 			advanceCursor = false;
 			if ( outerChildrenCount === 1 ) {
 				// The item we're about to remove is the only child
@@ -254,7 +254,7 @@ ve.ce.LinearEnterKeyDownHandler.static.execute = function ( surface, e ) {
 	// Reset and resume polling
 	surface.surfaceObserver.clear();
 	// TODO: This setTimeout appears to be unnecessary (we're not render-locked)
-	setTimeout( () => {
+	setTimeout( function () {
 		surface.findAndExecuteSequences();
 	} );
 

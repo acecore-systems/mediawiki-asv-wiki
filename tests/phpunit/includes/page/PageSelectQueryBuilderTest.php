@@ -3,7 +3,6 @@ namespace MediaWiki\Tests\Page;
 
 use Exception;
 use MediaWiki\Config\ServiceOptions;
-use MediaWiki\MainConfigNames;
 use MediaWiki\Page\PageSelectQueryBuilder;
 use MediaWiki\Page\PageStore;
 use MediaWikiIntegrationTestCase;
@@ -32,8 +31,8 @@ class PageSelectQueryBuilderTest extends MediaWikiIntegrationTestCase {
 		$serviceOptions = new ServiceOptions(
 			PageStore::CONSTRUCTOR_OPTIONS,
 			[
-				MainConfigNames::LanguageCode => $services->getContentLanguage()->getCode(),
-				MainConfigNames::PageLanguageUseDB => true,
+				'LanguageCode' => $services->getContentLanguage()->getCode(),
+				'PageLanguageUseDB' => true
 			]
 		);
 
@@ -43,7 +42,7 @@ class PageSelectQueryBuilderTest extends MediaWikiIntegrationTestCase {
 			$services->getNamespaceInfo(),
 			$services->getTitleParser(),
 			$services->getLinkCache(),
-			$services->getStatsFactory()
+			$services->getStatsdDataFactory()
 		);
 	}
 
@@ -192,13 +191,13 @@ class PageSelectQueryBuilderTest extends MediaWikiIntegrationTestCase {
 			->whereTitlePrefix( NS_TALK, 'A' )
 			->fetchPageRecords();
 
-		$this->assertCount( 1, iterator_to_array( $recs ) );
+		$this->assertCount( 1, $recs );
 
 		$recs = $pageStore->newSelectQueryBuilder()
 			->whereTitlePrefix( NS_MAIN, 'XX' )
 			->fetchPageRecords();
 
-		$this->assertCount( 0, iterator_to_array( $recs ) );
+		$this->assertCount( 0, $recs );
 	}
 
 }

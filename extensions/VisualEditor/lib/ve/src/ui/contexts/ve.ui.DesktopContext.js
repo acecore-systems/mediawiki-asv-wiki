@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface DesktopContext class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -13,8 +13,8 @@
  * @constructor
  * @param {ve.ui.Surface} surface
  * @param {Object} [config] Configuration options
- * @param {jQuery} [config.$popupContainer] Clipping container for context popup
- * @param {number} [config.popupPadding=10] Padding between popup and $popupContainer, can be negative
+ * @cfg {jQuery} [$popupContainer] Clipping container for context popup
+ * @cfg {number} [popupPadding=10] Padding between popup and $popupContainer, can be negative
  */
 ve.ui.DesktopContext = function VeUiDesktopContext( surface, config ) {
 	config = config || {};
@@ -51,7 +51,7 @@ ve.ui.DesktopContext = function VeUiDesktopContext( surface, config ) {
 	this.$window.on( {
 		resize: this.onWindowResizeHandler
 	} );
-	this.surface.$scrollListener[ 0 ].addEventListener( 'scroll', this.onWindowScrollDebounced, { passive: true } );
+	ve.addPassiveEventListener( this.surface.$scrollListener[ 0 ], 'scroll', this.onWindowScrollDebounced );
 
 	// Initialization
 	this.$element
@@ -159,7 +159,7 @@ ve.ui.DesktopContext.prototype.toggle = function ( show ) {
 	}
 
 	this.transitioning = ve.createDeferred();
-	const promise = this.transitioning.promise();
+	var promise = this.transitioning.promise();
 
 	// Parent method
 	ve.ui.DesktopContext.super.prototype.toggle.call( this, show );
@@ -186,7 +186,8 @@ ve.ui.DesktopContext.prototype.toggle = function ( show ) {
  * @inheritdoc
  */
 ve.ui.DesktopContext.prototype.updateDimensions = function () {
-	const $container = this.inspector ? this.inspector.$frame : this.$group;
+	var $container = this.inspector ? this.inspector.$frame : this.$group,
+		embeddable = false;
 
 	// Parent method
 	ve.ui.DesktopContext.super.prototype.updateDimensions.call( this );
@@ -195,12 +196,12 @@ ve.ui.DesktopContext.prototype.updateDimensions = function () {
 		return;
 	}
 
-	const rtl = this.surface.getModel().getDocument().getDir() === 'rtl';
-	const surface = this.surface.getView();
-	const focusedNode = surface.getFocusedNode();
+	var rtl = this.surface.getModel().getDocument().getDir() === 'rtl';
+	var surface = this.surface.getView();
+	var focusedNode = surface.getFocusedNode();
 	// Selection when the inspector was opened. Used to stop the context from
 	// jumping when an inline selection expands, e.g. to cover a long word
-	let startingSelection;
+	var startingSelection;
 	if (
 		!focusedNode && this.inspector && this.inspector.initialFragment &&
 		// Don't use initial selection if it comes from another document,
@@ -210,18 +211,17 @@ ve.ui.DesktopContext.prototype.updateDimensions = function () {
 	) {
 		startingSelection = this.inspector.initialFragment.getSelection();
 	}
-	const currentSelection = this.surface.getModel().getSelection();
-	const isTableSelection = ( startingSelection || currentSelection ) instanceof ve.dm.TableSelection;
+	var currentSelection = this.surface.getModel().getSelection();
+	var isTableSelection = ( startingSelection || currentSelection ) instanceof ve.dm.TableSelection;
 
-	const boundingRect = isTableSelection ?
+	var boundingRect = isTableSelection ?
 		surface.getSelection( startingSelection ).getTableBoundingRect() :
 		surface.getSelection( startingSelection ).getSelectionBoundingRect();
 
 	this.$element.removeClass( 've-ui-desktopContext-embedded' );
 
-	let position;
-	let middle;
-	let embeddable = false;
+	var position;
+	var middle;
 	if ( !boundingRect ) {
 		// If !boundingRect, the surface apparently isn't selected.
 		// This shouldn't happen because the context is only supposed to be
@@ -254,7 +254,7 @@ ve.ui.DesktopContext.prototype.updateDimensions = function () {
 		}
 	} else {
 		// The selection is text or an inline focused node
-		const startAndEndRects = surface.getSelection( startingSelection ).getSelectionStartAndEndRects();
+		var startAndEndRects = surface.getSelection( startingSelection ).getSelectionStartAndEndRects();
 		if ( startAndEndRects ) {
 			middle = ( boundingRect.left + boundingRect.right ) / 2;
 			if (
@@ -311,9 +311,9 @@ ve.ui.DesktopContext.prototype.onWindowScroll = function () {
  * @return {boolean} Context menu is embeddable
  */
 ve.ui.DesktopContext.prototype.isEmbeddable = function () {
-	const sources = this.getRelatedSources();
+	var sources = this.getRelatedSources();
 
-	for ( let i = 0, len = sources.length; i < len; i++ ) {
+	for ( var i = 0, len = sources.length; i < len; i++ ) {
 		if ( !sources[ i ].embeddable ) {
 			return false;
 		}
@@ -332,15 +332,15 @@ ve.ui.DesktopContext.prototype.setPopupSizeAndPosition = function ( repositionOn
 		return;
 	}
 
-	const surface = this.surface;
-	const viewport = surface.getViewportDimensions();
+	var surface = this.surface;
+	var viewport = surface.getViewportDimensions();
 
 	if ( !viewport || !this.dimensions ) {
 		// viewport can be null if the surface is not attached
 		return;
 	}
 
-	const margin = 10,
+	var margin = 10,
 		minimumVisibleHeight = 100;
 
 	if ( this.popup.hasAnchor() ) {
@@ -354,7 +354,7 @@ ve.ui.DesktopContext.prototype.setPopupSizeAndPosition = function ( repositionOn
 		// Float the content if it's bigger than the viewport. Exactly how /
 		// whether it should be floated is situational, so this is a
 		// preliminary determination. Checks below might cancel the float.
-		let floating =
+		var floating =
 			( !this.embeddable && this.position.y + this.dimensions.height > viewport.bottom - margin ) ||
 			( this.embeddable && this.position.y < viewport.top + margin );
 
@@ -370,7 +370,7 @@ ve.ui.DesktopContext.prototype.setPopupSizeAndPosition = function ( repositionOn
 				} else {
 					this.$element.css( {
 						left: this.position.x + viewport.left,
-						top: this.surface.getPadding().top + margin,
+						top: this.surface.padding.top + margin,
 						bottom: ''
 					} );
 				}
@@ -412,10 +412,9 @@ ve.ui.DesktopContext.prototype.setPopupSizeAndPosition = function ( repositionOn
 		// of the popup. Limiting it to the window height would ignore toolbars
 		// and the find-replace dialog and suchlike. We can't use getViewportDimensions
 		// as that doesn't account for the surface height "growing" when we scroll (T304847).
-		const maxSurfaceHeight = this.surface.$scrollContainer.height() -
-			this.surface.getPadding().top -
-			// Allow room for callout and cursor above the context
-			30;
+		var maxSurfaceHeight = this.surface.$scrollContainer.height() - this.surface.padding.top;
+		// Allow room for callout and cursor above the context
+		maxSurfaceHeight -= 30;
 		this.popup.setSize( this.dimensions.width, Math.min( this.dimensions.height, maxSurfaceHeight ) );
 
 		this.popup.scrollElementIntoView( { animate: false } );
@@ -435,7 +434,7 @@ ve.ui.DesktopContext.prototype.destroy = function () {
 	this.$window.off( {
 		resize: this.onWindowResizeHandler
 	} );
-	this.surface.$scrollListener[ 0 ].removeEventListener( 'scroll', this.onWindowScrollDebounced );
+	ve.removePassiveEventListener( this.surface.$scrollListener[ 0 ], 'scroll', this.onWindowScrollDebounced );
 	// Popups bind scroll events if they're in positioning mode, so make sure that's disabled
 	this.popup.togglePositioning( false );
 

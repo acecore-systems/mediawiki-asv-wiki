@@ -24,22 +24,23 @@ use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IMaintainableDatabase;
 
 class CloneDatabase {
-	/** Table prefix for cloning */
-	private string $newTablePrefix;
+	/** @var string Table prefix for cloning */
+	private $newTablePrefix;
 
-	/** Current table prefix */
-	private string $oldTablePrefix;
+	/** @var string Current table prefix */
+	private $oldTablePrefix;
 
-	/** List of tables to be cloned */
-	private array $tablesToClone;
+	/** @var array List of tables to be cloned */
+	private $tablesToClone;
 
-	/** Should we DROP tables containing the new names? */
-	private bool $dropCurrentTables;
+	/** @var bool Should we DROP tables containing the new names? */
+	private $dropCurrentTables;
 
-	/** Whether to use temporary tables or not */
-	private bool $useTemporaryTables = true;
+	/** @var bool Whether to use temporary tables or not */
+	private $useTemporaryTables = true;
 
-	private IMaintainableDatabase $db;
+	/** @var IMaintainableDatabase */
+	private $db;
 
 	/**
 	 * @param IMaintainableDatabase $db A database subclass
@@ -52,7 +53,7 @@ class CloneDatabase {
 		IMaintainableDatabase $db,
 		array $tablesToClone,
 		string $newTablePrefix,
-		?string $oldTablePrefix = null,
+		string $oldTablePrefix = null,
 		bool $dropCurrentTables = true
 	) {
 		if ( !$tablesToClone ) {
@@ -69,11 +70,11 @@ class CloneDatabase {
 	 * Set whether to use temporary tables or not
 	 * @param bool $u Use temporary tables when cloning the structure
 	 */
-	public function useTemporaryTables( bool $u = true ): void {
+	public function useTemporaryTables( $u = true ) {
 		$this->useTemporaryTables = $u;
 	}
 
-	public function cloneTableStructure(): void {
+	public function cloneTableStructure() {
 		global $wgSharedTables, $wgSharedDB;
 		foreach ( $this->tablesToClone as $tbl ) {
 			if ( $wgSharedDB && in_array( $tbl, $wgSharedTables, true ) ) {
@@ -100,10 +101,12 @@ class CloneDatabase {
 						. " is name of both the old and the new table." );
 				}
 				$this->db->dropTable( $tbl, __METHOD__ );
+				wfDebug( __METHOD__ . " dropping {$newTableName}" );
 				// Dropping the oldTable because the prefix was changed
 			}
 
 			# Create new table
+			wfDebug( __METHOD__ . " duplicating $oldTableName to $newTableName" );
 			$this->db->duplicateTableStructure(
 				$oldTableName, $newTableName, $this->useTemporaryTables, __METHOD__ );
 		}
@@ -113,7 +116,7 @@ class CloneDatabase {
 	 * Change the prefix back to the original.
 	 * @param bool $dropTables Optionally drop the tables we created
 	 */
-	public function destroy( bool $dropTables = false ): void {
+	public function destroy( $dropTables = false ) {
 		if ( $dropTables ) {
 			$this->db->tablePrefix( $this->newTablePrefix );
 			foreach ( $this->tablesToClone as $tbl ) {
@@ -129,7 +132,7 @@ class CloneDatabase {
 	 * @param string $prefix
 	 * @return void
 	 */
-	public static function changePrefix( string $prefix ): void {
+	public static function changePrefix( $prefix ) {
 		global $wgDBprefix, $wgDBname;
 
 		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();

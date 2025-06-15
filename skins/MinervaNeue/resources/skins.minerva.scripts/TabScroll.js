@@ -1,6 +1,7 @@
-let scrollLeftStyle = null;
+var scrollLeftStyle = null;
 
 function testScrollLeftStyle() {
+	var definer, $definer;
 	if ( scrollLeftStyle !== null ) {
 		return scrollLeftStyle;
 	}
@@ -8,12 +9,12 @@ function testScrollLeftStyle() {
 	// Adapted from <https://github.com/othree/jquery.rtl-scroll-type>.
 	// Original code copyright 2012 Wei-Ko Kao, licensed under the MIT License.
 	// Adaptation copied from OO.ui.Element.static.getScrollLeft
-	const $definer = $( '<div>' ).attr( {
+	$definer = $( '<div>' ).attr( {
 		dir: 'rtl',
 		style: 'font-size: 14px; width: 4px; height: 1px; position: absolute; top: -1000px; overflow: scroll;'
 	} ).text( 'ABCD' );
 	$definer.appendTo( document.body );
-	const definer = $definer[ 0 ];
+	definer = $definer[ 0 ];
 	if ( definer.scrollLeft > 0 ) {
 		// Safari, Chrome
 		scrollLeftStyle = 'default';
@@ -34,19 +35,13 @@ function testScrollLeftStyle() {
 /**
  * When tabs are present and one is selected, scroll the selected tab into view.
  *
- * @ignore
+ * @return {void}
  */
 function initTabsScrollPosition() {
-	// eslint-disable-next-line no-jquery/no-global-selector
-	const $selectedTab = $( '.minerva__tab.selected' );
-	if ( $selectedTab.length !== 1 ) {
-		return;
-	}
-	const selectedTab = $selectedTab.get( 0 );
-	const $tabContainer = $selectedTab.closest( '.minerva__tab-container' );
-	const tabContainer = $tabContainer.get( 0 );
-	const maxScrollLeft = tabContainer.scrollWidth - tabContainer.clientWidth;
-	const dir = $tabContainer.css( 'direction' ) || 'ltr';
+	var selectedTab, tabContainer, $tabContainer, maxScrollLeft, leftMostChild, rightMostChild,
+		dir, widthDiff, tabPosition, containerPosition, left, increaseScrollLeft,
+		// eslint-disable-next-line no-jquery/no-global-selector
+		$selectedTab = $( '.minerva__tab.selected' );
 
 	/**
 	 * Set tabContainer.scrollLeft, with adjustments for browser inconsistencies in RTL
@@ -67,10 +62,18 @@ function initTabsScrollPosition() {
 		tabContainer.scrollLeft = sl;
 	}
 
-	const leftMostChild = dir === 'ltr' ? tabContainer.firstElementChild : tabContainer.lastElementChild;
-	const rightMostChild = dir === 'ltr' ? tabContainer.lastElementChild : tabContainer.firstElementChild;
+	if ( $selectedTab.length !== 1 ) {
+		return;
+	}
+	selectedTab = $selectedTab.get( 0 );
+	$tabContainer = $selectedTab.closest( '.minerva__tab-container' );
+	tabContainer = $tabContainer.get( 0 );
+	maxScrollLeft = tabContainer.scrollWidth - tabContainer.clientWidth;
+	dir = $tabContainer.css( 'direction' ) || 'ltr';
+	leftMostChild = dir === 'ltr' ? tabContainer.firstElementChild : tabContainer.lastElementChild;
+	rightMostChild = dir === 'ltr' ? tabContainer.lastElementChild : tabContainer.firstElementChild;
 	// If the tab is wider than the container (doesn't fit), this value will be negative
-	const widthDiff = tabContainer.clientWidth - selectedTab.clientWidth;
+	widthDiff = tabContainer.clientWidth - selectedTab.clientWidth;
 
 	if ( selectedTab === leftMostChild ) {
 		// The left-most tab is selected. If the tab fits, scroll all the way to the left.
@@ -90,15 +93,14 @@ function initTabsScrollPosition() {
 		}
 	} else {
 		// The selected tab is not the left-most or right-most, it's somewhere in the middle
-		const tabPosition = $selectedTab.position();
-		const containerPosition = $tabContainer.position();
+		tabPosition = $selectedTab.position();
+		containerPosition = $tabContainer.position();
 		// Position of the left edge of $selectedTab relative to the left edge of $tabContainer
-		const left = tabPosition.left - containerPosition.left;
+		left = tabPosition.left - containerPosition.left;
 		// Because the calculations above use the existing .scrollLeft from the browser,
 		// we should not use setScrollLeft() here. Instead, we rely on the fact that scrollLeft
 		// increases to the left in the 'default' and 'negative' modes, and to the right in
 		// the 'reverse' mode, so we can add/subtract a delta to/from scrollLeft accordingly.
-		let increaseScrollLeft;
 		if ( widthDiff >= 0 ) {
 			// The tab fits, center it
 			increaseScrollLeft = left - widthDiff / 2;

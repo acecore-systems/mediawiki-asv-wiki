@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel Surface class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -30,7 +30,8 @@ OO.inheritClass( ve.ce.MWWikitextSurface, ve.ce.Surface );
  * @inheritdoc
  */
 ve.ce.MWWikitextSurface.prototype.onCopy = function ( e ) {
-	const clipboardData = e.originalEvent.clipboardData,
+	var view = this,
+		clipboardData = e.originalEvent.clipboardData,
 		text = this.getModel().getFragment().getText( true ).replace( /\n\n/g, '\n' );
 
 	if ( !text ) {
@@ -43,9 +44,9 @@ ve.ce.MWWikitextSurface.prototype.onCopy = function ( e ) {
 		clipboardData.setData( 'text/plain', text );
 		// We're not going to set HTML, but for browsers that support custom data, set a clipboard key
 		if ( ve.isClipboardDataFormatsSupported( e, true ) ) {
-			const slice = this.model.documentModel.shallowCloneFromSelection( this.getModel().getSelection() );
+			var slice = this.model.documentModel.shallowCloneFromSelection( this.getModel().getSelection() );
 			this.clipboardIndex++;
-			const clipboardKey = this.clipboardId + '-' + this.clipboardIndex;
+			var clipboardKey = this.clipboardId + '-' + this.clipboardIndex;
 			this.clipboard = { slice: slice, hash: null };
 			// Clone the elements in the slice
 			slice.data.cloneElements( true );
@@ -57,10 +58,10 @@ ve.ce.MWWikitextSurface.prototype.onCopy = function ( e ) {
 			clipboardData.setData( 'text/x-wiki', text );
 		}
 	} else {
-		const originalSelection = new ve.SelectionState( this.nativeSelection );
+		var originalSelection = new ve.SelectionState( this.nativeSelection );
 
 		// Save scroll position before changing focus to "offscreen" paste target
-		const scrollTop = this.surface.$scrollContainer.scrollTop();
+		var scrollTop = this.surface.$scrollContainer.scrollTop();
 
 		// Prevent surface observation due to native range changing
 		this.surfaceObserver.disable();
@@ -71,16 +72,16 @@ ve.ce.MWWikitextSurface.prototype.onCopy = function ( e ) {
 		this.surface.$scrollContainer.scrollTop( scrollTop );
 
 		// setTimeout: postpone until after the default copy action
-		setTimeout( () => {
+		setTimeout( function () {
 			// Change focus back
-			this.$attachedRootNode[ 0 ].focus();
-			this.showSelectionState( originalSelection );
+			view.$attachedRootNode[ 0 ].focus();
+			view.showSelectionState( originalSelection );
 			// Restore scroll position
-			this.surface.$scrollContainer.scrollTop( scrollTop );
-			this.surfaceObserver.clear();
-			this.surfaceObserver.enable();
+			view.surface.$scrollContainer.scrollTop( scrollTop );
+			view.surfaceObserver.clear();
+			view.surfaceObserver.enable();
 			// Detach input
-			this.pasteTargetInput.$element.detach();
+			view.pasteTargetInput.$element.detach();
 		} );
 	}
 };
@@ -89,12 +90,13 @@ ve.ce.MWWikitextSurface.prototype.onCopy = function ( e ) {
  * @inheritdoc
  */
 ve.ce.MWWikitextSurface.prototype.afterPasteInsertExternalData = function ( targetFragment, pastedDocumentModel, contextRange ) {
-	const wasSpecial = this.pasteSpecial,
+	var wasSpecial = this.pasteSpecial,
 		// TODO: This check returns true if the paste contains meaningful structure (tables, lists etc.)
 		// but no annotations (bold, links etc.).
-		wasPlain = wasSpecial || pastedDocumentModel.data.isPlainText( contextRange, true, undefined, true );
+		wasPlain = wasSpecial || pastedDocumentModel.data.isPlainText( contextRange, true, undefined, true ),
+		view = this;
 
-	const plainPastedDocumentModel = pastedDocumentModel.shallowCloneFromRange( contextRange );
+	var plainPastedDocumentModel = pastedDocumentModel.shallowCloneFromRange( contextRange );
 	plainPastedDocumentModel.data.sanitize( { plainText: true, keepEmptyContentBranches: true } );
 	// We just turned this into plaintext, which probably
 	// affected the content-length. Luckily, because of
@@ -106,33 +108,39 @@ ve.ce.MWWikitextSurface.prototype.afterPasteInsertExternalData = function ( targ
 	// need to exclude the internal list, and since we're
 	// from a paste we also have to exclude the
 	// opening/closing paragraph.)
-	const plainContextRange = new ve.Range( plainPastedDocumentModel.getDocumentRange().from + 1, plainPastedDocumentModel.getDocumentRange().to - 1 );
+	var plainContextRange = new ve.Range( plainPastedDocumentModel.getDocumentRange().from + 1, plainPastedDocumentModel.getDocumentRange().to - 1 );
 	this.pasteSpecial = true;
 
 	// isPlainText is true but we still need sanitize (e.g. remove lists)
-	const promise = ve.ce.MWWikitextSurface.super.prototype.afterPasteInsertExternalData.call( this, targetFragment, plainPastedDocumentModel, plainContextRange );
-	if ( !wasPlain ) {
-		promise.then( () => {
+	var promise = ve.ce.MWWikitextSurface.super.prototype.afterPasteInsertExternalData.call( this, targetFragment, plainPastedDocumentModel, plainContextRange );
+	if ( ve.init.target.constructor.static.convertToWikitextOnPaste && !wasPlain ) {
+		promise.then( function () {
 			// We need to wait for the selection change after paste as that triggers
 			// a contextChange event. Really we should wait for the afterPaste promise to resolve.
-			setTimeout( () => {
-				const surface = this.getSurface(),
+			setTimeout( function () {
+				var surface = view.getSurface(),
 					context = surface.getContext();
-				// Ensure surface is deactivated on mobile so context can be shown (T336073)
-				if ( context.isMobile() ) {
-					surface.getView().deactivate();
-				}
-				context.addPersistentSource( {
+				// HACK: Directly set the 'relatedSources' result in the context to trick it
+				// into showing a context at the end of the paste. This context will disappear
+				// as soon as the selection change as a contextChange will fire.
+				// TODO: Come up witha method to store this context on the surface model then
+				// have the LinearContext read it from there.
+				context.relatedSources = [ {
 					embeddable: false,
-					name: 'wikitextPaste',
-					data: {
+					// HACK²: Pass the rich text document and original fragment (which should now cover
+					// the pasted text) to the context via the otherwise-unused 'model' property.
+					model: {
 						doc: pastedDocumentModel,
 						contextRange: contextRange,
 						fragment: targetFragment
-					}
-				} );
-				surface.getModel().once( 'select', () => {
-					context.removePersistentSource( 'wikitextPaste' );
+					},
+					name: 'wikitextPaste',
+					type: 'item'
+				} ];
+				context.afterContextChange();
+				surface.getModel().once( 'select', function () {
+					context.relatedSources = [];
+					context.afterContextChange();
 				} );
 			} );
 		} );

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel MWIncludesNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see AUTHORS.txt
  * @license The MIT License (MIT); see LICENSE.txt
  */
 
@@ -36,10 +36,10 @@ ve.dm.MWIncludesNode.static.matchRdfaTypes = [
  * @inheritdoc
  */
 ve.dm.MWIncludesNode.static.toDataElement = function ( domElements ) {
-	const mwDataJSON = domElements[ 0 ].getAttribute( 'data-mw' ),
+	var mwDataJSON = domElements[ 0 ].getAttribute( 'data-mw' ),
 		type = domElements[ 0 ].getAttribute( 'typeof' );
 
-	const dataElement = {
+	var dataElement = {
 		type: 'mwIncludes',
 		attributes: {
 			type: type
@@ -64,16 +64,16 @@ ve.dm.MWIncludesNode.static.toDataElement = function ( domElements ) {
  * @inheritdoc
  */
 ve.dm.MWIncludesNode.static.toDomElements = function ( dataElement, doc, converter ) {
-	const el = doc.createElement( 'meta' );
+	var el = doc.createElement( 'meta' );
 	el.setAttribute( 'typeof', dataElement.attributes.type );
 	if ( dataElement.attributes.mw ) {
 		el.setAttribute( 'data-mw', JSON.stringify( dataElement.attributes.mw ) );
 	}
 
-	const els = [ el ];
+	var els = [ el ];
 	if ( dataElement.attributes.type === 'mw:Includes/IncludeOnly' ) {
 		// includeonly nodes have an implicit closing tag
-		ve.batchPush( els, ve.dm.MWIncludesNode.static.toDomElements( {
+		els = els.concat( ve.dm.MWIncludesNode.static.toDomElements( {
 			type: 'mwIncludes',
 			attributes: {
 				type: 'mw:Includes/IncludeOnly/End'
@@ -87,7 +87,7 @@ ve.dm.MWIncludesNode.static.toDomElements = function ( dataElement, doc, convert
 /* Methods */
 
 ve.dm.MWIncludesNode.prototype.getWikitextTag = function () {
-	const map = {
+	var map = {
 		'mw:Includes/NoInclude': '<noinclude>',
 		'mw:Includes/NoInclude/End': '</noinclude>',
 		'mw:Includes/OnlyInclude': '<onlyinclude>',

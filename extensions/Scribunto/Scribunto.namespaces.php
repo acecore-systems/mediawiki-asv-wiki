@@ -35,24 +35,9 @@ $namespaceNames['an'] = [
 	829 => 'Descusión_módulo',
 ];
 
-$namespaceNames['anp'] = [
-	828 => 'मोड्यूल',
-	829 => 'मोड्यूल_वार्ता',
-];
-
 $namespaceNames['ar'] = [
 	828 => 'وحدة',
 	829 => 'نقاش_الوحدة',
-];
-
-$namespaceNames['ary'] = [
-	828 => 'مودول',
-	829 => 'مداكرة_د_لمودول',
-];
-
-$namespaceAliases['ary'] = [
-	'وحدة' => 828,
-	'نقاش_الوحدة' => 829,
 ];
 
 $namespaceNames['ast'] = [
@@ -132,11 +117,7 @@ $namespaceNames['ca'] = [
 
 $namespaceNames['ce'] = [
 	828 => 'Модуль',
-	829 => 'Модуль_йийцар',
-];
-
-$namespaceAliases['ce'] = [
-	'Модулин_дийцаре' => 829,
+	829 => 'Модулин_дийцаре',
 ];
 
 $namespaceNames['ckb'] = [
@@ -182,11 +163,6 @@ $namespaceNames['diq'] = [
 $namespaceNames['dsb'] = [
 	828 => 'Modul',
 	829 => 'Modul_diskusija',
-];
-
-$namespaceNames['dtp'] = [
-	828 => 'Modul',
-	829 => 'Pibarasan_modul',
 ];
 
 $namespaceNames['dty'] = [
@@ -254,19 +230,9 @@ $namespaceNames['gl'] = [
 	829 => 'Conversa_módulo',
 ];
 
-$namespaceNames['glk'] = [
-	828 => 'ماجۊل',
-	829 => 'ماجۊلˇ_گب',
-];
-
 $namespaceNames['gom-deva'] = [
 	828 => 'एकक',
 	829 => 'एकक_चर्चा',
-];
-
-$namespaceNames['gpe'] = [
-	828 => 'Module',
-	829 => 'Module_talk',
 ];
 
 $namespaceNames['gu'] = [
@@ -277,11 +243,6 @@ $namespaceNames['gu'] = [
 $namespaceNames['he'] = [
 	828 => 'יחידה',
 	829 => 'שיחת_יחידה',
-];
-
-$namespaceNames['hi'] = [
-	828 => 'मॉड्यूल',
-	829 => 'मॉड्यूल_वार्ता',
 ];
 
 $namespaceNames['hr'] = [
@@ -302,11 +263,6 @@ $namespaceNames['hu'] = [
 $namespaceNames['hy'] = [
 	828 => 'Մոդուլ',
 	829 => 'Մոդուլի_քննարկում',
-];
-
-$namespaceNames['iba'] = [
-	828 => 'Modul',
-	829 => 'Randau_modul',
 ];
 
 $namespaceNames['inh'] = [
@@ -352,11 +308,6 @@ $namespaceNames['kn'] = [
 $namespaceNames['ko'] = [
 	828 => '모듈',
 	829 => '모듈토론',
-];
-
-$namespaceNames['ks-arab'] = [
-	828 => 'ماڈیوٗل',
-	829 => 'ماڈیوٗل_کَتھ',
 ];
 
 $namespaceNames['ku'] = [
@@ -644,11 +595,6 @@ $namespaceNames['th'] = [
 	829 => 'คุยเรื่องมอดูล',
 ];
 
-$namespaceNames['tly'] = [
-	828 => 'Modul',
-	829 => 'Moduli_no-pegət',
-];
-
 $namespaceNames['tr'] = [
 	828 => 'Modül',
 	829 => 'Modül_tartışma',
@@ -662,11 +608,6 @@ $namespaceNames['uk'] = [
 $namespaceNames['ur'] = [
 	828 => 'ماڈیول',
 	829 => 'تبادلۂ_خیال_ماڈیول',
-];
-
-$namespaceNames['uz'] = [
-	828 => 'Modul',
-	829 => 'Modul_munozarasi',
 ];
 
 $namespaceNames['vi'] = [

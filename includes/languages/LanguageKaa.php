@@ -18,7 +18,6 @@
  * @file
  */
 
-use MediaWiki\Language\Language;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
 
@@ -29,10 +28,16 @@ use MediaWiki\MediaWikiServices;
  */
 class LanguageKaa extends Language {
 
+	# Convert from the nominative form of a noun to some other case
+	# Invoked with {{GRAMMAR:case|word}}
+
 	/**
 	 * Cases: genitive, dative, accusative, locative, ablative, comitative + possessive forms
 	 *
-	 * @inheritDoc
+	 * @param string $word
+	 * @param string $case
+	 *
+	 * @return string
 	 */
 	public function convertGrammar( $word, $case ) {
 		$grammarForms =
@@ -45,27 +50,31 @@ class LanguageKaa extends Language {
 	}
 
 	/**
-	 * Fixes an issue with ucfirst for transforming 'i' to 'İ'
+	 * It fixes issue with ucfirst for transforming 'i' to 'İ'
 	 *
-	 * @inheritDoc
+	 * @param string $string
+	 *
+	 * @return string
 	 */
-	public function ucfirst( $str ) {
-		if ( substr( $str, 0, 1 ) === 'i' ) {
-			return 'İ' . substr( $str, 1 );
+	public function ucfirst( $string ) {
+		if ( substr( $string, 0, 1 ) === 'i' ) {
+			return 'İ' . substr( $string, 1 );
 		}
-		return parent::ucfirst( $str );
+		return parent::ucfirst( $string );
 	}
 
 	/**
-	 * Fixes an issue with lcfirst for transforming 'I' to 'ı'
+	 * It fixes issue with lcfirst for transforming 'I' to 'ı'
 	 *
-	 * @inheritDoc
+	 * @param string $string
+	 *
+	 * @return mixed|string
 	 */
-	public function lcfirst( $str ) {
-		if ( substr( $str, 0, 1 ) === 'I' ) {
-			return 'ı' . substr( $str, 1 );
+	public function lcfirst( $string ) {
+		if ( substr( $string, 0, 1 ) === 'I' ) {
+			return 'ı' . substr( $string, 1 );
 		}
-		return parent::lcfirst( $str );
+		return parent::lcfirst( $string );
 	}
 
 }

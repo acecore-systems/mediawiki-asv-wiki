@@ -95,7 +95,7 @@ class WfThumbIsStandardTest extends MediaWikiIntegrationTestCase {
 	 * @dataProvider provideThumbParams
 	 */
 	public function testIsStandard( $message, $expected, $params ) {
-		$handlers = $this->getConfVar( MainConfigNames::ParserTestMediaHandlers );
+		$handlers = $this->getServiceContainer()->getMainConfig()->get( 'ParserTestMediaHandlers' );
 		$this->setService(
 			'MediaHandlerFactory',
 			new MediaHandlerFactory( new NullLogger(), $handlers )

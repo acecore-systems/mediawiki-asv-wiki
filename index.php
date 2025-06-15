@@ -11,10 +11,8 @@
 // -------------------------------------------------
 
 /**
- * The.php entry point for web browser navigations, usually routed to
- * an Action or SpecialPage subclass.
- *
- * @see MediaWiki\Actions\ActionEntryPoint The implementation.
+ * The main web entry point for web browser navigations, usually via an
+ * Action or SpecialPage subclass.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,12 +30,8 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup entrypoint
  */
-
-use MediaWiki\Actions\ActionEntryPoint;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\EntryPointEnvironment;
-use MediaWiki\MediaWikiServices;
 
 define( 'MW_ENTRY_POINT', 'index' );
 
@@ -49,10 +43,9 @@ wfEntryPointCheck( 'html', dirname( $_SERVER['SCRIPT_NAME'] ) );
 
 require __DIR__ . '/includes/WebStart.php';
 
-// Create the entry point object and call run() to handle the request.
-( new ActionEntryPoint(
-	RequestContext::getMain(),
-	new EntryPointEnvironment(),
-	// TODO: Maybe create a light-weight services container here instead.
-	MediaWikiServices::getInstance()
-) )->run();
+wfIndexMain();
+
+function wfIndexMain() {
+	$mediaWiki = new MediaWiki();
+	$mediaWiki->run();
+}

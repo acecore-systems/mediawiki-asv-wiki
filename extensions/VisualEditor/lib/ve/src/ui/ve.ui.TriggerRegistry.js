@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface TriggerRegistry class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -38,10 +38,10 @@ OO.inheritClass( ve.ui.TriggerRegistry, OO.Registry );
  * @throws {Error} Incomplete trigger
  */
 ve.ui.TriggerRegistry.prototype.register = function ( name, triggers ) {
-	const platform = ve.getSystemPlatform(),
+	var platform = ve.getSystemPlatform(),
 		platformKey = platform === 'mac' ? 'mac' : 'pc';
 
-	let triggerList;
+	var triggerList;
 	if ( ve.isPlainObject( triggers ) ) {
 		if ( Object.prototype.hasOwnProperty.call( triggers, platformKey ) ) {
 			triggerList = Array.isArray( triggers[ platformKey ] ) ? triggers[ platformKey ] : [ triggers[ platformKey ] ];
@@ -53,8 +53,8 @@ ve.ui.TriggerRegistry.prototype.register = function ( name, triggers ) {
 	}
 
 	// Validate arguments
-	for ( let i = 0, l = triggerList.length; i < l; i++ ) {
-		const trigger = triggerList[ i ];
+	for ( var i = 0, l = triggerList.length; i < l; i++ ) {
+		var trigger = triggerList[ i ];
 		if ( !( triggerList[ i ] instanceof ve.ui.Trigger ) ) {
 			throw new Error( 'Trigger must be an instance of ve.ui.Trigger' );
 		}
@@ -84,7 +84,9 @@ ve.ui.TriggerRegistry.prototype.getNameByTrigger = function ( triggerString ) {
  * @return {string[]} List of trigger messages
  */
 ve.ui.TriggerRegistry.prototype.getMessages = function ( name ) {
-	return ( this.lookup( name ) || [] ).map( ( trigger ) => trigger.getMessage() );
+	return ( this.lookup( name ) || [] ).map( function ( trigger ) {
+		return trigger.getMessage();
+	} );
 };
 
 /* Initialization */

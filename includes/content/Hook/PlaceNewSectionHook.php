@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Content\Hook;
 
-use MediaWiki\Content\Content;
+use Content;
 use WikiPage;
 
 /**

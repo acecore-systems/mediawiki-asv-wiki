@@ -18,14 +18,9 @@
  * @file
  */
 
-use MediaWiki\Context\ContextSource;
 use MediaWiki\HookContainer\ProtectedHookAccessorTrait;
-use MediaWiki\Html\Html;
-use MediaWiki\Linker\Linker;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\Title\Title;
 
 /**
  * Builds the image revision log shown on image pages
@@ -35,13 +30,27 @@ use MediaWiki\Title\Title;
 class ImageHistoryList extends ContextSource {
 	use ProtectedHookAccessorTrait;
 
-	protected Title $title;
-	protected File $img;
-	protected ImagePage $imagePage;
-	protected File $current;
+	/**
+	 * @var Title
+	 */
+	protected $title;
 
-	protected bool $showThumb;
-	/** @var bool */
+	/**
+	 * @var File
+	 */
+	protected $img;
+
+	/**
+	 * @var ImagePage
+	 */
+	protected $imagePage;
+
+	/**
+	 * @var File
+	 */
+	protected $current;
+
+	protected $repo, $showThumb;
 	protected $preventClickjacking = false;
 
 	/**
@@ -73,9 +82,10 @@ class ImageHistoryList extends ContextSource {
 	}
 
 	/**
+	 * @param string $navLinks
 	 * @return string
 	 */
-	public function beginImageHistoryList() {
+	public function beginImageHistoryList( $navLinks = '' ) {
 		// Styles for class=history-deleted
 		$this->getOutput()->addModuleStyles( 'mediawiki.interface.helpers.styles' );
 
@@ -97,15 +107,23 @@ class ImageHistoryList extends ContextSource {
 			}
 		}
 
-		return Html::openElement( 'table', [ 'class' => 'wikitable filehistory' ] ) . "\n"
+		return Html::element( 'h2', [ 'id' => 'filehistory' ], $this->msg( 'filehist' )->text() )
+			. "\n"
+			. Html::openElement( 'div', [ 'id' => 'mw-imagepage-section-filehistory' ] ) . "\n"
+			. $this->msg( 'filehist-help' )->parseAsBlock()
+			. $navLinks . "\n"
+			. Html::openElement( 'table', [ 'class' => 'wikitable filehistory' ] ) . "\n"
 			. Html::rawElement( 'tr', [], $html ) . "\n";
 	}
 
 	/**
+	 * @param string $navLinks
 	 * @return string
 	 */
-	public function endImageHistoryList() {
-		return Html::closeElement( 'table' ) . "\n";
+	public function endImageHistoryList( $navLinks = '' ) {
+		return Html::closeElement( 'table' ) . "\n" .
+			$navLinks . "\n" .
+			Html::closeElement( 'div' ) . "\n";
 	}
 
 	/**
@@ -130,32 +148,36 @@ class ImageHistoryList extends ContextSource {
 		// Deletion link
 		if ( $local && ( $this->getAuthority()->isAllowedAny( 'delete', 'deletedhistory' ) ) ) {
 			$row .= Html::openElement( 'td' );
-			# Link to hide content. Don't show useless link to people who cannot hide revisions.
-			if ( !$iscur && $this->getAuthority()->isAllowed( 'deleterevision' ) ) {
-				// If file is top revision, is missing or locked from this user, don't link
-				if ( !$file->userCan( File::DELETED_RESTRICTED, $user ) || !$file->exists() ) {
-					$row .= Html::check( 'deleterevisions', false, [ 'disabled' => 'disabled' ] );
-				} else {
-					$row .= Html::check( 'ids[' . explode( '!', $img, 2 )[0] . ']', false );
-				}
-				if ( $this->getAuthority()->isAllowed( 'delete' ) ) {
-					$row .= ' ';
-				}
-			}
 			# Link to remove from history
 			if ( $this->getAuthority()->isAllowed( 'delete' ) ) {
-				if ( $file->exists() ) {
-					$row .= $linkRenderer->makeKnownLink(
-						$this->title,
-						$this->msg( $iscur ? 'filehist-deleteall' : 'filehist-deleteone' )->text(),
-						[],
-						[ 'action' => 'delete', 'oldimage' => $iscur ? null : $img ]
-					);
-				} else {
-					// T244567: Non-existing file can not be deleted.
-					$row .= $this->msg( 'filehist-missing' )->escaped();
+				$row .= $linkRenderer->makeKnownLink(
+					$this->title,
+					$this->msg( $iscur ? 'filehist-deleteall' : 'filehist-deleteone' )->text(),
+					[],
+					[ 'action' => 'delete', 'oldimage' => $iscur ? null : $img ]
+				);
+			}
+			# Link to hide content. Don't show useless link to people who cannot hide revisions.
+			$canHide = $this->getAuthority()->isAllowed( 'deleterevision' );
+			if ( $canHide || ( $this->getAuthority()->isAllowed( 'deletedhistory' )
+					&& $file->getVisibility() ) ) {
+				if ( $this->getAuthority()->isAllowed( 'delete' ) ) {
+					$row .= Html::element( 'br' );
 				}
-
+				// If file is top revision or locked from this user, don't link
+				if ( $iscur || !$file->userCan( File::DELETED_RESTRICTED, $user ) ) {
+					$row .= Linker::revDeleteLinkDisabled( $canHide );
+				} else {
+					$row .= Linker::revDeleteLink(
+						[
+							'type' => 'oldimage',
+							'target' => $this->title->getPrefixedText(),
+							'ids' => explode( '!', $img, 2 )[0],
+						],
+						$file->isDeleted( File::DELETED_RESTRICTED ),
+						$canHide
+					);
+				}
 			}
 			$row .= Html::closeElement( 'td' );
 		}
@@ -169,9 +191,6 @@ class ImageHistoryList extends ContextSource {
 		) {
 			if ( $file->isDeleted( File::DELETED_FILE ) ) {
 				$row .= $this->msg( 'filehist-revert' )->escaped();
-			} elseif ( !$file->exists() ) {
-				// T328112: Lost file, in this case there's no version to revert back to.
-				$row .= $this->msg( 'filehist-missing' )->escaped();
 			} else {
 				$row .= $linkRenderer->makeKnownLink(
 					$this->title,
@@ -247,13 +266,13 @@ class ImageHistoryList extends ContextSource {
 		// Uploading user
 		$row .= Html::openElement( 'td' );
 		// Hide deleted usernames
-		if ( $uploader ) {
+		if ( $uploader && $local ) {
 			$row .= Linker::userLink( $uploader->getId(), $uploader->getName() );
-			if ( $local ) {
-				$row .= Html::rawElement( 'span', [ 'style' => 'white-space: nowrap;' ],
-					Linker::userToolLinks( $uploader->getId(), $uploader->getName() )
-				);
-			}
+			$row .= Html::rawElement( 'span', [ 'style' => 'white-space: nowrap;' ],
+				Linker::userToolLinks( $uploader->getId(), $uploader->getName() )
+			);
+		} elseif ( $uploader ) {
+			$row .= htmlspecialchars( $uploader->getName() );
 		} else {
 			$row .= Html::element( 'span', [ 'class' => 'history-deleted' ],
 				$this->msg( 'rev-deleted-user' )->text()
@@ -312,7 +331,7 @@ class ImageHistoryList extends ContextSource {
 			$lang->userDate( $timestamp, $user ),
 			$lang->userTime( $timestamp, $user )
 		)->text();
-		return $thumbnail->toHtml( [ 'alt' => $alt, 'file-link' => true, 'loading' => 'lazy' ] );
+		return $thumbnail->toHtml( [ 'alt' => $alt, 'file-link' => true ] );
 	}
 
 	/**

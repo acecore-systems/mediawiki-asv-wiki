@@ -1,7 +1,7 @@
 /*!
  * VisualEditor CommandRegistry class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -215,7 +215,7 @@ ve.ui.commandRegistry.register(
 	)
 );
 ( function () {
-	for ( let level = 1; level <= 6; level++ ) {
+	for ( var level = 1; level <= 6; level++ ) {
 		ve.ui.commandRegistry.register(
 			new ve.ui.Command(
 				'heading' + level, 'format', 'convert',
@@ -335,16 +335,16 @@ ve.ui.commandRegistry.register(
 );
 
 ( function () {
-	const modes = [ 'row', 'col' ],
+	var modes = [ 'row', 'col' ],
 		sides = [ 'before', 'after' ],
 		modeNames = { row: 'Row', col: 'Column' },
 		sideNames = { before: 'Before', after: 'After' };
 
-	modes.forEach( ( mode ) => {
-		const modeName = modeNames[ mode ];
+	modes.forEach( function ( mode ) {
+		var modeName = modeNames[ mode ];
 
-		sides.forEach( ( side ) => {
-			const sideName = sideNames[ side ];
+		sides.forEach( function ( side ) {
+			var sideName = sideNames[ side ];
 
 			ve.ui.commandRegistry.register(
 				// Commands registered here:

@@ -2,13 +2,15 @@
 
 namespace MediaWiki\Rest\Handler;
 
+use Config;
 use LogicException;
-use MediaWiki\Rest\Handler\Helper\PageRestHelperFactory;
-use MediaWiki\Rest\Handler\Helper\RevisionContentHelper;
+use MediaWiki\Page\PageLookup;
 use MediaWiki\Rest\LocalizedHttpException;
 use MediaWiki\Rest\Response;
 use MediaWiki\Rest\SimpleHandler;
+use MediaWiki\Revision\RevisionLookup;
 use MediaWiki\Revision\RevisionRecord;
+use TitleFormatter;
 
 /**
  * A handler that returns page source and metadata for the following routes:
@@ -17,10 +19,27 @@ use MediaWiki\Revision\RevisionRecord;
  */
 class RevisionSourceHandler extends SimpleHandler {
 
-	private RevisionContentHelper $contentHelper;
+	/** @var RevisionContentHelper */
+	private $contentHelper;
 
-	public function __construct( PageRestHelperFactory $helperFactory ) {
-		$this->contentHelper = $helperFactory->newRevisionContentHelper();
+	/**
+	 * @param Config $config
+	 * @param RevisionLookup $revisionLookup
+	 * @param TitleFormatter $titleFormatter
+	 * @param PageLookup $pageLookup
+	 */
+	public function __construct(
+		Config $config,
+		RevisionLookup $revisionLookup,
+		TitleFormatter $titleFormatter,
+		PageLookup $pageLookup
+	) {
+		$this->contentHelper = new RevisionContentHelper(
+			$config,
+			$revisionLookup,
+			$titleFormatter,
+			$pageLookup
+		);
 	}
 
 	protected function postValidationSetup() {
@@ -32,14 +51,8 @@ class RevisionSourceHandler extends SimpleHandler {
 	 * @return string
 	 */
 	private function constructHtmlUrl( RevisionRecord $rev ): string {
-		// TODO: once legacy "v1" routes are removed, just use the path prefix from the module.
-		$pathPrefix = $this->getModule()->getPathPrefix();
-		if ( strlen( $pathPrefix ) == 0 ) {
-			$pathPrefix = 'v1';
-		}
-
 		return $this->getRouter()->getRouteUrl(
-			'/' . $pathPrefix . '/revision/{id}/html',
+			'/v1/revision/{id}/html',
 			[ 'id' => $rev->getId() ]
 		);
 	}
@@ -53,9 +66,6 @@ class RevisionSourceHandler extends SimpleHandler {
 
 		$outputMode = $this->getOutputMode();
 		switch ( $outputMode ) {
-			case 'restbase': // compatibility for restbase migration
-				$body = [ 'items' => [ $this->contentHelper->constructRestbaseCompatibleMetadata() ] ];
-				break;
 			case 'bare':
 				$revisionRecord = $this->contentHelper->getTargetRevision();
 				$body = $this->contentHelper->constructMetadata();
@@ -79,11 +89,6 @@ class RevisionSourceHandler extends SimpleHandler {
 		return $response;
 	}
 
-	protected function getResponseBodySchemaFileName( string $method ): ?string {
-		// TODO: add fields based on the output mode to the schema
-		return 'includes/Rest/Handler/Schema/RevisionMetaData.json';
-	}
-
 	/**
 	 * @return string|null
 	 */
@@ -99,9 +104,6 @@ class RevisionSourceHandler extends SimpleHandler {
 	}
 
 	private function getOutputMode(): string {
-		if ( $this->getRouter()->isRestbaseCompatEnabled( $this->getRequest() ) ) {
-			return 'restbase';
-		}
 		return $this->getConfig()['format'];
 	}
 

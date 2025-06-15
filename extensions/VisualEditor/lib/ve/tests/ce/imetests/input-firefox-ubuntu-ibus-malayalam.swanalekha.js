@@ -1,7 +1,7 @@
 /*!
  * VisualEditor IME test for Firefox on Ubuntu in Malayalam using iBus Swanalekha.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 ve.ce.imetests.push( [ 'input-firefox-ubuntu-ibus-malayalam-swanalekha', [

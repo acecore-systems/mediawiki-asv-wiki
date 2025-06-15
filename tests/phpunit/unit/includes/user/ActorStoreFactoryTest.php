@@ -2,13 +2,11 @@
 
 namespace MediaWiki\Tests\User;
 
-use MediaWiki\Block\HideUserUtils;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\MainConfigNames;
 use MediaWiki\User\ActorNormalization;
 use MediaWiki\User\ActorStore;
 use MediaWiki\User\ActorStoreFactory;
-use MediaWiki\User\TempUser\TempUserConfig;
 use MediaWiki\User\UserIdentityLookup;
 use MediaWiki\User\UserNameUtils;
 use MediaWikiUnitTestCase;
@@ -20,10 +18,11 @@ use Wikimedia\Rdbms\ILoadBalancer;
 /**
  * @covers \MediaWiki\User\ActorStoreFactory
  * @covers \MediaWiki\User\ActorStore
+ * @package MediaWiki\Tests\User
  */
 class ActorStoreFactoryTest extends MediaWikiUnitTestCase {
 
-	public static function provideGetActorStore() {
+	public function provideGetActorStore() {
 		yield 'local, no shared' => [
 			false, // $domain,
 			[
@@ -66,9 +65,7 @@ class ActorStoreFactoryTest extends MediaWikiUnitTestCase {
 			new ServiceOptions( ActorStoreFactory::CONSTRUCTOR_OPTIONS, $config ),
 			$this->getMockLoadBalancerFactory( $expectedDomain ),
 			$this->createNoOpMock( UserNameUtils::class ),
-			$this->createMock( TempUserConfig::class ),
-			new NullLogger(),
-			new HideUserUtils()
+			new NullLogger()
 		);
 		$notFromCache = $factory->getActorStore( $domain );
 		$this->assertInstanceOf( ActorStore::class, $notFromCache );
@@ -83,9 +80,7 @@ class ActorStoreFactoryTest extends MediaWikiUnitTestCase {
 			new ServiceOptions( ActorStoreFactory::CONSTRUCTOR_OPTIONS, $config ),
 			$this->getMockLoadBalancerFactory( $expectedDomain ),
 			$this->createNoOpMock( UserNameUtils::class ),
-			$this->createMock( TempUserConfig::class ),
-			new NullLogger(),
-			$this->createNoOpMock( HideUserUtils::class )
+			new NullLogger()
 		);
 		$notFromCache = $factory->getActorNormalization( $domain );
 		$this->assertInstanceOf( ActorNormalization::class, $notFromCache );
@@ -100,9 +95,7 @@ class ActorStoreFactoryTest extends MediaWikiUnitTestCase {
 			new ServiceOptions( ActorStoreFactory::CONSTRUCTOR_OPTIONS, $config ),
 			$this->getMockLoadBalancerFactory( $expectedDomain ),
 			$this->createNoOpMock( UserNameUtils::class ),
-			$this->createMock( TempUserConfig::class ),
-			new NullLogger(),
-			$this->createNoOpMock( HideUserUtils::class )
+			new NullLogger()
 		);
 		$notFromCache = $factory->getUserIdentityLookup( $domain );
 		$this->assertInstanceOf( UserIdentityLookup::class, $notFromCache );

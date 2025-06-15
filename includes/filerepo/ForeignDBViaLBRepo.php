@@ -19,14 +19,14 @@
  */
 
 use MediaWiki\MediaWikiServices;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * A foreign repository with a MediaWiki database accessible via the configured LBFactory.
  *
  * @ingroup FileRepo
  */
-class ForeignDBViaLBRepo extends LocalRepo implements IForeignRepoWithDB {
+class ForeignDBViaLBRepo extends LocalRepo {
 	/** @var array */
 	protected $fileFactory = [ ForeignDBFile::class, 'newFromTitle' ];
 
@@ -44,11 +44,16 @@ class ForeignDBViaLBRepo extends LocalRepo implements IForeignRepoWithDB {
 	}
 
 	public function getPrimaryDB() {
-		return $this->getDbProvider()->getPrimaryDatabase( $this->dbDomain );
+		return $this->getDBLoadBalancer()->getConnectionRef( DB_PRIMARY, [], $this->dbDomain );
+	}
+
+	public function getMasterDB() {
+		wfDeprecated( __METHOD__, '1.37' );
+		return $this->getPrimaryDB();
 	}
 
 	public function getReplicaDB() {
-		return $this->getDbProvider()->getReplicaDatabase( $this->dbDomain );
+		return $this->getDBLoadBalancer()->getConnectionRef( DB_REPLICA, [], $this->dbDomain );
 	}
 
 	/**
@@ -56,26 +61,21 @@ class ForeignDBViaLBRepo extends LocalRepo implements IForeignRepoWithDB {
 	 */
 	protected function getDBFactory() {
 		return function ( $index ) {
-			if ( $index == DB_PRIMARY ) {
-				return $this->getDbProvider()->getPrimaryDatabase( $this->dbDomain );
-			} else {
-				return $this->getDbProvider()->getReplicaDatabase( $this->dbDomain );
-			}
+			return $this->getDBLoadBalancer()->getConnectionRef( $index, [], $this->dbDomain );
 		};
 	}
 
 	/**
-	 * @return IConnectionProvider
+	 * @return ILoadBalancer
 	 */
-	protected function getDbProvider(): IConnectionProvider {
-		return MediaWikiServices::getInstance()->getConnectionProvider();
+	protected function getDBLoadBalancer() {
+		$lbFactory = MediaWikiServices::getInstance()->getDBLoadBalancerFactory();
+
+		return $lbFactory->getMainLB( $this->dbDomain );
 	}
 
-	/**
-	 * @return never
-	 */
 	protected function assertWritableRepo() {
-		throw new LogicException( static::class . ': write operations are not supported.' );
+		throw new MWException( static::class . ': write operations are not supported.' );
 	}
 
 	public function getInfo() {

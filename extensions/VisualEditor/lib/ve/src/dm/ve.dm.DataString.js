@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataString class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -27,7 +27,7 @@ OO.inheritClass( ve.dm.DataString, unicodeJS.TextString );
  * @return {string|null} Character at position, or null if not text
  */
 ve.dm.DataString.prototype.read = function ( position ) {
-	const dataAt = this.data[ position ];
+	var dataAt = this.data[ position ];
 	// Check data is present at position and is not an element
 	if ( dataAt !== undefined && dataAt.type === undefined ) {
 		return typeof dataAt === 'string' ? dataAt : dataAt[ 0 ];

@@ -1,20 +1,14 @@
 <?php
 
 use MediaWiki\Config\ServiceOptions;
-use MediaWiki\FileBackend\FileBackendGroup;
 use MediaWiki\FileBackend\FSFile\TempFSFileFactory;
 use MediaWiki\FileBackend\LockManager\LockManagerGroupFactory;
-use MediaWiki\Tests\Unit\DummyServicesTrait;
-use Wikimedia\Mime\MimeAnalyzer;
-use Wikimedia\ObjectCache\BagOStuff;
-use Wikimedia\ObjectCache\EmptyBagOStuff;
-use Wikimedia\ObjectCache\WANObjectCache;
+use Wikimedia\ObjectFactory\ObjectFactory;
 
 /**
- * @coversDefaultClass \MediaWiki\FileBackend\FileBackendGroup
+ * @coversDefaultClass FileBackendGroup
  */
 class FileBackendGroupTest extends MediaWikiUnitTestCase {
-	use DummyServicesTrait;
 	use FileBackendGroupTestTrait;
 
 	protected function setUp(): void {
@@ -74,7 +68,7 @@ class FileBackendGroupTest extends MediaWikiUnitTestCase {
 	/**
 	 * @param array $options Dictionary to use as a source for ServiceOptions before defaults, plus
 	 *   the following options are available to override other arguments:
-	 *     * 'readOnlyMode'
+	 *     * 'configuredROMode'
 	 *     * 'lmgFactory'
 	 *     * 'mimeAnalyzer'
 	 *     * 'tmpFileFactory'
@@ -84,13 +78,13 @@ class FileBackendGroupTest extends MediaWikiUnitTestCase {
 		return new FileBackendGroup(
 			new ServiceOptions(
 				FileBackendGroup::CONSTRUCTOR_OPTIONS, $options, self::getDefaultOptions() ),
-			$this->getDummyReadOnlyMode( $options['readOnlyMode'] ?? false ),
+			$options['configuredROMode'] ?? new ConfiguredReadOnlyMode( false ),
 			$this->getLocalServerCache(),
 			$this->getWANObjectCache(),
 			$options['mimeAnalyzer'] ?? $this->createNoOpMock( MimeAnalyzer::class ),
 			$options['lmgFactory'] ?? $this->getLockManagerGroupFactory(),
 			$options['tmpFileFactory'] ?? $this->getTempFSFileFactory(),
-			$this->getDummyObjectFactory()
+			new ObjectFactory( $this->createNoOpMock( Psr\Container\ContainerInterface::class ) )
 		);
 	}
 

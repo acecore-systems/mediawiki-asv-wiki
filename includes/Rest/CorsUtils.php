@@ -12,7 +12,7 @@ use MediaWiki\User\UserIdentity;
  * @internal
  */
 class CorsUtils implements BasicAuthorizerInterface {
-
+	/** @var array */
 	public const CONSTRUCTOR_OPTIONS = [
 		MainConfigNames::AllowedCorsHeaders,
 		MainConfigNames::AllowCrossOrigin,
@@ -22,10 +22,20 @@ class CorsUtils implements BasicAuthorizerInterface {
 		MainConfigNames::CrossSiteAJAXdomainExceptions,
 	];
 
-	private ServiceOptions $options;
-	private ResponseFactory $responseFactory;
-	private UserIdentity $user;
+	/** @var ServiceOptions */
+	private $options;
 
+	/** @var ResponseFactory */
+	private $responseFactory;
+
+	/** @var UserIdentity */
+	private $user;
+
+	/**
+	 * @param ServiceOptions $options
+	 * @param ResponseFactory $responseFactory
+	 * @param UserIdentity $user
+	 */
 	public function __construct(
 		ServiceOptions $options,
 		ResponseFactory $responseFactory,
@@ -79,13 +89,11 @@ class CorsUtils implements BasicAuthorizerInterface {
 	 * @return string
 	 */
 	private function getCanonicalDomain(): string {
-		$res = parse_url( $this->options->get( MainConfigNames::CanonicalServer ) );
-		'@phan-var array $res';
+		[
+			'host' => $host,
+		] = wfParseUrl( $this->options->get( MainConfigNames::CanonicalServer ) );
 
-		$host = $res['host'] ?? '';
-		$port = $res['port'] ?? null;
-
-		return $port ? "$host:$port" : $host;
+		return $host;
 	}
 
 	/**
@@ -151,9 +159,9 @@ class CorsUtils implements BasicAuthorizerInterface {
 	 * Create a CORS preflight response.
 	 *
 	 * @param array $allowedMethods
-	 * @return Response
+	 * @return ResponseInterface
 	 */
-	public function createPreflightResponse( array $allowedMethods ): Response {
+	public function createPreflightResponse( array $allowedMethods ): ResponseInterface {
 		$response = $this->responseFactory->createNoContent();
 		$response->setHeader( 'Access-Control-Allow-Methods', $allowedMethods );
 

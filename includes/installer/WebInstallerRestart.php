@@ -1,5 +1,4 @@
 <?php
-
 /**
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,10 +19,6 @@
  * @ingroup Installer
  */
 
-namespace MediaWiki\Installer;
-
-use MediaWiki\Html\Html;
-
 class WebInstallerRestart extends WebInstallerPage {
 
 	/**
@@ -41,7 +36,7 @@ class WebInstallerRestart extends WebInstallerPage {
 		}
 
 		$this->startForm();
-		$s = Html::warningBox( wfMessage( 'config-help-restart' )->parse(), 'config-warning-box' );
+		$s = Html::warningBox( wfMessage( 'config-help-restart' )->plain(), 'config-warning-box' );
 		$this->addHTML( $s );
 		$this->endForm( 'restart' );
 

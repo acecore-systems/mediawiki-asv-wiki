@@ -28,16 +28,14 @@
  * @ingroup Maintenance
  *
  * @author Antoine Musso <hashar at free dot fr>
- * @author Brooke Vibber
+ * @author Brion Vibber
  * @author Alexandre Emsenhuber
  * @version first release
  */
 
 use MediaWiki\Shell\Shell;
 
-// @codeCoverageIgnoreStart
 require_once __DIR__ . '/Maintenance.php';
-// @codeCoverageIgnoreEnd
 
 /**
  * Maintenance script that builds doxygen documentation.
@@ -108,8 +106,12 @@ class MWDocGen extends Maintenance {
 
 		$this->template = MW_INSTALL_PATH . '/maintenance/Doxyfile';
 		$this->excludes = [
-			'cache',
 			'images',
+			'node_modules',
+			'resources',
+			'static',
+			'tests',
+			'vendor',
 		];
 
 		$file = $this->getOption( 'file' );
@@ -183,7 +185,5 @@ TEXT
 	}
 }
 
-// @codeCoverageIgnoreStart
 $maintClass = MWDocGen::class;
 require_once RUN_MAINTENANCE_IF_MAIN;
-// @codeCoverageIgnoreEnd

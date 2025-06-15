@@ -1,15 +1,15 @@
 /*!
  * VisualEditor UserInterface Actions IndentationAction tests.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 QUnit.module( 've.ui.IndentationAction' );
 
 /* Tests */
 
-QUnit.test( 'increase/decrease', ( assert ) => {
-	const cases = [
+QUnit.test( 'increase/decrease', function ( assert ) {
+	var cases = [
 		{
 			rangeOrSelection: new ve.Range( 13, 14 ),
 			method: 'increase',
@@ -120,13 +120,14 @@ QUnit.test( 'increase/decrease', ( assert ) => {
 		}
 	];
 
-	cases.forEach( ( caseItem ) => {
+	cases.forEach( function ( caseItem ) {
 		ve.test.utils.runActionTest(
-			assert,
+			'indentation', assert, caseItem.html || ve.dm.example.isolationHtml, false, caseItem.method, [], caseItem.rangeOrSelection, caseItem.msg,
 			{
-				actionName: 'indentation',
-				html: ve.dm.example.isolationHtml,
-				...caseItem
+				expectedData: caseItem.expectedData,
+				expectedOriginalData: caseItem.expectedOriginalData,
+				expectedRangeOrSelection: caseItem.expectedRangeOrSelection,
+				undo: caseItem.undo
 			}
 		);
 	} );

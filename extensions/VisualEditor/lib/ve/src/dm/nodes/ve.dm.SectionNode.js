@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel SectionNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -40,7 +40,7 @@ ve.dm.SectionNode.static.toDataElement = function ( domElements ) {
 };
 
 ve.dm.SectionNode.static.toDomElements = function ( dataElement, doc ) {
-	const style = dataElement.attributes && dataElement.attributes.style || 'section';
+	var style = dataElement.attributes && dataElement.attributes.style || 'section';
 	return [ doc.createElement( style ) ];
 };
 

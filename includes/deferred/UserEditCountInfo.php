@@ -1,8 +1,5 @@
 <?php
 
-namespace MediaWiki\Deferred;
-
-use InvalidArgumentException;
 use MediaWiki\User\UserIdentity;
 
 /**
@@ -52,6 +49,3 @@ class UserEditCountInfo {
 		return $this->increment;
 	}
 }
-
-/** @deprecated class alias since 1.42 */
-class_alias( UserEditCountInfo::class, 'UserEditCountInfo' );

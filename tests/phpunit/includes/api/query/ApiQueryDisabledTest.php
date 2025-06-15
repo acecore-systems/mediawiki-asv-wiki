@@ -1,14 +1,10 @@
 <?php
 
-namespace MediaWiki\Tests\Api\Query;
-
-use MediaWiki\Tests\Api\ApiTestCase;
-
 /**
  * @group API
  * @group medium
  *
- * @covers MediaWiki\Api\ApiQueryDisabled
+ * @covers ApiQueryDisabled
  */
 class ApiQueryDisabledTest extends ApiTestCase {
 	public function testDisabled() {

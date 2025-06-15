@@ -1,10 +1,8 @@
 <?php
 
-namespace MediaWiki\Tests\Auth;
+namespace MediaWiki\Auth;
 
 use InvalidArgumentException;
-use MediaWiki\Auth\AuthenticationRequest;
-use MediaWiki\Auth\ConfirmLinkAuthenticationRequest;
 
 /**
  * @group AuthManager
@@ -13,7 +11,7 @@ use MediaWiki\Auth\ConfirmLinkAuthenticationRequest;
 class ConfirmLinkAuthenticationRequestTest extends AuthenticationRequestTestCase {
 
 	protected function getInstance( array $args = [] ) {
-		return new ConfirmLinkAuthenticationRequest( self::getLinkRequests() );
+		return new ConfirmLinkAuthenticationRequest( $this->getLinkRequests() );
 	}
 
 	public function testConstructorException() {
@@ -26,34 +24,23 @@ class ConfirmLinkAuthenticationRequestTest extends AuthenticationRequestTestCase
 	 * Get requests for testing
 	 * @return AuthenticationRequest[]
 	 */
-	private static function getLinkRequests() {
+	private function getLinkRequests() {
 		$reqs = [];
 
+		$mb = $this->getMockBuilder( AuthenticationRequest::class )
+			->onlyMethods( [ 'getUniqueId' ] );
 		for ( $i = 1; $i <= 3; $i++ ) {
-			$req = new class( "Request$i" ) extends AuthenticationRequest {
-				private $uniqueId;
-
-				public function __construct( $uniqueId ) {
-					$this->uniqueId = $uniqueId;
-				}
-
-				public function getFieldInfo() {
-					return [];
-				}
-
-				public function getUniqueId() {
-					return $this->uniqueId;
-				}
-			};
-
+			$req = $mb->getMockForAbstractClass();
+			$req->method( 'getUniqueId' )
+				->willReturn( "Request$i" );
 			$reqs[$req->getUniqueId()] = $req;
 		}
 
 		return $reqs;
 	}
 
-	public static function provideLoadFromSubmission() {
-		$reqs = self::getLinkRequests();
+	public function provideLoadFromSubmission() {
+		$reqs = $this->getLinkRequests();
 
 		return [
 			'Empty request' => [
@@ -70,7 +57,7 @@ class ConfirmLinkAuthenticationRequestTest extends AuthenticationRequestTestCase
 	}
 
 	public function testGetUniqueId() {
-		$req = new ConfirmLinkAuthenticationRequest( self::getLinkRequests() );
+		$req = new ConfirmLinkAuthenticationRequest( $this->getLinkRequests() );
 		$this->assertSame(
 			get_class( $req ) . ':Request1|Request2|Request3',
 			$req->getUniqueId()

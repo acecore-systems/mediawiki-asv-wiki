@@ -2,19 +2,14 @@
 
 namespace MediaWiki\Tests\Revision;
 
+use CommentStoreComment;
+use Content;
 use LogicException;
-use MediaWiki\CommentStore\CommentStoreComment;
-use MediaWiki\Content\Content;
 use MediaWiki\Content\IContentHandlerFactory;
 use MediaWiki\Content\Renderer\ContentRenderer;
-use MediaWiki\Content\WikitextContent;
 use MediaWiki\HookContainer\HookContainer;
-use MediaWiki\MediaWikiServices;
-use MediaWiki\Page\PageIdentity;
 use MediaWiki\Page\PageIdentityValue;
 use MediaWiki\Page\PageReference;
-use MediaWiki\Parser\ParserOptions;
-use MediaWiki\Parser\ParserOutput;
 use MediaWiki\Revision\MainSlotRoleHandler;
 use MediaWiki\Revision\MutableRevisionRecord;
 use MediaWiki\Revision\RevisionRecord;
@@ -23,22 +18,23 @@ use MediaWiki\Revision\SlotRecord;
 use MediaWiki\Revision\SlotRoleRegistry;
 use MediaWiki\Storage\NameTableStore;
 use MediaWiki\Tests\Unit\Permissions\MockAuthorityTrait;
-use MediaWiki\Title\TitleFactory;
 use MediaWiki\User\UserIdentityValue;
 use MediaWikiIntegrationTestCase;
+use ParserOptions;
+use ParserOutput;
 use PHPUnit\Framework\MockObject\MockObject;
+use TitleFactory;
+use Wikimedia\Rdbms\DBConnRef;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\ILoadBalancer;
-use Wikimedia\Rdbms\SelectQueryBuilder;
+use WikitextContent;
 
 /**
  * @covers \MediaWiki\Revision\RevisionRenderer
- * @group Database
  */
 class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 	use MockAuthorityTrait;
 
-	/** @var PageIdentity */
 	private $fakePage;
 
 	protected function setUp(): void {
@@ -63,7 +59,6 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 					);
 				}
 			);
-		$db->method( 'newSelectQueryBuilder' )->willReturnCallback( static fn () => new SelectQueryBuilder( $db ) );
 
 		return $db;
 	}
@@ -87,6 +82,9 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 		$lb->method( 'getConnection' )
 			->with( $dbIndex )
 			->willReturn( $this->mockDatabaseConnection( $this->createMock( IDatabase::class ), $maxRev ) );
+		$lb->method( 'getConnectionRef' )
+			->with( $dbIndex )
+			->willReturn( $this->mockDatabaseConnection( $this->createMock( DBConnRef::class ), $maxRev ) );
 
 		/** @var NameTableStore|MockObject $slotRoles */
 		$slotRoles = $this->createMock( NameTableStore::class );
@@ -94,7 +92,7 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 			->willReturn( [] );
 
 		$roleReg = new SlotRoleRegistry( $slotRoles );
-		$roleReg->defineRole( SlotRecord::MAIN, function () {
+		$roleReg->defineRole( 'main', function () {
 			return new MainSlotRoleHandler(
 				[],
 				$this->createMock( IContentHandlerFactory::class ),
@@ -108,7 +106,7 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 	}
 
 	private function selectFieldCallback( $table, $fields, $cond, $maxRev ) {
-		if ( [ $table, $fields, $cond ] === [ [ 'revision' ], 'MAX(rev_id)', [] ] ) {
+		if ( [ $table, $fields, $cond ] === [ 'revision', 'MAX(rev_id)', [] ] ) {
 			return $maxRev;
 		}
 
@@ -141,14 +139,14 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $rev, $rr->getRevision() );
 		$this->assertSame( $options, $rr->getOptions() );
 
-		$html = $rr->getRevisionParserOutput()->getRawText();
+		$html = $rr->getRevisionParserOutput()->getText();
 
 		$this->assertStringContainsString( 'page:' . __CLASS__, $html );
 		$this->assertStringContainsString( 'rev:101', $html ); // from speculativeRevIdCallback
 		$this->assertStringContainsString( 'user:Frank', $html );
 		$this->assertStringContainsString( 'time:20180101000003', $html );
 
-		$this->assertSame( $html, $rr->getSlotParserOutput( SlotRecord::MAIN )->getRawText() );
+		$this->assertSame( $html, $rr->getSlotParserOutput( SlotRecord::MAIN )->getText() );
 	}
 
 	public function testGetRenderedRevision_current() {
@@ -176,14 +174,14 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $rev, $rr->getRevision() );
 		$this->assertSame( $options, $rr->getOptions() );
 
-		$html = $rr->getRevisionParserOutput()->getRawText();
+		$html = $rr->getRevisionParserOutput()->getText();
 
 		$this->assertStringContainsString( 'page:' . __CLASS__, $html );
 		$this->assertStringContainsString( 'rev:21', $html );
 		$this->assertStringContainsString( 'user:Frank', $html );
 		$this->assertStringContainsString( 'time:20180101000003', $html );
 
-		$this->assertSame( $html, $rr->getSlotParserOutput( SlotRecord::MAIN )->getRawText() );
+		$this->assertSame( $html, $rr->getSlotParserOutput( SlotRecord::MAIN )->getText() );
 	}
 
 	public function testGetRenderedRevision_master() {
@@ -208,11 +206,11 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 
 		$this->assertFalse( $rr->isContentDeleted(), 'isContentDeleted' );
 
-		$html = $rr->getRevisionParserOutput()->getRawText();
+		$html = $rr->getRevisionParserOutput()->getText();
 
 		$this->assertStringContainsString( 'rev:21', $html );
 
-		$this->assertSame( $html, $rr->getSlotParserOutput( SlotRecord::MAIN )->getRawText() );
+		$this->assertSame( $html, $rr->getSlotParserOutput( SlotRecord::MAIN )->getText() );
 	}
 
 	public function testGetRenderedRevision_known() {
@@ -238,8 +236,8 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 		);
 
 		$this->assertSame( $output, $rr->getRevisionParserOutput() );
-		$this->assertSame( 'cached text', $rr->getRevisionParserOutput()->getRawText() );
-		$this->assertSame( 'cached text', $rr->getSlotParserOutput( SlotRecord::MAIN )->getRawText() );
+		$this->assertSame( 'cached text', $rr->getRevisionParserOutput()->getText() );
+		$this->assertSame( 'cached text', $rr->getSlotParserOutput( SlotRecord::MAIN )->getText() );
 	}
 
 	public function testGetRenderedRevision_old() {
@@ -267,14 +265,14 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $rev, $rr->getRevision() );
 		$this->assertSame( $options, $rr->getOptions() );
 
-		$html = $rr->getRevisionParserOutput()->getRawText();
+		$html = $rr->getRevisionParserOutput()->getText();
 
 		$this->assertStringContainsString( 'page:' . __CLASS__, $html );
 		$this->assertStringContainsString( 'rev:11', $html );
 		$this->assertStringContainsString( 'user:Frank', $html );
 		$this->assertStringContainsString( 'time:20180101000003', $html );
 
-		$this->assertSame( $html, $rr->getSlotParserOutput( SlotRecord::MAIN )->getRawText() );
+		$this->assertSame( $html, $rr->getSlotParserOutput( 'main' )->getText() );
 	}
 
 	public function testGetRenderedRevision_suppressed() {
@@ -329,7 +327,7 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( $rev, $rr->getRevision() );
 		$this->assertSame( $options, $rr->getOptions() );
 
-		$html = $rr->getRevisionParserOutput()->getRawText();
+		$html = $rr->getRevisionParserOutput()->getText();
 
 		// Suppressed content should be visible for sysops
 		$this->assertStringContainsString( 'page:' . __CLASS__, $html );
@@ -337,7 +335,7 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 		$this->assertStringContainsString( 'user:Frank', $html );
 		$this->assertStringContainsString( 'time:20180101000003', $html );
 
-		$this->assertSame( $html, $rr->getSlotParserOutput( SlotRecord::MAIN )->getRawText() );
+		$this->assertSame( $html, $rr->getSlotParserOutput( 'main' )->getText() );
 	}
 
 	public function testGetRenderedRevision_raw() {
@@ -374,9 +372,9 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 		$parserOutput = $rr->getRevisionParserOutput();
 		// Assert parser output recorded timestamp and parsed rev_id
 		$this->assertSame( $rev->getId(), $parserOutput->getCacheRevisionId() );
-		$this->assertSame( $rev->getTimestamp(), $parserOutput->getRevisionTimestamp() );
+		$this->assertSame( $rev->getTimestamp(), $parserOutput->getTimestamp() );
 
-		$html = $parserOutput->getRawText();
+		$html = $parserOutput->getText();
 
 		// Suppressed content should be visible in raw mode
 		$this->assertStringContainsString( 'page:' . __CLASS__, $html );
@@ -384,7 +382,7 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 		$this->assertStringContainsString( 'user:Frank', $html );
 		$this->assertStringContainsString( 'time:20180101000003', $html );
 
-		$this->assertSame( $html, $rr->getSlotParserOutput( SlotRecord::MAIN )->getRawText() );
+		$this->assertSame( $html, $rr->getSlotParserOutput( 'main' )->getText() );
 	}
 
 	public function testGetRenderedRevision_multi() {
@@ -398,20 +396,15 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 		$rev->setContent( SlotRecord::MAIN, new WikitextContent( '[[Kittens]]' ) );
 		$rev->setContent( 'aux', new WikitextContent( '[[Goats]]' ) );
 
-		$options = ParserOptions::newFromAnon();
-		$rr = $renderer->getRenderedRevision( $rev, $options );
+		$rr = $renderer->getRenderedRevision( $rev );
 
 		$combinedOutput = $rr->getRevisionParserOutput();
 		$mainOutput = $rr->getSlotParserOutput( SlotRecord::MAIN );
 		$auxOutput = $rr->getSlotParserOutput( 'aux' );
 
-		$pipeline = MediaWikiServices::getInstance()->getDefaultOutputPipeline();
-		$combinedHtml = $pipeline->run( $combinedOutput, $options, [] )->getContentHolderText();
-		$mainHtml = $pipeline->run( $mainOutput, $options, [] )->getContentHolderText();
-
-		$this->assertNotSame( $combinedHtml, $mainHtml );
-
-		$auxHtml = $pipeline->run( $auxOutput, $options, [] )->getContentHolderText();
+		$combinedHtml = $combinedOutput->getText();
+		$mainHtml = $mainOutput->getText();
+		$auxHtml = $auxOutput->getText();
 
 		$this->assertStringContainsString( 'Kittens', $mainHtml );
 		$this->assertStringContainsString( 'Goats', $auxHtml );
@@ -427,13 +420,13 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 		);
 
 		// make sure output wrapping works right
-		$this->assertStringContainsString( 'class="mw-content-ltr mw-parser-output"', $mainHtml );
-		$this->assertStringContainsString( 'class="mw-content-ltr mw-parser-output"', $auxHtml );
-		$this->assertStringContainsString( 'class="mw-content-ltr mw-parser-output"', $combinedHtml );
+		$this->assertStringContainsString( 'class="mw-parser-output"', $mainHtml );
+		$this->assertStringContainsString( 'class="mw-parser-output"', $auxHtml );
+		$this->assertStringContainsString( 'class="mw-parser-output"', $combinedHtml );
 
 		// there should be only one wrapper div
-		$this->assertSame( 1, preg_match_all( '#class="[^"]*mw-parser-output"#', $combinedHtml ) );
-		$this->assertStringNotContainsString( 'mw-parser-output"', $combinedOutput->getRawText() );
+		$this->assertSame( 1, preg_match_all( '#class="mw-parser-output"#', $combinedHtml ) );
+		$this->assertStringNotContainsString( 'class="mw-parser-output"', $combinedOutput->getRawText() );
 
 		$combinedLinks = $combinedOutput->getLinks();
 		$mainLinks = $mainOutput->getLinks();
@@ -442,24 +435,6 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 		$this->assertTrue( isset( $combinedLinks[NS_MAIN]['Goats'] ), 'links from aux slot' );
 		$this->assertFalse( isset( $mainLinks[NS_MAIN]['Goats'] ), 'no aux links in main' );
 		$this->assertFalse( isset( $auxLinks[NS_MAIN]['Kittens'] ), 'no main links in aux' );
-
-		// Same tests with Parsoid
-		// T351026: We should get only main slot output in the combined output.
-		// T351113 will have to update this test.
-		$options = ParserOptions::newFromAnon();
-		$options->setUseParsoid();
-		$rr = $renderer->getRenderedRevision( $rev, $options );
-
-		$combinedOutput = $rr->getRevisionParserOutput();
-		$mainOutput = $rr->getSlotParserOutput( SlotRecord::MAIN );
-
-		$combinedHtml = $pipeline->run( $combinedOutput, $options, [] )->getContentHolderText();
-		$mainHtml = $pipeline->run( $mainOutput, $options, [] )->getContentHolderText();
-		$this->assertSame( $combinedHtml, $mainHtml );
-		$this->assertSame( $combinedOutput->getLinks(), $mainOutput->getLinks() );
-		$this->assertStringContainsString( 'class="mw-content-ltr mw-parser-output"', $mainHtml );
-		$this->assertStringContainsString( 'Kittens', $combinedHtml );
-		$this->assertStringNotContainsString( 'Goats', $combinedHtml );
 	}
 
 	public function testGetRenderedRevision_noHtml() {
@@ -472,12 +447,8 @@ class RevisionRendererTest extends MediaWikiIntegrationTestCase {
 			->getMock();
 		$mockContentRenderer->method( 'getParserOutput' )
 			->willReturnCallback( function ( Content $content, PageReference $page, $revId = null,
-				?ParserOptions $options = null, $hints = []
+				ParserOptions $options = null, $generateHtml = true
 			) {
-				if ( is_bool( $hints ) ) {
-					$hints = [ 'generate-html' => $hints ];
-				}
-				$generateHtml = $hints['generate-html'] ?? true;
 				if ( !$generateHtml ) {
 					return new ParserOutput( null );
 				} else {

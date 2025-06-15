@@ -1,24 +1,15 @@
 <?php
 
-use MediaWiki\Content\ContentHandler;
-use MediaWiki\Content\ContentModelChange;
-use MediaWiki\Context\RequestContext;
 use MediaWiki\Page\PageIdentity;
-use MediaWiki\Page\WikiPageFactory;
 use MediaWiki\Permissions\Authority;
 use MediaWiki\Permissions\PermissionStatus;
-use MediaWiki\Permissions\RateLimiter;
-use MediaWiki\Status\Status;
 use MediaWiki\Tests\Unit\MockServiceDependenciesTrait;
 use MediaWiki\Tests\Unit\Permissions\MockAuthorityTrait;
-use MediaWiki\Title\Title;
-use Wikimedia\Rdbms\IDBAccessObject;
 
 /**
  * TODO convert to a pure unit test
  *
  * @group Database
- * @covers \MediaWiki\Content\ContentModelChange
  *
  * @author DannyS712
  * @method ContentModelChange newServiceInstance(string $serviceClass, array $parameterOverrides)
@@ -29,6 +20,11 @@ class ContentModelChangeTest extends MediaWikiIntegrationTestCase {
 
 	protected function setUp(): void {
 		parent::setUp();
+
+		$this->tablesUsed = array_merge(
+			$this->tablesUsed,
+			[ 'change_tag', 'change_tag_def', 'logging' ]
+		);
 
 		$this->getExistingTestPage( 'ExistingPage' );
 		$this->mergeMwGlobalArrayValue( 'wgContentHandlers', [
@@ -48,6 +44,8 @@ class ContentModelChangeTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * Test that the content model needs to change
+	 *
+	 * @covers ContentModelChange::doContentModelChange
 	 */
 	public function testChangeNeeded() {
 		$wikipage = $this->getExistingTestPage( 'ExistingPage' );
@@ -67,11 +65,16 @@ class ContentModelChangeTest extends MediaWikiIntegrationTestCase {
 			__METHOD__ . ' comment',
 			false
 		);
-		$this->assertStatusError( 'apierror-nochanges', $status );
+		$this->assertEquals(
+			Status::newFatal( 'apierror-nochanges' ),
+			$status
+		);
 	}
 
 	/**
 	 * Test that the content needs to be valid for the requested model
+	 *
+	 * @covers ContentModelChange::doContentModelChange
 	 */
 	public function testInvalidContent() {
 		$invalidJSON = 'Foo\nBar\nEaster egg\nT22281';
@@ -104,6 +107,8 @@ class ContentModelChangeTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * Test the EditFilterMergedContent hook can be intercepted
 	 *
+	 * @covers ContentModelChange::doContentModelChange
+	 *
 	 * @dataProvider provideTestEditFilterMergedContent
 	 * @param string|bool $customMessage Hook message, or false
 	 * @param string $expectedMessage expected fatal
@@ -112,7 +117,7 @@ class ContentModelChangeTest extends MediaWikiIntegrationTestCase {
 		$wikipage = $this->getExistingTestPage( 'ExistingPage' );
 		$this->assertSame(
 			'wikitext',
-			$wikipage->getTitle()->getContentModel( IDBAccessObject::READ_LATEST ),
+			$wikipage->getTitle()->getContentModel( Title::READ_LATEST ),
 			'`ExistingPage` should be wikitext'
 		);
 
@@ -135,10 +140,13 @@ class ContentModelChangeTest extends MediaWikiIntegrationTestCase {
 			__METHOD__ . ' comment',
 			false
 		);
-		$this->assertStatusError( $expectedMessage, $status );
+		$this->assertEquals(
+			Status::newFatal( $expectedMessage ),
+			$status
+		);
 	}
 
-	public static function provideTestEditFilterMergedContent() {
+	public function provideTestEditFilterMergedContent() {
 		return [
 			[ 'DannyS712 objects to this change!', 'DannyS712 objects to this change!' ],
 			[ false, 'hookaborted' ]
@@ -147,6 +155,8 @@ class ContentModelChangeTest extends MediaWikiIntegrationTestCase {
 
 	/**
 	 * Test the ContentModelCanBeUsedOn hook can be intercepted
+	 *
+	 * @covers ContentModelChange::doContentModelChange
 	 */
 	public function testContentModelCanBeUsedOn() {
 		$wikipage = $this->getExistingTestPage( 'ExistingPage' );
@@ -158,7 +168,7 @@ class ContentModelChangeTest extends MediaWikiIntegrationTestCase {
 		);
 		$this->assertSame(
 			'wikitext',
-			$wikipage->getTitle()->getContentModel( IDBAccessObject::READ_LATEST ),
+			$wikipage->getTitle()->getContentModel( Title::READ_LATEST ),
 			'`ExistingPage` should be wikitext'
 		);
 
@@ -179,21 +189,26 @@ class ContentModelChangeTest extends MediaWikiIntegrationTestCase {
 			__METHOD__ . ' comment',
 			false
 		);
-		$this->assertStatusError( 'apierror-changecontentmodel-cannotbeused', $status );
+		$this->assertEquals(
+			Status::newFatal(
+				'apierror-changecontentmodel-cannotbeused',
+				'plain text',
+				Message::plaintextParam( $wikipage->getTitle()->getPrefixedText() )
+			),
+			$status
+		);
 	}
 
 	/**
 	 * Test that content handler must support direct editing
+	 *
+	 * @covers ContentModelChange::doContentModelChange
 	 */
 	public function testNoDirectEditing() {
 		$title = Title::newFromText( 'Dummy:NoDirectEditing' );
-		$wikipage = $this->getServiceContainer()->getWikiPageFactory()->newFromTitle( $title );
+		$wikipage = WikiPage::factory( $title );
 
-		$dummyContent = $this->getServiceContainer()
-			->getContentHandlerFactory()
-			->getContentHandler( 'testing' )
-			->makeEmptyContent();
-
+		$dummyContent = ContentHandler::getForModelID( 'testing' )->makeEmptyContent();
 		$wikipage->doUserEditContent(
 			$dummyContent,
 			$this->getTestSysop()->getUser(),
@@ -202,7 +217,7 @@ class ContentModelChangeTest extends MediaWikiIntegrationTestCase {
 		);
 		$this->assertSame(
 			'testing',
-			$title->getContentModel( IDBAccessObject::READ_LATEST ),
+			$title->getContentModel( Title::READ_LATEST ),
 			'Dummy:NoDirectEditing should start with the `testing` content model'
 		);
 
@@ -216,14 +231,20 @@ class ContentModelChangeTest extends MediaWikiIntegrationTestCase {
 			__METHOD__ . ' comment',
 			false
 		);
-		$this->assertStatusError(
-			'apierror-changecontentmodel-nodirectediting',
+		$this->assertEquals(
+			Status::newFatal(
+				'apierror-changecontentmodel-nodirectediting',
+				ContentHandler::getLocalizedName( 'testing' )
+			),
 			$status
 		);
 	}
 
+	/**
+	 * @covers ContentModelChange::setTags
+	 */
 	public function testCannotApplyTags() {
-		$this->getServiceContainer()->getChangeTagsStore()->defineTag( 'edit content model tag' );
+		ChangeTags::defineTag( 'edit content model tag' );
 
 		$change = $this->newContentModelChange(
 			$this->mockRegisteredAuthorityWithoutPermissions( [ 'applychangetags' ] ),
@@ -231,16 +252,20 @@ class ContentModelChangeTest extends MediaWikiIntegrationTestCase {
 			'text'
 		);
 		$status = $change->setTags( [ 'edit content model tag' ] );
-		$this->assertStatusError(
-			'tags-apply-no-permission',
+		$this->assertEquals(
+			Status::newFatal( 'tags-apply-no-permission' ),
 			$status
 		);
 	}
 
+	/**
+	 * @covers ContentModelChange::authorizeChange
+	 * @covers ContentModelChange::probablyCanChange
+	 */
 	public function testCheckPermissions() {
 		$wikipage = $this->getExistingTestPage( 'ExistingPage' );
 		$title = $wikipage->getTitle();
-		$currentContentModel = $title->getContentModel( IDBAccessObject::READ_LATEST );
+		$currentContentModel = $title->getContentModel( Title::READ_LATEST );
 		$newContentModel = 'text';
 
 		$this->assertSame(
@@ -254,7 +279,7 @@ class ContentModelChangeTest extends MediaWikiIntegrationTestCase {
 			PageIdentity $page,
 			PermissionStatus $status
 		) use ( $currentContentModel, $newContentModel ) {
-			$title = Title::newFromPageIdentity( $page );
+			$title = Title::castFromPageIdentity( $page );
 			if ( $permission === 'editcontentmodel' && $title->hasContentModel( $currentContentModel ) ) {
 				$status->fatal( 'no edit old content model' );
 				return false;
@@ -274,15 +299,12 @@ class ContentModelChangeTest extends MediaWikiIntegrationTestCase {
 			return true;
 		} );
 
-		$wpFactory = $this->createMock( WikiPageFactory::class );
-		$wpFactory->method( 'newFromTitle' )->willReturn( $wikipage );
 		$change = $this->newServiceInstance(
 			ContentModelChange::class,
 			[
 				'performer' => $performer,
 				'page' => $wikipage,
-				'newModel' => $newContentModel,
-				'wikiPageFactory' => $wpFactory,
+				'newModel' => $newContentModel
 			]
 		);
 
@@ -300,31 +322,31 @@ class ContentModelChangeTest extends MediaWikiIntegrationTestCase {
 		}
 	}
 
+	/**
+	 * @covers ContentModelChange::doContentModelChange
+	 */
 	public function testCheckPermissionsThrottle() {
-		$user = $this->getTestUser()->getUser();
-
-		$limiter = $this->createNoOpMock( RateLimiter::class, [ 'limit', 'isLimitable' ] );
-		$limiter->method( 'isLimitable' )->willReturn( true );
-		$limiter->method( 'limit' )
-			->willReturnCallback( function ( $user, $action, $incr ) {
-				if ( $action === 'editcontentmodel' ) {
-					$this->assertSame( 1, $incr );
-					return true;
-				}
-				return false;
-			} );
-
-		$this->setService( 'RateLimiter', $limiter );
+		$mock = $this->getMockBuilder( User::class )
+			->onlyMethods( [ 'pingLimiter' ] )
+			->getMock();
+		$mock->expects( $this->once() )
+			->method( 'pingLimiter' )
+			->with( 'editcontentmodel' )
+			->willReturn( true );
 
 		$change = $this->newContentModelChange(
-			$user,
+			$mock,
 			$this->getNonexistingTestPage( 'NonExistingPage' ),
 			'text'
 		);
 
-		$status = $change->authorizeChange();
-		$this->assertFalse( $status->isOK() );
-		$this->assertTrue( $status->isRateLimitExceeded() );
+		$context = new RequestContext();
+		$comment = 'comment';
+		$bot = true;
+
+		$this->expectException( ThrottledError::class );
+
+		$change->doContentModelChange( $context, $comment, $bot );
 	}
 
 }

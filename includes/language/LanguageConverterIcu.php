@@ -33,15 +33,12 @@ abstract class LanguageConverterIcu extends LanguageConverterSpecific {
 
 	/**
 	 * Creates empty tables. mTransliterators will be used instead.
-	 *
-	 * @return array
 	 */
-	protected function loadDefaultTables(): array {
-		$tables = [];
+	protected function loadDefaultTables() {
+		$this->mTables = [];
 		foreach ( $this->getVariants() as $variant ) {
-			$tables[$variant] = new ReplacementArray();
+			$this->mTables[$variant] = new ReplacementArray();
 		}
-		return $tables;
 	}
 
 	public function translate( $text, $variant ) {
@@ -90,7 +87,7 @@ abstract class LanguageConverterIcu extends LanguageConverterSpecific {
 	}
 
 	/**
-	 * Get the array mapping variant aliases to the main variant.
+	 * Get the array mapping variant aliases to main variant.
 	 *
 	 * @return string[]
 	 */

@@ -1,7 +1,7 @@
 /*!
  * VisualEditor UserInterface MWLatexInspector class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2015 VisualEditor Team and others; see AUTHORS.txt
  * @license MIT
  */
 
@@ -61,19 +61,19 @@ ve.ui.MWLatexInspector.prototype.initialize = function () {
 	this.idInput = new OO.ui.TextInputWidget();
 	this.qidInput = new mw.widgets.MathWbEntitySelector();
 
-	const inputField = new OO.ui.FieldLayout( this.input, {
+	var inputField = new OO.ui.FieldLayout( this.input, {
 		align: 'top',
 		label: ve.msg( 'math-visualeditor-mwlatexdialog-card-formula' )
 	} );
-	const displayField = new OO.ui.FieldLayout( this.displaySelect, {
+	var displayField = new OO.ui.FieldLayout( this.displaySelect, {
 		align: 'top',
 		label: ve.msg( 'math-visualeditor-mwlatexinspector-display' )
 	} );
-	const idField = new OO.ui.FieldLayout( this.idInput, {
+	var idField = new OO.ui.FieldLayout( this.idInput, {
 		align: 'top',
 		label: ve.msg( 'math-visualeditor-mwlatexinspector-id' )
 	} );
-	const qidField = new OO.ui.FieldLayout( this.qidInput, {
+	var qidField = new OO.ui.FieldLayout( this.qidInput, {
 		align: 'top',
 		label: ve.msg( 'math-visualeditor-mwlatexinspector-qid' )
 	} );
@@ -94,9 +94,9 @@ ve.ui.MWLatexInspector.prototype.initialize = function () {
  */
 ve.ui.MWLatexInspector.prototype.getSetupProcess = function ( data ) {
 	return ve.ui.MWLatexInspector.super.prototype.getSetupProcess.call( this, data )
-		.next( () => {
-			const display = this.selectedNode.getAttribute( 'mw' ).attrs.display || 'default';
-			const attributes = this.selectedNode && this.selectedNode.getAttribute( 'mw' ).attrs,
+		.next( function () {
+			var display = this.selectedNode.getAttribute( 'mw' ).attrs.display || 'default';
+			var attributes = this.selectedNode && this.selectedNode.getAttribute( 'mw' ).attrs,
 				id = attributes && attributes.id || '',
 				qid = attributes && attributes.qid || '',
 				isReadOnly = this.isReadOnly();
@@ -113,7 +113,7 @@ ve.ui.MWLatexInspector.prototype.getSetupProcess = function ( data ) {
 			this.qidInput.on( 'change', this.onChangeHandler );
 			this.displaySelect.selectItemByData( display );
 			this.displaySelect.on( 'choose', this.onChangeHandler );
-		} );
+		}, this );
 };
 
 /**
@@ -121,9 +121,9 @@ ve.ui.MWLatexInspector.prototype.getSetupProcess = function ( data ) {
  */
 ve.ui.MWLatexInspector.prototype.getTeardownProcess = function ( data ) {
 	return ve.ui.MWLatexInspector.super.prototype.getTeardownProcess.call( this, data )
-		.first( () => {
+		.first( function () {
 			this.displaySelect.off( 'choose', this.onChangeHandler );
-		} );
+		}, this );
 };
 
 /**
@@ -133,9 +133,9 @@ ve.ui.MWLatexInspector.prototype.updateMwData = function ( mwData ) {
 	// Parent method
 	ve.ui.MWLatexInspector.super.prototype.updateMwData.call( this, mwData );
 
-	const display = this.displaySelect.findSelectedItem().getData();
-	const id = this.idInput.getValue();
-	const qid = this.qidInput.getValue();
+	var display = this.displaySelect.findSelectedItem().getData();
+	var id = this.idInput.getValue();
+	var qid = this.qidInput.getValue();
 
 	mwData.attrs.display = display !== 'default' ? display : undefined;
 	mwData.attrs.id = id || undefined;

@@ -1,5 +1,7 @@
 <?php
 /**
+ * Redis-backed job queue code.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -19,20 +21,14 @@
  */
 
 use MediaWiki\Logger\LoggerFactory;
-use MediaWiki\WikiMap\WikiMap;
 use Psr\Log\LoggerInterface;
-use Wikimedia\ObjectCache\RedisConnectionPool;
-use Wikimedia\ObjectCache\RedisConnRef;
 
 /**
- * Redis-backed job queue storage.
+ * Class to handle job queues stored in Redis
  *
  * This is a faster and less resource-intensive job queue than JobQueueDB.
  * All data for a queue using this class is placed into one redis server.
- *
- * When used on a wiki farm, you can optionally use the  `redisJobRunnerService` background
- * service from the `mediawiki/services/jobrunner.git` repository, to run jobs from a central
- * system rather than per-wiki via one of the default job runners (e.g. maintenance/runJobs.php).
+ * The mediawiki/services/jobrunner background service must be set up and running.
  *
  * There are eight main redis keys (per queue) used to track jobs:
  *   - l-unclaimed  : A list of job IDs used for ready unclaimed jobs
@@ -43,7 +39,6 @@ use Wikimedia\ObjectCache\RedisConnRef;
  *   - h-sha1ById   : A hash of (job ID => SHA1) for unclaimed jobs used for de-duplication
  *   - h-attempts   : A hash of (job ID => attempt count) used for job claiming/retries
  *   - h-data       : A hash of (job ID => serialized blobs) for job storage
- *
  * A job ID can be in only one of z-delayed, l-unclaimed, z-claimed, and z-abandoned.
  * If an ID appears in any of those lists, it should have a h-data entry for its ID.
  * If a job has a SHA1 de-duplication value and its ID is in l-unclaimed or z-delayed, then
@@ -61,14 +56,14 @@ use Wikimedia\ObjectCache\RedisConnRef;
  * Aside from root job keys, all keys have no expiry, and are only removed when jobs are run.
  * All the keys are prefixed with the relevant wiki ID information.
  *
- * This class requires Redis 2.6 or later as it uses Lua scripting for fast atomic operations.
+ * This class requires Redis 2.6 as it makes use Lua scripts for fast atomic operations.
  * Additionally, it should be noted that redis has different persistence modes, such
- * as rdb snapshots, journaling, or no persistence. Appropriate configuration should be
+ * as rdb snapshots, journaling, and no persistence. Appropriate configuration should be
  * made on the servers based on what queues are using it and what tolerance they have.
  *
- * @since 1.22
  * @ingroup JobQueue
  * @ingroup Redis
+ * @since 1.22
  */
 class JobQueueRedis extends JobQueue {
 	/** @var RedisConnectionPool */
@@ -94,6 +89,7 @@ class JobQueueRedis extends JobQueue {
 	 *   - daemonized  : Set to true if the redisJobRunnerService runs in the background.
 	 *                   This will disable job recycling/undelaying from the MediaWiki side
 	 *                   to avoid redundancy and out-of-sync configuration.
+	 * @throws InvalidArgumentException
 	 */
 	public function __construct( array $params ) {
 		parent::__construct( $params );
@@ -237,7 +233,7 @@ class JobQueueRedis extends JobQueue {
 				count( $items ) - $failed - $pushed );
 			if ( $failed > 0 ) {
 				$err = "Could not insert {$failed} {$this->type} job(s).";
-				wfDebugLog( 'JobQueue', $err );
+				wfDebugLog( 'JobQueueRedis', $err );
 				throw new RedisException( $err );
 			}
 		} catch ( RedisException $e ) {
@@ -313,7 +309,7 @@ LUA;
 
 	/**
 	 * @see JobQueue::doPop()
-	 * @return RunnableJob|false
+	 * @return RunnableJob|bool
 	 * @throws JobQueueError
 	 */
 	protected function doPop() {
@@ -330,7 +326,7 @@ LUA;
 				$this->incrStats( 'pops', $this->type );
 				$item = $this->unserialize( $blob );
 				if ( $item === false ) {
-					wfDebugLog( 'JobQueue', "Could not unserialize {$this->type} job." );
+					wfDebugLog( 'JobQueueRedis', "Could not unserialize {$this->type} job." );
 					continue;
 				}
 
@@ -425,7 +421,7 @@ LUA;
 			);
 
 			if ( !$res ) {
-				wfDebugLog( 'JobQueue', "Could not acknowledge {$this->type} job $uuid." );
+				wfDebugLog( 'JobQueueRedis', "Could not acknowledge {$this->type} job $uuid." );
 
 				return false;
 			}
@@ -443,6 +439,7 @@ LUA;
 	 * @param IJobSpecification $job
 	 * @return bool
 	 * @throws JobQueueError
+	 * @throws LogicException
 	 */
 	protected function doDeduplicateRootJob( IJobSpecification $job ) {
 		if ( !$job->hasRootJobParams() ) {
@@ -517,7 +514,7 @@ LUA;
 
 	/**
 	 * @see JobQueue::getAllQueuedJobs()
-	 * @return Iterator<RunnableJob>
+	 * @return Iterator
 	 * @throws JobQueueError
 	 */
 	public function getAllQueuedJobs() {
@@ -533,7 +530,7 @@ LUA;
 
 	/**
 	 * @see JobQueue::getAllDelayedJobs()
-	 * @return Iterator<RunnableJob>
+	 * @return Iterator
 	 * @throws JobQueueError
 	 */
 	public function getAllDelayedJobs() {
@@ -549,7 +546,7 @@ LUA;
 
 	/**
 	 * @see JobQueue::getAllAcquiredJobs()
-	 * @return Iterator<RunnableJob>
+	 * @return Iterator
 	 * @throws JobQueueError
 	 */
 	public function getAllAcquiredJobs() {
@@ -565,7 +562,7 @@ LUA;
 
 	/**
 	 * @see JobQueue::getAllAbandonedJobs()
-	 * @return Iterator<RunnableJob>
+	 * @return Iterator
 	 * @throws JobQueueError
 	 */
 	public function getAllAbandonedJobs() {
@@ -582,7 +579,7 @@ LUA;
 	/**
 	 * @param RedisConnRef $conn
 	 * @param array $uids List of job UUIDs
-	 * @return MappedIterator<RunnableJob>
+	 * @return MappedIterator
 	 */
 	protected function getJobIterator( RedisConnRef $conn, array $uids ) {
 		return new MappedIterator(
@@ -631,7 +628,7 @@ LUA;
 	 *
 	 * @param string $uid
 	 * @param RedisConnRef|Redis $conn
-	 * @return RunnableJob|false Returns false if the job does not exist
+	 * @return RunnableJob|bool Returns false if the job does not exist
 	 * @throws JobQueueError
 	 * @throws UnexpectedValueException
 	 */
@@ -706,7 +703,7 @@ LUA;
 
 	/**
 	 * @param array $fields
-	 * @return RunnableJob|false
+	 * @return RunnableJob|bool
 	 */
 	protected function getJobFromFields( array $fields ) {
 		$params = $fields['params'];
@@ -740,7 +737,7 @@ LUA;
 
 	/**
 	 * @param string $blob
-	 * @return array|false Unserialized version of $blob or false
+	 * @return array|bool Unserialized version of $blob or false
 	 */
 	protected function unserialize( $blob ) {
 		$fields = unserialize( $blob );

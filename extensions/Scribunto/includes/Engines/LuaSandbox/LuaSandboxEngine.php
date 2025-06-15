@@ -2,16 +2,17 @@
 
 namespace MediaWiki\Extension\Scribunto\Engines\LuaSandbox;
 
+use Html;
+use Language;
 use LuaSandbox;
-use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LuaEngine;
-use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LuaInterpreterBadVersionError;
-use MediaWiki\Extension\Scribunto\Engines\LuaCommon\LuaInterpreterNotFoundError;
-use MediaWiki\Html\Html;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Parser\ParserOutput;
-use MediaWiki\Title\Title;
+use ParserOutput;
+use Scribunto_LuaEngine;
+use Scribunto_LuaInterpreterBadVersionError;
+use Scribunto_LuaInterpreterNotFoundError;
+use Title;
 
-class LuaSandboxEngine extends LuaEngine {
+class LuaSandboxEngine extends Scribunto_LuaEngine {
 	/** @var array */
 	public $options;
 	/** @var bool */
@@ -35,12 +36,12 @@ class LuaSandboxEngine extends LuaEngine {
 	public function getSoftwareInfo( array &$software ) {
 		try {
 			LuaSandboxInterpreter::checkLuaSandboxVersion();
-		} catch ( LuaInterpreterNotFoundError $e ) {
+		} catch ( Scribunto_LuaInterpreterNotFoundError $e ) {
 			// They shouldn't be using this engine if the extension isn't
 			// loaded. But in case they do for some reason, let's not have
 			// Special:Version fatal.
 			return;
-		} catch ( LuaInterpreterBadVersionError $e ) {
+		} catch ( Scribunto_LuaInterpreterBadVersionError $e ) {
 			// @phan-suppress-previous-line PhanPluginDuplicateCatchStatementBody
 			// Same for if the extension is too old.
 			return;
@@ -59,12 +60,12 @@ class LuaSandboxEngine extends LuaEngine {
 	public function getResourceUsage( $resource ) {
 		$this->load();
 		switch ( $resource ) {
-			case self::MEM_PEAK_BYTES:
-				return $this->interpreter->getPeakMemoryUsage();
-			case self::CPU_SECONDS:
-				return $this->interpreter->getCPUUsage();
-			default:
-				return false;
+		case self::MEM_PEAK_BYTES:
+			return $this->interpreter->getPeakMemoryUsage();
+		case self::CPU_SECONDS:
+			return $this->interpreter->getCPUUsage();
+		default:
+			return false;
 		}
 	}
 
@@ -143,7 +144,7 @@ class LuaSandboxEngine extends LuaEngine {
 	 * @return string
 	 */
 	private function fixTruncation( $s ) {
-		$lang = MediaWikiServices::getInstance()->getLanguageFactory()->getLanguage( 'en' );
+		$lang = Language::factory( 'en' );
 		return $lang->iconv( 'UTF-8', 'UTF-8', $s );
 	}
 

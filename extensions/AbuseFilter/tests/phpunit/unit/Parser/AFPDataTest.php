@@ -30,12 +30,12 @@ use MediaWiki\Extension\AbuseFilter\Parser\Exception\InternalException;
  * @group Test
  * @group AbuseFilter
  * @group AbuseFilterParser
- * @covers \MediaWiki\Extension\AbuseFilter\Parser\AFPData
  */
 class AFPDataTest extends ParserTestCase {
 	/**
 	 * @param string $expr The expression to test
 	 * @param string $caller The function where the exception is thrown
+	 * @covers \MediaWiki\Extension\AbuseFilter\Parser\AFPData::mulRel
 	 * @covers \MediaWiki\Extension\AbuseFilter\Parser\FilterEvaluator
 	 * @covers \MediaWiki\Extension\AbuseFilter\Parser\AFPTreeParser
 	 *
@@ -70,6 +70,7 @@ class AFPDataTest extends ParserTestCase {
 	/**
 	 * @param mixed $raw
 	 * @param AFPData|null $expected If null, we expect an exception due to unsupported data type
+	 * @covers \MediaWiki\Extension\AbuseFilter\Parser\AFPData::newFromPHPVar
 	 * @dataProvider providePHPVars
 	 */
 	public function testNewFromPHPVar( $raw, $expected ) {
@@ -79,7 +80,12 @@ class AFPDataTest extends ParserTestCase {
 		$this->assertEquals( $expected, AFPData::newFromPHPVar( $raw ) );
 	}
 
-	public static function providePHPVars() {
+	/**
+	 * Data provider for testNewFromPHPVar
+	 *
+	 * @return array
+	 */
+	public function providePHPVars() {
 		return [
 			[ 15, new AFPData( AFPData::DINT, 15 ) ],
 			[ '42', new AFPData( AFPData::DSTRING, '42' ) ],
@@ -110,6 +116,7 @@ class AFPDataTest extends ParserTestCase {
 	 * @param AFPData $orig
 	 * @param string $newType One of the AFPData::D* constants
 	 * @param AFPData|null $expected If null, we expect an exception due to unsupported data type
+	 * @covers \MediaWiki\Extension\AbuseFilter\Parser\AFPData::castTypes
 	 * @dataProvider provideMissingCastTypes
 	 */
 	public function testMissingCastTypes( $orig, $newType, $expected ) {
@@ -119,7 +126,12 @@ class AFPDataTest extends ParserTestCase {
 		$this->assertEquals( $expected, AFPData::castTypes( $orig, $newType ) );
 	}
 
-	public static function provideMissingCastTypes() {
+	/**
+	 * Data provider for testMissingCastTypes
+	 *
+	 * @return array
+	 */
+	public function provideMissingCastTypes() {
 		return [
 			[ new AFPData( AFPData::DINT, 1 ), AFPData::DNULL, new AFPData( AFPData::DNULL ) ],
 			[ new AFPData( AFPData::DBOOL, false ), AFPData::DNULL, new AFPData( AFPData::DNULL ) ],
@@ -166,13 +178,19 @@ class AFPDataTest extends ParserTestCase {
 	/**
 	 * @param AFPData $orig
 	 * @param mixed $expected
+	 * @covers \MediaWiki\Extension\AbuseFilter\Parser\AFPData::toNative
 	 * @dataProvider provideToNative
 	 */
 	public function testToNative( $orig, $expected ) {
 		$this->assertEquals( $expected, $orig->toNative() );
 	}
 
-	public static function provideToNative() {
+	/**
+	 * Data provider for testToNative
+	 *
+	 * @return array
+	 */
+	public function provideToNative() {
 		return [
 			[ new AFPData( AFPData::DFLOAT, 1.2345 ), 1.2345 ],
 			[ new AFPData( AFPData::DFLOAT, 0.1 ), 0.1 ],
@@ -188,6 +206,7 @@ class AFPDataTest extends ParserTestCase {
 				),
 				[ 'foo', true ]
 			],
+			[ new AFPData( AFPData::DEMPTY ), null ],
 		];
 	}
 
@@ -197,13 +216,20 @@ class AFPDataTest extends ParserTestCase {
 	 * @param AFPData $lhs
 	 * @param AFPData $rhs
 	 * @dataProvider provideDUNDEFINEDEquals
+	 *
+	 * @covers \MediaWiki\Extension\AbuseFilter\Parser\AFPData::equals
 	 */
 	public function testNoDUNDEFINEDEquals( $lhs, $rhs ) {
 		$this->expectException( InternalException::class );
 		$lhs->equals( $rhs );
 	}
 
-	public static function provideDUNDEFINEDEquals() {
+	/**
+	 * Data provider for testNoDUNDEFINEDEquals
+	 *
+	 * @return array
+	 */
+	public function provideDUNDEFINEDEquals() {
 		$undefined = new AFPData( AFPData::DUNDEFINED );
 		$nonempty = new AFPData( AFPData::DSTRING, 'foo' );
 		return [
@@ -215,6 +241,8 @@ class AFPDataTest extends ParserTestCase {
 
 	/**
 	 * Test that DUNDEFINED can only have null value
+	 *
+	 * @covers \MediaWiki\Extension\AbuseFilter\Parser\AFPData::__construct
 	 */
 	public function testDUNDEFINEDRequiresNullValue() {
 		$this->expectException( InvalidArgumentException::class );
@@ -223,6 +251,8 @@ class AFPDataTest extends ParserTestCase {
 
 	/**
 	 * Test that casting DUNDEFINED to something else is forbidden
+	 *
+	 * @covers \MediaWiki\Extension\AbuseFilter\Parser\AFPData::castTypes
 	 */
 	public function testDUNDEFINEDCannotBeCast() {
 		$data = new AFPData( AFPData::DUNDEFINED );
@@ -234,13 +264,17 @@ class AFPDataTest extends ParserTestCase {
 	/**
 	 * @param AFPData $obj
 	 * @param bool $expected
+	 * @covers \MediaWiki\Extension\AbuseFilter\Parser\AFPData::hasUndefined
 	 * @dataProvider provideHasUndefined
 	 */
 	public function testHasUndefined( AFPData $obj, bool $expected ) {
 		$this->assertSame( $expected, $obj->hasUndefined() );
 	}
 
-	public static function provideHasUndefined() {
+	/**
+	 * Provider for testHasUndefined
+	 */
+	public function provideHasUndefined() {
 		return [
 			[ new AFPData( AFPData::DUNDEFINED ), true ],
 			[ new AFPData( AFPData::DNULL ), false ],
@@ -253,13 +287,17 @@ class AFPDataTest extends ParserTestCase {
 	/**
 	 * @param AFPData $obj
 	 * @param AFPData $expected
+	 * @covers \MediaWiki\Extension\AbuseFilter\Parser\AFPData::cloneAsUndefinedReplacedWithNull
 	 * @dataProvider provideCloneAsUndefinedReplacedWithNull
 	 */
 	public function testCloneAsUndefinedReplacedWithNull( AFPData $obj, AFPData $expected ) {
 		$this->assertEquals( $expected, $obj->cloneAsUndefinedReplacedWithNull() );
 	}
 
-	public static function provideCloneAsUndefinedReplacedWithNull() {
+	/**
+	 * Provider for testHasUndefined
+	 */
+	public function provideCloneAsUndefinedReplacedWithNull() {
 		return [
 			[
 				new AFPData( AFPData::DUNDEFINED ),

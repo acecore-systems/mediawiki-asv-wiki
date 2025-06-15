@@ -7,26 +7,25 @@
  * See also ImagePage.php#makeMetadataTable (creates the HTML)
  */
 ( function () {
-	'use strict';
-
-	$( () => {
-		const $tables = $( '.mw_metadata' );
-		if ( !$tables.find( '.mw-metadata-collapsible' ).length ) {
+	$( function () {
+		var $tables = $( '.mw_metadata' );
+		if ( !$tables.find( '.mw-metadata-collapsible, .collapsable' ).length ) {
 			// No collapsible rows present on this page
 			return;
 		}
-		$tables.each( ( _, table ) => {
-			const expandText = mw.msg( 'metadata-expand' );
-			const collapseText = mw.msg( 'metadata-collapse' );
-			const $table = $( table );
+		$tables.each( function () {
+			var $link,
+				expandText = mw.msg( 'metadata-expand' ),
+				collapseText = mw.msg( 'metadata-collapse' ),
+				$table = $( this );
 
-			const $link = $( '<a>' )
+			$link = $( '<a>' )
 				.text( expandText )
 				.attr( {
 					role: 'button',
 					tabindex: 0
 				} )
-				.on( 'click keypress', ( e ) => {
+				.on( 'click keypress', function ( e ) {
 					if (
 						e.type === 'click' ||
 						e.type === 'keypress' && e.which === 13
@@ -34,10 +33,10 @@
 						// eslint-disable-next-line no-jquery/no-class-state
 						if ( $table.hasClass( 'collapsed' ) ) {
 							// From collapsed to expanded. Button will now collapse.
-							$( e.currentTarget ).text( collapseText );
+							$( this ).text( collapseText );
 						} else {
 							// From expanded to collapsed. Button will now expand.
-							$( e.currentTarget ).text( expandText );
+							$( this ).text( expandText );
 						}
 						// eslint-disable-next-line no-jquery/no-class-state
 						$table.toggleClass( 'collapsed' );

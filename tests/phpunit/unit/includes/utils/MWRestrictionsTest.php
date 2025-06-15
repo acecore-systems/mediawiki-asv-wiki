@@ -1,13 +1,7 @@
 <?php
 
-use MediaWiki\Json\FormatJson;
-use MediaWiki\Request\FauxRequest;
-use MediaWiki\Request\WebRequest;
-use MediaWiki\Status\Status;
-
 class MWRestrictionsTest extends MediaWikiUnitTestCase {
 
-	/** @var MWRestrictions */
 	protected static $restrictionsForChecks;
 
 	public static function setUpBeforeClass(): void {
@@ -22,8 +16,8 @@ class MWRestrictionsTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @covers \MWRestrictions::newDefault
-	 * @covers \MWRestrictions::__construct
+	 * @covers MWRestrictions::newDefault
+	 * @covers MWRestrictions::__construct
 	 */
 	public function testNewDefault() {
 		$ret = MWRestrictions::newDefault();
@@ -35,21 +29,20 @@ class MWRestrictionsTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @covers \MWRestrictions::newFromArray
-	 * @covers \MWRestrictions::__construct
-	 * @covers \MWRestrictions::loadFromArray
-	 * @covers \MWRestrictions::toArray
+	 * @covers MWRestrictions::newFromArray
+	 * @covers MWRestrictions::__construct
+	 * @covers MWRestrictions::loadFromArray
+	 * @covers MWRestrictions::toArray
 	 * @dataProvider provideArray
 	 * @param array $data
-	 * @param StatusValue|InvalidArgumentException $expect StatusValue if the call succeeds,
+	 * @param bool|InvalidArgumentException $expect True if the call succeeds,
 	 *  otherwise the exception that should be thrown.
 	 */
 	public function testArray( $data, $expect ) {
-		if ( $expect instanceof StatusValue ) {
+		if ( $expect === true ) {
 			$ret = MWRestrictions::newFromArray( $data );
 			$this->assertInstanceOf( MWRestrictions::class, $ret );
 			$this->assertSame( $data, $ret->toArray() );
-			$this->assertStatusMessagesExactly( $expect, $ret->validity );
 		} else {
 			try {
 				MWRestrictions::newFromArray( $data );
@@ -62,15 +55,11 @@ class MWRestrictionsTest extends MediaWikiUnitTestCase {
 
 	public static function provideArray() {
 		return [
-			[ [ 'IPAddresses' => [] ], StatusValue::newGood() ],
-			[ [ 'IPAddresses' => [ '127.0.0.1/32' ] ], StatusValue::newGood() ],
+			[ [ 'IPAddresses' => [] ], true ],
+			[ [ 'IPAddresses' => [ '127.0.0.1/32' ] ], true ],
 			[
 				[ 'IPAddresses' => [ '256.0.0.1/32' ] ],
-				StatusValue::newFatal( 'restrictionsfield-badip', '256.0.0.1/32' )
-			],
-			[
-				[ 'IPAddresses' => [ '127.0.0.1/32' ], 'Pages' => [ "Main Page", "Main Page/sandbox" ] ],
-				StatusValue::newGood()
+				new InvalidArgumentException( 'Invalid IP address: 256.0.0.1/32' )
 			],
 			[
 				[ 'IPAddresses' => '127.0.0.1/32' ],
@@ -79,41 +68,43 @@ class MWRestrictionsTest extends MediaWikiUnitTestCase {
 			[
 				[],
 				new InvalidArgumentException( 'Array is missing required keys: IPAddresses' )
-			]
+			],
+			[
+				[ 'foo' => 'bar', 'bar' => 42 ],
+				new InvalidArgumentException( 'Array contains invalid keys: foo, bar' )
+			],
 		];
 	}
 
 	/**
-	 * @covers \MWRestrictions::newFromJson
-	 * @covers \MWRestrictions::__construct
-	 * @covers \MWRestrictions::loadFromArray
-	 * @covers \MWRestrictions::toJson
-	 * @covers \MWRestrictions::__toString
+	 * @covers MWRestrictions::newFromJson
+	 * @covers MWRestrictions::__construct
+	 * @covers MWRestrictions::loadFromArray
+	 * @covers MWRestrictions::toJson
+	 * @covers MWRestrictions::__toString
 	 * @dataProvider provideJson
 	 * @param string $json
-	 * @param array|null $restrictions
-	 * @param StatusValue|InvalidArgumentException $expect
+	 * @param array|InvalidArgumentException $expect
 	 */
-	public function testJson( $json, $restrictions, $expect ) {
-		if ( $expect instanceof StatusValue ) {
+	public function testJson( $json, $expect ) {
+		if ( is_array( $expect ) ) {
 			$ret = MWRestrictions::newFromJson( $json );
 			$this->assertInstanceOf( MWRestrictions::class, $ret );
-			$this->assertSame( $restrictions, $ret->toArray() );
+			$this->assertSame( $expect, $ret->toArray() );
 
 			$this->assertSame( $json, $ret->toJson( false ) );
 			$this->assertSame( $json, (string)$ret );
 
 			$this->assertSame(
-				FormatJson::encode( $restrictions, true, FormatJson::ALL_OK ),
+				FormatJson::encode( $expect, true, FormatJson::ALL_OK ),
 				$ret->toJson( true )
 			);
-			$this->assertStatusMessagesExactly( $expect, $ret->validity );
 		} else {
 			try {
 				MWRestrictions::newFromJson( $json );
 				$this->fail( 'Expected exception not thrown' );
 			} catch ( InvalidArgumentException $ex ) {
-				$this->assertEquals( $expect, $ex );
+				$this->assertTrue( true );
 			}
 		}
 	}
@@ -122,49 +113,41 @@ class MWRestrictionsTest extends MediaWikiUnitTestCase {
 		return [
 			[
 				'{"IPAddresses":[]}',
-				[ 'IPAddresses' => [] ],
-				StatusValue::newGood()
+				[ 'IPAddresses' => [] ]
 			],
 			[
 				'{"IPAddresses":["127.0.0.1/32"]}',
-				[ 'IPAddresses' => [ '127.0.0.1/32' ] ],
-				StatusValue::newGood()
-			],
-			[
-				'{"IPAddresses":["127.0.0.1/32"],"Pages":["Main Page"]}',
-				[ 'IPAddresses' => [ '127.0.0.1/32' ], 'Pages' => [ "Main Page" ] ],
-				StatusValue::newGood()
+				[ 'IPAddresses' => [ '127.0.0.1/32' ] ]
 			],
 			[
 				'{"IPAddresses":["256.0.0.1/32"]}',
-				[ 'IPAddresses' => [ '256.0.0.1/32' ] ],
-				StatusValue::newFatal( 'restrictionsfield-badip', '256.0.0.1/32' )
+				new InvalidArgumentException( 'Invalid IP address: 256.0.0.1/32' )
 			],
 			[
 				'{"IPAddresses":"127.0.0.1/32"}',
-				null,
 				new InvalidArgumentException( 'IPAddresses is not an array' )
 			],
 			[
 				'{}',
-				null,
 				new InvalidArgumentException( 'Array is missing required keys: IPAddresses' )
 			],
 			[
+				'{"foo":"bar","bar":42}',
+				new InvalidArgumentException( 'Array contains invalid keys: foo, bar' )
+			],
+			[
 				'{"IPAddresses":[]',
-				null,
 				new InvalidArgumentException( 'Invalid restrictions JSON' )
 			],
 			[
 				'"IPAddresses"',
-				null,
 				new InvalidArgumentException( 'Invalid restrictions JSON' )
 			],
 		];
 	}
 
 	/**
-	 * @covers \MWRestrictions::checkIP
+	 * @covers MWRestrictions::checkIP
 	 * @dataProvider provideCheckIP
 	 * @param string $ip
 	 * @param bool $pass
@@ -185,7 +168,7 @@ class MWRestrictionsTest extends MediaWikiUnitTestCase {
 	}
 
 	/**
-	 * @covers \MWRestrictions::check
+	 * @covers MWRestrictions::check
 	 * @dataProvider provideCheck
 	 * @param WebRequest $request
 	 * @param Status $expect

@@ -20,17 +20,16 @@
 
 namespace MediaWiki\Mail;
 
+use Exception;
 use MailAddress;
+use MWException;
 use StatusValue;
 
 /**
- * Interface for sending arbitrary emails.
+ * Interface for sending emails.
  *
- * Default implementation is MediaWiki\Mail\Emailer.
- *
- * @internal
  * @since 1.35
- * @ingroup Mail
+ * @internal
  */
 interface IEmailer {
 
@@ -50,6 +49,9 @@ interface IEmailer {
 	 *     'headers' array Extra headers to set
 	 *
 	 * @phan-param array{replyTo?:?MailAddress,contentType?:string,headers?:array<string,string>} $options
+	 *
+	 * @throws MWException
+	 * @throws Exception
 	 * @return StatusValue
 	 */
 	public function send(

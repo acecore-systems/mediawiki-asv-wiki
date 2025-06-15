@@ -2,8 +2,8 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\Context\IContextSource;
-use MediaWiki\User\User;
+use IContextSource;
+use User;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

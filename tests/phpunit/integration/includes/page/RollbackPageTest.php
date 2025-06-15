@@ -2,42 +2,47 @@
 
 namespace MediaWiki\Tests\Page;
 
+use ChangeTags;
 use DatabaseLogEntry;
-use MediaWiki\Content\JsonContent;
-use MediaWiki\Content\WikitextContent;
+use JsonContent;
 use MediaWiki\MainConfigNames;
 use MediaWiki\Page\PageIdentity;
 use MediaWiki\Page\PageIdentityValue;
 use MediaWiki\Page\RollbackPage;
 use MediaWiki\Permissions\Authority;
+use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Revision\SlotRecord;
 use MediaWiki\Tests\Unit\MockServiceDependenciesTrait;
 use MediaWiki\Tests\Unit\Permissions\MockAuthorityTrait;
-use MediaWiki\Tests\User\TempUser\TempUserTestTrait;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
 use MediaWiki\User\UserFactory;
 use MediaWiki\User\UserIdentityValue;
 use MediaWikiIntegrationTestCase;
+use ReadOnlyMode;
 use RecentChange;
-use Wikimedia\Rdbms\ReadOnlyMode;
+use Title;
+use User;
 use WikiPage;
+use WikitextContent;
 
 /**
  * @group Database
  * @covers \MediaWiki\Page\RollbackPage
  * @coversDefaultClass \MediaWiki\Page\RollbackPage
+ * @package MediaWiki\Tests\Page
  * @method RollbackPage newServiceInstance(string $serviceClass, array $parameterOverrides)
  */
 class RollbackPageTest extends MediaWikiIntegrationTestCase {
 	use MockAuthorityTrait;
 	use MockServiceDependenciesTrait;
-	use TempUserTestTrait;
 
 	protected function setUp(): void {
 		parent::setUp();
-
 		$this->overrideConfigValue( MainConfigNames::UseRCPatrol, true );
+		$this->tablesUsed = array_merge( $this->tablesUsed, [
+			'page',
+			'recentchanges',
+			'logging',
+		] );
 	}
 
 	public function provideAuthorize() {
@@ -81,7 +86,7 @@ class RollbackPageTest extends MediaWikiIntegrationTestCase {
 			'readOnlyMode' => $mockReadOnly,
 			'performer' => $this->mockRegisteredUltimateAuthority()
 		] );
-		$this->assertStatusNotOk( $rollback->authorizeRollback() );
+		$this->assertFalse( $rollback->authorizeRollback()->isGood() );
 	}
 
 	/**
@@ -91,10 +96,8 @@ class RollbackPageTest extends MediaWikiIntegrationTestCase {
 		$performer = $this->mockRegisteredUltimateAuthority();
 		$userMock = $this->createMock( User::class );
 		$userMock->method( 'pingLimiter' )
-			->willReturnMap( [
-				[ 'rollback', 1, false ],
-				[ 'edit', 1, false ],
-			] );
+			->withConsecutive( [ 'rollback', 1 ], [ 'edit', 1 ] )
+			->willReturnOnConsecutiveCalls( false, false );
 		$userFactoryMock = $this->createMock( UserFactory::class );
 		$userFactoryMock->method( 'newFromAuthority' )
 			->with( $performer )
@@ -103,13 +106,13 @@ class RollbackPageTest extends MediaWikiIntegrationTestCase {
 			'performer' => $performer,
 			'userFactory' => $userFactoryMock
 		] );
-		$this->assertStatusGood( $rollbackPage->authorizeRollback() );
+		$this->assertTrue( $rollbackPage->authorizeRollback()->isGood() );
 	}
 
 	public function testRollbackNotAllowed() {
-		$this->assertStatusNotOk( $this->newServiceInstance( RollbackPage::class, [
+		$this->assertFalse( $this->newServiceInstance( RollbackPage::class, [
 			'performer' => $this->mockRegisteredNullAuthority()
-		] )->rollbackIfAllowed() );
+		] )->rollbackIfAllowed()->isGood() );
 	}
 
 	public function testRollback() {
@@ -132,9 +135,12 @@ class RollbackPageTest extends MediaWikiIntegrationTestCase {
 		$status3 = $this->editPage( $page, $text, "adding section three", NS_MAIN, $user2 );
 		$this->assertStatusGood( $status3, 'edit 3 success' );
 
-		$rev1 = $status1->getNewRevision();
-		$rev2 = $status2->getNewRevision();
-		$rev3 = $status3->getNewRevision();
+		/** @var RevisionRecord $rev1 */
+		/** @var RevisionRecord $rev2 */
+		/** @var RevisionRecord $rev3 */
+		$rev1 = $status1->getValue()['revision-record'];
+		$rev2 = $status2->getValue()['revision-record'];
+		$rev3 = $status3->getValue()['revision-record'];
 
 		$revisionStore = $this->getServiceContainer()->getRevisionStore();
 		/**
@@ -144,7 +150,7 @@ class RollbackPageTest extends MediaWikiIntegrationTestCase {
 		 */
 		$this->assertEquals(
 			3,
-			$revisionStore->countRevisionsByPageId( $this->getDb(), $page->getId() )
+			$revisionStore->countRevisionsByPageId( $this->db, $page->getId() )
 		);
 		$this->assertEquals( $admin->getName(), $rev1->getUser()->getName() );
 		$this->assertEquals( $user1->getName(), $rev2->getUser()->getName() );
@@ -238,17 +244,17 @@ class RollbackPageTest extends MediaWikiIntegrationTestCase {
 		$text = "one";
 		$status = $this->editPage( $page, $text, "section one", NS_MAIN, $user1 );
 		$this->assertStatusGood( $status, 'edit 1 success' );
-		$result['revision-one'] = $status->getNewRevision();
+		$result['revision-one'] = $status->getValue()['revision-record'];
 
 		$text .= "\n\ntwo";
 		$status = $this->editPage( $page, $text, "adding section two", NS_MAIN, $user2 );
 		$this->assertStatusGood( $status, 'edit 2 success' );
-		$result['revision-two'] = $status->getNewRevision();
+		$result['revision-two'] = $status->getValue()['revision-record'];
 		return $result;
 	}
 
 	public function testRollbackTagging() {
-		if ( !in_array( 'mw-rollback', $this->getServiceContainer()->getChangeTagsStore()->getSoftwareTags() ) ) {
+		if ( !in_array( 'mw-rollback', ChangeTags::getSoftwareTags() ) ) {
 			$this->markTestSkipped( 'Rollback tag deactivated, skipped the test.' );
 		}
 
@@ -305,7 +311,7 @@ class RollbackPageTest extends MediaWikiIntegrationTestCase {
 		$this->assertSame( '0', $rc->getAttribute( 'rc_bot' ) );
 	}
 
-	public static function provideRollbackPatrolAndBot() {
+	public function provideRollbackPatrolAndBot() {
 		yield 'mark as bot' => [ true ];
 		yield 'do not mark as bot' => [ false ];
 	}
@@ -326,7 +332,7 @@ class RollbackPageTest extends MediaWikiIntegrationTestCase {
 		$text = "one\n\ntwo\n\nthree";
 		$status = $this->editPage( $page, $text, "adding section three", NS_MAIN, $user1 );
 		$this->assertStatusGood( $status, 'edit 3 success' );
-		$rev3 = $status->getNewRevision();
+		$rev3 = $status->getValue()['revision-record'];
 
 		$revisionStore = $this->getServiceContainer()->getRevisionStore();
 
@@ -428,31 +434,21 @@ class RollbackPageTest extends MediaWikiIntegrationTestCase {
 			->setSummary( 'TESTING' )
 			->rollbackIfAllowed();
 		$this->assertStatusGood( $rollbackResult );
-		$logRow = DatabaseLogEntry::newSelectQueryBuilder( $this->getDb() )
-			->where( [ 'log_namespace' => NS_MAIN, 'log_title' => __METHOD__, 'log_type' => 'contentmodel' ] )
-			->caller( __METHOD__ )->fetchRow();
+		$logQuery = DatabaseLogEntry::getSelectQueryData();
+		$logRow = $this->db->selectRow(
+			$logQuery['tables'],
+			$logQuery['fields'],
+			[
+				'log_namespace' => NS_MAIN,
+				'log_title' => __METHOD__,
+				'log_type' => 'contentmodel'
+			],
+			__METHOD__,
+			[],
+			$logQuery['join_conds']
+		);
 		$this->assertNotNull( $logRow );
 		$this->assertSame( $admin->getUser()->getName(), $logRow->user_name );
 		$this->assertSame( 'TESTING', $logRow->log_comment_text );
-	}
-
-	public function testRollbackOfIPRevisionWhenTemporaryAccountsAreEnabledT371094() {
-		// Set up the test page to have one revision by a user and then the second revision performed by an IP address.
-		$this->disableAutoCreateTempUser();
-		$page = $this->getServiceContainer()->getWikiPageFactory()->newFromTitle( Title::newFromText( __METHOD__ ) );
-		$admin = $this->getTestSysop()->getUser();
-		$anonUser = $this->mockAnonUltimateAuthority();
-
-		$this->prepareForRollback( $admin, $anonUser, $page );
-
-		// Enable temporary accounts and then perform the rollback
-		$this->enableAutoCreateTempUser();
-		$rollbackResult = $this->getServiceContainer()
-			->getRollbackPageFactory()
-			->newRollbackPage( $page, $admin, $anonUser->getUser() )
-			->rollbackIfAllowed();
-		// Ensure that the rollback worked as expected, as previously this failed with an exception if
-		// rolling back a IP revision.
-		$this->assertStatusGood( $rollbackResult );
 	}
 }

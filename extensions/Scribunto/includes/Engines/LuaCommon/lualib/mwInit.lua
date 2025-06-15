@@ -36,38 +36,33 @@ do
 end
 
 --- Do a "deep copy" of a table or other value.
-do
-	-- Declare global variables as locals to reduce access times
-	local getmetatable = getmetatable
-	local pairs = pairs
-	local setmetatable = setmetatable
-	local type = type
-	local function recursiveClone( val, tableRefs )
-		local retVal = {}
-		-- Encode circular references correctly
-		tableRefs[val] = retVal
-
-		local mt = getmetatable( val )
-		if mt then
-			setmetatable( retVal, tableRefs[mt] or recursiveClone( mt, tableRefs ) )
-		end
-
-		for key, elt in pairs( val ) do
-			if type( elt ) == 'table' then
-				retVal[key] = tableRefs[elt] or recursiveClone( elt, tableRefs )
-			else
-				retVal[key] = elt
+function mw.clone( val )
+	local tableRefs = {}
+	local function recursiveClone( val )
+		if type( val ) == 'table' then
+			-- Encode circular references correctly
+			if tableRefs[val] ~= nil then
+				return tableRefs[val]
 			end
-		end
-		return retVal
-	end
 
-	function mw.clone( val )
-		if type( val ) ~= 'table' then
+			local retVal
+			retVal = {}
+			tableRefs[val] = retVal
+
+			-- Copy metatable
+			if getmetatable( val ) then
+				setmetatable( retVal, recursiveClone( getmetatable( val ) ) )
+			end
+
+			for key, elt in pairs( val ) do
+				retVal[key] = recursiveClone( elt )
+			end
+			return retVal
+		else
 			return val
 		end
-		return recursiveClone( val, {} )
 	end
+	return recursiveClone( val )
 end
 
 --- Make isolation-safe setfenv and getfenv functions

@@ -1,6 +1,8 @@
 <?php
 /** Slovak (slovenčina)
  *
+ * To improve a translation please visit https://translatewiki.net
+ *
  * @file
  * @ingroup Languages
  *
@@ -113,7 +115,6 @@ $specialPageAliases = [
 	'Recentchangeslinked'       => [ 'SúvisiacePoslednéÚpravy' ],
 	'Redirect'                  => [ 'Presmerovanie' ],
 	'RemoveCredentials'         => [ 'OdstráneniePrihlasovacíchÚdajov' ],
-	'Renameuser'                => [ 'PremenovaťPoužívateľa' ],
 	'ResetTokens'               => [ 'ObnovaKľúčov' ],
 	'Revisiondelete'            => [ 'ZmazaťRevíziu' ],
 	'Search'                    => [ 'Hľadanie' ],
@@ -238,7 +239,7 @@ $magicWords = [
 	'img_right'                 => [ '1', 'vpravo', 'right' ],
 	'img_thumbnail'             => [ '1', 'náhľad', 'náhľadobrázka', 'thumb', 'thumbnail' ],
 	'img_width'                 => [ '1', '$1bod', '$1px' ],
-	'language'                  => [ '0', '#JAZYK', '#LANGUAGE' ],
+	'language'                  => [ '0', '#JAZYK:', '#LANGUAGE:' ],
 	'msg'                       => [ '0', 'SPRÁVA:', 'MSG:' ],
 	'namespace'                 => [ '1', 'MENNÝPRIESTOR', 'NAMESPACE' ],
 	'namespacee'                => [ '1', 'MENNÝPRIESTORE', 'NAMESPACEE' ],

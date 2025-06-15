@@ -3,7 +3,7 @@
 namespace MediaWiki\Content\Hook;
 
 use DifferenceEngine;
-use MediaWiki\Context\IContextSource;
+use IContextSource;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

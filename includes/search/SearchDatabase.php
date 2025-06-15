@@ -21,9 +21,8 @@
  * @ingroup Search
  */
 
-use MediaWiki\Status\Status;
-use Wikimedia\Rdbms\DBQueryError;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
  * Base search engine base class for database-backed searches
@@ -32,17 +31,23 @@ use Wikimedia\Rdbms\IConnectionProvider;
  * @since 1.23
  */
 abstract class SearchDatabase extends SearchEngine {
+	/** @var ILoadBalancer */
+	protected $lb;
+	/** @var IDatabase (backwards compatibility) */
+	protected $db;
+
 	/**
 	 * @var string[] search terms
 	 */
 	protected $searchTerms = [];
-	protected IConnectionProvider $dbProvider;
 
 	/**
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $lb The load balancer for the DB cluster to search on
 	 */
-	public function __construct( IConnectionProvider $dbProvider ) {
-		$this->dbProvider = $dbProvider;
+	public function __construct( ILoadBalancer $lb ) {
+		$this->lb = $lb;
+		// @TODO: remove this deprecated field in 1.35
+		$this->db = $lb->getConnectionRef( DB_REPLICA ); // b/c
 	}
 
 	/**
@@ -66,21 +71,7 @@ abstract class SearchDatabase extends SearchEngine {
 	 * @return ISearchResultSet|null
 	 */
 	final public function doSearchTitle( $term ) {
-		try {
-			return $this->doSearchTitleInDB( $this->extractNamespacePrefix( $term ) );
-		} catch ( DBQueryError $dqe ) {
-			if ( $dqe->errno == 1064 ) {
-				throw new DBQueryError(
-					$dqe->db,
-					"Query incompatible with database engine. For more information: " .
-					"https://bugs.mysql.com/bug.php?id=78485 https://jira.mariadb.org/browse/MDEV-21750 / " .
-					"https://phabricator.wikimedia.org/T355096",
-					1064, $dqe->sql, __METHOD__
-					);
-			} else {
-				throw $dqe;
-			}
-		}
+		return $this->doSearchTitleInDB( $this->extractNamespacePrefix( $term ) );
 	}
 
 	/**

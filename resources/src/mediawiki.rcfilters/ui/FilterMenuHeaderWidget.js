@@ -1,16 +1,16 @@
 /**
- * Menu header for the RCFilters filters menu.
+ * Menu header for the RCFilters filters menu
  *
  * @class mw.rcfilters.ui.FilterMenuHeaderWidget
- * @ignore
  * @extends OO.ui.Widget
  *
+ * @constructor
  * @param {mw.rcfilters.Controller} controller Controller
  * @param {mw.rcfilters.dm.FiltersViewModel} model View model
  * @param {Object} config Configuration object
- * @param {jQuery} [config.$overlay] A jQuery object serving as overlay for popups
+ * @cfg {jQuery} [$overlay] A jQuery object serving as overlay for popups
  */
-const FilterMenuHeaderWidget = function MwRcfiltersUiFilterMenuHeaderWidget( controller, model, config ) {
+var FilterMenuHeaderWidget = function MwRcfiltersUiFilterMenuHeaderWidget( controller, model, config ) {
 	config = config || {};
 
 	this.controller = controller;
@@ -18,8 +18,8 @@ const FilterMenuHeaderWidget = function MwRcfiltersUiFilterMenuHeaderWidget( con
 	this.$overlay = config.$overlay || this.$element;
 
 	// Parent
-	FilterMenuHeaderWidget.super.call( this, config );
-	OO.ui.mixin.LabelElement.call( this, Object.assign( {
+	FilterMenuHeaderWidget.parent.call( this, config );
+	OO.ui.mixin.LabelElement.call( this, $.extend( {
 		label: mw.msg( 'rcfilters-filterlist-title' ),
 		$label: $( '<div>' )
 			.addClass( 'mw-rcfilters-ui-filterMenuHeaderWidget-title' )
@@ -52,12 +52,7 @@ const FilterMenuHeaderWidget = function MwRcfiltersUiFilterMenuHeaderWidget( con
 		classes: [ 'mw-rcfilters-ui-filterMenuHeaderWidget-hightlightButton' ]
 	} );
 
-	// Invert buttons
-	this.invertTagsButton = new OO.ui.ToggleButtonWidget( {
-		icon: '',
-		classes: [ 'mw-rcfilters-ui-filterMenuHeaderWidget-invertTagsButton' ]
-	} );
-	this.invertTagsButton.toggle( this.model.getCurrentView() === 'tags' );
+	// Invert namespaces button
 	this.invertNamespacesButton = new OO.ui.ToggleButtonWidget( {
 		icon: '',
 		classes: [ 'mw-rcfilters-ui-filterMenuHeaderWidget-invertNamespacesButton' ]
@@ -68,8 +63,6 @@ const FilterMenuHeaderWidget = function MwRcfiltersUiFilterMenuHeaderWidget( con
 	this.backButton.connect( this, { click: 'onBackButtonClick' } );
 	this.highlightButton
 		.connect( this, { click: 'onHighlightButtonClick' } );
-	this.invertTagsButton
-		.connect( this, { click: 'onInvertTagsButtonClick' } );
 	this.invertNamespacesButton
 		.connect( this, { click: 'onInvertNamespacesButtonClick' } );
 	this.model.connect( this, {
@@ -101,10 +94,6 @@ const FilterMenuHeaderWidget = function MwRcfiltersUiFilterMenuHeaderWidget( con
 							$( '<div>' )
 								.addClass( 'mw-rcfilters-ui-cell' )
 								.addClass( 'mw-rcfilters-ui-filterMenuHeaderWidget-header-invert' )
-								.append( this.invertTagsButton.$element ),
-							$( '<div>' )
-								.addClass( 'mw-rcfilters-ui-cell' )
-								.addClass( 'mw-rcfilters-ui-filterMenuHeaderWidget-header-invert' )
 								.append( this.invertNamespacesButton.$element ),
 							$( '<div>' )
 								.addClass( 'mw-rcfilters-ui-cell' )
@@ -130,25 +119,20 @@ OO.mixinClass( FilterMenuHeaderWidget, OO.ui.mixin.LabelElement );
  * would help with that.
  */
 FilterMenuHeaderWidget.prototype.onModelInitialize = function () {
-	this.invertNamespacesModel = this.model.getNamespacesInvertModel();
-	this.updateInvertNamespacesButton();
-	this.invertNamespacesModel.connect( this, { update: 'updateInvertNamespacesButton' } );
-
-	this.invertTagsModel = this.model.getTagsInvertModel();
-	this.updateInvertTagsButton();
-	this.invertTagsModel.connect( this, { update: 'updateInvertTagsButton' } );
+	this.invertModel = this.model.getInvertModel();
+	this.updateInvertButton();
+	this.invertModel.connect( this, { update: 'updateInvertButton' } );
 };
 
 /**
  * Respond to model update event
  */
 FilterMenuHeaderWidget.prototype.onModelSearchChange = function () {
-	const currentView = this.model.getCurrentView();
+	var currentView = this.model.getCurrentView();
 
 	if ( this.view !== currentView ) {
 		this.setLabel( this.model.getViewTitle( currentView ) );
 
-		this.invertTagsButton.toggle( currentView === 'tags' );
 		this.invertNamespacesButton.toggle( currentView === 'namespaces' );
 		this.backButton.toggle( currentView !== 'default' );
 		this.helpIcon.toggle( currentView === 'tags' );
@@ -166,24 +150,12 @@ FilterMenuHeaderWidget.prototype.onModelHighlightChange = function ( highlightEn
 };
 
 /**
- * Update the state of the tags invert button
+ * Update the state of the invert button
  */
-FilterMenuHeaderWidget.prototype.updateInvertTagsButton = function () {
-	this.invertTagsButton.setActive( this.invertTagsModel.isSelected() );
-	this.invertTagsButton.setLabel(
-		this.invertTagsModel.isSelected() ?
-			mw.msg( 'rcfilters-exclude-button-on' ) :
-			mw.msg( 'rcfilters-exclude-button-off' )
-	);
-};
-
-/**
- * Update the state of the namespaces invert button
- */
-FilterMenuHeaderWidget.prototype.updateInvertNamespacesButton = function () {
-	this.invertNamespacesButton.setActive( this.invertNamespacesModel.isSelected() );
+FilterMenuHeaderWidget.prototype.updateInvertButton = function () {
+	this.invertNamespacesButton.setActive( this.invertModel.isSelected() );
 	this.invertNamespacesButton.setLabel(
-		this.invertNamespacesModel.isSelected() ?
+		this.invertModel.isSelected() ?
 			mw.msg( 'rcfilters-exclude-button-on' ) :
 			mw.msg( 'rcfilters-exclude-button-off' )
 	);
@@ -201,14 +173,7 @@ FilterMenuHeaderWidget.prototype.onHighlightButtonClick = function () {
 };
 
 /**
- * Respond to invert tags button click
- */
-FilterMenuHeaderWidget.prototype.onInvertTagsButtonClick = function () {
-	this.controller.toggleInvertedTags();
-};
-
-/**
- * Respond to invert namespaces button click
+ * Respond to highlight button click
  */
 FilterMenuHeaderWidget.prototype.onInvertNamespacesButtonClick = function () {
 	this.controller.toggleInvertedNamespaces();

@@ -20,15 +20,8 @@
  * @ingroup Actions
  */
 
-use MediaWiki\Context\IContextSource;
-use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Status\Status;
-use MediaWiki\User\User;
-use MediaWiki\Watchlist\WatchedItem;
-use MediaWiki\Watchlist\WatchedItemStore;
 use MediaWiki\Watchlist\WatchlistManager;
-use MediaWiki\Xml\XmlSelect;
 use Wikimedia\ParamValidator\TypeDef\ExpiryDef;
 
 /**
@@ -47,23 +40,24 @@ class WatchAction extends FormAction {
 	/** @var false|WatchedItem */
 	protected $watchedItem = false;
 
-	private WatchlistManager $watchlistManager;
+	/** @var WatchlistManager */
+	private $watchlistManager;
 
 	/**
 	 * Only public since 1.21
 	 *
-	 * @param Article $article
+	 * @param Page $page
 	 * @param IContextSource $context
 	 * @param WatchlistManager $watchlistManager
 	 * @param WatchedItemStore $watchedItemStore
 	 */
 	public function __construct(
-		Article $article,
+		Page $page,
 		IContextSource $context,
 		WatchlistManager $watchlistManager,
 		WatchedItemStore $watchedItemStore
 	) {
-		parent::__construct( $article, $context );
+		parent::__construct( $page, $context );
 		$this->watchlistExpiry = $this->getContext()->getConfig()->get( MainConfigNames::WatchlistExpiry );
 		if ( $this->watchlistExpiry ) {
 			// The watchedItem is only used in this action's form if $wgWatchlistExpiry is enabled.
@@ -100,24 +94,12 @@ class WatchAction extends FormAction {
 		return Status::wrap( $result );
 	}
 
-	/**
-	 * @throws UserNotLoggedIn
-	 * @throws PermissionsError
-	 * @throws ReadOnlyError
-	 * @throws UserBlockedError
-	 */
 	protected function checkCanExecute( User $user ) {
-		if ( !$user->isRegistered()
-			|| ( $user->isTemp() && !$user->isAllowed( 'editmywatchlist' ) )
-		) {
+		if ( !$user->isNamed() ) {
 			throw new UserNotLoggedIn( 'watchlistanontext', 'watchnologin' );
 		}
 
 		parent::checkCanExecute( $user );
-	}
-
-	public function getRestriction() {
-		return 'editmywatchlist';
 	}
 
 	protected function usesOOUI() {
@@ -156,7 +138,7 @@ class WatchAction extends FormAction {
 	 * @todo Move this somewhere better when it's being used in more than just this action.
 	 *
 	 * @param MessageLocalizer $msgLocalizer
-	 * @param WatchedItem|false $watchedItem
+	 * @param WatchedItem|bool $watchedItem
 	 *
 	 * @return mixed[] With keys `options` (string[]) and `default` (string).
 	 */

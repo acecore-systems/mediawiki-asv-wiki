@@ -13,11 +13,6 @@ class ParserTestResultNormalizer {
 	/** @var bool */
 	protected $invalid;
 
-	/**
-	 * @param string $text
-	 * @param string[] $funcs
-	 * @return string
-	 */
 	public static function normalize( $text, $funcs ) {
 		$norm = new self( $text );
 		if ( $norm->invalid ) {

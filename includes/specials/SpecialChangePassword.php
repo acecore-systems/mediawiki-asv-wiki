@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:ChangePassword
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,16 +18,13 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
 use MediaWiki\Auth\PasswordAuthenticationRequest;
-use MediaWiki\SpecialPage\SpecialRedirectToSpecial;
 
 /**
- * Compatibility and shortcut redirect to Special:ChangeCredentials,
- * and to hide internal AuthManager class names.
+ * Let users recover their password.
  *
  * @ingroup SpecialPage
  */
@@ -35,6 +34,3 @@ class SpecialChangePassword extends SpecialRedirectToSpecial {
 			PasswordAuthenticationRequest::class, [ 'returnto', 'returntoquery' ] );
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialChangePassword::class, 'SpecialChangePassword' );

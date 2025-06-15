@@ -15,7 +15,7 @@ class MetricSpec {
 	public $type;
 	/** @var float|int */
 	public $resolution;
-	/** @var array<string,SequenceSpec> Sequences in ascending order of expiry */
+	/** @var SequenceSpec[] Sequences in ascending order of expiry */
 	public $sequences;
 
 	/**
@@ -26,17 +26,19 @@ class MetricSpec {
 		$this->resolution = $spec['resolution'] ?? self::DEFAULT_RESOLUTION;
 		foreach ( [ 'timeStep', 'expiry' ] as $var ) {
 			if ( isset( $spec[$var] ) ) {
-				throw new WRStatsError( "$var must be in the sequences array" );
+				throw new WRStatsError( __METHOD__ .
+					": $var must be specified in the sequences array" );
 			}
 		}
 		$seqArrays = $spec['sequences'] ?? [];
-		if ( !$seqArrays ) {
+		if ( !count( $seqArrays ) ) {
 			$seqArrays = [ [] ];
 		}
 		$sequences = [];
 		foreach ( $seqArrays as $i => $seqArray ) {
 			if ( !is_array( $seqArray ) ) {
-				throw new WRStatsError( 'sequences must be an array of arrays' );
+				throw new WRStatsError( __METHOD__ .
+					': sequences is supposed to be an array of arrays' );
 			}
 			$seqSpec = new SequenceSpec( $seqArray );
 			while ( isset( $sequences[$seqSpec->name] ) ) {

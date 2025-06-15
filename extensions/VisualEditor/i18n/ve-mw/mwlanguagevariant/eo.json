@@ -1,7 +1,6 @@
 {
 	"@metadata": {
 		"authors": [
-			"Amire80",
 			"Mirin"
 		]
 	},
@@ -15,7 +14,7 @@
 	"visualeditor-mwlanguagevariantcontextitem-flag-hidden": "Jen kaŝita regulo.",
 	"visualeditor-mwlanguagevariantcontextitem-flag-title": "Jen regulo influanta paĝan titolon.",
 	"visualeditor-mwlanguagevariantcontextitem-rule-code-label": "Longvokodo",
-	"visualeditor-mwlanguagevariantcontextitem-rule-invalid-language-label": "<em>Ne valida</em>",
+	"visualeditor-mwlanguagevariantcontextitem-rule-invalid-language-label": "<Ne valida>",
 	"visualeditor-mwlanguagevariantcontextitem-rule-name-label": "Lingvo",
 	"visualeditor-mwlanguagevariantcontextitem-rule-text-from-label": "Fonto",
 	"visualeditor-mwlanguagevariantcontextitem-rule-text-to-label": "Celo",

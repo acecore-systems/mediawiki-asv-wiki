@@ -26,7 +26,7 @@ function testTitle( title ) {
  * @return {string} Full path of screenshot/video file
  */
 function filePath( title, extension ) {
-	return `${ browser.config.screenshotPath }/${ testTitle( title ) }-${ makeFilenameDate() }.${ extension }`;
+	return `${browser.config.screenshotPath}/${testTitle( title )}-${makeFilenameDate()}.${extension}`;
 }
 
 /**
@@ -41,10 +41,8 @@ async function saveScreenshot( title ) {
 	const path = filePath( title, 'png' );
 	// Ensure directory exists, based on WebDriverIO#saveScreenshotSync()
 	try {
-		// eslint-disable-next-line security/detect-non-literal-fs-filename
 		fs.statSync( browser.config.screenshotPath );
 	} catch ( err ) {
-		// eslint-disable-next-line security/detect-non-literal-fs-filename
 		fs.mkdirSync( browser.config.screenshotPath );
 	}
 	// Create and save screenshot
@@ -64,7 +62,7 @@ function startVideo( ffmpeg, title ) {
 		const { spawn } = require( 'child_process' );
 		ffmpeg = spawn( 'ffmpeg', [
 			'-f', 'x11grab', //  grab the X11 display
-			'-video_size', '1280x1024', // video size
+			'-video_size', '1920x1080', // video size
 			'-i', process.env.DISPLAY, // input file url
 			'-loglevel', 'error', // log only errors
 			'-y', // overwrite output files without asking
@@ -73,7 +71,7 @@ function startVideo( ffmpeg, title ) {
 		] );
 		const logBuffer = function ( buffer, prefix ) {
 			const lines = buffer.toString().trim().split( '\n' );
-			lines.forEach( ( line ) => {
+			lines.forEach( function ( line ) {
 				console.log( prefix + line );
 			} );
 		};

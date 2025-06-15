@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel ListItemNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -30,15 +30,6 @@ ve.dm.ListItemNode.static.name = 'listItem';
 ve.dm.ListItemNode.static.parentNodeTypes = [ 'list' ];
 
 ve.dm.ListItemNode.static.matchTagNames = [ 'li' ];
-
-// Nodes which are diffed as a list must have the same description logic as each other
-ve.dm.ListItemNode.static.describeChanges = function () {
-	return ve.dm.ListNode.static.describeChanges.apply( this, arguments );
-};
-
-ve.dm.ListItemNode.static.describeChange = function () {
-	return ve.dm.ListNode.static.describeChange.apply( this, arguments );
-};
 
 /* Registration */
 

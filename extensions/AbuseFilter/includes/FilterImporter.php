@@ -2,6 +2,7 @@
 
 namespace MediaWiki\Extension\AbuseFilter;
 
+use FormatJson;
 use LogicException;
 use MediaWiki\Config\ServiceOptions;
 use MediaWiki\Extension\AbuseFilter\Consequences\ConsequencesRegistry;
@@ -10,12 +11,10 @@ use MediaWiki\Extension\AbuseFilter\Filter\Flags;
 use MediaWiki\Extension\AbuseFilter\Filter\LastEditInfo;
 use MediaWiki\Extension\AbuseFilter\Filter\MutableFilter;
 use MediaWiki\Extension\AbuseFilter\Filter\Specs;
-use MediaWiki\Json\FormatJson;
 
 /**
  * This class allows encoding filters to (and decoding from) a string format that can be used
  * to export them to another wiki.
- *
  * @internal
  * @note Callers should NOT rely on the output format, as it may vary
  */
@@ -35,7 +34,7 @@ class FilterImporter {
 		'actions',
 		'enabled',
 		'deleted',
-		'privacylevel',
+		'hidden',
 		'global'
 	];
 
@@ -69,7 +68,7 @@ class FilterImporter {
 			'actions' => $filter->getActions(),
 			'enabled' => $filter->isEnabled(),
 			'deleted' => $filter->isDeleted(),
-			'privacylevel' => $filter->getPrivacyLevel(),
+			'hidden' => $filter->isHidden(),
 			'global' => $filter->isGlobal()
 		];
 		// @codeCoverageIgnoreStart
@@ -108,7 +107,7 @@ class FilterImporter {
 			new Flags(
 				(bool)$filterData['enabled'],
 				(bool)$filterData['deleted'],
-				(int)$filterData['privacylevel'],
+				(bool)$filterData['hidden'],
 				// And also make it global only if global filters are enabled here
 				$filterData['global'] && $globalFiltersEnabled
 			),

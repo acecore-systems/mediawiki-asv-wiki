@@ -1,6 +1,6 @@
 module.exports = {
 	simple: function () {
-		const done = arguments[ arguments.length - 1 ];
+		var done = arguments[ arguments.length - 1 ];
 
 		seleniumUtils.runDiffTest(
 			'<h2>Lorem ipsum</h2>' +
@@ -11,7 +11,7 @@ module.exports = {
 		);
 	},
 	moveAndChange: function () {
-		const done = arguments[ arguments.length - 1 ];
+		var done = arguments[ arguments.length - 1 ];
 
 		seleniumUtils.runDiffTest(
 			'<h2>Lorem ipsum</h2>' +
@@ -24,7 +24,7 @@ module.exports = {
 		);
 	},
 	linkChange: function () {
-		const done = arguments[ arguments.length - 1 ];
+		var done = arguments[ arguments.length - 1 ];
 
 		seleniumUtils.runDiffTest(
 			'<h2>Lorem ipsum</h2>' +
@@ -35,7 +35,7 @@ module.exports = {
 		);
 	},
 	listChange: function () {
-		const done = arguments[ arguments.length - 1 ];
+		var done = arguments[ arguments.length - 1 ];
 
 		seleniumUtils.runDiffTest(
 			'<ul><li>Lorem</li><li>ipsum</li><li>dolor</li><li>sit</li><li>amet</li></ul>',

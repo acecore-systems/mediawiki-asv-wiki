@@ -2,7 +2,7 @@
 
 namespace MediaWiki\Hook;
 
-use MediaWiki\Specials\SpecialNewPages;
+use SpecialNewpages;
 
 /**
  * This is a hook handler interface, see docs/Hooks.md.

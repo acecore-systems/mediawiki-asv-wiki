@@ -11,7 +11,6 @@ use MediaWiki\Rest\RequestInterface;
  * @internal
  */
 class StaticBasicAuthorizer implements BasicAuthorizerInterface {
-	/** @var string|null */
 	private $value;
 
 	/**

@@ -20,15 +20,8 @@
  * @file
  */
 
-use MediaWiki\Context\ContextSource;
-use MediaWiki\Context\IContextSource;
-use MediaWiki\Context\RequestContext;
-use MediaWiki\HookContainer\HookRunner;
-use MediaWiki\Language\Language;
 use MediaWiki\MainConfigNames;
 use MediaWiki\MediaWikiServices;
-use MediaWiki\Parser\Parser;
-use MediaWiki\Title\Title;
 
 /**
  * Image gallery
@@ -121,7 +114,7 @@ abstract class ImageGalleryBase extends ContextSource {
 	 * @return ImageGalleryBase
 	 * @throws ImageGalleryClassNotFoundException
 	 */
-	public static function factory( $mode = false, ?IContextSource $context = null ) {
+	public static function factory( $mode = false, IContextSource $context = null ) {
 		self::loadModes();
 		if ( !$context ) {
 			$context = RequestContext::getMainAndWarn( __METHOD__ );
@@ -152,8 +145,7 @@ abstract class ImageGalleryBase extends ContextSource {
 				'slideshow' => SlideshowImageGallery::class,
 			];
 			// Allow extensions to make a new gallery format.
-			( new HookRunner( MediaWikiServices::getInstance()->getHookContainer() ) )
-				->onGalleryGetModes( self::$modeMapping );
+			Hooks::runner()->onGalleryGetModes( self::$modeMapping );
 		}
 	}
 
@@ -170,7 +162,7 @@ abstract class ImageGalleryBase extends ContextSource {
 	 * @param string $mode
 	 * @param IContextSource|null $context
 	 */
-	public function __construct( $mode = 'traditional', ?IContextSource $context = null ) {
+	public function __construct( $mode = 'traditional', IContextSource $context = null ) {
 		if ( $context ) {
 			$this->setContext( $context );
 		}
@@ -247,12 +239,7 @@ abstract class ImageGalleryBase extends ContextSource {
 	 *   and those below 0 are ignored.
 	 */
 	public function setWidths( $num ) {
-		$parser = $this->mParser;
-		if ( !$parser ) {
-			wfDeprecated( __METHOD__ . ' without parser', '1.43' );
-			$parser = MediaWikiServices::getInstance()->getParser();
-		}
-		$parsed = $parser->parseWidthParam( $num, false );
+		$parsed = Parser::parseWidthParam( $num, false );
 		if ( isset( $parsed['width'] ) && $parsed['width'] > 0 ) {
 			$this->mWidths = $parsed['width'];
 		}
@@ -265,12 +252,7 @@ abstract class ImageGalleryBase extends ContextSource {
 	 *   and those below 0 are ignored.
 	 */
 	public function setHeights( $num ) {
-		$parser = $this->mParser;
-		if ( !$parser ) {
-			wfDeprecated( __METHOD__ . ' without parser', '1.43' );
-			$parser = MediaWikiServices::getInstance()->getParser();
-		}
-		$parsed = $parser->parseWidthParam( $num, false );
+		$parsed = Parser::parseWidthParam( $num, false );
 		if ( isset( $parsed['width'] ) && $parsed['width'] > 0 ) {
 			$this->mHeights = $parsed['width'];
 		}
@@ -294,7 +276,7 @@ abstract class ImageGalleryBase extends ContextSource {
 	 * @param Title $title Title object of the image that is added to the gallery
 	 * @param string $html Additional HTML text to be shown. The name and size
 	 *   of the image are always shown.
-	 * @param string|null $alt Alt text for the image, or null to omit
+	 * @param string $alt Alt text for the image
 	 * @param string $link Override image link (optional)
 	 * @param array $handlerOpts Array of options for image handler (aka page number)
 	 * @param int $loading Sets loading attribute of the underlying <img> (optional)
@@ -359,7 +341,7 @@ abstract class ImageGalleryBase extends ContextSource {
 	 * @return bool
 	 */
 	public function isEmpty() {
-		return $this->mImages === [];
+		return empty( $this->mImages );
 	}
 
 	/**

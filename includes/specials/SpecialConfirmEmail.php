@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Confirmemail
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,41 +18,24 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
 
-namespace MediaWiki\Specials;
-
-use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\Language\RawMessage;
-use MediaWiki\Parser\Sanitizer;
-use MediaWiki\SpecialPage\SpecialPage;
-use MediaWiki\SpecialPage\UnlistedSpecialPage;
-use MediaWiki\Status\Status;
-use MediaWiki\User\User;
 use MediaWiki\User\UserFactory;
-use PermissionsError;
-use Profiler;
-use ReadOnlyError;
-use UserNotLoggedIn;
-use Wikimedia\Rdbms\IDBAccessObject;
 use Wikimedia\ScopedCallback;
 
 /**
- * Email confirmation for registered users.
- *
- * This page responds to the link with the confirmation code
- * that is sent in the confirmation email.
- *
- * This page can also be accessed directly at any later time
- * to re-send the confirmation email.
+ * Special page allows users to request email confirmation message, and handles
+ * processing of the confirmation code when the link in the email is followed
  *
  * @ingroup SpecialPage
- * @author Brooke Vibber
+ * @author Brion Vibber
  * @author Rob Church <robchur@gmail.com>
  */
 class SpecialConfirmEmail extends UnlistedSpecialPage {
 
-	private UserFactory $userFactory;
+	/** @var UserFactory */
+	private $userFactory;
 
 	/**
 	 * @param UserFactory $userFactory
@@ -89,14 +74,14 @@ class SpecialConfirmEmail extends UnlistedSpecialPage {
 		}
 
 		if ( $code === null || $code === '' ) {
-			$this->requireNamedUser( 'confirmemail_needlogin', 'exception-nologin', true );
+			$this->requireLogin( 'confirmemail_needlogin' );
 			if ( Sanitizer::validateEmail( $this->getUser()->getEmail() ) ) {
 				$this->showRequestForm();
 			} else {
 				$this->getOutput()->addWikiMsg( 'confirmemail_noemail' );
 			}
 		} else {
-			$scope = $trxProfiler->silenceForScope( $trxProfiler::EXPECTATION_REPLICAS_ONLY );
+			$scope = $trxProfiler->silenceForScope();
 			$this->attemptConfirm( $code );
 			ScopedCallback::consume( $scope );
 		}
@@ -176,34 +161,31 @@ class SpecialConfirmEmail extends UnlistedSpecialPage {
 	private function attemptConfirm( $code ) {
 		$user = $this->userFactory->newFromConfirmationCode(
 			$code,
-			IDBAccessObject::READ_LATEST
+			UserFactory::READ_LATEST
 		);
 
 		if ( !is_object( $user ) ) {
-			if ( User::isWellFormedConfirmationToken( $code ) ) {
-				$this->getOutput()->addWikiMsg( 'confirmemail_invalid' );
-			} else {
-				$this->getOutput()->addWikiMsg( 'confirmemail_invalid_format' );
-			}
+			$this->getOutput()->addWikiMsg( 'confirmemail_invalid' );
 
 			return;
 		}
 
-		// Enforce permissions, user blocks, and rate limits
-		$this->authorizeAction( 'confirmemail' )->throwErrorPageError();
+		// rate limit email confirmations
+		if ( $user->pingLimiter( 'confirmemail' ) ) {
+			$this->getOutput()->addWikiMsg( 'actionthrottledtext' );
+
+			return;
+		}
 
 		$userLatest = $user->getInstanceForUpdate();
 		$userLatest->confirmEmail();
 		$userLatest->saveSettings();
-		$message = $this->getUser()->isNamed() ? 'confirmemail_loggedin' : 'confirmemail_success';
+		$message = $this->getUser()->isRegistered() ? 'confirmemail_loggedin' : 'confirmemail_success';
 		$this->getOutput()->addWikiMsg( $message );
 
-		if ( !$this->getUser()->isNamed() ) {
+		if ( !$this->getUser()->isRegistered() ) {
 			$title = SpecialPage::getTitleFor( 'Userlogin' );
 			$this->getOutput()->returnToMain( true, $title );
 		}
 	}
 }
-
-/** @deprecated class alias since 1.41 */
-class_alias( SpecialConfirmEmail::class, 'SpecialConfirmEmail' );

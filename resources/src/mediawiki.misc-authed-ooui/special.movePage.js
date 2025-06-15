@@ -7,14 +7,12 @@
 		return;
 	}
 
-	$( () => {
-		const wpReason = OO.ui.infuse( $( '#wpReason' ) );
+	$( function () {
+		var wpReason = OO.ui.infuse( $( '#wpReason' ) );
 
 		// Infuse for pretty dropdown
 		OO.ui.infuse( $( '#wpNewTitle' ) );
 
-		const wpReasonList = OO.ui.infuse( $( '#wpReasonList' ).closest( '.oo-ui-widget' ) );
-
-		mw.widgets.visibleCodePointLimitWithDropdown( wpReason, wpReasonList, mw.config.get( 'wgCommentCodePointLimit' ) );
+		mw.widgets.visibleCodePointLimit( wpReason, mw.config.get( 'wgCommentCodePointLimit' ) );
 	} );
 }() );

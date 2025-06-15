@@ -1,7 +1,7 @@
 /*!
  * VisualEditor DataModel InternalItemNode class.
  *
- * @copyright See AUTHORS.txt
+ * @copyright 2011-2020 VisualEditor Team and others; see http://ve.mit-license.org
  */
 
 /**
@@ -53,10 +53,13 @@ ve.dm.InternalItemNode.static.getHashObject = function ( dataElement ) {
 	return { type: dataElement.type };
 };
 
-ve.dm.InternalItemNode.prototype.getAttributes = function () {
-	// InternalItem node has an originalHtml attribute which confuses the differ
-	// TODO: Move this to a new model method like getAttributesForDiff
-	return {};
+/**
+ * @inheritdoc
+ */
+ve.dm.InternalItemNode.prototype.isDiffedAsDocument = function () {
+	// TODO: Internal items are a special case in DiffElement, but
+	// probably should be diffed as documents eventually.
+	return false;
 };
 
 /* Registration */

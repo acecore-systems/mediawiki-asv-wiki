@@ -1,5 +1,7 @@
 <?php
 /**
+ * Implements Special:Uncategorizedcategories
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -16,20 +18,15 @@
  * http://www.gnu.org/copyleft/gpl.html
  *
  * @file
+ * @ingroup SpecialPage
  */
-
-namespace MediaWiki\Specials;
 
 use MediaWiki\Cache\LinkBatchFactory;
 use MediaWiki\Languages\LanguageConverterFactory;
-use MediaWiki\Title\NamespaceInfo;
-use MediaWiki\Title\Title;
-use Skin;
-use stdClass;
-use Wikimedia\Rdbms\IConnectionProvider;
+use Wikimedia\Rdbms\ILoadBalancer;
 
 /**
- * List of uncategorized category pages.
+ * A special page that lists uncategorized categories
  *
  * @ingroup SpecialPage
  */
@@ -43,19 +40,19 @@ class SpecialUncategorizedCategories extends SpecialUncategorizedPages {
 
 	/**
 	 * @param NamespaceInfo $namespaceInfo
-	 * @param IConnectionProvider $dbProvider
+	 * @param ILoadBalancer $loadBalancer
 	 * @param LinkBatchFactory $linkBatchFactory
 	 * @param LanguageConverterFactory $languageConverterFactory
 	 */
 	public function __construct(
 		NamespaceInfo $namespaceInfo,
-		IConnectionProvider $dbProvider,
+		ILoadBalancer $loadBalancer,
 		LinkBatchFactory $linkBatchFactory,
 		LanguageConverterFactory $languageConverterFactory
 	) {
 		parent::__construct(
 			$namespaceInfo,
-			$dbProvider,
+			$loadBalancer,
 			$linkBatchFactory,
 			$languageConverterFactory
 		);
@@ -75,8 +72,8 @@ class SpecialUncategorizedCategories extends SpecialUncategorizedPages {
 			$exList = $this->msg( 'uncategorized-categories-exceptionlist' )
 				->inContentLanguage()->plain();
 			$proposedTitles = explode( "\n", $exList );
-			foreach ( $proposedTitles as $titleStr ) {
-				if ( !str_starts_with( $titleStr, '*' ) ) {
+			foreach ( $proposedTitles as $count => $titleStr ) {
+				if ( strpos( $titleStr, '*' ) !== 0 ) {
 					continue;
 				}
 				$titleStr = preg_replace( "/^\\*\\s*/", '', $titleStr );
@@ -96,8 +93,8 @@ class SpecialUncategorizedCategories extends SpecialUncategorizedPages {
 		$query = parent::getQueryInfo();
 		$exceptionList = $this->getExceptionList();
 		if ( $exceptionList ) {
-			$dbr = $this->getDatabaseProvider()->getReplicaDatabase();
-			$query['conds'][] = $dbr->expr( 'page_title', '!=', $exceptionList );
+			$dbr = $this->getDBLoadBalancer()->getConnectionRef( ILoadBalancer::DB_REPLICA );
+			$query['conds'][] = 'page_title not in ( ' . $dbr->makeList( $exceptionList ) . ' )';
 		}
 
 		return $query;
@@ -116,9 +113,3 @@ class SpecialUncategorizedCategories extends SpecialUncategorizedPages {
 		return $this->getLinkRenderer()->makeKnownLink( $title, $text );
 	}
 }
-
-/**
- * Retain the old class name for backwards compatibility.
- * @deprecated since 1.41
- */
-class_alias( SpecialUncategorizedCategories::class, 'SpecialUncategorizedCategories' );

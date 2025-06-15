@@ -1,7 +1,5 @@
 <?php
 
-use MediaWiki\User\User;
-
 /**
  * @since 1.28
  */
@@ -28,21 +26,20 @@ class TestUserRegistry {
 	 *
 	 * @since 1.28
 	 *
-	 * @param string $testName Caller's __CLASS__ or arbitrary string. Used to generate the
+	 * @param string $testName Caller's __CLASS__. Used to generate the
 	 *  user's username.
 	 * @param string|string[] $groups Groups the test user should be added to.
-	 * @param string|null $userPrefix if non-null, the user prefix will be as specified instead of "TestUser"
 	 * @return TestUser
 	 */
-	public static function getMutableTestUser( $testName, $groups = [], $userPrefix = null ) {
+	public static function getMutableTestUser( $testName, $groups = [] ) {
 		$id = self::getNextId();
-		$testUserName = "$testName $id";
-		$userPrefix ??= "TestUser";
+		$password = "password_for_test_user_id_{$id}";
 		$testUser = new TestUser(
-			"$userPrefix $testName $id",
-			"Name $id",
-			"$id@mediawiki.test",
-			(array)$groups
+			"TestUser $testName $id",  // username
+			"Name $id",                // real name
+			"$id@mediawiki.test",      // e-mail
+			(array)$groups,            // groups
+			$password                  // password
 		);
 		$testUser->getUser()->clearInstanceCache();
 		return $testUser;
@@ -75,14 +72,17 @@ class TestUserRegistry {
 			// is set up. See T136348.
 			if ( $groups === [ 'bureaucrat', 'sysop' ] ) {
 				$username = 'UTSysop';
+				$password = 'UTSysopPassword';
 			} else {
 				$username = "TestUser $id";
+				$password = "password_for_test_user_id_{$id}";
 			}
 			self::$testUsers[$key] = $testUser = new TestUser(
-				$username,
-				"Name $id",
-				"$id@mediawiki.test",
-				$groups
+				$username,            // username
+				"Name $id",           // real name
+				"$id@mediawiki.test", // e-mail
+				$groups,              // groups
+				$password             // password
 			);
 		}
 
@@ -99,19 +99,6 @@ class TestUserRegistry {
 	 */
 	public static function clear() {
 		self::$testUsers = [];
-	}
-
-	/**
-	 * Call clearInstanceCache() on all User objects known to the registry.
-	 * This ensures that the User objects do not retain stale references
-	 * to service objects.
-	 *
-	 * @since 1.39
-	 */
-	public static function clearInstanceCaches() {
-		foreach ( self::$testUsers as $user ) {
-			$user->getUser()->clearInstanceCache();
-		}
 	}
 
 	/**

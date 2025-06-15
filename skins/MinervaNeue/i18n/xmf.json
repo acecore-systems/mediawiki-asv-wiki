@@ -40,11 +40,12 @@
 	"mobile-frontend-user-page-talk": "სხუნუა",
 	"minerva-user-menu-button": "მახვარებუშ მენიუ",
 	"minerva-user-navigation": "მახვარებუშ ნავიგაცია",
-	"minerva-page-actions-editfull": "ედომუშამი ხასჷლაშ რედაქტირაფა",
 	"minerva-page-actions-overflow": "უმოსი",
+	"minerva-page-actions-move": "გინოღალა",
+	"minerva-page-actions-delete": "ლასუა",
+	"minerva-page-actions-protect": "თხილუა",
 	"minerva-page-actions-language-switcher": "ნინეფი",
 	"minerva-page-actions-history": "ისტორია",
-	"minerva-prefs-talkpage": "[https://www.mediawiki.org/wiki/Skin_talk:Minerva_Neue სხუნუა]",
 	"skin-minerva-mobile-option-MinervaShowCategories": "კატეგორიეფი",
 	"skin-minerva-mobile-option-MinervaShowCategories-description": "ხასჷლეფიშ კატეგორიეფიშ ძირაფა"
 }

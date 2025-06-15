@@ -3,31 +3,27 @@
 namespace MediaWiki\Tests\Integration\Permissions;
 
 use Action;
-use MediaWiki\Api\ApiMessage;
-use MediaWiki\Block\BlockActionInfo;
-use MediaWiki\Block\CompositeBlock;
+use ContentHandler;
+use FauxRequest;
 use MediaWiki\Block\DatabaseBlock;
 use MediaWiki\Block\Restriction\ActionRestriction;
 use MediaWiki\Block\Restriction\NamespaceRestriction;
 use MediaWiki\Block\Restriction\PageRestriction;
 use MediaWiki\Block\SystemBlock;
 use MediaWiki\Cache\CacheKeyHelper;
-use MediaWiki\Context\RequestContext;
 use MediaWiki\MainConfigNames;
-use MediaWiki\Message\Message;
 use MediaWiki\Permissions\PermissionManager;
-use MediaWiki\Request\FauxRequest;
+use MediaWiki\Revision\MutableRevisionRecord;
 use MediaWiki\Session\SessionId;
-use MediaWiki\Tests\Session\TestUtils;
-use MediaWiki\Tests\Unit\MockBlockTrait;
-use MediaWiki\Tests\User\TempUser\TempUserTestTrait;
-use MediaWiki\Title\Title;
-use MediaWiki\User\User;
-use MediaWiki\User\UserIdentity;
+use MediaWiki\Session\TestUtils;
 use MediaWiki\User\UserIdentityValue;
 use MediaWikiLangTestCase;
+use Message;
+use RequestContext;
 use stdClass;
 use TestAllServiceOptionsUsed;
+use Title;
+use User;
 use Wikimedia\ScopedCallback;
 use Wikimedia\TestingAccessWrapper;
 
@@ -39,15 +35,19 @@ use Wikimedia\TestingAccessWrapper;
  */
 class PermissionManagerTest extends MediaWikiLangTestCase {
 	use TestAllServiceOptionsUsed;
-	use MockBlockTrait;
-	use TempUserTestTrait;
 
-	protected string $userName;
-	protected Title $title;
-	protected User $user;
-	protected User $anonUser;
-	protected User $userUser;
-	protected User $altUser;
+	/** @var string */
+	protected $userName;
+	/** @var Title */
+	protected $title;
+	/** @var User */
+	protected $user;
+	/** @var User */
+	protected $anonUser;
+	/** @var User */
+	protected $userUser;
+	/** @var User */
+	protected $altUser;
 
 	private const USER_TALK_PAGE = '<user talk page>';
 
@@ -58,12 +58,8 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 		$localOffset = date( 'Z' ) / 60;
 
 		$this->overrideConfigValues( [
-			MainConfigNames::BlockDisablesLogin => false,
 			MainConfigNames::Localtimezone => $localZone,
 			MainConfigNames::LocalTZoffset => $localOffset,
-			MainConfigNames::ImplicitRights => [
-				'limitabletest'
-			],
 			MainConfigNames::RevokePermissions => [
 				'formertesters' => [
 					'runtest' => true
@@ -100,10 +96,6 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 		$this->setGroupPermissions( 'testwriters', 'modifytest', true );
 
 		$this->setGroupPermissions( '*', 'editmyoptions', true );
-
-		$this->setGroupPermissions( 'deleted-viewer', 'deletedhistory', true );
-		$this->setGroupPermissions( 'deleted-viewer', 'deletedtext', true );
-		$this->setGroupPermissions( 'deleted-viewer', 'viewsuppressed', true );
 
 		$this->setGroupPermissions( 'interface-admin', 'editinterface', true );
 		$this->setGroupPermissions( 'interface-admin', 'editsitejs', true );
@@ -198,7 +190,7 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 		);
 	}
 
-	public static function provideSpecialsAndNSPermissions() {
+	public function provideSpecialsAndNSPermissions() {
 		yield [
 			'namespace' => NS_SPECIAL,
 			'user permissions' => [],
@@ -254,15 +246,9 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 				[
 					Title::makeTitle( NS_MAIN, "Bogus" ),
 					Title::makeTitle( NS_MAIN, "UnBogus" )
-				],
-				[
+				], [
 					"bogus" => [ 'bogus', "sysop", "protect", "" ],
-				],
-				[
-					Title::makeTitle( NS_MAIN, "Bogus" ),
-					Title::makeTitle( NS_MAIN, "UnBogus" )
-				],
-				[]
+				]
 			],
 		] ];
 
@@ -277,51 +263,6 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 		$this->assertTrue( $permissionManager->userCan( 'edit', $this->user, $this->title ) );
 		$this->assertEquals(
 			[],
-			$permissionManager->getPermissionErrors( 'edit', $this->user, $this->title )
-		);
-	}
-
-	public function testCascadingSourcesRestrictionsForFile() {
-		$this->setTitle( NS_FILE, 'Test.jpg' );
-		$this->overrideUserPermissions( $this->user, [ 'edit', 'move', 'upload', 'movefile', 'createpage' ] );
-
-		$rs = $this->getServiceContainer()->getRestrictionStore();
-		$wrapper = TestingAccessWrapper::newFromObject( $rs );
-		$wrapper->cache = [ CacheKeyHelper::getKeyForPage( $this->title ) => [
-				'cascade_sources' => [
-					[
-						Title::makeTitle( NS_MAIN, 'FileTemplate' ),
-						Title::makeTitle( NS_MAIN, 'FileUser' )
-					],
-					[
-						'edit' => [ 'sysop' ],
-					],
-					[
-						Title::makeTitle( NS_MAIN, 'FileTemplate' )
-					],
-					[
-						Title::makeTitle( NS_MAIN, 'FileUser' )
-					]
-				],
-			] ];
-
-		$permissionManager = $this->getServiceContainer()->getPermissionManager();
-
-		$this->assertFalse( $permissionManager->userCan( 'upload', $this->user, $this->title ) );
-		$this->assertEquals( [
-			[ 'cascadeprotected', 2, "* [[:FileTemplate]]\n* [[:FileUser]]\n", 'upload' ] ],
-			$permissionManager->getPermissionErrors( 'upload', $this->user, $this->title )
-		);
-
-		$this->assertFalse( $permissionManager->userCan( 'move', $this->user, $this->title ) );
-		$this->assertEquals( [
-			[ 'cascadeprotected', 2, "* [[:FileTemplate]]\n* [[:FileUser]]\n", 'move' ] ],
-			$permissionManager->getPermissionErrors( 'move', $this->user, $this->title )
-		);
-
-		$this->assertFalse( $permissionManager->userCan( 'edit', $this->user, $this->title ) );
-		$this->assertEquals( [
-			[ 'cascadeprotected', 2, "* [[:FileTemplate]]\n* [[:FileUser]]\n", 'edit' ] ],
 			$permissionManager->getPermissionErrors( 'edit', $this->user, $this->title )
 		);
 	}
@@ -372,7 +313,7 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 		);
 	}
 
-	public static function provideActionPermissions() {
+	public function provideActionPermissions() {
 		// title overrides can include "protectedPermission" to override
 		// $title->mTitleProtection['permission'], and "interwiki" to override
 		// $title->mInterwiki, for the few cases those are needed
@@ -473,15 +414,24 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 
 		$this->overrideUserPermissions( $this->user, [ 'edit' ] );
 
-		$this->assertSame( [], $permissionManager->getPermissionErrors( 'edit', $this->user, $title ) );
+		$this->assertEmpty( $permissionManager->getPermissionErrors( 'edit', $this->user, $title ) );
 		$this->assertTrue( $permissionManager->userCan( 'edit', $this->user, $title ) );
 	}
 
 	public function testAutocreatePermissionsHack() {
-		$this->enableAutoCreateTempUser();
-		$this->overrideConfigValue( MainConfigNames::GroupPermissions, [
-			'*' => [ 'edit' => false ],
-			'temp' => [ 'edit' => true, 'createpage' => true ],
+		$this->overrideConfigValues( [
+			MainConfigNames::AutoCreateTempUser => [
+				'enabled' => true,
+				'actions' => [ 'edit' ],
+				'serialProvider' => [ 'type' => 'local' ],
+				'serialMapping' => [ 'type' => 'plain-numeric' ],
+				'matchPattern' => '*Unregistered $1',
+				'genPattern' => '*Unregistered $1'
+			],
+			MainConfigNames::GroupPermissions => [
+				'*' => [ 'edit' => false ],
+				'user' => [ 'edit' => true, 'createpage' => true ],
+			]
 		] );
 		$services = $this->getServiceContainer();
 		$permissionManager = $services->getPermissionManager();
@@ -494,8 +444,7 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 				$title
 			)
 		);
-		$this->assertSame(
-			[],
+		$this->assertEmpty(
 			$permissionManager->getPermissionErrors(
 				'edit',
 				$user,
@@ -520,7 +469,11 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 			$block->setRestrictions( [ $pageRestriction ] );
 		}
 
-		$user = $this->createUserWithBlock( $block );
+		$user = $this->getMockBuilder( User::class )
+			->onlyMethods( [ 'getBlock' ] )
+			->getMock();
+		$user->method( 'getBlock' )
+			->willReturn( $block );
 
 		$this->overrideUserPermissions( $user, [
 			'createpage',
@@ -534,7 +487,7 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 
 		$permissionManager = $this->getServiceContainer()->getPermissionManager();
 
-		// Check that user is blocked or unblocked from specific actions using getPermissionErrors
+		// Check that user is blocked or unblocked from specific actions
 		foreach ( $expected as $action => $blocked ) {
 			$expectedErrorCount = $blocked ? 1 : 0;
 			$this->assertCount(
@@ -543,105 +496,13 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 					$action,
 					$user,
 					$this->title
-				),
-				"Number of permission errors for action \"$action\""
-			);
-		}
-
-		// Check that user is blocked or unblocked from specific actions using getApplicableBlock
-		foreach ( $expected as $action => $blocked ) {
-			$this->assertSame(
-				$blocked,
-				$permissionManager->getApplicableBlock(
-					$action,
-					$user,
-					PermissionManager::RIGOR_FULL,
-					$this->title,
-					null
-				) !== null,
-				"Block returned by getApplicableBlock() for action \"$action\""
+				)
 			);
 		}
 
 		// quickUserCan should ignore user blocks
 		$this->assertTrue(
 			$permissionManager->quickUserCan( 'move-target', $this->user, $this->title )
-		);
-	}
-
-	/**
-	 * Create a user that is blocked in global state
-	 *
-	 * @param array $options $block
-	 * @return User
-	 */
-	private function createUserWithBlock( $options = [] ) {
-		$newUser = new User();
-		$newUser->setId( 12345 );
-		$newUser->setName( 'BlockedUser' );
-
-		$this->installMockBlockManager( $options, $newUser );
-		return $newUser;
-	}
-
-	/**
-	 * Regression test for T348451
-	 */
-	public function testGetApplicableBlockForSpecialPage() {
-		$block = new DatabaseBlock( [
-			'address' => '127.0.8.1',
-			'by' => new UserIdentityValue( 100, 'TestUser' ),
-			'auto' => true,
-		] );
-
-		$user = $this->createUserWithBlock( $block );
-		$title = Title::makeTitle( NS_SPECIAL, 'Blankpage' );
-
-		$this->overrideUserPermissions( $user, [
-			'createpage',
-			'edit',
-		] );
-
-		$permissionManager = $this->getServiceContainer()->getPermissionManager();
-
-		// The block is applicable even if the target page is a special page
-		// for which we cannot instantiate an Action object.
-		$this->assertSame(
-			$block,
-			$permissionManager->getApplicableBlock(
-				'edit',
-				$user,
-				PermissionManager::RIGOR_FULL,
-				$title,
-				null
-			)
-		);
-	}
-
-	/**
-	 * Regression test for T350202
-	 */
-	public function testGetApplicableBlockForImplicitRight() {
-		$block = new DatabaseBlock( [
-			'address' => '127.0.8.1',
-			'by' => new UserIdentityValue( 100, 'TestUser' ),
-			'auto' => true,
-		] );
-
-		$user = $this->createUserWithBlock( $block );
-		$title = Title::makeTitle( NS_MAIN, 'Test' );
-
-		$permissionManager = $this->getServiceContainer()->getPermissionManager();
-
-		// The block is not applicable because the purge permission is implicit.
-		$this->assertNull(
-			$permissionManager->getApplicableBlock(
-				'purge',
-				$user,
-				PermissionManager::RIGOR_FULL,
-				$title,
-				null
-			)
 		);
 	}
 
@@ -716,7 +577,7 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 					'by' => UserIdentityValue::newRegistered( 100, 'Test' ),
 					'sitewide' => false,
 				] ) )->setRestrictions( [
-					new ActionRestriction( 0, BlockActionInfo::ACTION_UPLOAD )
+					new ActionRestriction( 0, 1 )
 				] ),
 				false,
 				[
@@ -760,83 +621,6 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 	}
 
 	/**
-	 * A test of the filter() calls in getApplicableBlock()
-	 */
-	public function testGetApplicableBlockCompositeFilter() {
-		$this->overrideConfigValues( [
-			MainConfigNames::EnablePartialActionBlocks => true,
-		] );
-		$blockOptions = [
-			'address' => '127.0.8.1',
-			'by' => UserIdentityValue::newRegistered( 100, 'Test' ),
-			'sitewide' => false,
-		];
-
-		$uploadBlock = new DatabaseBlock( $blockOptions );
-		$uploadBlock->setRestrictions( [
-			new ActionRestriction( 0, BlockActionInfo::ACTION_UPLOAD )
-		] );
-
-		$emailBlock = new DatabaseBlock(
-			[
-				'blockEmail' => true,
-				'sitewide' => true
-			] + $blockOptions
-		);
-
-		$page = $this->getExistingTestPage();
-		$page2 = $this->getExistingTestPage( __FUNCTION__ . ' page2' );
-		$pageBlock = new DatabaseBlock( $blockOptions );
-		$pageBlock->setRestrictions( [
-			new PageRestriction( 0, $page->getId() )
-		] );
-
-		$compositeBlock = new CompositeBlock( [
-			'originalBlocks' => [
-				$uploadBlock,
-				$emailBlock,
-				$pageBlock
-			]
-		] );
-		$user = $this->createUserWithBlock( $compositeBlock );
-		$permissionManager = $this->getServiceContainer()->getPermissionManager();
-
-		// The email block, being a sitewide block with an additional
-		// blockEmail option, also blocks upload.
-		// assertEquals() gives nicer failure messages than assertSame().
-		$this->assertEquals(
-			[ $uploadBlock, $emailBlock ],
-			$permissionManager->getApplicableBlock(
-				'upload', $user, PermissionManager::RIGOR_FULL, null, null
-			)->toArray()
-		);
-
-		// Emailing is only blocked by the email block
-		$this->assertEquals(
-			[ $emailBlock ],
-			$permissionManager->getApplicableBlock(
-				'sendemail', $user, PermissionManager::RIGOR_FULL, null, null
-			)->toArray()
-		);
-
-		// As for upload, the email block applies to sitewide editing
-		$this->assertEquals(
-			[ $emailBlock, $pageBlock ],
-			$permissionManager->getApplicableBlock(
-				'edit', $user, PermissionManager::RIGOR_FULL, $page->getTitle(), null
-			)->toArray()
-		);
-
-		// Test filtering by page -- we use $page2 so $pageBlock does not apply
-		$this->assertEquals(
-			[ $emailBlock ],
-			$permissionManager->getApplicableBlock(
-				'edit', $user, PermissionManager::RIGOR_FULL, $page2->getTitle(), null
-			)->toArray()
-		);
-	}
-
-	/**
 	 * @dataProvider provideTestCheckUserBlockMessage
 	 */
 	public function testCheckUserBlockMessage( $blockType, $blockParams, $restriction, $expected ) {
@@ -857,7 +641,12 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 			$block->setRestrictions( [ $pageRestriction ] );
 		}
 
-		$user = $this->createUserWithBlock( $block );
+		$user = $this->getMockBuilder( User::class )
+			->onlyMethods( [ 'getBlock' ] )
+			->getMock();
+		$user->method( 'getBlock' )
+			->willReturn( $block );
+
 		$this->overrideUserPermissions( $user, [ 'edit', 'createpage' ] );
 
 		$permissionManager = $this->getServiceContainer()->getPermissionManager();
@@ -959,10 +748,6 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 			->willReturn( 'test' );
 		$tester->method( 'requiresUnblock' )
 			->willReturn( false );
-		$tester->method( 'requiresWrite' )
-			->willReturn( false );
-		$tester->method( 'needsReadRights' )
-			->willReturn( false );
 
 		$this->overrideConfigValues( [
 			MainConfigNames::Actions => [
@@ -975,10 +760,15 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 			],
 		] );
 
-		$user = $this->createUserWithBlock( new DatabaseBlock( [
-			'address' => '127.0.8.1',
-			'by' => $this->user,
-		] ) );
+		$user = $this->getMockBuilder( User::class )
+			->onlyMethods( [ 'getBlock' ] )
+			->getMock();
+		$user->method( 'getBlock' )
+			->willReturn( new DatabaseBlock( [
+				'address' => '127.0.8.1',
+				'by' => $this->user,
+			] ) );
+
 		$this->assertCount( 1, $this->getServiceContainer()->getPermissionManager()
 			->getPermissionErrors( 'tester', $user, $this->title )
 		);
@@ -1068,8 +858,12 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 		$blockStore = $this->getServiceContainer()->getDatabaseBlockStore();
 		$blockStore->insertBlock( $block );
 
-		$this->assertSame( $expect, $this->getServiceContainer()->getPermissionManager()
-			->isBlockedFrom( $user, $title ) );
+		try {
+			$this->assertSame( $expect, $this->getServiceContainer()->getPermissionManager()
+				->isBlockedFrom( $user, $title ) );
+		} finally {
+			$blockStore->deleteBlock( $block );
+		}
 	}
 
 	public static function provideIsBlockedFrom() {
@@ -1209,6 +1003,64 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 		$this->assertNotContains( 'nukeworld', $rights );
 	}
 
+	public function testGroupPermissions() {
+		$rights = $this->getServiceContainer()->getPermissionManager()
+			->getGroupPermissions( [ 'unittesters' ] );
+		$this->assertContains( 'runtest', $rights );
+		$this->assertNotContains( 'writetest', $rights );
+		$this->assertNotContains( 'modifytest', $rights );
+		$this->assertNotContains( 'nukeworld', $rights );
+
+		$rights = $this->getServiceContainer()->getPermissionManager()
+			->getGroupPermissions( [ 'unittesters', 'testwriters' ] );
+		$this->assertContains( 'runtest', $rights );
+		$this->assertContains( 'writetest', $rights );
+		$this->assertContains( 'modifytest', $rights );
+		$this->assertNotContains( 'nukeworld', $rights );
+	}
+
+	public function testRevokePermissions() {
+		$rights = $this->getServiceContainer()->getPermissionManager()
+			->getGroupPermissions( [ 'unittesters', 'formertesters' ] );
+		$this->assertNotContains( 'runtest', $rights );
+		$this->assertNotContains( 'writetest', $rights );
+		$this->assertNotContains( 'modifytest', $rights );
+		$this->assertNotContains( 'nukeworld', $rights );
+	}
+
+	/**
+	 * @dataProvider provideGetGroupsWithPermission
+	 */
+	public function testGetGroupsWithPermission( $expected, $right ) {
+		$result = $this->getServiceContainer()->getPermissionManager()
+			->getGroupsWithPermission( $right );
+		sort( $result );
+		sort( $expected );
+
+		$this->assertEquals( $expected, $result, "Groups with permission $right" );
+	}
+
+	public static function provideGetGroupsWithPermission() {
+		return [
+			[
+				[ 'unittesters', 'testwriters' ],
+				'test'
+			],
+			[
+				[ 'unittesters' ],
+				'runtest'
+			],
+			[
+				[ 'testwriters' ],
+				'writetest'
+			],
+			[
+				[ 'testwriters' ],
+				'modifytest'
+			],
+		];
+	}
+
 	public function testUserHasRight() {
 		$permissionManager = $this->getServiceContainer()->getPermissionManager();
 
@@ -1216,37 +1068,35 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 			$this->getTestUser( 'unittesters' )->getUser(),
 			'test'
 		);
-		$this->assertTrue( $result, 'right was granted to group, so should be allowed' );
-
-		$result = $permissionManager->userHasRight(
-			$this->getTestUser( 'unittesters' )->getUser(),
-			'limitabletest'
-		);
-		$this->assertTrue( $result, 'not granted, but listed as implicit' );
-
-		$result = $permissionManager->userHasRight(
-			$this->getTestUser( 'unittesters' )->getUser(),
-			'mailpassword'
-		);
-		$this->assertTrue( $result, 'not granted, but has a limit, so should be allowed' );
-
-		$result = $permissionManager->userHasRight(
-			$this->getTestUser( 'unittesters' )->getUser(),
-			'rollback'
-		);
-		$this->assertFalse( $result, 'not granted, has a limit but is listed as available, so should not be allowed' );
+		$this->assertTrue( $result );
 
 		$result = $permissionManager->userHasRight(
 			$this->getTestUser( 'formertesters' )->getUser(),
 			'runtest'
 		);
-		$this->assertFalse( $result, 'not granted, should not be allowed' );
+		$this->assertFalse( $result );
 
 		$result = $permissionManager->userHasRight(
 			$this->getTestUser( 'formertesters' )->getUser(),
 			''
 		);
-		$this->assertTrue( $result, 'empty action should always be granted' );
+		$this->assertTrue( $result );
+	}
+
+	public function testGroupHasPermission() {
+		$permissionManager = $this->getServiceContainer()->getPermissionManager();
+
+		$result = $permissionManager->groupHasPermission(
+			'unittesters',
+			'test'
+		);
+		$this->assertTrue( $result );
+
+		$result = $permissionManager->groupHasPermission(
+			'formertesters',
+			'runtest'
+		);
+		$this->assertFalse( $result );
 	}
 
 	public function testIsEveryoneAllowed() {
@@ -1290,7 +1140,39 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 		$this->assertFalse( $permissionManager->userHasRight( $this->user, 'move' ) );
 	}
 
-	public static function provideGetRestrictionLevels() {
+	/**
+	 * Create a RevisionRecord with a single Javascript main slot.
+	 * @param Title $title
+	 * @param User $user
+	 * @param string $text
+	 * @return MutableRevisionRecord
+	 */
+	private function getJavascriptRevision( Title $title, User $user, $text ) {
+		$content = ContentHandler::makeContent( $text, $title, CONTENT_MODEL_JAVASCRIPT );
+		$revision = new MutableRevisionRecord( $title );
+		$revision->setContent( 'main', $content );
+		return $revision;
+	}
+
+	/**
+	 * Create a RevisionRecord with a single Javascript redirect main slot.
+	 * @param Title $title
+	 * @param Title $redirectTargetTitle
+	 * @param User $user
+	 * @return MutableRevisionRecord
+	 */
+	private function getJavascriptRedirectRevision(
+		Title $title, Title $redirectTargetTitle, User $user
+	) {
+		$content = $this->getServiceContainer()->getContentHandlerFactory()
+			->getContentHandler( CONTENT_MODEL_JAVASCRIPT )
+			->makeRedirectContent( $redirectTargetTitle );
+		$revision = new MutableRevisionRecord( $title );
+		$revision->setContent( 'main', $content );
+		return $revision;
+	}
+
+	public function provideGetRestrictionLevels() {
 		return [
 			'No namespace restriction' => [ [ '', 'autoconfirmed', 'sysop' ], NS_TALK ],
 			'Restricted to autoconfirmed' => [ [ '', 'sysop' ], NS_MAIN ],
@@ -1327,7 +1209,7 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 	/**
 	 * @dataProvider provideGetRestrictionLevels
 	 */
-	public function testGetRestrictionLevels( array $expected, $ns, ?array $userGroups = null ) {
+	public function testGetRestrictionLevels( array $expected, $ns, array $userGroups = null ) {
 		$this->overrideConfigValues( [
 			MainConfigNames::GroupPermissions => [
 				'*' => [ 'edit' => true ],
@@ -1399,7 +1281,7 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 	}
 
 	/**
-	 * Ensure normal admins can view deleted javascript, but not restore it
+	 * Enuser normal admins can view deleted javascript, but not restore it
 	 * See T202989
 	 */
 	public function testSysopInterfaceAdminRights() {
@@ -1417,62 +1299,6 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 		$this->assertTrue( $permManager->userCan( 'deletedtext', $interfaceAdmin, $userJs ) );
 		$this->assertFalse( $permManager->userCan( 'undelete', $admin, $userJs ) );
 		$this->assertTrue( $permManager->userCan( 'undelete', $interfaceAdmin, $userJs ) );
-	}
-
-	/**
-	 * Ensure specific users can view deleted contents regardless of Namespace
-	 * Protection, but not restore it
-	 * See T362536
-	 *
-	 * @dataProvider provideDeletedViewerRights
-	 */
-	public function testDeletedViewerRights(
-		$userGroup,
-		$userPerms,
-		$expectedUserCan
-	) {
-		$currentUser = $this->getTestUser( $userGroup )->getUser();
-		$permManager = $this->getServiceContainer()->getPermissionManager();
-		$targetPage = Title::makeTitle( NS_MEDIAWIKI, 'Example' );
-		foreach ( $userPerms as $userPerm ) {
-			$this->assertSame(
-				$expectedUserCan,
-				$permManager->userCan( $userPerm, $currentUser, $targetPage )
-			);
-		}
-	}
-
-	public static function provideDeletedViewerRights() {
-		yield [
-			'usergroup' => '*',
-			'user permissions' => [
-				'delete',
-				'deletedhistory',
-				'deletedtext',
-				'suppressrevision',
-				'undelete',
-				'viewsuppressed'
-			],
-			'user can' => false
-		];
-		yield [
-			'usergroup' => 'deleted-viewer',
-			'user permissions' => [
-				'delete',
-				'suppressrevision',
-				'undelete'
-			],
-			'user can' => false
-		];
-		yield [
-			'usergroup' => 'deleted-viewer',
-			'user permissions' => [
-				'deletedhistory',
-				'deletedtext',
-				'viewsuppressed'
-			],
-			'user can' => true
-		];
 	}
 
 	/**
@@ -1500,11 +1326,10 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 	 * @dataProvider provideWhitelistRead
 	 */
 	public function testWhitelistRead( array $whitelist, string $title, bool $shouldAllow ) {
-		$this->overrideConfigValues( [
-			MainConfigNames::LanguageCode => 'es',
-			MainConfigNames::WhitelistRead => $whitelist,
-		] );
+		$this->overrideConfigValue( MainConfigNames::WhitelistRead, $whitelist );
 		$this->setGroupPermissions( '*', 'read', false );
+
+		$this->overrideConfigValue( MainConfigNames::LanguageCode, 'es' );
 
 		$title = Title::newFromText( $title );
 		$pm = $this->getServiceContainer()->getPermissionManager();
@@ -1516,7 +1341,7 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 		}
 	}
 
-	public static function provideWhitelistRead() {
+	public function provideWhitelistRead() {
 		yield 'no match' => [ [ 'Bar', 'Baz' ], 'Foo', false ];
 		yield 'match' => [ [ 'Bar', 'Foo', 'Baz' ], 'Foo', true ];
 		yield 'text form' => [ [ 'Foo bar' ], 'Foo_bar', true ];
@@ -1553,100 +1378,7 @@ class PermissionManagerTest extends MediaWikiLangTestCase {
 
 		$this->assertSame( [
 			[ 'noignore', 'param' ],
-			[ 'noignore' ],
+			'noignore',
 		], $errors );
-	}
-
-	/**
-	 * @covers \MediaWiki\Permissions\PermissionManager::checkQuickPermissions
-	 */
-	public function testGetPermissionErrors_objectFromHookResult() {
-		$msg = ApiMessage::create( 'mymessage', 'mymessagecode', [ 'mydata' => true ] );
-		$this->setTemporaryHook(
-			'TitleQuickPermissions',
-			static function ( $hookTitle, $hookUser, $hookAction, &$errors, $doExpensiveQueries, $short ) use ( $msg ) {
-				$errors[] = [ $msg ];
-				return false;
-			}
-		);
-
-		$pm = $this->getServiceContainer()->getPermissionManager();
-
-		$errorsStatus = $pm->getPermissionStatus( 'create', $this->user, $this->title );
-		$errorsArray = $pm->getPermissionErrors( 'create', $this->user, $this->title );
-
-		$this->assertSame(
-			[ $msg ],
-			$errorsStatus->getMessages(),
-			'getPermissionStatus() preserves ApiMessage objects'
-		);
-	}
-
-	public function testShouldLimitPermissionsForBlockedUserWhenBlockDisablesLogin(): void {
-		$this->overrideConfigValues( [
-			MainConfigNames::BlockDisablesLogin => true,
-			MainConfigNames::GroupPermissions => [
-				'*' => [ 'edit' => true ],
-				'user' => [ 'edit' => true, 'move' => true ],
-				'sysop' => [ 'block' => true ],
-			],
-		] );
-
-		$testUser = $this->getTestUser()->getUserIdentity();
-		$this->blockUser( $testUser );
-
-		$permissions = $this->getServiceContainer()->getPermissionManager()->getUserPermissions( $testUser );
-
-		$this->assertSame( [ 'edit' ], $permissions );
-	}
-
-	public function testShouldLimitPermissionsForBlockedUserShouldAllowPermissionChecksInGetUserBlock(): void {
-		$this->overrideConfigValues( [
-			MainConfigNames::BlockDisablesLogin => true,
-			MainConfigNames::GroupPermissions => [
-				'*' => [ 'edit' => true ],
-				'user' => [ 'edit' => true, 'move' => true ],
-				'sysop' => [ 'block' => true ],
-			],
-		] );
-
-		$testUser = $this->getTestUser()->getUserIdentity();
-		$hookRan = false;
-
-		$this->setTemporaryHook(
-			'GetUserBlock',
-			function ( UserIdentity $user ) use ( $testUser, &$hookRan ): void {
-				if ( $user->equals( $testUser ) ) {
-					// Trigger an arbitrary permissions check to verify that they do not cause an infinite loop
-					// when BlockDisablesLogin = true (T384197).
-					$this->getServiceContainer()->getPermissionManager()
-						->userHasRight( $user, 'test' );
-
-					$hookRan = true;
-				}
-			}
-		);
-
-		$testUser = $this->getTestUser()->getUserIdentity();
-		$this->blockUser( $testUser );
-
-		$permissions = $this->getServiceContainer()->getPermissionManager()->getUserPermissions( $testUser );
-
-		$this->assertSame( [ 'edit' ], $permissions );
-		$this->assertTrue( $hookRan );
-	}
-
-	/**
-	 * Convenience function to block a given user.
-	 * @param UserIdentity $user
-	 * @return void
-	 */
-	private function blockUser( UserIdentity $user ): void {
-		$status = $this->getServiceContainer()
-			->getBlockUserFactory()
-			->newBlockUser( $user, $this->getTestSysop()->getAuthority(), 'infinity' )
-			->placeBlock();
-
-		$this->assertStatusGood( $status );
 	}
 }

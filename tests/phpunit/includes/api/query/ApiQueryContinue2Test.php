@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Copyright © 2013 Yuri Astrakhan "<Firstname><Lastname>@gmail.com"
  *
@@ -19,18 +18,13 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 
-namespace MediaWiki\Tests\Api\Query;
-
-use Exception;
-
 /**
  * @group API
  * @group Database
  * @group medium
- * @covers MediaWiki\Api\ApiQuery
+ * @covers ApiQuery
  */
 class ApiQueryContinue2Test extends ApiQueryContinueTestBase {
-	/** @var Exception|null */
 	protected $exceptionFromAddDBData;
 
 	/**

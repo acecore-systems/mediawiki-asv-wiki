@@ -6,7 +6,7 @@
  */
 ( function () {
 
-	const hasOwn = Object.prototype.hasOwnProperty;
+	var hasOwn = Object.prototype.hasOwnProperty;
 
 	/**
 	 * @class mw.widgets.PageExistenceCache
@@ -27,21 +27,23 @@
 	 * @private
 	 */
 	PageExistenceCache.prototype.processExistenceCheckQueue = function () {
+		var queue, titles,
+			cache = this;
 		if ( this.currentRequest ) {
 			// Don't fire off a million requests at the same time
-			this.currentRequest.always( () => {
-				this.currentRequest = null;
-				this.processExistenceCheckQueueDebounced();
+			this.currentRequest.always( function () {
+				cache.currentRequest = null;
+				cache.processExistenceCheckQueueDebounced();
 			} );
 			return;
 		}
-		const queue = this.existenceCheckQueue;
+		queue = this.existenceCheckQueue;
 		this.existenceCheckQueue = {};
-		const titles = Object.keys( queue ).filter( ( title ) => {
-			if ( hasOwn.call( this.existenceCache, title ) ) {
-				queue[ title ].resolve( this.existenceCache[ title ] );
+		titles = Object.keys( queue ).filter( function ( title ) {
+			if ( hasOwn.call( cache.existenceCache, title ) ) {
+				queue[ title ].resolve( cache.existenceCache[ title ] );
 			}
-			return !hasOwn.call( this.existenceCache, title );
+			return !hasOwn.call( cache.existenceCache, title );
 		} );
 		if ( !titles.length ) {
 			return;
@@ -51,23 +53,23 @@
 			action: 'query',
 			prop: [ 'info' ],
 			titles: titles
-		} ).done( ( response ) => {
-			const
+		} ).done( function ( response ) {
+			var
 				normalized = {},
 				pages = {};
-			( response.query.normalized || [] ).forEach( ( data ) => {
+			( response.query.normalized || [] ).forEach( function ( data ) {
 				normalized[ data.fromencoded ? decodeURIComponent( data.from ) : data.from ] = data.to;
 			} );
-			response.query.pages.forEach( ( page ) => {
+			response.query.pages.forEach( function ( page ) {
 				pages[ page.title ] = !page.missing;
 			} );
-			titles.forEach( ( title ) => {
-				let normalizedTitle = title;
+			titles.forEach( function ( title ) {
+				var normalizedTitle = title;
 				while ( hasOwn.call( normalized, normalizedTitle ) ) {
 					normalizedTitle = normalized[ normalizedTitle ];
 				}
-				this.existenceCache[ title ] = pages[ normalizedTitle ];
-				queue[ title ].resolve( this.existenceCache[ title ] );
+				cache.existenceCache[ title ] = pages[ normalizedTitle ];
+				queue[ title ].resolve( cache.existenceCache[ title ] );
 			} );
 		} );
 	};
@@ -80,7 +82,7 @@
 	 * @return {jQuery.Promise} Promise resolved with true if the page exists or false otherwise
 	 */
 	PageExistenceCache.prototype.checkPageExistence = function ( title ) {
-		const key = title.getPrefixedText();
+		var key = title.getPrefixedText();
 		if ( !hasOwn.call( this.existenceCheckQueue, key ) ) {
 			this.existenceCheckQueue[ key ] = $.Deferred();
 		}
@@ -101,7 +103,7 @@
 		// We only need to handle categories here... but we don't know the target language.
 		// So assume that any namespace-like prefix is the 'Category' namespace...
 		title = title.replace( /^(.+?)_*:_*(.*)$/, 'Category:$2' ); // HACK
-		ForeignTitle.super.call( this, title, namespace );
+		ForeignTitle.parent.call( this, title, namespace );
 	}
 	OO.inheritClass( ForeignTitle, mw.Title );
 	ForeignTitle.prototype.getNamespacePrefix = function () {
@@ -110,22 +112,22 @@
 	};
 
 	/**
-	 * @classdesc Extends OO.ui.TagItemWidget with the ability to link to the given page,
-	 * and to show its existence status (whether it is a redlink).
+	 * Category selector tag item widget. Extends OO.ui.TagItemWidget with the ability to link
+	 * to the given page, and to show its existence status (i.e., whether it is a redlink).
 	 *
 	 * @class mw.widgets.CategoryTagItemWidget
 	 * @uses mw.Api
 	 * @extends OO.ui.TagItemWidget
 	 *
 	 * @constructor
-	 * @description Create an instance of `mw.widgets.CategoryTagItemWidget`.
 	 * @param {Object} config Configuration options
-	 * @param {mw.Title} config.title Page title to use (required)
-	 * @param {string} [config.apiUrl] API URL, if not the current wiki's API
+	 * @cfg {mw.Title} title Page title to use (required)
+	 * @cfg {string} [apiUrl] API URL, if not the current wiki's API
 	 */
 	mw.widgets.CategoryTagItemWidget = function MWWCategoryTagItemWidget( config ) {
+		var widget = this;
 		// Parent constructor
-		mw.widgets.CategoryTagItemWidget.super.call( this, Object.assign( {
+		mw.widgets.CategoryTagItemWidget.parent.call( this, $.extend( {
 			data: config.title.getMainText(),
 			label: config.title.getMainText()
 		}, config ) );
@@ -136,7 +138,7 @@
 		this.$link = $( '<a>' )
 			.text( this.label )
 			.attr( 'target', '_blank' )
-			.on( 'click', ( e ) => {
+			.on( 'click', function ( e ) {
 				// TagMultiselectWidget really wants to prevent you from clicking the link, don't let it
 				e.stopPropagation();
 			} );
@@ -152,8 +154,8 @@
 		}
 		this.constructor.static.pageExistenceCaches[ this.apiUrl ]
 			.checkPageExistence( new ForeignTitle( this.title.getPrefixedText() ) )
-			.done( ( exists ) => {
-				this.setMissing( !exists );
+			.done( function ( exists ) {
+				widget.setMissing( !exists );
 			} );
 	};
 
@@ -168,8 +170,7 @@
 	 *
 	 * @static
 	 * @inheritable
-	 * @type {Object}
-	 * @name mw.widgets.CategoryTagItemWidget.pageExistenceCaches
+	 * @property {Object}
 	 */
 	mw.widgets.CategoryTagItemWidget.static.pageExistenceCaches = {
 		'': new PageExistenceCache()
@@ -184,7 +185,7 @@
 	 * @param {boolean} missing Whether the page is missing (does not exist)
 	 */
 	mw.widgets.CategoryTagItemWidget.prototype.setMissing = function ( missing ) {
-		const
+		var
 			title = new ForeignTitle( this.title.getPrefixedText() ), // HACK
 			prefix = this.apiUrl.replace( '/w/api.php', '' ); // HACK
 
