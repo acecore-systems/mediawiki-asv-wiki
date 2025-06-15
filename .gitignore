@@ -1,5 +1,20 @@
 # MediaWiki core・アップロードデータ除外
-/images/
+/images/[0-9a-f]
+/images/archive
+/images/cache
+/images/deleted
+/images/lockdir
+/images/temp
+/images/thumb
+## Extension:EasyTimeline
+/images/timeline
+## Extension:Score
+/images/lilypond
+## Extension:Phonos
+/images/phonos-render
+## Extension:TimedMediaHandler
+/images/transcoded
+/images/tmp
 /uploads/
 /cache/
 /tmp/
