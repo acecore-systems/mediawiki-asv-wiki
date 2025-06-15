@@ -6,7 +6,6 @@
 /thumbs/
 
 # Composer依存（利用時）
-/vendor/
 /composer.lock
 
 # 設定ファイル（セキュリティ目的で除外）
