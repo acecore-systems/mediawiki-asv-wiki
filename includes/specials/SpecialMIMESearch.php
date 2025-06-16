@@ -22,51 +22,31 @@
  * @author Ævar Arnfjörð Bjarmason <avarab@gmail.com>
  */
 
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Languages\LanguageConverterFactory;
-use MediaWiki\MediaWikiServices;
-use Wikimedia\Rdbms\ILoadBalancer;
-
 /**
  * Searches the database for files of the requested MIME type, comparing this with the
  * 'img_major_mime' and 'img_minor_mime' fields in the image table.
  * @ingroup SpecialPage
  */
-class SpecialMIMESearch extends QueryPage {
+class MIMEsearchPage extends QueryPage {
 	protected $major, $minor, $mime;
 
-	/** @var ILanguageConverter */
-	private $languageConverter;
-
-	/**
-	 * @param ILoadBalancer $loadBalancer
-	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param LanguageConverterFactory $languageConverterFactory
-	 */
-	public function __construct(
-		ILoadBalancer $loadBalancer,
-		LinkBatchFactory $linkBatchFactory,
-		LanguageConverterFactory $languageConverterFactory
-	) {
-		parent::__construct( 'MIMEsearch' );
-		$this->setDBLoadBalancer( $loadBalancer );
-		$this->setLinkBatchFactory( $linkBatchFactory );
-		$this->languageConverter = $languageConverterFactory->getLanguageConverter( $this->getContentLanguage() );
+	function __construct( $name = 'MIMEsearch' ) {
+		parent::__construct( $name );
 	}
 
 	public function isExpensive() {
 		return false;
 	}
 
-	public function isSyndicated() {
+	function isSyndicated() {
 		return false;
 	}
 
-	public function isCacheable() {
+	function isCacheable() {
 		return false;
 	}
 
-	protected function linkParameters() {
+	function linkParameters() {
 		return [ 'mime' => "{$this->major}/{$this->minor}" ];
 	}
 
@@ -120,20 +100,19 @@ class SpecialMIMESearch extends QueryPage {
 	 * The index is on (img_media_type, img_major_mime, img_minor_mime)
 	 * which unfortunately doesn't have img_name at the end for sorting.
 	 * So tell db to sort it however it wishes (Its not super important
-	 * that this report gives results in a logical order). As an additional
+	 * that this report gives results in a logical order). As an aditional
 	 * note, mysql seems to by default order things by img_name ASC, which
 	 * is what we ideally want, so everything works out fine anyhow.
 	 * @return array
 	 */
-	protected function getOrderFields() {
+	function getOrderFields() {
 		return [];
 	}
 
 	/**
 	 * Generate and output the form
-	 * @return string
 	 */
-	protected function getPageHeader() {
+	function getPageHeader() {
 		$formDescriptor = [
 			'mime' => [
 				'type' => 'combobox',
@@ -147,15 +126,14 @@ class SpecialMIMESearch extends QueryPage {
 
 		HTMLForm::factory( 'ooui', $formDescriptor, $this->getContext() )
 			->setSubmitTextMsg( 'ilsubmit' )
-			->setTitle( $this->getPageTitle() )
+			->setAction( $this->getPageTitle()->getLocalURL() )
 			->setMethod( 'get' )
 			->prepareForm()
 			->displayForm( false );
-		return '';
 	}
 
 	protected function getSuggestionsForTypes() {
-		$dbr = $this->getDBLoadBalancer()->getConnectionRef( ILoadBalancer::DB_REPLICA );
+		$dbr = wfGetDB( DB_REPLICA );
 		$lastMajor = null;
 		$suggestions = [];
 		$result = $dbr->select(
@@ -182,14 +160,12 @@ class SpecialMIMESearch extends QueryPage {
 	}
 
 	public function execute( $par ) {
-		$this->addHelpLink( 'Help:Managing_files' );
-		$this->mime = $par ?: $this->getRequest()->getText( 'mime' );
+		$this->mime = $par ? $par : $this->getRequest()->getText( 'mime' );
 		$this->mime = trim( $this->mime );
 		list( $this->major, $this->minor ) = File::splitMime( $this->mime );
-		$mimeAnalyzer = MediaWikiServices::getInstance()->getMimeAnalyzer();
 
 		if ( $this->major == '' || $this->minor == '' || $this->minor == 'unknown' ||
-			!$mimeAnalyzer->isValidMajorMimeType( $this->major )
+			!self::isValidType( $this->major )
 		) {
 			$this->setHeaders();
 			$this->outputHeader();
@@ -202,17 +178,18 @@ class SpecialMIMESearch extends QueryPage {
 
 	/**
 	 * @param Skin $skin
-	 * @param stdClass $result Result row
+	 * @param object $result Result row
 	 * @return string
 	 */
-	public function formatResult( $skin, $result ) {
+	function formatResult( $skin, $result ) {
+		global $wgContLang;
+
 		$linkRenderer = $this->getLinkRenderer();
 		$nt = Title::makeTitle( $result->namespace, $result->title );
-
-		$text = $this->languageConverter->convertHtml( $nt->getText() );
+		$text = $wgContLang->convert( $nt->getText() );
 		$plink = $linkRenderer->makeLink(
 			Title::newFromText( $nt->getPrefixedText() ),
-			new HtmlArmor( $text )
+			$text
 		);
 
 		$download = Linker::makeMediaLinkObj( $nt, $this->msg( 'download' )->escaped() );
@@ -230,6 +207,28 @@ class SpecialMIMESearch extends QueryPage {
 		$time = htmlspecialchars( $time );
 
 		return "$download $plink . . $dimensions . . $bytes . . $user . . $time";
+	}
+
+	/**
+	 * @param string $type
+	 * @return bool
+	 */
+	protected static function isValidType( $type ) {
+		// From maintenance/tables.sql => img_major_mime
+		$types = [
+			'unknown',
+			'application',
+			'audio',
+			'image',
+			'text',
+			'video',
+			'message',
+			'model',
+			'multipart',
+			'chemical'
+		];
+
+		return in_array( $type, $types );
 	}
 
 	public function preprocessResults( $db, $res ) {

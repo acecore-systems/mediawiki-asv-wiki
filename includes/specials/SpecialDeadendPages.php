@@ -21,40 +21,18 @@
  * @ingroup SpecialPage
  */
 
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Languages\LanguageConverterFactory;
-use Wikimedia\Rdbms\ILoadBalancer;
-
 /**
  * A special page that list pages that contain no link to other pages
  *
  * @ingroup SpecialPage
  */
-class SpecialDeadendPages extends PageQueryPage {
+class DeadendPagesPage extends PageQueryPage {
 
-	/** @var NamespaceInfo */
-	private $namespaceInfo;
-
-	/**
-	 * @param NamespaceInfo $namespaceInfo
-	 * @param ILoadBalancer $loadBalancer
-	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param LanguageConverterFactory $languageConverterFactory
-	 */
-	public function __construct(
-		NamespaceInfo $namespaceInfo,
-		ILoadBalancer $loadBalancer,
-		LinkBatchFactory $linkBatchFactory,
-		LanguageConverterFactory $languageConverterFactory
-	) {
-		parent::__construct( 'Deadendpages' );
-		$this->namespaceInfo = $namespaceInfo;
-		$this->setDBLoadBalancer( $loadBalancer );
-		$this->setLinkBatchFactory( $linkBatchFactory );
-		$this->setLanguageConverter( $languageConverterFactory->getLanguageConverter( $this->getContentLanguage() ) );
+	function __construct( $name = 'Deadendpages' ) {
+		parent::__construct( $name );
 	}
 
-	protected function getPageHeader() {
+	function getPageHeader() {
 		return $this->msg( 'deadendpagestext' )->parseAsBlock();
 	}
 
@@ -63,31 +41,32 @@ class SpecialDeadendPages extends PageQueryPage {
 	 *
 	 * @return bool
 	 */
-	public function isExpensive() {
+	function isExpensive() {
 		return true;
 	}
 
-	public function isSyndicated() {
+	function isSyndicated() {
 		return false;
 	}
 
 	/**
 	 * @return bool
 	 */
-	protected function sortDescending() {
+	function sortDescending() {
 		return false;
 	}
 
-	public function getQueryInfo() {
+	function getQueryInfo() {
 		return [
 			'tables' => [ 'page', 'pagelinks' ],
 			'fields' => [
 				'namespace' => 'page_namespace',
 				'title' => 'page_title',
+				'value' => 'page_title'
 			],
 			'conds' => [
 				'pl_from IS NULL',
-				'page_namespace' => $this->namespaceInfo->getContentNamespaces(),
+				'page_namespace' => MWNamespace::getContentNamespaces(),
 				'page_is_redirect' => 0
 			],
 			'join_conds' => [
@@ -99,10 +78,10 @@ class SpecialDeadendPages extends PageQueryPage {
 		];
 	}
 
-	protected function getOrderFields() {
+	function getOrderFields() {
 		// For some crazy reason ordering by a constant
 		// causes a filesort
-		if ( count( $this->namespaceInfo->getContentNamespaces() ) > 1 ) {
+		if ( count( MWNamespace::getContentNamespaces() ) > 1 ) {
 			return [ 'page_namespace', 'page_title' ];
 		} else {
 			return [ 'page_title' ];

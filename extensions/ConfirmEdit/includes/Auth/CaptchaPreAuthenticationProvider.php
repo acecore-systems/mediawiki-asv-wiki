@@ -1,26 +1,40 @@
 <?php
 
+namespace MediaWiki\Extension\ConfirmEdit\Auth;
+
 use MediaWiki\Auth\AbstractPreAuthenticationProvider;
 use MediaWiki\Auth\AuthenticationRequest;
 use MediaWiki\Auth\AuthenticationResponse;
 use MediaWiki\Auth\AuthManager;
+use MediaWiki\Extension\ConfirmEdit\Hooks;
+use MediaWiki\Extension\ConfirmEdit\SimpleCaptcha\SimpleCaptcha;
 use MediaWiki\Logger\LoggerFactory;
+use Status;
+use User;
 
 class CaptchaPreAuthenticationProvider extends AbstractPreAuthenticationProvider {
+	/**
+	 * @inheritDoc
+	 */
 	public function getAuthenticationRequests( $action, array $options ) {
-		$captcha = ConfirmEditHooks::getInstance();
+		$captcha = Hooks::getInstance();
 		$user = User::newFromName( $options['username'] );
 
 		$needed = false;
 		switch ( $action ) {
 			case AuthManager::ACTION_CREATE:
-				$needed = $captcha->needCreateAccountCaptcha( $user ?: new User() );
+				$u = $user ?: new User();
+				$needed = $captcha->needCreateAccountCaptcha( $u );
 				if ( $needed ) {
 					$captcha->setAction( 'accountcreate' );
-					LoggerFactory::getInstance( 'authevents' )
-						->info( 'Captcha shown on account creation', [
+					// This is debug level simply because generally
+					// captchas are either always or never triggered on
+					// view of create account, so it gets pretty noisy
+					LoggerFactory::getInstance( 'captcha' )
+						->debug( 'Captcha shown on account creation for {user}', [
 							'event' => 'captcha.display',
 							'eventType' => 'accountcreation',
+							'user' => $u->getName()
 						] );
 				}
 				break;
@@ -46,10 +60,12 @@ class CaptchaPreAuthenticationProvider extends AbstractPreAuthenticationProvider
 				) {
 					$needed = true;
 					$captcha->setAction( 'badlogin' );
-					LoggerFactory::getInstance( 'authevents' )
-						->info( 'Captcha shown on account creation', [
+					LoggerFactory::getInstance( 'captcha' )
+						->info( 'Captcha shown on login by {clientip} for {suggestedUser}', [
 							'event' => 'captcha.display',
 							'eventType' => 'accountcreation',
+							'suggestedUser' => $suggestedUsername,
+							'clientip' => $this->manager->getRequest()->getIP()
 						] );
 					break;
 				}
@@ -63,8 +79,11 @@ class CaptchaPreAuthenticationProvider extends AbstractPreAuthenticationProvider
 		}
 	}
 
+	/**
+	 * @inheritDoc
+	 */
 	public function testForAuthentication( array $reqs ) {
-		$captcha = ConfirmEditHooks::getInstance();
+		$captcha = Hooks::getInstance();
 		$username = AuthenticationRequest::getUsernameFromRequests( $reqs );
 		$success = true;
 		$isBadLoginPerUserTriggered = $username ?
@@ -74,10 +93,13 @@ class CaptchaPreAuthenticationProvider extends AbstractPreAuthenticationProvider
 			$captcha->setAction( 'badlogin' );
 			$captcha->setTrigger( "post-badlogin login '$username'" );
 			$success = $this->verifyCaptcha( $captcha, $reqs, new User() );
-			LoggerFactory::getInstance( 'authevents' )->info( 'Captcha submitted on login', [
+			$ip = $this->manager->getRequest()->getIP();
+			LoggerFactory::getInstance( 'captcha' )->info( 'Captcha submitted on login for {user}', [
 				'event' => 'captcha.submit',
 				'eventType' => 'login',
 				'successful' => $success,
+				'user' => $username,
+				'clientip' => $ip
 			] );
 		}
 
@@ -91,19 +113,27 @@ class CaptchaPreAuthenticationProvider extends AbstractPreAuthenticationProvider
 		return $success ? Status::newGood() : $this->makeError( 'wrongpassword', $captcha );
 	}
 
+	/**
+	 * @inheritDoc
+	 */
 	public function testForAccountCreation( $user, $creator, array $reqs ) {
-		$captcha = ConfirmEditHooks::getInstance();
+		$captcha = Hooks::getInstance();
 
 		if ( $captcha->needCreateAccountCaptcha( $creator ) ) {
 			$username = $user->getName();
 			$captcha->setAction( 'accountcreate' );
 			$captcha->setTrigger( "new account '$username'" );
 			$success = $this->verifyCaptcha( $captcha, $reqs, $user );
-			LoggerFactory::getInstance( 'authevents' )->info( 'Captcha submitted on account creation', [
-				'event' => 'captcha.submit',
-				'eventType' => 'accountcreation',
-				'successful' => $success,
-			] );
+			$ip = $this->manager->getRequest()->getIP();
+			LoggerFactory::getInstance( 'captcha' )->info(
+				'Captcha submitted on account creation for {user}', [
+					'event' => 'captcha.submit',
+					'eventType' => 'accountcreation',
+					'successful' => $success,
+					'user' => $username,
+					'clientip' => $ip
+				]
+			);
 			if ( !$success ) {
 				return $this->makeError( 'captcha-createaccount-fail', $captcha );
 			}
@@ -111,8 +141,11 @@ class CaptchaPreAuthenticationProvider extends AbstractPreAuthenticationProvider
 		return Status::newGood();
 	}
 
+	/**
+	 * @inheritDoc
+	 */
 	public function postAuthentication( $user, AuthenticationResponse $response ) {
-		$captcha = ConfirmEditHooks::getInstance();
+		$captcha = Hooks::getInstance();
 		switch ( $response->status ) {
 			case AuthenticationResponse::PASS:
 			case AuthenticationResponse::RESTART:

@@ -14,7 +14,7 @@ class DeleteAutoPatrolLogsTest extends MaintenanceBaseTestCase {
 		return DeleteAutoPatrolLogs::class;
 	}
 
-	protected function setUp(): void {
+	public function setUp() {
 		parent::setUp();
 		$this->tablesUsed = [ 'logging' ];
 
@@ -23,125 +23,76 @@ class DeleteAutoPatrolLogsTest extends MaintenanceBaseTestCase {
 	}
 
 	private function cleanLoggingTable() {
-		wfGetDB( DB_PRIMARY )->delete( 'logging', '*' );
+		wfGetDB( DB_MASTER )->delete( 'logging', '*' );
 	}
 
 	private function insertLoggingData() {
-		$dbw = wfGetDB( DB_PRIMARY );
 		$logs = [];
-
-		$comment = \MediaWiki\MediaWikiServices::getInstance()->getCommentStore()
-			->createComment( $dbw, '' );
 
 		// Manual patrolling
 		$logs[] = [
 			'log_type' => 'patrol',
 			'log_action' => 'patrol',
-			'log_actor' => 7251,
+			'log_user' => 7251,
 			'log_params' => '',
-			'log_timestamp' => $dbw->timestamp( '20041223210426' ),
-			'log_namespace' => NS_MAIN,
-			'log_title' => 'DeleteAutoPatrolLogs',
-			'log_comment_id' => $comment->id,
+			'log_timestamp' => 20041223210426
 		];
 
 		// Autopatrol #1
 		$logs[] = [
 			'log_type' => 'patrol',
 			'log_action' => 'autopatrol',
-			'log_actor' => 7252,
+			'log_user' => 7252,
 			'log_params' => '',
-			'log_timestamp' => $dbw->timestamp( '20051223210426' ),
-			'log_namespace' => NS_MAIN,
-			'log_title' => 'DeleteAutoPatrolLogs',
-			'log_comment_id' => $comment->id,
+			'log_timestamp' => 20051223210426
 		];
 
 		// Block
 		$logs[] = [
 			'log_type' => 'block',
 			'log_action' => 'block',
-			'log_actor' => 7253,
+			'log_user' => 7253,
 			'log_params' => '',
-			'log_timestamp' => $dbw->timestamp( '20061223210426' ),
-			'log_namespace' => NS_MAIN,
-			'log_title' => 'DeleteAutoPatrolLogs',
-			'log_comment_id' => $comment->id,
+			'log_timestamp' => 20061223210426
 		];
 
 		// Very old/ invalid patrol
 		$logs[] = [
 			'log_type' => 'patrol',
 			'log_action' => 'patrol',
-			'log_actor' => 7253,
+			'log_user' => 7253,
 			'log_params' => 'nanana',
-			'log_timestamp' => $dbw->timestamp( '20061223210426' ),
-			'log_namespace' => NS_MAIN,
-			'log_title' => 'DeleteAutoPatrolLogs',
-			'log_comment_id' => $comment->id,
+			'log_timestamp' => 20061223210426
 		];
 
 		// Autopatrol #2
 		$logs[] = [
 			'log_type' => 'patrol',
 			'log_action' => 'autopatrol',
-			'log_actor' => 7254,
+			'log_user' => 7254,
 			'log_params' => '',
-			'log_timestamp' => $dbw->timestamp( '20071223210426' ),
-			'log_namespace' => NS_MAIN,
-			'log_title' => 'DeleteAutoPatrolLogs',
-			'log_comment_id' => $comment->id,
+			'log_timestamp' => 20071223210426
 		];
 
 		// Autopatrol #3 old way
 		$logs[] = [
 			'log_type' => 'patrol',
 			'log_action' => 'patrol',
-			'log_actor' => 7255,
+			'log_user' => 7255,
 			'log_params' => serialize( [ '6::auto' => true ] ),
-			'log_timestamp' => $dbw->timestamp( '20081223210426' ),
-			'log_namespace' => NS_MAIN,
-			'log_title' => 'DeleteAutoPatrolLogs',
-			'log_comment_id' => $comment->id,
+			'log_timestamp' => 20081223210426
 		];
 
 		// Manual patrol #2 old way
 		$logs[] = [
 			'log_type' => 'patrol',
 			'log_action' => 'patrol',
-			'log_actor' => 7256,
+			'log_user' => 7256,
 			'log_params' => serialize( [ '6::auto' => false ] ),
-			'log_timestamp' => $dbw->timestamp( '20091223210426' ),
-			'log_namespace' => NS_MAIN,
-			'log_title' => 'DeleteAutoPatrolLogs',
-			'log_comment_id' => $comment->id,
+			'log_timestamp' => 20091223210426
 		];
 
-		// Autopatrol #4 very old way
-		$logs[] = [
-			'log_type' => 'patrol',
-			'log_action' => 'patrol',
-			'log_actor' => 7257,
-			'log_params' => "9227851\n0\n1",
-			'log_timestamp' => $dbw->timestamp( '20081223210426' ),
-			'log_namespace' => NS_MAIN,
-			'log_title' => 'DeleteAutoPatrolLogs',
-			'log_comment_id' => $comment->id,
-		];
-
-		// Manual patrol #3 very old way
-		$logs[] = [
-			'log_type' => 'patrol',
-			'log_action' => 'patrol',
-			'log_actor' => 7258,
-			'log_params' => "9227851\n0\n0",
-			'log_timestamp' => $dbw->timestamp( '20091223210426' ),
-			'log_namespace' => NS_MAIN,
-			'log_title' => 'DeleteAutoPatrolLogs',
-			'log_comment_id' => $comment->id,
-		];
-
-		$dbw->insert( 'logging', $logs );
+		wfGetDB( DB_MASTER )->insert( 'logging', $logs );
 	}
 
 	public function runProvider() {
@@ -149,47 +100,37 @@ class DeleteAutoPatrolLogsTest extends MaintenanceBaseTestCase {
 			(object)[
 				'log_type' => 'patrol',
 				'log_action' => 'patrol',
-				'log_actor' => '7251',
+				'log_user' => '7251',
 			],
 			(object)[
 				'log_type' => 'patrol',
 				'log_action' => 'autopatrol',
-				'log_actor' => '7252',
+				'log_user' => '7252',
 			],
 			(object)[
 				'log_type' => 'block',
 				'log_action' => 'block',
-				'log_actor' => '7253',
+				'log_user' => '7253',
 			],
 			(object)[
 				'log_type' => 'patrol',
 				'log_action' => 'patrol',
-				'log_actor' => '7253',
+				'log_user' => '7253',
 			],
 			(object)[
 				'log_type' => 'patrol',
 				'log_action' => 'autopatrol',
-				'log_actor' => '7254',
+				'log_user' => '7254',
 			],
 			(object)[
 				'log_type' => 'patrol',
 				'log_action' => 'patrol',
-				'log_actor' => '7255',
+				'log_user' => '7255',
 			],
 			(object)[
 				'log_type' => 'patrol',
 				'log_action' => 'patrol',
-				'log_actor' => '7256',
-			],
-			(object)[
-				'log_type' => 'patrol',
-				'log_action' => 'patrol',
-				'log_actor' => '7257',
-			],
-			(object)[
-				'log_type' => 'patrol',
-				'log_action' => 'patrol',
-				'log_actor' => '7258',
+				'log_user' => '7256',
 			],
 		];
 
@@ -205,8 +146,6 @@ class DeleteAutoPatrolLogsTest extends MaintenanceBaseTestCase {
 					$allRows[3],
 					$allRows[5],
 					$allRows[6],
-					$allRows[7],
-					$allRows[8],
 				],
 				[ '--sleep', '0', '-q' ]
 			],
@@ -218,8 +157,6 @@ class DeleteAutoPatrolLogsTest extends MaintenanceBaseTestCase {
 					$allRows[4],
 					$allRows[5],
 					$allRows[6],
-					$allRows[7],
-					$allRows[8],
 				],
 				[ '--sleep', '0', '--before', '20060123210426', '-q' ]
 			],
@@ -231,7 +168,6 @@ class DeleteAutoPatrolLogsTest extends MaintenanceBaseTestCase {
 					$allRows[3],
 					$allRows[4],
 					$allRows[6],
-					$allRows[8],
 				],
 				[ '--sleep', '0', '--check-old', '-q' ]
 			],
@@ -263,7 +199,7 @@ class DeleteAutoPatrolLogsTest extends MaintenanceBaseTestCase {
 
 		$remainingLogs = wfGetDB( DB_REPLICA )->select(
 			[ 'logging' ],
-			[ 'log_type', 'log_action', 'log_actor' ],
+			[ 'log_type', 'log_action', 'log_user' ],
 			[],
 			__METHOD__,
 			[ 'ORDER BY' => 'log_id' ]
@@ -285,7 +221,7 @@ class DeleteAutoPatrolLogsTest extends MaintenanceBaseTestCase {
 
 		$remainingLogs = wfGetDB( DB_REPLICA )->select(
 			[ 'logging' ],
-			[ 'log_type', 'log_action', 'log_actor' ],
+			[ 'log_type', 'log_action', 'log_user' ],
 			[],
 			__METHOD__,
 			[ 'ORDER BY' => 'log_id' ]
@@ -294,16 +230,16 @@ class DeleteAutoPatrolLogsTest extends MaintenanceBaseTestCase {
 		$deleted = [
 			'log_type' => 'patrol',
 			'log_action' => 'autopatrol',
-			'log_actor' => '7254',
+			'log_user' => '7254',
 		];
 		$notDeleted = [
 			'log_type' => 'patrol',
 			'log_action' => 'autopatrol',
-			'log_actor' => '7252',
+			'log_user' => '7252',
 		];
 
 		$remainingLogs = array_map(
-			static function ( $val ) {
+			function ( $val ) {
 				return (array)$val;
 			},
 			iterator_to_array( $remainingLogs, false )

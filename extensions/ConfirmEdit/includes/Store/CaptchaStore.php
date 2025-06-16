@@ -1,22 +1,17 @@
 <?php
 
-namespace MediaWiki\Extension\ConfirmEdit\Store;
-
-use Exception;
-use MWException;
-
 abstract class CaptchaStore {
 	/**
 	 * Store the correct answer for a given captcha
 	 * @param string $index
-	 * @param array $info the captcha result
+	 * @param string $info the captcha result
 	 */
 	abstract public function store( $index, $info );
 
 	/**
 	 * Retrieve the answer for a given captcha
 	 * @param string $index
-	 * @return array|false
+	 * @return string|false
 	 */
 	abstract public function retrieve( $index );
 
@@ -34,7 +29,7 @@ abstract class CaptchaStore {
 
 	/**
 	 * The singleton instance
-	 * @var CaptchaStore|null
+	 * @var CaptchaStore
 	 */
 	private static $instance;
 
@@ -45,9 +40,9 @@ abstract class CaptchaStore {
 	 * @return CaptchaStore
 	 */
 	final public static function get() {
-		global $wgCaptchaStorageClass;
 		if ( !self::$instance instanceof self ) {
-			if ( in_array( self::class, class_parents( $wgCaptchaStorageClass ) ) ) {
+			global $wgCaptchaStorageClass;
+			if ( in_array( 'CaptchaStore', class_parents( $wgCaptchaStorageClass ) ) ) {
 				self::$instance = new $wgCaptchaStorageClass;
 			} else {
 				throw new Exception( "Invalid CaptchaStore class $wgCaptchaStorageClass" );

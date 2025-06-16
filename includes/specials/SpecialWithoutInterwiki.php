@@ -22,47 +22,25 @@
  * @author Rob Church <robchur@gmail.com>
  */
 
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Languages\LanguageConverterFactory;
-use Wikimedia\Rdbms\ILoadBalancer;
-
 /**
  * Special page lists pages without language links
  *
  * @ingroup SpecialPage
  */
-class SpecialWithoutInterwiki extends PageQueryPage {
+class WithoutInterwikiPage extends PageQueryPage {
 	private $prefix = '';
 
-	/** @var NamespaceInfo */
-	private $namespaceInfo;
-
-	/**
-	 * @param NamespaceInfo $namespaceInfo
-	 * @param ILoadBalancer $loadBalancer
-	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param LanguageConverterFactory $languageConverterFactory
-	 */
-	public function __construct(
-		NamespaceInfo $namespaceInfo,
-		ILoadBalancer $loadBalancer,
-		LinkBatchFactory $linkBatchFactory,
-		LanguageConverterFactory $languageConverterFactory
-	) {
-		parent::__construct( 'Withoutinterwiki' );
-		$this->namespaceInfo = $namespaceInfo;
-		$this->setDBLoadBalancer( $loadBalancer );
-		$this->setLinkBatchFactory( $linkBatchFactory );
-		$this->setLanguageConverter( $languageConverterFactory->getLanguageConverter( $this->getContentLanguage() ) );
+	function __construct( $name = 'Withoutinterwiki' ) {
+		parent::__construct( $name );
 	}
 
-	public function execute( $par ) {
-		$prefix = $this->getRequest()->getVal( 'prefix', $par );
-		$this->prefix = $prefix !== null ? Title::capitalize( $prefix, NS_MAIN ) : '';
+	function execute( $par ) {
+		$this->prefix = Title::capitalize(
+			$this->getRequest()->getVal( 'prefix', $par ), NS_MAIN );
 		parent::execute( $par );
 	}
 
-	protected function getPageHeader() {
+	function getPageHeader() {
 		# Do not show useless input form if special page is cached
 		if ( $this->isCached() ) {
 			return '';
@@ -79,47 +57,47 @@ class SpecialWithoutInterwiki extends PageQueryPage {
 			]
 		];
 
-		HTMLForm::factory( 'ooui', $formDescriptor, $this->getContext() )
-			->setWrapperLegend( '' )
+		$htmlForm = HTMLForm::factory( 'ooui', $formDescriptor, $this->getContext() );
+		$htmlForm->setWrapperLegend( '' )
 			->setSubmitTextMsg( 'withoutinterwiki-submit' )
 			->setMethod( 'get' )
 			->prepareForm()
 			->displayForm( false );
-		return '';
 	}
 
-	protected function sortDescending() {
+	function sortDescending() {
 		return false;
 	}
 
-	protected function getOrderFields() {
+	function getOrderFields() {
 		return [ 'page_namespace', 'page_title' ];
 	}
 
-	public function isExpensive() {
+	function isExpensive() {
 		return true;
 	}
 
-	public function isSyndicated() {
+	function isSyndicated() {
 		return false;
 	}
 
-	public function getQueryInfo() {
+	function getQueryInfo() {
 		$query = [
 			'tables' => [ 'page', 'langlinks' ],
 			'fields' => [
 				'namespace' => 'page_namespace',
 				'title' => 'page_title',
+				'value' => 'page_title'
 			],
 			'conds' => [
 				'll_title IS NULL',
-				'page_namespace' => $this->namespaceInfo->getContentNamespaces(),
+				'page_namespace' => MWNamespace::getContentNamespaces(),
 				'page_is_redirect' => 0
 			],
 			'join_conds' => [ 'langlinks' => [ 'LEFT JOIN', 'll_from = page_id' ] ]
 		];
 		if ( $this->prefix ) {
-			$dbr = $this->getDBLoadBalancer()->getConnectionRef( ILoadBalancer::DB_REPLICA );
+			$dbr = wfGetDB( DB_REPLICA );
 			$query['conds'][] = 'page_title ' . $dbr->buildLike( $this->prefix, $dbr->anyString() );
 		}
 

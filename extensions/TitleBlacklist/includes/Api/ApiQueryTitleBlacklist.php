@@ -21,14 +21,6 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 
-namespace MediaWiki\Extension\TitleBlacklist\Api;
-
-use ApiBase;
-use MediaWiki\Extension\TitleBlacklist\TitleBlacklist;
-use MediaWiki\Extension\TitleBlacklist\TitleBlacklistEntry;
-use Title;
-use Wikimedia\ParamValidator\ParamValidator;
-
 /**
  * Query module check a title against the blacklist
  *
@@ -72,7 +64,7 @@ class ApiQueryTitleBlacklist extends ApiBase {
 			$res->addValue( 'titleblacklist', 'result', 'blacklisted' );
 			// there aren't any messages for create(talk|page), using edit for those instead
 			$message = $blacklisted->getErrorMessage( $action !== 'create' ? $action : 'edit' );
-			$res->addValue( 'titleblacklist', 'reason', $this->msg( $message, $result )->text() );
+			$res->addValue( 'titleblacklist', 'reason', wfMessage( $message, $result )->text() );
 			$res->addValue( 'titleblacklist', 'message', $message );
 			$res->addValue( 'titleblacklist', 'line', htmlspecialchars( $blacklisted->getRaw() ) );
 		} else {
@@ -84,25 +76,25 @@ class ApiQueryTitleBlacklist extends ApiBase {
 	public function getAllowedParams() {
 		return [
 			'title' => [
-				ParamValidator::PARAM_REQUIRED => true,
+				ApiBase::PARAM_REQUIRED => true,
 			],
 			'action' => [
-				ParamValidator::PARAM_DEFAULT => 'edit',
-				ParamValidator::PARAM_ISMULTI => false,
-				ParamValidator::PARAM_TYPE => [
+				ApiBase::PARAM_DFLT => 'edit',
+				ApiBase::PARAM_ISMULTI => false,
+				ApiBase::PARAM_TYPE => [
 					// createtalk and createpage are useless as they're treated exactly like create
 					'create', 'edit', 'upload', 'createtalk', 'createpage', 'move', 'new-account'
 				],
 			],
 			'nooverride' => [
-				ParamValidator::PARAM_DEFAULT => false,
+				ApiBase::PARAM_DFLT => false,
 			]
 		];
 	}
 
 	/**
 	 * @see ApiBase::getExamplesMessages()
-	 * @return string[]
+	 * @return array
 	 */
 	protected function getExamplesMessages() {
 		return [

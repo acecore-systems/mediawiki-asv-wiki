@@ -1,15 +1,4 @@
 <?php
-
-namespace MediaWiki\Extension\Gadgets\Api;
-
-use ApiBase;
-use ApiQuery;
-use ApiQueryBase;
-use ApiResult;
-use MediaWiki\Extension\Gadgets\Gadget;
-use MediaWiki\Extension\Gadgets\GadgetRepo;
-use Wikimedia\ParamValidator\ParamValidator;
-
 /**
  * Created on 15 April 2011
  * API for Gadgets extension
@@ -84,7 +73,7 @@ class ApiQueryGadgets extends ApiQueryBase {
 	private function getList() {
 		$gadgets = GadgetRepo::singleton()->getStructuredList();
 
-		if ( !$gadgets ) {
+		if ( $gadgets === false ) {
 			return [];
 		}
 
@@ -131,7 +120,7 @@ class ApiQueryGadgets extends ApiQueryBase {
 			$data[] = $row;
 		}
 
-		ApiResult::setIndexedTagName( $data, 'gadget' );
+		$result->setIndexedTagName( $data, 'gadget' );
 		$result->addValue( 'query', $this->getModuleName(), $data );
 	}
 
@@ -157,19 +146,15 @@ class ApiQueryGadgets extends ApiQueryBase {
 			'settings' => [
 				'rights' => $g->getRequiredRights(),
 				'skins' => $g->getRequiredSkins(),
-				'actions' => $g->getRequiredActions(),
 				'default' => $g->isOnByDefault(),
 				'hidden' => $g->isHidden(),
-				'package' => $g->isPackaged(),
 				'shared' => false,
 				'category' => $g->getCategory(),
 				'legacyscripts' => (bool)$g->getLegacyScripts(),
-				'supportsUrlLoad' => $g->supportsUrlLoad(),
 			],
 			'module' => [
 				'scripts' => $g->getScripts(),
 				'styles' => $g->getStyles(),
-				'datas' => $g->getJSONs(),
 				'dependencies' => $g->getDependencies(),
 				'peers' => $g->getPeers(),
 				'messages' => $g->getMessages(),
@@ -177,27 +162,23 @@ class ApiQueryGadgets extends ApiQueryBase {
 		];
 	}
 
-	/**
-	 * @param array[] &$metadata
-	 */
 	private function setIndexedTagNameForMetadata( &$metadata ) {
 		static $tagNames = [
 			'rights' => 'right',
 			'skins' => 'skin',
-			'actions' => 'action',
 			'scripts' => 'script',
 			'styles' => 'style',
-			'datas' => 'data',
 			'dependencies' => 'dependency',
 			'peers' => 'peer',
 			'messages' => 'message',
 		];
 
+		$result = $this->getResult();
 		foreach ( $metadata as $data ) {
 			foreach ( $data as $key => $value ) {
 				if ( is_array( $value ) ) {
-					$tag = $tagNames[$key] ?? $key;
-					ApiResult::setIndexedTagName( $value, $tag );
+					$tag = isset( $tagNames[$key] ) ? $tagNames[$key] : $key;
+					$result->setIndexedTagName( $value, $tag );
 				}
 			}
 		}
@@ -206,21 +187,21 @@ class ApiQueryGadgets extends ApiQueryBase {
 	public function getAllowedParams() {
 		return [
 			'prop' => [
-				ParamValidator::PARAM_DEFAULT => 'id|metadata',
-				ParamValidator::PARAM_ISMULTI => true,
-				ParamValidator::PARAM_TYPE => [
+				ApiBase::PARAM_DFLT => 'id|metadata',
+				ApiBase::PARAM_ISMULTI => true,
+				ApiBase::PARAM_TYPE => [
 					'id',
 					'metadata',
 					'desc',
 				],
 			],
 			'categories' => [
-				ParamValidator::PARAM_ISMULTI => true,
-				ParamValidator::PARAM_TYPE => 'string',
+				ApiBase::PARAM_ISMULTI => true,
+				ApiBase::PARAM_TYPE => 'string',
 			],
 			'ids' => [
-				ParamValidator::PARAM_TYPE => 'string',
-				ParamValidator::PARAM_ISMULTI => true,
+				ApiBase::PARAM_TYPE => 'string',
+				ApiBase::PARAM_ISMULTI => true,
 			],
 			'allowedonly' => false,
 			'enabledonly' => false,
@@ -233,7 +214,7 @@ class ApiQueryGadgets extends ApiQueryBase {
 	 */
 	protected function getExamplesMessages() {
 		$params = $this->getAllowedParams();
-		$allProps = implode( '|', $params['prop'][ParamValidator::PARAM_TYPE] );
+		$allProps = implode( '|', $params['prop'][ApiBase::PARAM_TYPE] );
 		return [
 			'action=query&list=gadgets&gaprop=id|desc'
 				=> 'apihelp-query+gadgets-example-1',

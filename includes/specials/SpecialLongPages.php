@@ -21,33 +21,16 @@
  * @ingroup SpecialPage
  */
 
-use MediaWiki\Cache\LinkBatchFactory;
-use Wikimedia\Rdbms\ILoadBalancer;
-
 /**
+ *
  * @ingroup SpecialPage
  */
-class SpecialLongPages extends SpecialShortPages {
-
-	/**
-	 * @param NamespaceInfo $namespaceInfo
-	 * @param ILoadBalancer $loadBalancer
-	 * @param LinkBatchFactory $linkBatchFactory
-	 */
-	public function __construct(
-		NamespaceInfo $namespaceInfo,
-		ILoadBalancer $loadBalancer,
-		LinkBatchFactory $linkBatchFactory
-	) {
-		parent::__construct(
-			$namespaceInfo,
-			$loadBalancer,
-			$linkBatchFactory
-		);
-		$this->mName = 'Longpages';
+class LongPagesPage extends ShortPagesPage {
+	function __construct( $name = 'Longpages' ) {
+		parent::__construct( $name );
 	}
 
-	protected function sortDescending() {
+	function sortDescending() {
 		return true;
 	}
 

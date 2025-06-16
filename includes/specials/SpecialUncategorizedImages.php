@@ -22,63 +22,40 @@
  * @author Rob Church <robchur@gmail.com>
  */
 
-use Wikimedia\Rdbms\ILoadBalancer;
-
 /**
  * Special page lists images which haven't been categorised
  *
  * @ingroup SpecialPage
  * @todo FIXME: Use an instance of UncategorizedPagesPage or something
  */
-class SpecialUncategorizedImages extends ImageQueryPage {
-
-	/**
-	 * @param ILoadBalancer $loadBalancer
-	 */
-	public function __construct( ILoadBalancer $loadBalancer ) {
-		parent::__construct( 'Uncategorizedimages' );
-		$this->setDBLoadBalancer( $loadBalancer );
+class UncategorizedImagesPage extends ImageQueryPage {
+	function __construct( $name = 'Uncategorizedimages' ) {
+		parent::__construct( $name );
 	}
 
-	protected function sortDescending() {
+	function sortDescending() {
 		return false;
 	}
 
-	public function isExpensive() {
+	function isExpensive() {
 		return true;
 	}
 
-	public function isSyndicated() {
+	function isSyndicated() {
 		return false;
 	}
 
-	protected function getOrderFields() {
-		return [ 'title' ];
-	}
-
-	public function execute( $par ) {
-		$this->addHelpLink( 'Help:Categories' );
-		parent::execute( $par );
-	}
-
-	public function getQueryInfo() {
+	function getQueryInfo() {
 		return [
 			'tables' => [ 'page', 'categorylinks' ],
-			'fields' => [
-				'namespace' => 'page_namespace',
+			'fields' => [ 'namespace' => 'page_namespace',
 				'title' => 'page_title',
-			],
-			'conds' => [
-				'cl_from IS NULL',
+				'value' => 'page_title' ],
+			'conds' => [ 'cl_from IS NULL',
 				'page_namespace' => NS_FILE,
-				'page_is_redirect' => 0,
-			],
-			'join_conds' => [
-				'categorylinks' => [
-					'LEFT JOIN',
-					'cl_from=page_id',
-				],
-			],
+				'page_is_redirect' => 0 ],
+			'join_conds' => [ 'categorylinks' => [
+				'LEFT JOIN', 'cl_from=page_id' ] ]
 		];
 	}
 

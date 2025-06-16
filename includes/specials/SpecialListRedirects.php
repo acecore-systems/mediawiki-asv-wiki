@@ -24,27 +24,56 @@
  * @author Rob Church <robchur@gmail.com>
  */
 
-use Wikimedia\Rdbms\IResultWrapper;
+use MediaWiki\Cache\LinkBatchFactory;
+use MediaWiki\Page\RedirectLookup;
+use MediaWiki\Page\WikiPageFactory;
 use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\ILoadBalancer;
+use Wikimedia\Rdbms\IResultWrapper;
 
 /**
  * Special:Listredirects - Lists all the redirects on the wiki.
  * @ingroup SpecialPage
  */
-class ListredirectsPage extends QueryPage {
-	function __construct( $name = 'Listredirects' ) {
-		parent::__construct( $name );
+class SpecialListRedirects extends QueryPage {
+
+	/** @var LinkBatchFactory */
+	private $linkBatchFactory;
+
+	/** @var WikiPageFactory */
+	private $wikiPageFactory;
+
+	/** @var RedirectLookup */
+	private $redirectLookup;
+
+	/**
+	 * @param LinkBatchFactory $linkBatchFactory
+	 * @param ILoadBalancer $loadBalancer
+	 * @param WikiPageFactory $wikiPageFactory
+	 * @param RedirectLookup $redirectLookup
+	 */
+	public function __construct(
+		LinkBatchFactory $linkBatchFactory,
+		ILoadBalancer $loadBalancer,
+		WikiPageFactory $wikiPageFactory,
+		RedirectLookup $redirectLookup
+	) {
+		parent::__construct( 'Listredirects' );
+		$this->linkBatchFactory = $linkBatchFactory;
+		$this->setDBLoadBalancer( $loadBalancer );
+		$this->wikiPageFactory = $wikiPageFactory;
+		$this->redirectLookup = $redirectLookup;
 	}
 
 	public function isExpensive() {
 		return true;
 	}
 
-	function isSyndicated() {
+	public function isSyndicated() {
 		return false;
 	}
 
-	function sortDescending() {
+	protected function sortDescending() {
 		return false;
 	}
 
@@ -53,7 +82,6 @@ class ListredirectsPage extends QueryPage {
 			'tables' => [ 'p1' => 'page', 'redirect', 'p2' => 'page' ],
 			'fields' => [ 'namespace' => 'p1.page_namespace',
 				'title' => 'p1.page_title',
-				'value' => 'p1.page_title',
 				'rd_namespace',
 				'rd_title',
 				'rd_fragment',
@@ -68,7 +96,7 @@ class ListredirectsPage extends QueryPage {
 		];
 	}
 
-	function getOrderFields() {
+	protected function getOrderFields() {
 		return [ 'p1.page_namespace', 'p1.page_title' ];
 	}
 
@@ -78,12 +106,12 @@ class ListredirectsPage extends QueryPage {
 	 * @param IDatabase $db
 	 * @param IResultWrapper $res
 	 */
-	function preprocessResults( $db, $res ) {
+	public function preprocessResults( $db, $res ) {
 		if ( !$res->numRows() ) {
 			return;
 		}
 
-		$batch = new LinkBatch;
+		$batch = $this->linkBatchFactory->newLinkBatch();
 		foreach ( $res as $row ) {
 			$batch->add( $row->namespace, $row->title );
 			$redirTarget = $this->getRedirectTarget( $row );
@@ -103,24 +131,30 @@ class ListredirectsPage extends QueryPage {
 	 */
 	protected function getRedirectTarget( $row ) {
 		if ( isset( $row->rd_title ) ) {
-			return Title::makeTitle( $row->rd_namespace,
-				$row->rd_title, $row->rd_fragment,
-				$row->rd_interwiki
+			return Title::makeTitle(
+				$row->rd_namespace,
+				$row->rd_title,
+				$row->rd_fragment ?? '',
+				$row->rd_interwiki ?? ''
 			);
 		} else {
 			$title = Title::makeTitle( $row->namespace, $row->title );
-			$article = WikiPage::factory( $title );
+			if ( !$title->canExist() ) {
+				return null;
+			}
 
-			return $article->getRedirectTarget();
+			return Title::castFromLinkTarget(
+				$this->redirectLookup->getRedirectTarget( $title )
+			);
 		}
 	}
 
 	/**
 	 * @param Skin $skin
-	 * @param object $result Result row
+	 * @param stdClass $result Result row
 	 * @return string
 	 */
-	function formatResult( $skin, $result ) {
+	public function formatResult( $skin, $result ) {
 		$linkRenderer = $this->getLinkRenderer();
 		# Make a link to the redirect itself
 		$rd_title = Title::makeTitle( $result->namespace, $result->title );
@@ -143,6 +177,11 @@ class ListredirectsPage extends QueryPage {
 		} else {
 			return "<del>$rd_link</del>";
 		}
+	}
+
+	public function execute( $par ) {
+		$this->addHelpLink( 'Help:Redirects' );
+		parent::execute( $par );
 	}
 
 	protected function getGroupName() {

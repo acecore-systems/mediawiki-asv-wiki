@@ -1,22 +1,30 @@
 <?php
-class CaptchaSpecialPage extends UnlistedSpecialPage {
+
+namespace MediaWiki\Extension\ConfirmEdit\Specials;
+
+use MediaWiki\Extension\ConfirmEdit\Hooks;
+use UnlistedSpecialPage;
+
+class SpecialCaptcha extends UnlistedSpecialPage {
 	public function __construct() {
 		parent::__construct( 'Captcha' );
 	}
 
-	function execute( $par ) {
+	/**
+	 * @inheritDoc
+	 */
+	public function execute( $par ) {
 		$this->setHeaders();
 
-		$instance = ConfirmEditHooks::getInstance();
+		$instance = Hooks::getInstance();
 
-		switch ( $par ) {
-			case "image":
-				if ( method_exists( $instance, 'showImage' ) ) {
-					return $instance->showImage();
-				}
-			case "help":
-			default:
-				return $instance->showHelp();
+		if ( $par === 'image' && method_exists( $instance, 'showImage' ) ) {
+			// @todo: Do this in a more OOP way
+			/** @phan-suppress-next-line PhanUndeclaredMethod */
+			$instance->showImage();
+			return;
 		}
+
+		$instance->showHelp();
 	}
 }

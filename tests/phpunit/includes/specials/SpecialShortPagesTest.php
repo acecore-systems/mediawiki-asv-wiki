@@ -1,35 +1,28 @@
 <?php
 
-use MediaWiki\MainConfigNames;
-
 /**
- * Test class for SpecialShortPages class
+ * Test class for SpecialShortpages class
  *
  * @since 1.30
  *
- * @license GPL-2.0-or-later
+ * @license GNU GPL v2+
  */
-class SpecialShortPagesTest extends MediaWikiIntegrationTestCase {
+class SpecialShortpagesTest extends MediaWikiTestCase {
 
 	/**
 	 * @dataProvider provideGetQueryInfoRespectsContentNs
-	 * @covers SpecialShortPages::getQueryInfo()
+	 * @covers ShortPagesPage::getQueryInfo()
 	 */
 	public function testGetQueryInfoRespectsContentNS( $contentNS, $blacklistNS, $expectedNS ) {
-		$this->overrideConfigValues( [
-			MainConfigNames::ShortPagesNamespaceExclusions => $blacklistNS,
-			MainConfigNames::ContentNamespaces => $contentNS
+		$this->setMwGlobals( [
+			'wgShortPagesNamespaceBlacklist' => $blacklistNS,
+			'wgContentNamespaces' => $contentNS
 		] );
-		$this->setTemporaryHook( 'ShortPagesQuery', static function () {
+		$this->setTemporaryHook( 'ShortPagesQuery', function () {
 			// empty hook handler
 		} );
 
-		$services = $this->getServiceContainer();
-		$page = new SpecialShortPages(
-			$services->getNamespaceInfo(),
-			$services->getDBLoadBalancer(),
-			$services->getLinkBatchFactory()
-		);
+		$page = new ShortPagesPage();
 		$queryInfo = $page->getQueryInfo();
 
 		$this->assertArrayHasKey( 'conds', $queryInfo );

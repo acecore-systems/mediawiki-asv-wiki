@@ -3,6 +3,7 @@
 namespace MediaWiki\Tests\Maintenance;
 
 use DumpCategoriesAsRdf;
+use MediaWiki\MainConfigNames;
 use MediaWikiLangTestCase;
 
 /**
@@ -54,29 +55,28 @@ class CategoriesRdfTest extends MediaWikiLangTestCase {
 	}
 
 	public function testCategoriesDump() {
-		$this->setMwGlobals( [
-			'wgServer' => 'http://acme.test',
-			'wgCanonicalServer' => 'http://acme.test',
-			'wgArticlePath' => '/wiki/$1',
-			'wgRightsUrl' => '//creativecommons.org/licenses/by-sa/3.0/',
+		$this->overrideConfigValues( [
+			MainConfigNames::Server => 'http://acme.test',
+			MainConfigNames::CanonicalServer => 'http://acme.test',
+			MainConfigNames::ArticlePath => '/wiki/$1',
+			MainConfigNames::RightsUrl => 'https://creativecommons.org/licenses/by-sa/3.0/',
 		] );
 
 		$dumpScript =
 			$this->getMockBuilder( DumpCategoriesAsRdf::class )
-				->setMethods( [ 'getCategoryIterator', 'getCategoryLinksIterator' ] )
+				->onlyMethods( [ 'getCategoryIterator', 'getCategoryLinksIterator' ] )
 				->getMock();
 
 		$dumpScript->expects( $this->once() )
 			->method( 'getCategoryIterator' )
 			->willReturn( $this->getCategoryIterator() );
 
-		$dumpScript->expects( $this->any() )
-			->method( 'getCategoryLinksIterator' )
+		$dumpScript->method( 'getCategoryLinksIterator' )
 			->willReturnCallback( [ $this, 'getCategoryLinksIterator' ] );
 
-		/** @var DumpCategoriesAsRdf  $dumpScript */
-		$logFileName = tempnam( sys_get_temp_dir(), "Categories-DumpRdfTest" );
-		$outFileName = tempnam( sys_get_temp_dir(), "Categories-DumpRdfTest" );
+		/** @var DumpCategoriesAsRdf $dumpScript */
+		$logFileName = $this->getNewTempFile();
+		$outFileName = $this->getNewTempFile();
 
 		$dumpScript->loadParamsAndArgs(
 			null,

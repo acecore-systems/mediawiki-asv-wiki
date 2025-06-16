@@ -20,10 +20,6 @@
  * @file
  */
 
-namespace MediaWiki\Extension\Gadgets\Content;
-
-use DataUpdate;
-use MediaWiki\Extension\Gadgets\GadgetRepo;
 use MediaWiki\Linker\LinkTarget;
 
 /**
@@ -42,6 +38,6 @@ class GadgetDefinitionDeletionUpdate extends DataUpdate {
 	}
 
 	public function doUpdate() {
-		GadgetRepo::singleton()->handlePageUpdate( $this->target );
+		GadgetRepo::singleton()->handlePageDeletion( $this->target );
 	}
 }

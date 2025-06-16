@@ -21,10 +21,6 @@
  * @ingroup SpecialPage
  */
 
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\MainConfigNames;
-use Wikimedia\Rdbms\ILoadBalancer;
-
 /**
  * A special page that list protected titles from creation
  *
@@ -34,29 +30,13 @@ class SpecialProtectedtitles extends SpecialPage {
 	protected $IdLevel = 'level';
 	protected $IdType = 'type';
 
-	/** @var LinkBatchFactory */
-	private $linkBatchFactory;
-
-	/** @var ILoadBalancer */
-	private $loadBalancer;
-
-	/**
-	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param ILoadBalancer $loadBalancer
-	 */
-	public function __construct(
-		LinkBatchFactory $linkBatchFactory,
-		ILoadBalancer $loadBalancer
-	) {
+	public function __construct() {
 		parent::__construct( 'Protectedtitles' );
-		$this->linkBatchFactory = $linkBatchFactory;
-		$this->loadBalancer = $loadBalancer;
 	}
 
-	public function execute( $par ) {
+	function execute( $par ) {
 		$this->setHeaders();
 		$this->outputHeader();
-		$this->addHelpLink( 'Help:Protected_pages' );
 
 		$request = $this->getRequest();
 		$type = $request->getVal( $this->IdType );
@@ -65,17 +45,7 @@ class SpecialProtectedtitles extends SpecialPage {
 		$size = $request->getIntOrNull( 'size' );
 		$NS = $request->getIntOrNull( 'namespace' );
 
-		$pager = new ProtectedTitlesPager(
-			$this,
-			$this->linkBatchFactory,
-			$this->loadBalancer,
-			[],
-			$type,
-			$level,
-			$NS,
-			$sizetype,
-			$size
-		);
+		$pager = new ProtectedTitlesPager( $this, [], $type, $level, $NS, $sizetype, $size );
 
 		$this->getOutput()->addHTML( $this->showOptions( $NS, $type, $level ) );
 
@@ -93,10 +63,10 @@ class SpecialProtectedtitles extends SpecialPage {
 	/**
 	 * Callback function to output a restriction
 	 *
-	 * @param stdClass $row Database row
+	 * @param object $row Database row
 	 * @return string
 	 */
-	public function formatRow( $row ) {
+	function formatRow( $row ) {
 		$title = Title::makeTitleSafe( $row->pt_namespace, $row->pt_title );
 		if ( !$title ) {
 			return Html::rawElement(
@@ -140,12 +110,12 @@ class SpecialProtectedtitles extends SpecialPage {
 	 * @param string $type
 	 * @param string $level
 	 * @return string
-	 * @internal
+	 * @private
 	 */
-	private function showOptions( $namespace, $type, $level ) {
+	function showOptions( $namespace, $type = 'edit', $level ) {
 		$formDescriptor = [
 			'namespace' => [
-				'class' => HTMLSelectNamespace::class,
+				'class' => 'HTMLSelectNamespace',
 				'name' => 'namespace',
 				'id' => 'namespace',
 				'cssclass' => 'namespaceselector',
@@ -155,26 +125,27 @@ class SpecialProtectedtitles extends SpecialPage {
 			'levelmenu' => $this->getLevelMenu( $level )
 		];
 
-		$htmlForm = HTMLForm::factory( 'ooui', $formDescriptor, $this->getContext() )
+		$htmlForm = new HTMLForm( $formDescriptor, $this->getContext() );
+		$htmlForm
 			->setMethod( 'get' )
 			->setWrapperLegendMsg( 'protectedtitles' )
-			->setSubmitTextMsg( 'protectedtitles-submit' );
+			->setSubmitText( $this->msg( 'protectedtitles-submit' )->text() );
 
 		return $htmlForm->prepareForm()->getHTML( false );
 	}
 
 	/**
 	 * @param string $pr_level Determines which option is selected as default
-	 * @return string|array
-	 * @internal
+	 * @return string Formatted HTML
+	 * @private
 	 */
-	private function getLevelMenu( $pr_level ) {
+	function getLevelMenu( $pr_level ) {
 		// Temporary array
 		$m = [ $this->msg( 'restriction-level-all' )->text() => 0 ];
 		$options = [];
 
 		// First pass to load the log names
-		foreach ( $this->getConfig()->get( MainConfigNames::RestrictionLevels ) as $type ) {
+		foreach ( $this->getConfig()->get( 'RestrictionLevels' ) as $type ) {
 			if ( $type != '' && $type != '*' ) {
 				// Messages: restriction-level-sysop, restriction-level-autoconfirmed
 				$text = $this->msg( "restriction-level-$type" )->text();

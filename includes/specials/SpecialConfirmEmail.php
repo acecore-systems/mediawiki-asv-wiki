@@ -21,9 +21,6 @@
  * @ingroup SpecialPage
  */
 
-use MediaWiki\User\UserFactory;
-use Wikimedia\ScopedCallback;
-
 /**
  * Special page allows users to request email confirmation message, and handles
  * processing of the confirmation code when the link in the email is followed
@@ -32,18 +29,9 @@ use Wikimedia\ScopedCallback;
  * @author Brion Vibber
  * @author Rob Church <robchur@gmail.com>
  */
-class SpecialConfirmEmail extends UnlistedSpecialPage {
-
-	/** @var UserFactory */
-	private $userFactory;
-
-	/**
-	 * @param UserFactory $userFactory
-	 */
-	public function __construct( UserFactory $userFactory ) {
+class EmailConfirmation extends UnlistedSpecialPage {
+	public function __construct() {
 		parent::__construct( 'Confirmemail', 'editmyprivateinfo' );
-
-		$this->userFactory = $userFactory;
 	}
 
 	public function doesWrites() {
@@ -58,8 +46,8 @@ class SpecialConfirmEmail extends UnlistedSpecialPage {
 	 * @throws ReadOnlyError
 	 * @throws UserNotLoggedIn
 	 */
-	public function execute( $code ) {
-		// Ignore things like primary queries/connections on GET requests.
+	function execute( $code ) {
+		// Ignore things like master queries/connections on GET requests.
 		// It's very convenient to just allow formless link usage.
 		$trxProfiler = Profiler::instance()->getTransactionProfiler();
 
@@ -69,7 +57,7 @@ class SpecialConfirmEmail extends UnlistedSpecialPage {
 
 		// This could also let someone check the current email address, so
 		// require both permissions.
-		if ( !$this->getAuthority()->isAllowed( 'viewmyprivateinfo' ) ) {
+		if ( !$this->getUser()->isAllowed( 'viewmyprivateinfo' ) ) {
 			throw new PermissionsError( 'viewmyprivateinfo' );
 		}
 
@@ -81,16 +69,16 @@ class SpecialConfirmEmail extends UnlistedSpecialPage {
 				$this->getOutput()->addWikiMsg( 'confirmemail_noemail' );
 			}
 		} else {
-			$scope = $trxProfiler->silenceForScope();
+			$old = $trxProfiler->setSilenced( true );
 			$this->attemptConfirm( $code );
-			ScopedCallback::consume( $scope );
+			$trxProfiler->setSilenced( $old );
 		}
 	}
 
 	/**
 	 * Show a nice form for the user to request a confirmation mail
 	 */
-	private function showRequestForm() {
+	function showRequestForm() {
 		$user = $this->getUser();
 		$out = $this->getOutput();
 
@@ -111,6 +99,7 @@ class SpecialConfirmEmail extends UnlistedSpecialPage {
 			$out->addWikiMsg( 'confirmemail_text' );
 			$form = HTMLForm::factory( 'ooui', $descriptor, $this->getContext() );
 			$form
+				->setMethod( 'post' )
 				->setAction( $this->getPageTitle()->getLocalURL() )
 				->setSubmitTextMsg( 'confirmemail_send' )
 				->setSubmitCallback( [ $this, 'submitSend' ] );
@@ -121,7 +110,7 @@ class SpecialConfirmEmail extends UnlistedSpecialPage {
 				// should never happen, but if so, don't let the user without any message
 				$out->addWikiMsg( 'confirmemail_sent' );
 			} elseif ( $retval instanceof Status && $retval->isGood() ) {
-				$out->addWikiTextAsInterface( $retval->getValue() );
+				$out->addWikiText( $retval->getValue() );
 			}
 		} else {
 			// date and time are separate parameters to facilitate localisation.
@@ -147,7 +136,7 @@ class SpecialConfirmEmail extends UnlistedSpecialPage {
 			return Status::newGood( $this->msg( 'confirmemail_sent' )->text() );
 		} else {
 			return Status::newFatal( new RawMessage(
-				$status->getWikiText( 'confirmemail_sendfailed', false, $this->getLanguage() )
+				$status->getWikiText( 'confirmemail_sendfailed' )
 			) );
 		}
 	}
@@ -159,31 +148,19 @@ class SpecialConfirmEmail extends UnlistedSpecialPage {
 	 * @param string $code Confirmation code
 	 */
 	private function attemptConfirm( $code ) {
-		$user = $this->userFactory->newFromConfirmationCode(
-			$code,
-			UserFactory::READ_LATEST
-		);
-
+		$user = User::newFromConfirmationCode( $code, User::READ_LATEST );
 		if ( !is_object( $user ) ) {
 			$this->getOutput()->addWikiMsg( 'confirmemail_invalid' );
 
 			return;
 		}
 
-		// rate limit email confirmations
-		if ( $user->pingLimiter( 'confirmemail' ) ) {
-			$this->getOutput()->addWikiMsg( 'actionthrottledtext' );
-
-			return;
-		}
-
-		$userLatest = $user->getInstanceForUpdate();
-		$userLatest->confirmEmail();
-		$userLatest->saveSettings();
-		$message = $this->getUser()->isRegistered() ? 'confirmemail_loggedin' : 'confirmemail_success';
+		$user->confirmEmail();
+		$user->saveSettings();
+		$message = $this->getUser()->isLoggedIn() ? 'confirmemail_loggedin' : 'confirmemail_success';
 		$this->getOutput()->addWikiMsg( $message );
 
-		if ( !$this->getUser()->isRegistered() ) {
+		if ( !$this->getUser()->isLoggedIn() ) {
 			$title = SpecialPage::getTitleFor( 'Userlogin' );
 			$this->getOutput()->returnToMain( true, $title );
 		}

@@ -28,15 +28,15 @@
  */
 class SpecialSpecialpages extends UnlistedSpecialPage {
 
-	public function __construct() {
+	function __construct() {
 		parent::__construct( 'Specialpages' );
 	}
 
-	public function execute( $par ) {
+	function execute( $par ) {
 		$out = $this->getOutput();
 		$this->setHeaders();
 		$this->outputHeader();
-		$out->setPreventClickjacking( false );
+		$out->allowClickjacking();
 		$out->addModuleStyles( 'mediawiki.special' );
 
 		$groups = $this->getPageGroups();
@@ -50,34 +50,36 @@ class SpecialSpecialpages extends UnlistedSpecialPage {
 	}
 
 	private function getPageGroups() {
-		$pages = $this->getSpecialPageFactory()->getUsablePages( $this->getUser() );
+		$pages = SpecialPageFactory::getUsablePages( $this->getUser() );
 
-		if ( $pages === [] ) {
-			// Yeah, that was pointless. Thanks for coming.
+		if ( !count( $pages ) ) {
+			# Yeah, that was pointless. Thanks for coming.
 			return false;
 		}
 
-		// Put them into a sortable array
+		/** Put them into a sortable array */
 		$groups = [];
 		/** @var SpecialPage $page */
 		foreach ( $pages as $page ) {
-			$group = $page->getFinalGroupName();
-			if ( !isset( $groups[$group] ) ) {
-				$groups[$group] = [];
+			if ( $page->isListed() ) {
+				$group = $page->getFinalGroupName();
+				if ( !isset( $groups[$group] ) ) {
+					$groups[$group] = [];
+				}
+				$groups[$group][$page->getDescription()] = [
+					$page->getPageTitle(),
+					$page->isRestricted(),
+					$page->isCached()
+				];
 			}
-			$groups[$group][$page->getDescription()] = [
-				$page->getPageTitle(),
-				$page->isRestricted(),
-				$page->isCached()
-			];
 		}
 
-		// Sort
+		/** Sort */
 		foreach ( $groups as $group => $sortedPages ) {
 			ksort( $groups[$group] );
 		}
 
-		// Always move "other" to end
+		/** Always move "other" to end */
 		if ( array_key_exists( 'other', $groups ) ) {
 			$other = $groups['other'];
 			unset( $groups['other'] );
@@ -94,23 +96,17 @@ class SpecialSpecialpages extends UnlistedSpecialPage {
 		$includesCachedPages = false;
 
 		foreach ( $groups as $group => $sortedPages ) {
-			if ( strpos( $group, '/' ) !== false ) {
-				list( $group, $subGroup ) = explode( '/', $group, 2 );
-				$out->wrapWikiMsg(
-					"<h3 class=\"mw-specialpagessubgroup\">$1</h3>\n",
-					"specialpages-group-$group-$subGroup"
-				);
-			} else {
-				$out->wrapWikiMsg(
-					"<h2 class=\"mw-specialpagesgroup\" id=\"mw-specialpagesgroup-$group\">$1</h2>\n",
-					"specialpages-group-$group"
-				);
-			}
+			$out->wrapWikiMsg(
+				"<h2 class=\"mw-specialpagesgroup\" id=\"mw-specialpagesgroup-$group\">$1</h2>\n",
+				"specialpages-group-$group"
+			);
 			$out->addHTML(
 				Html::openElement( 'div', [ 'class' => 'mw-specialpages-list' ] )
 				. '<ul>'
 			);
-			foreach ( $sortedPages as $desc => [ $title, $restricted, $cached ] ) {
+			foreach ( $sortedPages as $desc => $specialpage ) {
+				list( $title, $restricted, $cached ) = $specialpage;
+
 				$pageClasses = [];
 				if ( $cached ) {
 					$includesCachedPages = true;
@@ -124,7 +120,7 @@ class SpecialSpecialpages extends UnlistedSpecialPage {
 				$link = $this->getLinkRenderer()->makeKnownLink( $title, $desc );
 				$out->addHTML( Html::rawElement(
 						'li',
-						[ 'class' => $pageClasses ],
+						[ 'class' => implode( ' ', $pageClasses ) ],
 						$link
 					) . "\n" );
 			}
@@ -152,9 +148,10 @@ class SpecialSpecialpages extends UnlistedSpecialPage {
 			$out->wrapWikiMsg(
 				"<h2 class=\"mw-specialpages-note-top\">$1</h2>", 'specialpages-note-top'
 			);
-			$out->wrapWikiTextAsInterface(
-				'mw-specialpages-notes',
-				implode( "\n", $notes )
+			$out->addWikiText(
+				"<div class=\"mw-specialpages-notes\">\n" .
+				implode( "\n", $notes ) .
+				"\n</div>"
 			);
 		}
 	}

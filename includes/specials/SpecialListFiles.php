@@ -21,90 +21,27 @@
  * @ingroup SpecialPage
  */
 
-use MediaWiki\User\UserNamePrefixSearch;
-use MediaWiki\User\UserNameUtils;
-use MediaWiki\User\UserRigorOptions;
-use Wikimedia\Rdbms\ILoadBalancer;
-
 class SpecialListFiles extends IncludableSpecialPage {
-
-	/** @var RepoGroup */
-	private $repoGroup;
-
-	/** @var ILoadBalancer */
-	private $loadBalancer;
-
-	/** @var CommentStore */
-	private $commentStore;
-
-	/** @var UserNameUtils */
-	private $userNameUtils;
-
-	/** @var UserNamePrefixSearch */
-	private $userNamePrefixSearch;
-
-	/** @var UserCache */
-	private $userCache;
-
-	/**
-	 * @param RepoGroup $repoGroup
-	 * @param ILoadBalancer $loadBalancer
-	 * @param CommentStore $commentStore
-	 * @param UserNameUtils $userNameUtils
-	 * @param UserNamePrefixSearch $userNamePrefixSearch
-	 * @param UserCache $userCache
-	 */
-	public function __construct(
-		RepoGroup $repoGroup,
-		ILoadBalancer $loadBalancer,
-		CommentStore $commentStore,
-		UserNameUtils $userNameUtils,
-		UserNamePrefixSearch $userNamePrefixSearch,
-		UserCache $userCache
-	) {
+	public function __construct() {
 		parent::__construct( 'Listfiles' );
-		$this->repoGroup = $repoGroup;
-		$this->loadBalancer = $loadBalancer;
-		$this->commentStore = $commentStore;
-		$this->userNameUtils = $userNameUtils;
-		$this->userNamePrefixSearch = $userNamePrefixSearch;
-		$this->userCache = $userCache;
 	}
 
 	public function execute( $par ) {
 		$this->setHeaders();
 		$this->outputHeader();
-		$this->addHelpLink( 'Help:Managing_files' );
 
 		if ( $this->including() ) {
-			$userName = (string)$par;
+			$userName = $par;
 			$search = '';
 			$showAll = false;
 		} else {
-			$userName = $this->getRequest()->getText( 'user', $par ?? '' );
+			$userName = $this->getRequest()->getText( 'user', $par );
 			$search = $this->getRequest()->getText( 'ilsearch', '' );
 			$showAll = $this->getRequest()->getBool( 'ilshowall', false );
-		}
-		// Sanitize usernames to avoid symbols in the title of page.
-		$sanitizedUserName = $this->userNameUtils->getCanonical( $userName, UserRigorOptions::RIGOR_NONE );
-		if ( $sanitizedUserName ) {
-			$userName = $sanitizedUserName;
-		}
-
-		if ( $userName ) {
-			$pageTitle = $this->msg( 'listfiles_subpage', $userName );
-		} else {
-			$pageTitle = $this->msg( 'listfiles' );
 		}
 
 		$pager = new ImageListPager(
 			$this->getContext(),
-			$this->commentStore,
-			$this->getLinkRenderer(),
-			$this->loadBalancer,
-			$this->repoGroup,
-			$this->userCache,
-			$this->userNameUtils,
 			$userName,
 			$search,
 			$this->including(),
@@ -112,15 +49,11 @@ class SpecialListFiles extends IncludableSpecialPage {
 		);
 
 		$out = $this->getOutput();
-		$out->setPageTitle( $pageTitle );
-		$out->addModuleStyles( 'mediawiki.special' );
 		if ( $this->including() ) {
 			$out->addParserOutputContent( $pager->getBodyOutput() );
 		} else {
 			$user = $pager->getRelevantUser();
-			if ( $user ) {
-				$this->getSkin()->setRelevantUser( $user );
-			}
+			$this->getSkin()->setRelevantUser( $user );
 			$pager->getForm();
 			$out->addParserOutputContent( $pager->getFullOutput() );
 		}
@@ -135,14 +68,13 @@ class SpecialListFiles extends IncludableSpecialPage {
 	 * @return string[] Matching subpages
 	 */
 	public function prefixSearchSubpages( $search, $limit, $offset ) {
-		$search = $this->userNameUtils->getCanonical( $search );
-		if ( !$search ) {
+		$user = User::newFromName( $search );
+		if ( !$user ) {
 			// No prefix suggestion for invalid user
 			return [];
 		}
 		// Autocomplete subpage as user list - public to allow caching
-		return $this->userNamePrefixSearch
-			->search( UserNamePrefixSearch::AUDIENCE_PUBLIC, $search, $limit, $offset );
+		return UserNamePrefixSearch::search( 'public', $search, $limit, $offset );
 	}
 
 	protected function getGroupName() {

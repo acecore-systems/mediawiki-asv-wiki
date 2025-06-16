@@ -25,36 +25,24 @@
  * @author Rob Church <robchur@gmail.com>
  */
 
-use MediaWiki\Cache\LinkBatchFactory;
-use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\ILoadBalancer;
 use Wikimedia\Rdbms\IResultWrapper;
+use Wikimedia\Rdbms\IDatabase;
 
 /**
  * A special page to show pages ordered by the number of pages linking to them.
  *
  * @ingroup SpecialPage
  */
-class SpecialMostLinked extends QueryPage {
-
-	/**
-	 * @param ILoadBalancer $loadBalancer
-	 * @param LinkBatchFactory $linkBatchFactory
-	 */
-	public function __construct(
-		ILoadBalancer $loadBalancer,
-		LinkBatchFactory $linkBatchFactory
-	) {
-		parent::__construct( 'Mostlinked' );
-		$this->setDBLoadBalancer( $loadBalancer );
-		$this->setLinkBatchFactory( $linkBatchFactory );
+class MostlinkedPage extends QueryPage {
+	function __construct( $name = 'Mostlinked' ) {
+		parent::__construct( $name );
 	}
 
 	public function isExpensive() {
 		return true;
 	}
 
-	public function isSyndicated() {
+	function isSyndicated() {
 		return false;
 	}
 
@@ -92,7 +80,7 @@ class SpecialMostLinked extends QueryPage {
 	 * @param IDatabase $db
 	 * @param IResultWrapper $res
 	 */
-	public function preprocessResults( $db, $res ) {
+	function preprocessResults( $db, $res ) {
 		$this->executeLBFromResultWrapper( $res );
 	}
 
@@ -103,7 +91,7 @@ class SpecialMostLinked extends QueryPage {
 	 * @param string $caption Text to display on the link
 	 * @return string
 	 */
-	private function makeWlhLink( $title, $caption ) {
+	function makeWlhLink( $title, $caption ) {
 		$wlh = SpecialPage::getTitleFor( 'Whatlinkshere', $title->getPrefixedDBkey() );
 
 		$linkRenderer = $this->getLinkRenderer();
@@ -115,10 +103,10 @@ class SpecialMostLinked extends QueryPage {
 	 * and the "what links here" page for it
 	 *
 	 * @param Skin $skin Skin to be used
-	 * @param stdClass $result Result row
+	 * @param object $result Result row
 	 * @return string
 	 */
-	public function formatResult( $skin, $result ) {
+	function formatResult( $skin, $result ) {
 		$title = Title::makeTitleSafe( $result->namespace, $result->title );
 		if ( !$title ) {
 			return Html::element(

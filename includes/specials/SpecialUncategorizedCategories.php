@@ -21,16 +21,12 @@
  * @ingroup SpecialPage
  */
 
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Languages\LanguageConverterFactory;
-use Wikimedia\Rdbms\ILoadBalancer;
-
 /**
  * A special page that lists uncategorized categories
  *
  * @ingroup SpecialPage
  */
-class SpecialUncategorizedCategories extends SpecialUncategorizedPages {
+class UncategorizedCategoriesPage extends UncategorizedPagesPage {
 	/**
 	 * Holds a list of categories, which shouldn't be listed on this special page,
 	 * even if it is uncategorized.
@@ -38,25 +34,8 @@ class SpecialUncategorizedCategories extends SpecialUncategorizedPages {
 	 */
 	private $exceptionList = null;
 
-	/**
-	 * @param NamespaceInfo $namespaceInfo
-	 * @param ILoadBalancer $loadBalancer
-	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param LanguageConverterFactory $languageConverterFactory
-	 */
-	public function __construct(
-		NamespaceInfo $namespaceInfo,
-		ILoadBalancer $loadBalancer,
-		LinkBatchFactory $linkBatchFactory,
-		LanguageConverterFactory $languageConverterFactory
-	) {
-		parent::__construct(
-			$namespaceInfo,
-			$loadBalancer,
-			$linkBatchFactory,
-			$languageConverterFactory
-		);
-		$this->mName = 'Uncategorizedcategories';
+	function __construct( $name = 'Uncategorizedcategories' ) {
+		parent::__construct( $name );
 		$this->requestedNamespace = NS_CATEGORY;
 	}
 
@@ -68,7 +47,6 @@ class SpecialUncategorizedCategories extends SpecialUncategorizedPages {
 	 */
 	private function getExceptionList() {
 		if ( $this->exceptionList === null ) {
-			$this->exceptionList = [];
 			$exList = $this->msg( 'uncategorized-categories-exceptionlist' )
 				->inContentLanguage()->plain();
 			$proposedTitles = explode( "\n", $exList );
@@ -90,10 +68,10 @@ class SpecialUncategorizedCategories extends SpecialUncategorizedPages {
 	}
 
 	public function getQueryInfo() {
+		$dbr = wfGetDB( DB_REPLICA );
 		$query = parent::getQueryInfo();
 		$exceptionList = $this->getExceptionList();
 		if ( $exceptionList ) {
-			$dbr = $this->getDBLoadBalancer()->getConnectionRef( ILoadBalancer::DB_REPLICA );
 			$query['conds'][] = 'page_title not in ( ' . $dbr->makeList( $exceptionList ) . ' )';
 		}
 
@@ -103,10 +81,10 @@ class SpecialUncategorizedCategories extends SpecialUncategorizedPages {
 	/**
 	 * Formats the result
 	 * @param Skin $skin The current skin
-	 * @param stdClass $result The query result
+	 * @param object $result The query result
 	 * @return string The category link
 	 */
-	public function formatResult( $skin, $result ) {
+	function formatResult( $skin, $result ) {
 		$title = Title::makeTitle( NS_CATEGORY, $result->title );
 		$text = $title->getText();
 

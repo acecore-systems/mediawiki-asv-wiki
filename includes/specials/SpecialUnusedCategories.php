@@ -21,36 +21,59 @@
  * @ingroup SpecialPage
  */
 
+use MediaWiki\Cache\LinkBatchFactory;
+use Wikimedia\Rdbms\ILoadBalancer;
+
 /**
  * @ingroup SpecialPage
  */
-class UnusedCategoriesPage extends QueryPage {
-	function __construct( $name = 'Unusedcategories' ) {
-		parent::__construct( $name );
+class SpecialUnusedCategories extends QueryPage {
+
+	/**
+	 * @param ILoadBalancer $loadBalancer
+	 * @param LinkBatchFactory $linkBatchFactory
+	 */
+	public function __construct(
+		ILoadBalancer $loadBalancer,
+		LinkBatchFactory $linkBatchFactory
+	) {
+		parent::__construct( 'Unusedcategories' );
+		$this->setDBLoadBalancer( $loadBalancer );
+		$this->setLinkBatchFactory( $linkBatchFactory );
 	}
 
 	public function isExpensive() {
 		return true;
 	}
 
-	function getPageHeader() {
+	protected function getPageHeader() {
 		return $this->msg( 'unusedcategoriestext' )->parseAsBlock();
+	}
+
+	protected function getOrderFields() {
+		return [ 'title' ];
 	}
 
 	public function getQueryInfo() {
 		return [
-			'tables' => [ 'page', 'categorylinks' ],
+			'tables' => [ 'page', 'categorylinks', 'page_props' ],
 			'fields' => [
 				'namespace' => 'page_namespace',
 				'title' => 'page_title',
-				'value' => 'page_title'
 			],
 			'conds' => [
 				'cl_from IS NULL',
 				'page_namespace' => NS_CATEGORY,
-				'page_is_redirect' => 0
+				'page_is_redirect' => 0,
+				'pp_page IS NULL'
 			],
-			'join_conds' => [ 'categorylinks' => [ 'LEFT JOIN', 'cl_to = page_title' ] ]
+			'join_conds' => [
+				'categorylinks' => [ 'LEFT JOIN', 'cl_to = page_title' ],
+				'page_props' => [ 'LEFT JOIN', [
+					'page_id = pp_page',
+					'pp_propname' => 'expectunusedcategory'
+				] ]
+			]
 		];
 	}
 
@@ -58,16 +81,16 @@ class UnusedCategoriesPage extends QueryPage {
 	 * A should come before Z (T32907)
 	 * @return bool
 	 */
-	function sortDescending() {
+	protected function sortDescending() {
 		return false;
 	}
 
 	/**
 	 * @param Skin $skin
-	 * @param object $result Result row
+	 * @param stdClass $result Result row
 	 * @return string
 	 */
-	function formatResult( $skin, $result ) {
+	public function formatResult( $skin, $result ) {
 		$title = Title::makeTitle( NS_CATEGORY, $result->title );
 
 		return $this->getLinkRenderer()->makeLink( $title, $title->getText() );

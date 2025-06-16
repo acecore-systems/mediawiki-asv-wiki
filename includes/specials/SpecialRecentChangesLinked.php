@@ -21,12 +21,6 @@
  * @ingroup SpecialPage
  */
 
-use MediaWiki\MainConfigNames;
-use MediaWiki\User\UserOptionsLookup;
-use Wikimedia\Rdbms\ILoadBalancer;
-use Wikimedia\Rdbms\SelectQueryBuilder;
-use Wikimedia\Rdbms\Subquery;
-
 /**
  * This is to display changes made to all articles linked in an article.
  *
@@ -36,35 +30,8 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 	/** @var bool|Title */
 	protected $rclTargetTitle;
 
-	/** @var ILoadBalancer */
-	private $loadBalancer;
-
-	/** @var SearchEngineFactory */
-	private $searchEngineFactory;
-
-	/**
-	 * @param WatchedItemStoreInterface $watchedItemStore
-	 * @param MessageCache $messageCache
-	 * @param ILoadBalancer $loadBalancer
-	 * @param UserOptionsLookup $userOptionsLookup
-	 * @param SearchEngineFactory $searchEngineFactory
-	 */
-	public function __construct(
-		WatchedItemStoreInterface $watchedItemStore,
-		MessageCache $messageCache,
-		ILoadBalancer $loadBalancer,
-		UserOptionsLookup $userOptionsLookup,
-		SearchEngineFactory $searchEngineFactory
-	) {
-		parent::__construct(
-			$watchedItemStore,
-			$messageCache,
-			$loadBalancer,
-			$userOptionsLookup
-		);
-		$this->mName = 'Recentchangeslinked';
-		$this->loadBalancer = $loadBalancer;
-		$this->searchEngineFactory = $searchEngineFactory;
+	function __construct() {
+		parent::__construct( 'Recentchangeslinked' );
 	}
 
 	public function getDefaultOptions() {
@@ -96,7 +63,7 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 		$title = Title::newFromText( $target );
 		if ( !$title || $title->isExternal() ) {
 			$outputPage->addHTML(
-				Html::errorBox( $this->msg( 'allpagesbadtitle' )->parse(), '', 'mw-recentchangeslinked-errorbox' )
+				Html::errorBox( $this->msg( 'allpagesbadtitle' )->parse() )
 			);
 			return false;
 		}
@@ -112,25 +79,34 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 		 * expects only one result set so we use UNION instead.
 		 */
 
-		$dbr = $this->loadBalancer->getConnectionRef( ILoadBalancer::DB_REPLICA, 'recentchangeslinked' );
+		$dbr = wfGetDB( DB_REPLICA, 'recentchangeslinked' );
 		$id = $title->getArticleID();
 		$ns = $title->getNamespace();
 		$dbkey = $title->getDBkey();
 
 		$rcQuery = RecentChange::getQueryInfo();
-		$tables = array_unique( array_merge( $rcQuery['tables'], $tables ) );
-		$select = array_unique( array_merge( $rcQuery['fields'], $select ) );
-		$join_conds = array_merge( $rcQuery['joins'], $join_conds );
+		$tables = array_merge( $tables, $rcQuery['tables'] );
+		$select = array_merge( $rcQuery['fields'], $select );
+		$join_conds = array_merge( $join_conds, $rcQuery['joins'] );
 
-		// Join with watchlist and watchlist_expiry tables to highlight watched rows.
-		$this->addWatchlistJoins( $dbr, $tables, $select, $join_conds, $conds );
+		// left join with watchlist table to highlight watched rows
+		$uid = $this->getUser()->getId();
+		if ( $uid && $this->getUser()->isAllowed( 'viewmywatchlist' ) ) {
+			$tables[] = 'watchlist';
+			$select[] = 'wl_user';
+			$join_conds['watchlist'] = [ 'LEFT JOIN', [
+				'wl_user' => $uid,
+				'wl_title=rc_title',
+				'wl_namespace=rc_namespace'
+			] ];
+		}
 
 		// JOIN on page, used for 'last revision' filter highlight
 		$tables[] = 'page';
 		$join_conds['page'] = [ 'LEFT JOIN', 'rc_cur_id=page_id' ];
 		$select[] = 'page_latest';
 
-		$tagFilter = $opts['tagfilter'] !== '' ? explode( '|', $opts['tagfilter'] ) : [];
+		$tagFilter = $opts['tagfilter'] ? explode( '|', $opts['tagfilter'] ) : [];
 		ChangeTags::modifyDisplayQuery(
 			$tables,
 			$select,
@@ -146,8 +122,8 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 				// To prevent this from causing query performance problems, we need to add
 				// a GROUP BY, and add rc_id to the ORDER BY.
 				$order = [
-					'GROUP BY' => [ 'rc_timestamp', 'rc_id' ],
-					'ORDER BY' => [ 'rc_timestamp DESC', 'rc_id DESC' ]
+					'GROUP BY' => 'rc_timestamp, rc_id',
+					'ORDER BY' => 'rc_timestamp DESC, rc_id DESC'
 				];
 			} else {
 				$order = [ 'ORDER BY' => 'rc_timestamp DESC' ];
@@ -162,7 +138,7 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 			return false;
 		}
 
-		if ( $ns === NS_CATEGORY && !$showlinkedto ) {
+		if ( $ns == NS_CATEGORY && !$showlinkedto ) {
 			// special handling for categories
 			// XXX: should try to make this less kludgy
 			$link_tables = [ 'categorylinks' ];
@@ -171,7 +147,7 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 			// for now, always join on these tables; really should be configurable as in whatlinkshere
 			$link_tables = [ 'pagelinks', 'templatelinks' ];
 			// imagelinks only contains links to pages in NS_FILE
-			if ( $ns === NS_FILE || !$showlinkedto ) {
+			if ( $ns == NS_FILE || !$showlinkedto ) {
 				$link_tables[] = 'imagelinks';
 			}
 		}
@@ -191,15 +167,6 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 		$subsql = []; // SELECT statements to combine with UNION
 
 		foreach ( $link_tables as $link_table ) {
-			$queryBuilder = $dbr->newSelectQueryBuilder();
-			$linksMigration = \MediaWiki\MediaWikiServices::getInstance()->getLinksMigration();
-			$queryBuilder = $queryBuilder
-				->tables( $tables )
-				->fields( $select )
-				->where( $conds )
-				->caller( __METHOD__ )
-				->options( $order + $query_options )
-				->joinConds( $join_conds );
 			$pfx = $prefix[$link_table];
 
 			// imagelinks and categorylinks tables have no xx_namespace field,
@@ -218,83 +185,59 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 					if ( $ns != $link_ns ) {
 						continue;
 					} // should never happen, but check anyway
-					$queryBuilder->where( [ "{$pfx}_to" => $dbkey ] );
+					$subconds = [ "{$pfx}_to" => $dbkey ];
 				} else {
-					if ( isset( $linksMigration::$mapping[$link_table] ) ) {
-						$queryBuilder->where( $linksMigration->getLinksConditions( $link_table, $title ) );
-					} else {
-						$queryBuilder->where( [ "{$pfx}_namespace" => $ns, "{$pfx}_title" => $dbkey ] );
-					}
+					$subconds = [ "{$pfx}_namespace" => $ns, "{$pfx}_title" => $dbkey ];
 				}
-				$queryBuilder->join( $link_table, null, "rc_cur_id = {$pfx}_from" );
+				$subjoin = "rc_cur_id = {$pfx}_from";
 			} else {
 				// find changes to pages linked from this page
-				$queryBuilder->where( [ "{$pfx}_from" => $id ] );
+				$subconds = [ "{$pfx}_from" => $id ];
 				if ( $link_table == 'imagelinks' || $link_table == 'categorylinks' ) {
-					$queryBuilder->where( [ "rc_namespace" => $link_ns ] );
-					$queryBuilder->join( $link_table, null, "rc_title = {$pfx}_to" );
+					$subconds["rc_namespace"] = $link_ns;
+					$subjoin = "rc_title = {$pfx}_to";
 				} else {
-					// TODO: Move this to LinksMigration
-					if ( isset( $linksMigration::$mapping[$link_table] ) ) {
-						$queryInfo = $linksMigration->getQueryInfo( $link_table, $link_table );
-						list( $nsField, $titleField ) = $linksMigration->getTitleFields( $link_table );
-						if ( in_array( 'linktarget', $queryInfo['tables'] ) ) {
-							$joinTable = 'linktarget';
-						} else {
-							$joinTable = $link_table;
-						}
-						$queryBuilder->join(
-							$joinTable,
-							null,
-							[ "rc_namespace = {$nsField}", "rc_title = {$titleField}" ]
-						);
-						if ( in_array( 'linktarget', $queryInfo['tables'] ) ) {
-							$queryBuilder->joinConds( $queryInfo['joins'] );
-							$queryBuilder->table( $link_table );
-						}
-					} else {
-						$queryBuilder->join(
-							$link_table,
-							null,
-							[ "rc_namespace = {$pfx}_namespace", "rc_title = {$pfx}_title" ]
-						);
-					}
+					$subjoin = [ "rc_namespace = {$pfx}_namespace", "rc_title = {$pfx}_title" ];
 				}
 			}
 
+			$query = $dbr->selectSQLText(
+				array_merge( $tables, [ $link_table ] ),
+				$select,
+				$conds + $subconds,
+				__METHOD__,
+				$order + $query_options,
+				$join_conds + [ $link_table => [ 'INNER JOIN', $subjoin ] ]
+			);
+
 			if ( $dbr->unionSupportsOrderAndLimit() ) {
-				$queryBuilder->limit( $limit );
+				$query = $dbr->limitResult( $query, $limit );
 			}
 
-			$subsql[] = $queryBuilder;
+			$subsql[] = $query;
 		}
 
 		if ( count( $subsql ) == 0 ) {
 			return false; // should never happen
 		}
 		if ( count( $subsql ) == 1 && $dbr->unionSupportsOrderAndLimit() ) {
-			$sql = $subsql[0]
-				->setMaxExecutionTime( $this->getConfig()->get( MainConfigNames::MaxExecutionTimeForExpensiveQueries ) )
-				->getSQL();
+			$sql = $subsql[0];
 		} else {
-			$sqls = array_map( static function ( $queryBuilder ) {
-				return $queryBuilder->getSQL();
-			}, $subsql );
-			$queryBuilder = $dbr->newSelectQueryBuilder()
-				->select( '*' )
-				->from(
-					(string)( new Subquery( $dbr->unionQueries( $sqls, $dbr::UNION_DISTINCT ) ) ),
-					'main'
-				)
-				->orderBy( 'rc_timestamp', SelectQueryBuilder::SORT_DESC )
-				->setMaxExecutionTime( $this->getConfig()->get( MainConfigNames::MaxExecutionTimeForExpensiveQueries ) )
-				->limit( $limit );
-			$sql = $queryBuilder->getSQL();
+			// need to resort and relimit after union
+			$sql = $dbr->unionQueries( $subsql, false ) . ' ORDER BY rc_timestamp DESC';
+			$sql = $dbr->limitResult( $sql, $limit, false );
 		}
-		return $dbr->query( $sql, __METHOD__ );
+
+		$res = $dbr->query( $sql, __METHOD__ );
+
+		if ( $res->numRows() == 0 ) {
+			$this->mResultEmpty = true;
+		}
+
+		return $res;
 	}
 
-	public function setTopText( FormOptions $opts ) {
+	function setTopText( FormOptions $opts ) {
 		$target = $this->getTargetTitle();
 		if ( $target ) {
 			$this->getOutput()->addBacklinkSubtitle( $target );
@@ -308,13 +251,13 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 	 * @param FormOptions $opts
 	 * @return array
 	 */
-	public function getExtraOptions( $opts ) {
+	function getExtraOptions( $opts ) {
 		$extraOpts = parent::getExtraOptions( $opts );
 
 		$opts->consumeValues( [ 'showlinkedto', 'target' ] );
 
 		$extraOpts['target'] = [ $this->msg( 'recentchangeslinked-page' )->escaped(),
-			Xml::input( 'target', 40, str_replace( '_', ' ', $opts['target'] ) ) . ' ' .
+			Xml::input( 'target', 40, str_replace( '_', ' ', $opts['target'] ) ) .
 			Xml::check( 'showlinkedto', $opts['showlinkedto'], [ 'id' => 'showlinkedto' ] ) . ' ' .
 			Xml::label( $this->msg( 'recentchangeslinked-to' )->text(), 'showlinkedto' ) ];
 
@@ -325,7 +268,7 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 	/**
 	 * @return Title
 	 */
-	private function getTargetTitle() {
+	function getTargetTitle() {
 		if ( $this->rclTargetTitle === null ) {
 			$opts = $this->getOptions();
 			if ( isset( $opts['target'] ) && $opts['target'] !== '' ) {
@@ -347,26 +290,22 @@ class SpecialRecentChangesLinked extends SpecialRecentChanges {
 	 * @return string[] Matching subpages
 	 */
 	public function prefixSearchSubpages( $search, $limit, $offset ) {
-		return $this->prefixSearchString( $search, $limit, $offset, $this->searchEngineFactory );
+		return $this->prefixSearchString( $search, $limit, $offset );
 	}
 
 	protected function outputNoResults() {
 		$targetTitle = $this->getTargetTitle();
 		if ( $targetTitle === false ) {
 			$this->getOutput()->addHTML(
-				Html::rawElement(
-					'div',
-					[ 'class' => 'mw-changeslist-empty mw-changeslist-notargetpage' ],
-					$this->msg( 'recentchanges-notargetpage' )->parse()
-				)
+				'<div class="mw-changeslist-empty mw-changeslist-notargetpage">' .
+				$this->msg( 'recentchanges-notargetpage' )->parse() .
+				'</div>'
 			);
 		} elseif ( !$targetTitle || $targetTitle->isExternal() ) {
 			$this->getOutput()->addHTML(
-				Html::rawElement(
-					'div',
-					[ 'class' => 'mw-changeslist-empty mw-changeslist-invalidtargetpage' ],
-					$this->msg( 'allpagesbadtitle' )->parse()
-				)
+				'<div class="mw-changeslist-empty mw-changeslist-invalidtargetpage">' .
+				$this->msg( 'allpagesbadtitle' )->parse() .
+				'</div>'
 			);
 		} else {
 			parent::outputNoResults();

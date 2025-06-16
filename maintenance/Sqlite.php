@@ -1,6 +1,6 @@
 <?php
 /**
- * Helper class for sqlite-specific scripts
+ * Performs some operations specific to SQLite database backend.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,80 +21,126 @@
  * @ingroup Maintenance
  */
 
-use Wikimedia\Rdbms\DatabaseSqlite;
-use Wikimedia\Rdbms\DBError;
+require_once __DIR__ . '/Maintenance.php';
 
 /**
- * This class contains code common to different SQLite-related maintenance scripts
+ * Maintenance script that performs some operations specific to SQLite database backend.
  *
  * @ingroup Maintenance
  */
-class Sqlite {
-
-	/**
-	 * Checks whether PHP has SQLite support
-	 * @return bool
-	 */
-	public static function isPresent() {
-		return extension_loaded( 'pdo_sqlite' );
+class SqliteMaintenance extends Maintenance {
+	public function __construct() {
+		parent::__construct();
+		$this->addDescription( 'Performs some operations specific to SQLite database backend' );
+		$this->addOption(
+			'vacuum',
+			'Clean up database by removing deleted pages. Decreases database file size'
+		);
+		$this->addOption( 'integrity', 'Check database for integrity' );
+		$this->addOption( 'backup-to', 'Backup database to the given file', false, true );
+		$this->addOption( 'check-syntax', 'Check SQL file(s) for syntax errors', false, true );
 	}
 
 	/**
-	 * Checks given files for correctness of SQL syntax. MySQL DDL will be converted to
-	 * SQLite-compatible during processing.
-	 * Will throw exceptions on SQL errors
-	 * @param array|string $files
-	 * @throws MWException
-	 * @return true|string True if no error or error string in case of errors
+	 * While we use database connection, this simple lie prevents useless --dbpass and
+	 * --dbuser options from appearing in help message for this script.
+	 *
+	 * @return int DB constant
 	 */
-	public static function checkSqlSyntax( $files ) {
-		if ( !self::isPresent() ) {
-			throw new MWException( "Can't check SQL syntax: SQLite not found" );
+	public function getDbType() {
+		return Maintenance::DB_NONE;
+	}
+
+	public function execute() {
+		// Should work even if we use a non-SQLite database
+		if ( $this->hasOption( 'check-syntax' ) ) {
+			$this->checkSyntax();
+
+			return;
 		}
-		if ( !is_array( $files ) ) {
-			$files = [ $files ];
+
+		$this->db = $this->getDB( DB_MASTER );
+
+		if ( $this->db->getType() != 'sqlite' ) {
+			$this->error( "This maintenance script requires a SQLite database.\n" );
+
+			return;
 		}
 
-		$allowedTypes = array_fill_keys( [
-			'integer',
-			'real',
-			'text',
-			'blob',
-			// NULL type is omitted intentionally
-		], true );
-
-		$db = DatabaseSqlite::newStandaloneInstance( ':memory:' );
-		try {
-			foreach ( $files as $file ) {
-				$err = $db->sourceFile( $file );
-				if ( $err ) {
-					return $err;
-				}
-			}
-
-			$tables = $db->query( "SELECT name FROM sqlite_master WHERE type='table'", __METHOD__ );
-			foreach ( $tables as $table ) {
-				if ( strpos( $table->name, 'sqlite_' ) === 0 ) {
-					continue;
-				}
-
-				$columns = $db->query(
-					'PRAGMA table_info(' . $db->addIdentifierQuotes( $table->name ) . ')',
-					__METHOD__
-				);
-				foreach ( $columns as $col ) {
-					if ( !isset( $allowedTypes[strtolower( $col->type )] ) ) {
-						$db->close( __METHOD__ );
-
-						return "Table {$table->name} has column {$col->name} with non-native type '{$col->type}'";
-					}
-				}
-			}
-		} catch ( DBError $e ) {
-			return $e->getMessage();
+		if ( $this->hasOption( 'vacuum' ) ) {
+			$this->vacuum();
 		}
-		$db->close( __METHOD__ );
 
-		return true;
+		if ( $this->hasOption( 'integrity' ) ) {
+			$this->integrityCheck();
+		}
+
+		if ( $this->hasOption( 'backup-to' ) ) {
+			$this->backup( $this->getOption( 'backup-to' ) );
+		}
+	}
+
+	private function vacuum() {
+		$prevSize = filesize( $this->db->getDbFilePath() );
+		if ( $prevSize == 0 ) {
+			$this->fatalError( "Can't vacuum an empty database.\n" );
+		}
+
+		$this->output( 'VACUUM: ' );
+		if ( $this->db->query( 'VACUUM' ) ) {
+			clearstatcache();
+			$newSize = filesize( $this->db->getDbFilePath() );
+			$this->output( sprintf( "Database size was %d, now %d (%.1f%% reduction).\n",
+				$prevSize, $newSize, ( $prevSize - $newSize ) * 100.0 / $prevSize ) );
+		} else {
+			$this->output( 'Error\n' );
+		}
+	}
+
+	private function integrityCheck() {
+		$this->output( "Performing database integrity checks:\n" );
+		$res = $this->db->query( 'PRAGMA integrity_check' );
+
+		if ( !$res || $res->numRows() == 0 ) {
+			$this->error( "Error: integrity check query returned nothing.\n" );
+
+			return;
+		}
+
+		foreach ( $res as $row ) {
+			$this->output( $row->integrity_check );
+		}
+	}
+
+	private function backup( $fileName ) {
+		$this->output( "Backing up database:\n   Locking..." );
+		$this->db->query( 'BEGIN IMMEDIATE TRANSACTION', __METHOD__ );
+		$ourFile = $this->db->getDbFilePath();
+		$this->output( "   Copying database file $ourFile to $fileName... " );
+		Wikimedia\suppressWarnings();
+		if ( !copy( $ourFile, $fileName ) ) {
+			$err = error_get_last();
+			$this->error( "      {$err['message']}" );
+		}
+		Wikimedia\restoreWarnings();
+		$this->output( "   Releasing lock...\n" );
+		$this->db->query( 'COMMIT TRANSACTION', __METHOD__ );
+	}
+
+	private function checkSyntax() {
+		if ( !Sqlite::isPresent() ) {
+			$this->error( "Error: SQLite support not found\n" );
+		}
+		$files = [ $this->getOption( 'check-syntax' ) ];
+		$files = array_merge( $files, $this->mArgs );
+		$result = Sqlite::checkSqlSyntax( $files );
+		if ( $result === true ) {
+			$this->output( "SQL syntax check: no errors detected.\n" );
+		} else {
+			$this->error( "Error: $result\n" );
+		}
 	}
 }
+
+$maintClass = SqliteMaintenance::class;
+require_once RUN_MAINTENANCE_IF_MAIN;

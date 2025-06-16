@@ -24,11 +24,6 @@
  * @author Soxred93 <soxred93@gmail.com>
  */
 
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\MediaWikiServices;
-use MediaWiki\Page\PageReferenceValue;
-use Wikimedia\Rdbms\ILoadBalancer;
-
 /**
  * Querypage that lists the most wanted files
  *
@@ -36,35 +31,16 @@ use Wikimedia\Rdbms\ILoadBalancer;
  */
 class WantedFilesPage extends WantedQueryPage {
 
-	/** @var RepoGroup */
-	private $repoGroup;
-
-	/**
-	 * @param RepoGroup|string $repoGroup
-	 * @param ILoadBalancer|null $loadBalancer
-	 * @param LinkBatchFactory|null $linkBatchFactory
-	 */
-	public function __construct(
-		$repoGroup,
-		ILoadBalancer $loadBalancer = null,
-		LinkBatchFactory $linkBatchFactory = null
-	) {
-		parent::__construct( is_string( $repoGroup ) ? $repoGroup : 'Wantedfiles' );
-		// This class is extended and therefor fallback to global state - T265301
-		$services = MediaWikiServices::getInstance();
-		$this->repoGroup = $repoGroup instanceof RepoGroup
-			? $repoGroup
-			: $services->getRepoGroup();
-		$this->setDBLoadBalancer( $loadBalancer ?? $services->getDBLoadBalancer() );
-		$this->setLinkBatchFactory( $linkBatchFactory ?? $services->getLinkBatchFactory() );
+	function __construct( $name = 'Wantedfiles' ) {
+		parent::__construct( $name );
 	}
 
-	protected function getPageHeader() {
+	function getPageHeader() {
 		# Specifically setting to use "Wanted Files" (NS_MAIN) as title, so as to get what
 		# category would be used on main namespace pages, for those tricky wikipedia
 		# admins who like to do {{#ifeq:{{NAMESPACE}}|foo|bar|....}}.
 		$catMessage = $this->msg( 'broken-file-category' )
-			->page( PageReferenceValue::localReference( NS_MAIN, "Wanted Files" ) )
+			->title( Title::newFromText( "Wanted Files", NS_MAIN ) )
 			->inContentLanguage();
 
 		if ( !$catMessage->isDisabled() ) {
@@ -101,7 +77,7 @@ class WantedFilesPage extends WantedQueryPage {
 	 * @return bool
 	 */
 	protected function likelyToHaveFalsePositives() {
-		return $this->repoGroup->hasForeignRepos();
+		return RepoGroup::singleton()->hasForeignRepos();
 	}
 
 	/**
@@ -114,24 +90,24 @@ class WantedFilesPage extends WantedQueryPage {
 	 * redirects.
 	 * @return bool
 	 */
-	protected function forceExistenceCheck() {
+	function forceExistenceCheck() {
 		return true;
 	}
 
 	/**
 	 * Does the file exist?
 	 *
-	 * Use findFile() so we still think file namespace pages without files
-	 * are missing, but valid file redirects and foreign files are ok.
+	 * Use wfFindFile so we still think file namespace pages without
+	 * files are missing, but valid file redirects and foreign files are ok.
 	 *
 	 * @param Title $title
 	 * @return bool
 	 */
 	protected function existenceCheck( Title $title ) {
-		return (bool)$this->repoGroup->findFile( $title );
+		return (bool)wfFindFile( $title );
 	}
 
-	public function getQueryInfo() {
+	function getQueryInfo() {
 		return [
 			'tables' => [
 				'imagelinks',

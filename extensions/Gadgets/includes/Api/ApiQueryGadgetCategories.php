@@ -1,14 +1,4 @@
 <?php
-
-namespace MediaWiki\Extension\Gadgets\Api;
-
-use ApiBase;
-use ApiQuery;
-use ApiQueryBase;
-use ApiResult;
-use MediaWiki\Extension\Gadgets\GadgetRepo;
-use Wikimedia\ParamValidator\ParamValidator;
-
 /**
  * Created on 16 April 2011
  * API for Gadgets extension
@@ -56,9 +46,6 @@ class ApiQueryGadgetCategories extends ApiQueryBase {
 		$this->getList();
 	}
 
-	/**
-	 * @return void
-	 */
 	private function getList() {
 		$data = [];
 		$result = $this->getResult();
@@ -66,43 +53,44 @@ class ApiQueryGadgetCategories extends ApiQueryBase {
 
 		if ( $gadgets ) {
 			foreach ( $gadgets as $category => $list ) {
-				if ( $this->neededNames && !isset( $this->neededNames[$category] ) ) {
-					continue;
-				}
-				$row = [];
-				if ( isset( $this->props['name'] ) ) {
-					$row['name'] = $category;
-				}
+				if ( !$this->neededNames || isset( $this->neededNames[$category] ) ) {
+					$row = [];
+					if ( isset( $this->props['name'] ) ) {
+						$row['name'] = $category;
+					}
 
-				if ( ( $category !== "" ) && isset( $this->props['title'] ) ) {
-					$row['desc'] = $this->msg( "gadget-section-$category" )->parse();
-				}
+					if ( $category !== "" ) {
+						if ( isset( $this->props['title'] ) ) {
+							$row['desc'] = $this->msg( "gadget-section-$category" )->parse();
+						}
+					}
 
-				if ( isset( $this->props['members'] ) ) {
-					$row['members'] = count( $list );
-				}
+					if ( isset( $this->props['members'] ) ) {
+						$row['members'] = count( $list );
+					}
 
-				$data[] = $row;
+					$data[] = $row;
+				}
 			}
 		}
-		ApiResult::setIndexedTagName( $data, 'category' );
+		$result->setIndexedTagName( $data, 'category' );
 		$result->addValue( 'query', $this->getModuleName(), $data );
 	}
 
 	public function getAllowedParams() {
 		return [
 			'prop' => [
-				ParamValidator::PARAM_DEFAULT => 'name',
-				ParamValidator::PARAM_ISMULTI => true,
-				ParamValidator::PARAM_TYPE => [
+				ApiBase::PARAM_DFLT => 'name',
+				ApiBase::PARAM_ISMULTI => true,
+				ApiBase::PARAM_TYPE => [
 					'name',
 					'title',
 					'members',
 				],
 			],
 			'names' => [
-				ParamValidator::PARAM_TYPE => 'string',
-				ParamValidator::PARAM_ISMULTI => true,
+				ApiBase::PARAM_TYPE => 'string',
+				ApiBase::PARAM_ISMULTI => true,
 			],
 		];
 	}
