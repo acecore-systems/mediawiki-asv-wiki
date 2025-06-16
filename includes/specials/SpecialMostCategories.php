@@ -24,24 +24,42 @@
  * @author Ævar Arnfjörð Bjarmason <avarab@gmail.com>
  */
 
-use Wikimedia\Rdbms\IResultWrapper;
+use MediaWiki\Cache\LinkBatchFactory;
 use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\ILoadBalancer;
+use Wikimedia\Rdbms\IResultWrapper;
 
 /**
  * A special page that list pages that have highest category count
  *
  * @ingroup SpecialPage
  */
-class MostcategoriesPage extends QueryPage {
-	function __construct( $name = 'Mostcategories' ) {
-		parent::__construct( $name );
+class SpecialMostCategories extends QueryPage {
+
+	/** @var NamespaceInfo */
+	private $namespaceInfo;
+
+	/**
+	 * @param NamespaceInfo $namespaceInfo
+	 * @param ILoadBalancer $loadBalancer
+	 * @param LinkBatchFactory $linkBatchFactory
+	 */
+	public function __construct(
+		NamespaceInfo $namespaceInfo,
+		ILoadBalancer $loadBalancer,
+		LinkBatchFactory $linkBatchFactory
+	) {
+		parent::__construct( 'Mostcategories' );
+		$this->namespaceInfo = $namespaceInfo;
+		$this->setDBLoadBalancer( $loadBalancer );
+		$this->setLinkBatchFactory( $linkBatchFactory );
 	}
 
 	public function isExpensive() {
 		return true;
 	}
 
-	function isSyndicated() {
+	public function isSyndicated() {
 		return false;
 	}
 
@@ -53,7 +71,9 @@ class MostcategoriesPage extends QueryPage {
 				'title' => 'page_title',
 				'value' => 'COUNT(*)'
 			],
-			'conds' => [ 'page_namespace' => MWNamespace::getContentNamespaces() ],
+			'conds' => [
+				'page_namespace' => $this->namespaceInfo->getContentNamespaces()
+			],
 			'options' => [
 				'HAVING' => 'COUNT(*) > 1',
 				'GROUP BY' => [ 'page_namespace', 'page_title' ]
@@ -71,16 +91,16 @@ class MostcategoriesPage extends QueryPage {
 	 * @param IDatabase $db
 	 * @param IResultWrapper $res
 	 */
-	function preprocessResults( $db, $res ) {
+	public function preprocessResults( $db, $res ) {
 		$this->executeLBFromResultWrapper( $res );
 	}
 
 	/**
 	 * @param Skin $skin
-	 * @param object $result Result row
+	 * @param stdClass $result Result row
 	 * @return string
 	 */
-	function formatResult( $skin, $result ) {
+	public function formatResult( $skin, $result ) {
 		$title = Title::makeTitleSafe( $result->namespace, $result->title );
 		if ( !$title ) {
 			return Html::element(

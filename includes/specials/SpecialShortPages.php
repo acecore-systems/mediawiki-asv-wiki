@@ -21,8 +21,11 @@
  * @ingroup SpecialPage
  */
 
-use Wikimedia\Rdbms\IResultWrapper;
+use MediaWiki\Cache\LinkBatchFactory;
+use MediaWiki\MainConfigNames;
 use Wikimedia\Rdbms\IDatabase;
+use Wikimedia\Rdbms\ILoadBalancer;
+use Wikimedia\Rdbms\IResultWrapper;
 
 /**
  * SpecialShortpages extends QueryPage. It is used to return the shortest
@@ -30,29 +33,46 @@ use Wikimedia\Rdbms\IDatabase;
  *
  * @ingroup SpecialPage
  */
-class ShortPagesPage extends QueryPage {
+class SpecialShortPages extends QueryPage {
 
-	function __construct( $name = 'Shortpages' ) {
-		parent::__construct( $name );
+	/** @var NamespaceInfo */
+	private $namespaceInfo;
+
+	/**
+	 * @param NamespaceInfo $namespaceInfo
+	 * @param ILoadBalancer $loadBalancer
+	 * @param LinkBatchFactory $linkBatchFactory
+	 */
+	public function __construct(
+		NamespaceInfo $namespaceInfo,
+		ILoadBalancer $loadBalancer,
+		LinkBatchFactory $linkBatchFactory
+	) {
+		parent::__construct( 'Shortpages' );
+		$this->namespaceInfo = $namespaceInfo;
+		$this->setDBLoadBalancer( $loadBalancer );
+		$this->setLinkBatchFactory( $linkBatchFactory );
 	}
 
-	function isSyndicated() {
+	public function isSyndicated() {
 		return false;
 	}
 
 	public function getQueryInfo() {
 		$config = $this->getConfig();
-		$blacklist = $config->get( 'ShortPagesNamespaceBlacklist' );
 		$tables = [ 'page' ];
 		$conds = [
-			'page_namespace' => array_diff( MWNamespace::getContentNamespaces(), $blacklist ),
+			'page_namespace' => array_diff(
+				$this->namespaceInfo->getContentNamespaces(),
+				$config->get( MainConfigNames::ShortPagesNamespaceExclusions )
+			),
 			'page_is_redirect' => 0
 		];
 		$joinConds = [];
 		$options = [ 'USE INDEX' => [ 'page' => 'page_redirect_namespace_len' ] ];
 
 		// Allow extensions to modify the query
-		Hooks::run( 'ShortPagesQuery', [ &$tables, &$conds, &$joinConds, &$options ] );
+		$this->getHookRunner()->onShortPagesQuery( $tables, $conds, $joinConds, $options );
 
 		return [
 			'tables' => $tables,
@@ -118,7 +138,7 @@ class ShortPagesPage extends QueryPage {
 		return $res;
 	}
 
-	function getOrderFields() {
+	protected function getOrderFields() {
 		return [ 'page_len' ];
 	}
 
@@ -126,20 +146,20 @@ class ShortPagesPage extends QueryPage {
 	 * @param IDatabase $db
 	 * @param IResultWrapper $res
 	 */
-	function preprocessResults( $db, $res ) {
+	public function preprocessResults( $db, $res ) {
 		$this->executeLBFromResultWrapper( $res );
 	}
 
-	function sortDescending() {
+	protected function sortDescending() {
 		return false;
 	}
 
 	/**
 	 * @param Skin $skin
-	 * @param object $result Result row
+	 * @param stdClass $result Result row
 	 * @return string
 	 */
-	function formatResult( $skin, $result ) {
+	public function formatResult( $skin, $result ) {
 		$dm = $this->getLanguage()->getDirMark();
 
 		$title = Title::makeTitleSafe( $result->namespace, $result->title );
@@ -168,8 +188,8 @@ class ShortPagesPage extends QueryPage {
 		$size = $this->msg( 'nbytes' )->numParams( $result->value )->escaped();
 
 		return $exists
-			? "${hlinkInParentheses} {$dm}{$plink} {$dm}[{$size}]"
-			: "<del>${hlinkInParentheses} {$dm}{$plink} {$dm}[{$size}]</del>";
+			? "{$hlinkInParentheses} {$dm}{$plink} {$dm}[{$size}]"
+			: "<del>{$hlinkInParentheses} {$dm}{$plink} {$dm}[{$size}]</del>";
 	}
 
 	protected function getGroupName() {

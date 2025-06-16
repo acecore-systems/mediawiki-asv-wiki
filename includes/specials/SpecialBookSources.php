@@ -21,6 +21,9 @@
  * @ingroup SpecialPage
  */
 
+use MediaWiki\Revision\RevisionLookup;
+use MediaWiki\Revision\SlotRecord;
+
 /**
  * Special page outputs information on sourcing a book with a particular ISBN
  * The parser creates links to this page when dealing with ISBNs in wikitext
@@ -29,14 +32,22 @@
  * @ingroup SpecialPage
  */
 class SpecialBookSources extends SpecialPage {
-	public function __construct() {
+
+	/** @var RevisionLookup */
+	private $revisionLookup;
+
+	/**
+	 * @param RevisionLookup $revisionLookup
+	 */
+	public function __construct(
+		RevisionLookup $revisionLookup
+	) {
 		parent::__construct( 'Booksources' );
+		$this->revisionLookup = $revisionLookup;
 	}
 
 	/**
-	 * Show the special page
-	 *
-	 * @param string $isbn ISBN passed as a subpage parameter
+	 * @param string|null $isbn ISBN passed as a subpage parameter
 	 */
 	public function execute( $isbn ) {
 		$out = $this->getOutput();
@@ -76,9 +87,9 @@ class SpecialBookSources extends SpecialPage {
 				if ( $isbn[$i] === 'X' ) {
 					return false;
 				} elseif ( $i % 2 == 0 ) {
-					$sum += $isbn[$i];
+					$sum += (int)$isbn[$i];
 				} else {
-					$sum += 3 * $isbn[$i];
+					$sum += 3 * (int)$isbn[$i];
 				}
 			}
 
@@ -91,7 +102,7 @@ class SpecialBookSources extends SpecialPage {
 				if ( $isbn[$i] === 'X' ) {
 					return false;
 				}
-				$sum += $isbn[$i] * ( $i + 1 );
+				$sum += (int)$isbn[$i] * ( $i + 1 );
 			}
 
 			$check = $sum % 11;
@@ -133,9 +144,8 @@ class SpecialBookSources extends SpecialPage {
 			],
 		];
 
-		$context = new DerivativeContext( $this->getContext() );
-		$context->setTitle( $this->getPageTitle() );
-		HTMLForm::factory( 'ooui', $formDescriptor, $context )
+		HTMLForm::factory( 'ooui', $formDescriptor, $this->getContext() )
+			->setTitle( $this->getPageTitle() )
 			->setWrapperLegendMsg( 'booksources-search-legend' )
 			->setSubmitTextMsg( 'booksources-search' )
 			->setMethod( 'get' )
@@ -154,25 +164,23 @@ class SpecialBookSources extends SpecialPage {
 	private function showList( $isbn ) {
 		$out = $this->getOutput();
 
-		global $wgContLang;
-
 		$isbn = self::cleanIsbn( $isbn );
 		# Hook to allow extensions to insert additional HTML,
 		# e.g. for API-interacting plugins and so on
-		Hooks::run( 'BookInformation', [ $isbn, $out ] );
+		$this->getHookRunner()->onBookInformation( $isbn, $out );
 
 		# Check for a local page such as Project:Book_sources and use that if available
 		$page = $this->msg( 'booksources' )->inContentLanguage()->text();
 		$title = Title::makeTitleSafe( NS_PROJECT, $page ); # Show list in content language
 		if ( is_object( $title ) && $title->exists() ) {
-			$rev = Revision::newFromTitle( $title, false, Revision::READ_NORMAL );
-			$content = $rev->getContent();
+			$rev = $this->revisionLookup->getRevisionByTitle( $title );
+			$content = $rev->getContent( SlotRecord::MAIN );
 
 			if ( $content instanceof TextContent ) {
 				// XXX: in the future, this could be stored as structured data, defining a list of book sources
 
-				$text = $content->getNativeData();
-				$out->addWikiText( str_replace( 'MAGICNUMBER', $isbn, $text ) );
+				$text = $content->getText();
+				$out->addWikiTextAsInterface( str_replace( 'MAGICNUMBER', $isbn, $text ) );
 
 				return true;
 			} else {
@@ -183,7 +191,7 @@ class SpecialBookSources extends SpecialPage {
 		# Fall back to the defaults given in the language file
 		$out->addWikiMsg( 'booksources-text' );
 		$out->addHTML( '<ul>' );
-		$items = $wgContLang->getBookstoreList();
+		$items = $this->getContentLanguage()->getBookstoreList();
 		foreach ( $items as $label => $url ) {
 			$out->addHTML( $this->makeListItem( $isbn, $label, $url ) );
 		}

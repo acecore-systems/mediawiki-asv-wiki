@@ -21,38 +21,76 @@
  * @ingroup SpecialPage
  */
 
+use MediaWiki\Cache\LinkBatchFactory;
+use MediaWiki\Languages\LanguageConverterFactory;
+use Wikimedia\Rdbms\ILoadBalancer;
+
 /**
  * Implements Special:Ancientpages
  *
  * @ingroup SpecialPage
  */
-class AncientPagesPage extends QueryPage {
+class SpecialAncientPages extends QueryPage {
 
-	function __construct( $name = 'Ancientpages' ) {
-		parent::__construct( $name );
+	/** @var NamespaceInfo */
+	private $namespaceInfo;
+
+	/** @var ILanguageConverter */
+	private $languageConverter;
+
+	/**
+	 * @param NamespaceInfo $namespaceInfo
+	 * @param ILoadBalancer $loadBalancer
+	 * @param LinkBatchFactory $linkBatchFactory
+	 * @param LanguageConverterFactory $languageConverterFactory
+	 */
+	public function __construct(
+		NamespaceInfo $namespaceInfo,
+		ILoadBalancer $loadBalancer,
+		LinkBatchFactory $linkBatchFactory,
+		LanguageConverterFactory $languageConverterFactory
+	) {
+		parent::__construct( 'Ancientpages' );
+		$this->namespaceInfo = $namespaceInfo;
+		$this->setDBLoadBalancer( $loadBalancer );
+		$this->setLinkBatchFactory( $linkBatchFactory );
+		$this->languageConverter = $languageConverterFactory->getLanguageConverter( $this->getContentLanguage() );
 	}
 
 	public function isExpensive() {
 		return true;
 	}
 
-	function isSyndicated() {
+	public function isSyndicated() {
 		return false;
 	}
 
 	public function getQueryInfo() {
+		$tables = [ 'page', 'revision' ];
+		$conds = [
+			'page_namespace' => $this->namespaceInfo->getContentNamespaces(),
+			'page_is_redirect' => 0
+		];
+		$joinConds = [
+			'revision' => [
+				'JOIN', [
+					'page_latest = rev_id'
+				]
+			],
+		];
+
+		// Allow extensions to modify the query
+		$this->getHookRunner()->onAncientPagesQuery( $tables, $conds, $joinConds );
+
 		return [
-			'tables' => [ 'page', 'revision' ],
+			'tables' => $tables,
 			'fields' => [
 				'namespace' => 'page_namespace',
 				'title' => 'page_title',
 				'value' => 'rev_timestamp'
 			],
-			'conds' => [
-				'page_namespace' => MWNamespace::getContentNamespaces(),
-				'page_is_redirect' => 0,
-				'page_latest=rev_id'
-			]
+			'conds' => $conds,
+			'join_conds' => $joinConds
 		];
 	}
 
@@ -60,7 +98,7 @@ class AncientPagesPage extends QueryPage {
 		return true;
 	}
 
-	function sortDescending() {
+	protected function sortDescending() {
 		return false;
 	}
 
@@ -70,18 +108,17 @@ class AncientPagesPage extends QueryPage {
 
 	/**
 	 * @param Skin $skin
-	 * @param object $result Result row
+	 * @param stdClass $result Result row
 	 * @return string
 	 */
-	function formatResult( $skin, $result ) {
-		global $wgContLang;
-
+	public function formatResult( $skin, $result ) {
 		$d = $this->getLanguage()->userTimeAndDate( $result->value, $this->getUser() );
 		$title = Title::makeTitle( $result->namespace, $result->title );
 		$linkRenderer = $this->getLinkRenderer();
+
 		$link = $linkRenderer->makeKnownLink(
 			$title,
-			$wgContLang->convert( $title->getPrefixedText() )
+			new HtmlArmor( $this->languageConverter->convertHtml( $title->getPrefixedText() ) )
 		);
 
 		return $this->getLanguage()->specialList( $link, htmlspecialchars( $d ) );

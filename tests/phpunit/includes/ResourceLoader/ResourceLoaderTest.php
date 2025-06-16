@@ -1,199 +1,168 @@
 <?php
 
-use Wikimedia\TestingAccessWrapper;
+namespace MediaWiki\Tests\ResourceLoader;
 
+use EmptyResourceLoader;
+use Exception;
+use ExtensionRegistry;
+use FauxRequest;
+use InvalidArgumentException;
+use MediaWiki\MainConfigNames;
+use MediaWiki\ResourceLoader\Context;
+use MediaWiki\ResourceLoader\FileModule;
+use MediaWiki\ResourceLoader\ResourceLoader;
+use MediaWiki\ResourceLoader\SkinModule;
+use MediaWiki\ResourceLoader\StartUpModule;
+use MediaWiki\User\StaticUserOptionsLookup;
+use NullStatsdDataFactory;
+use ResourceLoaderTestCase;
+use ResourceLoaderTestModule;
+use RuntimeException;
+use UnexpectedValueException;
+use Wikimedia\TestingAccessWrapper;
+use XmlJsCode;
+
+/**
+ * @covers \MediaWiki\ResourceLoader\ResourceLoader
+ */
 class ResourceLoaderTest extends ResourceLoaderTestCase {
 
-	protected function setUp() {
+	protected function setUp(): void {
 		parent::setUp();
 
-		$this->setMwGlobals( [
-			'wgResourceLoaderLESSImportPaths' => [
-				dirname( dirname( __DIR__ ) ) . '/data/less/common',
-			],
-			'wgResourceLoaderLESSVars' => [
-				'foo'  => '2px',
-				'Foo' => '#eeeeee',
-				'bar' => 5,
-			],
-			// Clear ResourceLoaderGetConfigVars hooks (called by StartupModule)
-			// to avoid notices during testMakeModuleResponse for missing
-			// wgResourceLoaderLESSVars keys in extension hooks.
-			'wgHooks' => [],
-			'wgShowExceptionDetails' => true,
-		] );
+		$this->overrideConfigValue( MainConfigNames::ShowExceptionDetails, true );
 	}
 
 	/**
 	 * Ensure the ResourceLoaderRegisterModules hook is called.
-	 *
-	 * @covers ResourceLoader::__construct
+	 * @coversNothing
 	 */
-	public function testConstructRegistrationHook() {
-		$resourceLoaderRegisterModulesHook = false;
-
-		$this->setMwGlobals( 'wgHooks', [
-			'ResourceLoaderRegisterModules' => [
-				function ( &$resourceLoader ) use ( &$resourceLoaderRegisterModulesHook ) {
-					$resourceLoaderRegisterModulesHook = true;
-				}
-			]
-		] );
-
-		$unused = new ResourceLoader();
-		$this->assertTrue(
-			$resourceLoaderRegisterModulesHook,
-			'Hook ResourceLoaderRegisterModules called'
+	public function testServiceWiring() {
+		$ranHook = 0;
+		$this->setTemporaryHook(
+			'ResourceLoaderRegisterModules',
+			static function ( &$resourceLoader ) use ( &$ranHook ) {
+				$ranHook++;
+			}
 		);
+
+		$this->getServiceContainer()->getResourceLoader();
+
+		$this->assertSame( 1, $ranHook, 'Hook was called' );
 	}
 
-	/**
-	 * @covers ResourceLoader::register
-	 * @covers ResourceLoader::getModule
-	 */
-	public function testRegisterValidObject() {
-		$module = new ResourceLoaderTestModule();
-		$resourceLoader = new EmptyResourceLoader();
-		$resourceLoader->register( 'test', $module );
-		$this->assertEquals( $module, $resourceLoader->getModule( 'test' ) );
-	}
-
-	/**
-	 * @covers ResourceLoader::register
-	 * @covers ResourceLoader::getModule
-	 */
-	public function testRegisterValidArray() {
-		$module = new ResourceLoaderTestModule();
-		$resourceLoader = new EmptyResourceLoader();
-		// Covers case of register() setting $rl->moduleInfos,
-		// but $rl->modules lazy-populated by getModule()
-		$resourceLoader->register( 'test', [ 'object' => $module ] );
-		$this->assertEquals( $module, $resourceLoader->getModule( 'test' ) );
-	}
-
-	/**
-	 * @covers ResourceLoader::register
-	 */
-	public function testRegisterEmptyString() {
-		$module = new ResourceLoaderTestModule();
-		$resourceLoader = new EmptyResourceLoader();
-		$resourceLoader->register( '', $module );
-		$this->assertEquals( $module, $resourceLoader->getModule( '' ) );
-	}
-
-	/**
-	 * @covers ResourceLoader::register
-	 */
-	public function testRegisterInvalidName() {
-		$resourceLoader = new EmptyResourceLoader();
-		$this->setExpectedException( MWException::class, "name 'test!invalid' is invalid" );
-		$resourceLoader->register( 'test!invalid', new ResourceLoaderTestModule() );
-	}
-
-	/**
-	 * @covers ResourceLoader::register
-	 */
-	public function testRegisterInvalidType() {
-		$resourceLoader = new EmptyResourceLoader();
-		$this->setExpectedException( MWException::class, 'ResourceLoader module info type error' );
-		$resourceLoader->register( 'test', new stdClass() );
-	}
-
-	/**
-	 * @covers ResourceLoader::getModuleNames
-	 */
-	public function testGetModuleNames() {
-		// Use an empty one so that core and extension modules don't get in.
-		$resourceLoader = new EmptyResourceLoader();
-		$resourceLoader->register( 'test.foo', new ResourceLoaderTestModule() );
-		$resourceLoader->register( 'test.bar', new ResourceLoaderTestModule() );
-		$this->assertEquals(
-			[ 'test.foo', 'test.bar' ],
-			$resourceLoader->getModuleNames()
-		);
-	}
-
-	public function provideTestIsFileModule() {
-		$fileModuleObj = $this->getMockBuilder( ResourceLoaderFileModule::class )
-			->disableOriginalConstructor()
-			->getMock();
+	public static function provideInvalidModuleName() {
 		return [
-			'object' => [ false,
-				new ResourceLoaderTestModule()
-			],
-			'FileModule object' => [ false,
-				$fileModuleObj
-			],
-			'simple empty' => [ true,
-				[]
-			],
-			'simple scripts' => [ true,
-				[ 'scripts' => 'example.js' ]
-			],
-			'simple scripts, raw and targets' => [ true, [
-				'scripts' => [ 'a.js', 'b.js' ],
-				'raw' => true,
-				'targets' => [ 'desktop', 'mobile' ],
-			] ],
-			'FileModule' => [ true,
-				[ 'class' => ResourceLoaderFileModule::class, 'scripts' => 'example.js' ]
-			],
-			'TestModule' => [ false,
-				[ 'class' => ResourceLoaderTestModule::class, 'scripts' => 'example.js' ]
-			],
-			'SkinModule (FileModule subclass)' => [ true,
-				[ 'class' => ResourceLoaderSkinModule::class, 'scripts' => 'example.js' ]
-			],
-			'JqueryMsgModule (FileModule subclass)' => [ true, [
-				'class' => ResourceLoaderJqueryMsgModule::class,
-				'scripts' => 'example.js',
-			] ],
-			'WikiModule' => [ false, [
-				'class' => ResourceLoaderWikiModule::class,
-				'scripts' => [ 'MediaWiki:Example.js' ],
-			] ],
+			'name with 300 chars' => [ str_repeat( 'x', 300 ) ],
+			'name with bang' => [ 'this!that' ],
+			'name with comma' => [ 'this,that' ],
+			'name with pipe' => [ 'this|that' ],
+		];
+	}
+
+	public static function provideValidModuleName() {
+		return [
+			'empty string' => [ '' ],
+			'simple name' => [ 'this.and-that2' ],
+			'name with 100 chars' => [ str_repeat( 'x', 100 ) ],
+			'name with hash' => [ 'this#that' ],
+			'name with slash' => [ 'this/that' ],
+			'name with at' => [ 'this@that' ],
 		];
 	}
 
 	/**
-	 * @dataProvider provideTestIsFileModule
-	 * @covers ResourceLoader::isFileModule
+	 * @dataProvider provideInvalidModuleName
 	 */
-	public function testIsFileModule( $expected, $module ) {
-		$rl = TestingAccessWrapper::newFromObject( new EmptyResourceLoader() );
-		$rl->register( 'test', $module );
-		$this->assertSame( $expected, $rl->isFileModule( 'test' ) );
+	public function testIsValidModuleName_invalid( $name ) {
+		$this->assertFalse( ResourceLoader::isValidModuleName( $name ) );
 	}
 
 	/**
-	 * @covers ResourceLoader::isFileModule
+	 * @dataProvider provideValidModuleName
 	 */
-	public function testIsFileModuleUnknown() {
-		$rl = TestingAccessWrapper::newFromObject( new EmptyResourceLoader() );
-		$this->assertSame( false, $rl->isFileModule( 'unknown' ) );
+	public function testIsValidModuleName_valid( $name ) {
+		$this->assertTrue( ResourceLoader::isValidModuleName( $name ) );
+	}
+
+	public function testRegisterValidArray() {
+		$resourceLoader = new EmptyResourceLoader();
+		// Covers case of register() setting $rl->moduleInfos,
+		// but $rl->modules lazy-populated by getModule()
+		$resourceLoader->register( 'test', [ 'class' => ResourceLoaderTestModule::class ] );
+		$this->assertInstanceOf(
+			ResourceLoaderTestModule::class,
+			$resourceLoader->getModule( 'test' )
+		);
 	}
 
 	/**
-	 * @covers ResourceLoader::isModuleRegistered
+	 * @group medium
 	 */
+	public function testRegisterEmptyString() {
+		$resourceLoader = new EmptyResourceLoader();
+		$resourceLoader->register( '', [ 'class' => ResourceLoaderTestModule::class ] );
+		$this->assertInstanceOf(
+			ResourceLoaderTestModule::class,
+			$resourceLoader->getModule( '' )
+		);
+	}
+
+	/**
+	 * @group medium
+	 */
+	public function testRegisterInvalidName() {
+		$resourceLoader = new EmptyResourceLoader();
+		$this->expectException( InvalidArgumentException::class );
+		$this->expectExceptionMessage( "name 'test!invalid' is invalid" );
+		$resourceLoader->register( 'test!invalid', [] );
+	}
+
+	public function testRegisterInvalidType() {
+		$resourceLoader = new EmptyResourceLoader();
+		$this->expectException( InvalidArgumentException::class );
+		$this->expectExceptionMessage( 'Invalid module info' );
+		$resourceLoader->register( [ 'test' => (object)[] ] );
+	}
+
+	public function testRegisterDuplicate() {
+		$logger = $this->createMock( \Psr\Log\LoggerInterface::class );
+		$logger->expects( $this->once() )
+			->method( 'warning' );
+		$resourceLoader = new EmptyResourceLoader( null, $logger );
+
+		$resourceLoader->register( 'test', [ 'class' => SkinModule::class ] );
+		$resourceLoader->register( 'test', [ 'class' => StartUpModule::class ] );
+		$this->assertInstanceOf(
+			StartUpModule::class,
+			$resourceLoader->getModule( 'test' ),
+			'last one wins'
+		);
+	}
+
+	public function testGetModuleNames() {
+		// Use an empty one so that core and extension modules don't get in.
+		$resourceLoader = new EmptyResourceLoader();
+		$resourceLoader->register( 'test.foo', [] );
+		$resourceLoader->register( 'test.bar', [] );
+		$this->assertEquals(
+			[ 'startup', 'test.foo', 'test.bar' ],
+			$resourceLoader->getModuleNames()
+		);
+	}
+
 	public function testIsModuleRegistered() {
 		$rl = new EmptyResourceLoader();
-		$rl->register( 'test', new ResourceLoaderTestModule() );
+		$rl->register( 'test', [] );
 		$this->assertTrue( $rl->isModuleRegistered( 'test' ) );
 		$this->assertFalse( $rl->isModuleRegistered( 'test.unknown' ) );
 	}
 
-	/**
-	 * @covers ResourceLoader::getModule
-	 */
 	public function testGetModuleUnknown() {
 		$rl = new EmptyResourceLoader();
 		$this->assertSame( null, $rl->getModule( 'test' ) );
 	}
 
-	/**
-	 * @covers ResourceLoader::getModule
-	 */
 	public function testGetModuleClass() {
 		$rl = new EmptyResourceLoader();
 		$rl->register( 'test', [ 'class' => ResourceLoaderTestModule::class ] );
@@ -203,12 +172,10 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 		);
 	}
 
-	/**
-	 * @covers ResourceLoader::getModule
-	 */
 	public function testGetModuleFactory() {
 		$factory = function ( array $info ) {
 			$this->assertArrayHasKey( 'kitten', $info );
+			unset( $info['kitten'] );
 			return new ResourceLoaderTestModule( $info );
 		};
 
@@ -220,32 +187,75 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 		);
 	}
 
-	/**
-	 * @covers ResourceLoader::getModule
-	 */
 	public function testGetModuleClassDefault() {
 		$rl = new EmptyResourceLoader();
 		$rl->register( 'test', [] );
 		$this->assertInstanceOf(
-			ResourceLoaderFileModule::class,
+			FileModule::class,
 			$rl->getModule( 'test' ),
 			'Array-style module registrations default to FileModule'
 		);
 	}
 
+	public function testGetVersionHash_length() {
+		$hash = ResourceLoader::makeHash(
+			'Anything you do could have serious repercussions on future events.'
+		);
+		$this->assertSame( 'xhh1x', $hash, 'Hash' );
+		$this->assertSame( ResourceLoader::HASH_LENGTH, strlen( $hash ), 'Hash length' );
+	}
+
+	public function testLessImportDirs() {
+		$rl = new EmptyResourceLoader();
+		$lc = $rl->getLessCompiler( [ 'foo'  => '2px', 'Foo' => '#eeeeee' ] );
+		$basePath = dirname( dirname( __DIR__ ) ) . '/data/less';
+		$lc->SetImportDirs( [
+			"$basePath/common" => '',
+		] );
+		$css = $lc->parseFile( "$basePath/module/use-import-dir.less" )->getCss();
+		$this->assertStringEqualsFile( "$basePath/module/styles.css", $css );
+	}
+
+	public static function provideMediaWikiVariablesCases() {
+		$basePath = __DIR__ . '/../../data/less';
+		return [
+			[
+				'config' => [],
+				'importPaths' => [],
+				'skin' => 'fallback',
+				'expected' => "$basePath/use-variables-default.css",
+			],
+			[
+				'config' => [
+					MainConfigNames::ValidSkinNames => [
+						// Required to make Context::getSkin work
+						'example' => 'Example',
+					],
+				],
+				'importPaths' => [
+					'example' => "$basePath/testvariables/",
+				],
+				'skin' => 'example',
+				'expected' => "$basePath/use-variables-test.css",
+			]
+		];
+	}
+
 	/**
-	 * @covers ResourceLoaderFileModule::compileLessFile
+	 * @dataProvider provideMediaWikiVariablesCases
 	 */
-	public function testLessFileCompilation() {
-		$context = $this->getResourceLoaderContext();
-		$basePath = __DIR__ . '/../../data/less/module';
-		$module = new ResourceLoaderFileModule( [
-			'localBasePath' => $basePath,
-			'styles' => [ 'styles.less' ],
+	public function testMediawikiVariablesDefault( array $config, array $importPaths, $skin, $expectedFile ) {
+		$this->overrideConfigValues( $config );
+		$reset = ExtensionRegistry::getInstance()->setAttributeForTest( 'SkinLessImportPaths', $importPaths );
+
+		$context = $this->getResourceLoaderContext( [ 'skin' => $skin ] );
+		$module = new FileModule( [
+			'localBasePath' => __DIR__ . '/../../data/less',
+			'styles' => [ 'use-variables.less' ],
 		] );
 		$module->setName( 'test.less' );
 		$styles = $module->getStyles( $context );
-		$this->assertStringEqualsFile( $basePath . '/styles.css', $styles['all'] );
+		$this->assertStringEqualsFile( $expectedFile, $styles['all'] );
 	}
 
 	public static function providePackedModules() {
@@ -281,7 +291,6 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 
 	/**
 	 * @dataProvider providePackedModules
-	 * @covers ResourceLoader::makePackedModulesString
 	 */
 	public function testMakePackedModulesString( $desc, $modules, $packed ) {
 		$this->assertEquals( $packed, ResourceLoader::makePackedModulesString( $modules ), $desc );
@@ -289,12 +298,11 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 
 	/**
 	 * @dataProvider providePackedModules
-	 * @covers ResourceLoaderContext::expandModuleNames
 	 */
 	public function testExpandModuleNames( $desc, $modules, $packed, $unpacked = null ) {
 		$this->assertEquals(
 			$unpacked ?: $modules,
-			ResourceLoaderContext::expandModuleNames( $packed ),
+			ResourceLoader::expandModuleNames( $packed ),
 			$desc
 		);
 	}
@@ -316,11 +324,9 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 
 	/**
 	 * @dataProvider provideAddSource
-	 * @covers ResourceLoader::addSource
-	 * @covers ResourceLoader::getSources
 	 */
 	public function testAddSource( $name, $info, $expected ) {
-		$rl = new ResourceLoader;
+		$rl = new EmptyResourceLoader;
 		$rl->addSource( $name, $info );
 		if ( is_array( $expected ) ) {
 			foreach ( $expected as $source ) {
@@ -331,24 +337,18 @@ class ResourceLoaderTest extends ResourceLoaderTestCase {
 		}
 	}
 
-	/**
-	 * @covers ResourceLoader::addSource
-	 */
 	public function testAddSourceDupe() {
-		$rl = new ResourceLoader;
-		$this->setExpectedException(
-			MWException::class, 'ResourceLoader duplicate source addition error'
-		);
+		$rl = new EmptyResourceLoader;
+		$this->expectException( RuntimeException::class );
+		$this->expectExceptionMessage( 'Cannot register source' );
 		$rl->addSource( 'foo', 'https://example.org/w/load.php' );
 		$rl->addSource( 'foo', 'https://example.com/w/load.php' );
 	}
 
-	/**
-	 * @covers ResourceLoader::addSource
-	 */
 	public function testAddSourceInvalid() {
-		$rl = new ResourceLoader;
-		$this->setExpectedException( MWException::class, 'with no "loadScript" key' );
+		$rl = new EmptyResourceLoader;
+		$this->expectException( InvalidArgumentException::class );
+		$this->expectExceptionMessage( 'must have a "loadScript" key' );
 		$rl->addSource( 'foo',  [ 'x' => 'https://example.org/w/load.php' ] );
 	}
 
@@ -382,6 +382,29 @@ mw.example();
 
 				'expected' => 'mw.loader.implement( "test.example", function ( $, jQuery, require, module ) {
 mw.example();
+} );',
+			] ],
+			[ [
+				'title' => 'Implement scripts with newline at end',
+
+				'name' => 'test.example',
+				'scripts' => "mw.example();\n",
+				'styles' => [],
+
+				'expected' => 'mw.loader.implement( "test.example", function ( $, jQuery, require, module ) {
+mw.example();
+
+} );',
+			] ],
+			[ [
+				'title' => 'Implement scripts with comment at end',
+
+				'name' => 'test.example',
+				'scripts' => "mw.example();//Foo",
+				'styles' => [],
+
+				'expected' => 'mw.loader.implement( "test.example", function ( $, jQuery, require, module ) {
+mw.example();//Foo
 } );',
 			] ],
 			[ [
@@ -432,106 +455,189 @@ mw.example();
 
 				'expected' => 'mw.loader.implement( "user", "mw.example( 1 );" );',
 			] ],
+			[ [
+				'title' => 'Implement multi-file script',
+
+				'name' => 'test.multifile',
+				'scripts' => [
+					'files' => [
+						'one.js' => [
+							'type' => 'script',
+							'content' => 'mw.example( 1 );',
+						],
+						'two.json' => [
+							'type' => 'data',
+							'content' => [ 'n' => 2 ],
+						],
+						'three.js' => [
+							'type' => 'script',
+							'content' => 'mw.example( 3 ); // Comment'
+						],
+						'four.js' => [
+							'type' => 'script',
+							'content' => "mw.example( 4 );\n"
+						],
+						'five.js' => [
+							'type' => 'script',
+							'content' => 'mw.example( 5 );'
+						],
+					],
+					'main' => 'five.js',
+				],
+
+				'expected' => <<<END
+mw.loader.implement( "test.multifile", {
+    "main": "five.js",
+    "files": {
+    "one.js": function ( require, module, exports ) {
+mw.example( 1 );
+},
+    "two.json": {
+    "n": 2
+},
+    "three.js": function ( require, module, exports ) {
+mw.example( 3 ); // Comment
+},
+    "four.js": function ( require, module, exports ) {
+mw.example( 4 );
+},
+    "five.js": function ( require, module, exports ) {
+mw.example( 5 );
+}
+}
+} );
+END
+			] ],
 		];
 	}
 
 	/**
 	 * @dataProvider provideLoaderImplement
-	 * @covers ResourceLoader::makeLoaderImplementScript
-	 * @covers ResourceLoader::trimArray
 	 */
 	public function testMakeLoaderImplementScript( $case ) {
 		$case += [
 			'wrap' => true,
-			'styles' => [], 'templates' => [], 'messages' => new XmlJsCode( '{}' )
+			'styles' => [],
+			'templates' => [],
+			'messages' => new XmlJsCode( '{}' ),
+			'packageFiles' => [],
 		];
-		ResourceLoader::clearCache();
-		$this->setMwGlobals( 'wgResourceLoaderDebug', true );
-
 		$rl = TestingAccessWrapper::newFromClass( ResourceLoader::class );
+		$context = new Context( new EmptyResourceLoader(), new FauxRequest( [
+			'debug' => 'true',
+		] ) );
 		$this->assertEquals(
 			$case['expected'],
 			$rl->makeLoaderImplementScript(
+				$context,
 				$case['name'],
 				( $case['wrap'] && is_string( $case['scripts'] ) )
 					? new XmlJsCode( $case['scripts'] )
 					: $case['scripts'],
 				$case['styles'],
 				$case['messages'],
-				$case['templates']
+				$case['templates'],
+				$case['packageFiles']
 			)
 		);
 	}
 
-	/**
-	 * @covers ResourceLoader::makeLoaderImplementScript
-	 */
 	public function testMakeLoaderImplementScriptInvalid() {
-		$this->setExpectedException( MWException::class, 'Invalid scripts error' );
+		$this->expectException( InvalidArgumentException::class );
+		$this->expectExceptionMessage( 'Script must be a' );
 		$rl = TestingAccessWrapper::newFromClass( ResourceLoader::class );
+		$context = new Context( new EmptyResourceLoader(), new FauxRequest() );
 		$rl->makeLoaderImplementScript(
+			$context,
 			'test', // name
 			123, // scripts
 			null, // styles
 			null, // messages
-			null // templates
+			null, // templates
+			null // package files
 		);
 	}
 
-	/**
-	 * @covers ResourceLoader::makeLoaderRegisterScript
-	 */
 	public function testMakeLoaderRegisterScript() {
+		$context = new Context( new EmptyResourceLoader(), new FauxRequest( [
+			'debug' => 'true',
+		] ) );
 		$this->assertEquals(
-			'mw.loader.register( [
+			'mw.loader.register([
     [
         "test.name",
         "1234567"
     ]
-] );',
-			ResourceLoader::makeLoaderRegisterScript( [
+]);',
+			ResourceLoader::makeLoaderRegisterScript( $context, [
 				[ 'test.name', '1234567' ],
 			] ),
 			'Nested array parameter'
 		);
 
 		$this->assertEquals(
-			'mw.loader.register( "test.name", "1234567" );',
-			ResourceLoader::makeLoaderRegisterScript(
-				'test.name',
-				'1234567'
-			),
-			'Variadic parameters'
+			'mw.loader.register([
+    [
+        "test.foo",
+        "100"
+    ],
+    [
+        "test.bar",
+        "200",
+        [
+            "test.unknown"
+        ]
+    ],
+    [
+        "test.baz",
+        "300",
+        [
+            3,
+            0
+        ]
+    ],
+    [
+        "test.quux",
+        "400",
+        [],
+        null,
+        null,
+        "return true;"
+    ]
+]);',
+			ResourceLoader::makeLoaderRegisterScript( $context, [
+				[ 'test.foo', '100' , [], null, null ],
+				[ 'test.bar', '200', [ 'test.unknown' ], null ],
+				[ 'test.baz', '300', [ 'test.quux', 'test.foo' ], null ],
+				[ 'test.quux', '400', [], null, null, 'return true;' ],
+			] ),
+			'Compact dependency indexes'
 		);
 	}
 
-	/**
-	 * @covers ResourceLoader::makeLoaderSourcesScript
-	 */
 	public function testMakeLoaderSourcesScript() {
+		$context = new Context( new EmptyResourceLoader(), new FauxRequest( [
+			'debug' => 'true',
+		] ) );
 		$this->assertEquals(
-			'mw.loader.addSource( "local", "/w/load.php" );',
-			ResourceLoader::makeLoaderSourcesScript( 'local', '/w/load.php' )
-		);
-		$this->assertEquals(
-			'mw.loader.addSource( {
+			'mw.loader.addSource({
     "local": "/w/load.php"
-} );',
-			ResourceLoader::makeLoaderSourcesScript( [ 'local' => '/w/load.php' ] )
+});',
+			ResourceLoader::makeLoaderSourcesScript( $context, [ 'local' => '/w/load.php' ] )
 		);
 		$this->assertEquals(
-			'mw.loader.addSource( {
+			'mw.loader.addSource({
     "local": "/w/load.php",
     "example": "https://example.org/w/load.php"
-} );',
-			ResourceLoader::makeLoaderSourcesScript( [
+});',
+			ResourceLoader::makeLoaderSourcesScript( $context, [
 				'local' => '/w/load.php',
 				'example' => 'https://example.org/w/load.php'
 			] )
 		);
 		$this->assertEquals(
-			'mw.loader.addSource( [] );',
-			ResourceLoader::makeLoaderSourcesScript( [] )
+			'mw.loader.addSource([]);',
+			ResourceLoader::makeLoaderSourcesScript( $context, [] )
 		);
 	}
 
@@ -548,66 +654,70 @@ mw.example();
 		];
 	}
 
-	/**
-	 * @covers ResourceLoader::getLoadScript
-	 */
 	public function testGetLoadScript() {
-		$this->setMwGlobals( 'wgResourceLoaderSources', [] );
-		$rl = new ResourceLoader();
+		$rl = new EmptyResourceLoader();
 		$sources = self::fakeSources();
 		$rl->addSource( $sources );
 		foreach ( [ 'examplewiki', 'example2wiki' ] as $name ) {
 			$this->assertEquals( $rl->getLoadScript( $name ), $sources[$name]['loadScript'] );
 		}
 
-		try {
-			$rl->getLoadScript( 'thiswasneverreigstered' );
-			$this->assertTrue( false, 'ResourceLoader::getLoadScript should have thrown an exception' );
-		} catch ( MWException $e ) {
-			$this->assertTrue( true );
-		}
+		$this->expectException( UnexpectedValueException::class );
+		$rl->getLoadScript( 'thiswasneverregistered' );
 	}
 
-	protected function getFailFerryMock() {
+	protected function getFailFerryMock( $getter = 'getScript' ) {
 		$mock = $this->getMockBuilder( ResourceLoaderTestModule::class )
-			->setMethods( [ 'getScript' ] )
+					 ->onlyMethods( [ $getter, 'getName' ] )
 			->getMock();
-		$mock->method( 'getScript' )->will( $this->throwException(
+		$mock->method( $getter )->will( $this->throwException(
 			new Exception( 'Ferry not found' )
 		) );
+		$mock->method( 'getName' )->willReturn( __METHOD__ );
 		return $mock;
 	}
 
 	protected function getSimpleModuleMock( $script = '' ) {
 		$mock = $this->getMockBuilder( ResourceLoaderTestModule::class )
-			->setMethods( [ 'getScript' ] )
+					 ->onlyMethods( [ 'getScript', 'getName' ] )
 			->getMock();
 		$mock->method( 'getScript' )->willReturn( $script );
+		$mock->method( 'getName' )->willReturn( __METHOD__ );
 		return $mock;
 	}
 
-	/**
-	 * @covers ResourceLoader::getCombinedVersion
-	 */
+	protected function getSimpleStyleModuleMock( $styles = '' ) {
+		$mock = $this->getMockBuilder( ResourceLoaderTestModule::class )
+					 ->onlyMethods( [ 'getStyles', 'getName' ] )
+			->getMock();
+		$mock->method( 'getStyles' )->willReturn( [ '' => $styles ] );
+		$mock->method( 'getName' )->willReturn( __METHOD__ );
+		return $mock;
+	}
+
 	public function testGetCombinedVersion() {
 		$rl = $this->getMockBuilder( EmptyResourceLoader::class )
 			// Disable log from outputErrorAndLog
-			->setMethods( [ 'outputErrorAndLog' ] )->getMock();
+			->onlyMethods( [ 'outputErrorAndLog' ] )->getMock();
 		$rl->register( [
-			'foo' => self::getSimpleModuleMock(),
-			'ferry' => self::getFailFerryMock(),
-			'bar' => self::getSimpleModuleMock(),
+			'foo' => [ 'class' => ResourceLoaderTestModule::class ],
+			'ferry' => [
+				'factory' => function () {
+					return $this->getFailFerryMock();
+				}
+			],
+			'bar' => [ 'class' => ResourceLoaderTestModule::class ],
 		] );
-		$context = $this->getResourceLoaderContext( [], $rl );
+		$context = $this->getResourceLoaderContext( [ 'debug' => 'false' ], $rl );
 
-		$this->assertEquals(
+		$this->assertSame(
 			'',
 			$rl->getCombinedVersion( $context, [] ),
 			'empty list'
 		);
 
 		$this->assertEquals(
-			ResourceLoader::makeHash( self::BLANK_VERSION ),
+			self::BLANK_COMBI,
 			$rl->getCombinedVersion( $context, [ 'foo' ] ),
 			'compute foo'
 		);
@@ -627,9 +737,9 @@ mw.example();
 				'modules' => [
 					'foo' => 'foo()',
 				],
-				'expected' => "foo()\n" . 'mw.loader.state( {
+				'expected' => "foo()\n" . 'mw.loader.state({
     "foo": "ready"
-} );',
+});',
 				'minified' => "foo()\n" . 'mw.loader.state({"foo":"ready"});',
 				'message' => 'Script without semi-colon',
 			],
@@ -638,10 +748,10 @@ mw.example();
 					'foo' => 'foo()',
 					'bar' => 'bar()',
 				],
-				'expected' => "foo()\nbar()\n" . 'mw.loader.state( {
+				'expected' => "foo()\nbar()\n" . 'mw.loader.state({
     "foo": "ready",
     "bar": "ready"
-} );',
+});',
 				'minified' => "foo()\nbar()\n" . 'mw.loader.state({"foo":"ready","bar":"ready"});',
 				'message' => 'Two scripts without semi-colon',
 			],
@@ -649,9 +759,9 @@ mw.example();
 				'modules' => [
 					'foo' => "foo()\n// bar();"
 				],
-				'expected' => "foo()\n// bar();\n" . 'mw.loader.state( {
+				'expected' => "foo()\n// bar();\n" . 'mw.loader.state({
     "foo": "ready"
-} );',
+});',
 				'minified' => "foo()\n" . 'mw.loader.state({"foo":"ready"});',
 				'message' => 'Script with semi-colon in comment (T162719)',
 			],
@@ -678,20 +788,18 @@ mw.example();
 	 * Verify how multiple scripts and mw.loader.state() calls are concatenated.
 	 *
 	 * @dataProvider provideMakeModuleResponseConcat
-	 * @covers ResourceLoader::makeModuleResponse
 	 */
 	public function testMakeModuleResponseConcat( $scripts, $expected, $debug, $message = null ) {
 		$rl = new EmptyResourceLoader();
 		$modules = array_map( function ( $script ) {
-			return self::getSimpleModuleMock( $script );
+			return $this->getSimpleModuleMock( $script );
 		}, $scripts );
-		$rl->register( $modules );
 
-		$this->setMwGlobals( 'wgResourceLoaderDebug', $debug );
 		$context = $this->getResourceLoaderContext(
 			[
 				'modules' => implode( '|', array_keys( $modules ) ),
 				'only' => 'scripts',
+				'debug' => $debug ? 'true' : 'false',
 			],
 			$rl
 		);
@@ -701,21 +809,30 @@ mw.example();
 		$this->assertEquals( $expected, $response, $message ?: 'Response' );
 	}
 
+	public function testMakeModuleResponseEmpty() {
+		$rl = new EmptyResourceLoader();
+		$context = $this->getResourceLoaderContext(
+			[ 'modules' => '', 'only' => 'scripts' ],
+			$rl
+		);
+
+		$response = $rl->makeModuleResponse( $context, [] );
+		$this->assertSame( [], $rl->getErrors(), 'Errors' );
+		$this->assertRegExp( '/^\/\*.+no modules were requested.+\*\/$/ms', $response );
+	}
+
 	/**
 	 * Verify that when building module content in a load.php response,
 	 * an exception from one module will not break script output from
 	 * other modules.
-	 *
-	 * @covers ResourceLoader::makeModuleResponse
 	 */
 	public function testMakeModuleResponseError() {
 		$modules = [
-			'foo' => self::getSimpleModuleMock( 'foo();' ),
-			'ferry' => self::getFailFerryMock(),
-			'bar' => self::getSimpleModuleMock( 'bar();' ),
+			'foo' => $this->getSimpleModuleMock( 'foo();' ),
+			'ferry' => $this->getFailFerryMock(),
+			'bar' => $this->getSimpleModuleMock( 'bar();' ),
 		];
 		$rl = new EmptyResourceLoader();
-		$rl->register( $modules );
 		$context = $this->getResourceLoaderContext(
 			[
 				'modules' => 'foo|ferry|bar',
@@ -725,7 +842,7 @@ mw.example();
 		);
 
 		// Disable log from makeModuleResponse via outputErrorAndLog
-		$this->setLogger( 'exception', new Psr\Log\NullLogger() );
+		$this->setLogger( 'exception', new \Psr\Log\NullLogger() );
 
 		$response = $rl->makeModuleResponse( $context, $modules );
 		$errors = $rl->getErrors();
@@ -733,11 +850,46 @@ mw.example();
 		$this->assertCount( 1, $errors );
 		$this->assertRegExp( '/Ferry not found/', $errors[0] );
 		$this->assertEquals(
-			"foo();\nbar();\n" . 'mw.loader.state( {
+			"foo();\nbar();\n" . 'mw.loader.state({
     "ferry": "error",
     "foo": "ready",
     "bar": "ready"
-} );',
+});',
+			$response
+		);
+	}
+
+	/**
+	 * Verify that exceptions in PHP for one module will not break others
+	 * (stylesheet response).
+	 */
+	public function testMakeModuleResponseErrorCSS() {
+		$modules = [
+			'foo' => self::getSimpleStyleModuleMock( '.foo{}' ),
+			'ferry' => $this->getFailFerryMock( 'getStyles' ),
+			'bar' => self::getSimpleStyleModuleMock( '.bar{}' ),
+		];
+		$rl = new EmptyResourceLoader();
+		$context = $this->getResourceLoaderContext(
+			[
+				'modules' => 'foo|ferry|bar',
+				'only' => 'styles',
+				'debug' => 'false',
+			],
+			$rl
+		);
+
+		// Disable log from makeModuleResponse via outputErrorAndLog
+		$this->setLogger( 'exception', new \Psr\Log\NullLogger() );
+
+		$response = $rl->makeModuleResponse( $context, $modules );
+		$errors = $rl->getErrors();
+
+		$this->assertCount( 2, $errors );
+		$this->assertRegExp( '/Ferry not found/', $errors[0] );
+		$this->assertRegExp( '/Problem.+"ferry":\s*"error"/ms', $errors[1] );
+		$this->assertEquals(
+			'.foo{}.bar{}',
 			$response
 		);
 	}
@@ -746,42 +898,49 @@ mw.example();
 	 * Verify that when building the startup module response,
 	 * an exception from one module class will not break the entire
 	 * startup module response. See T152266.
-	 *
-	 * @covers ResourceLoader::makeModuleResponse
 	 */
 	public function testMakeModuleResponseStartupError() {
-		$rl = new EmptyResourceLoader();
+		// This is an integration test that uses a lot of MediaWiki state,
+		// provide the full Config object here.
+		$rl = new EmptyResourceLoader( $this->getServiceContainer()->getMainConfig() );
 		$rl->register( [
-			'foo' => self::getSimpleModuleMock( 'foo();' ),
-			'ferry' => self::getFailFerryMock(),
-			'bar' => self::getSimpleModuleMock( 'bar();' ),
-			'startup' => [ 'class' => ResourceLoaderStartUpModule::class ],
+			'foo' => [ 'factory' => function () {
+				return $this->getSimpleModuleMock( 'foo();' );
+			} ],
+			'ferry' => [ 'factory' => function () {
+				return $this->getFailFerryMock();
+			} ],
+			'bar' => [ 'factory' => function () {
+				return $this->getSimpleModuleMock( 'bar();' );
+			} ],
 		] );
 		$context = $this->getResourceLoaderContext(
 			[
 				'modules' => 'startup',
 				'only' => 'scripts',
+				// No module build for version hash in debug mode
+				'debug' => 'false',
 			],
 			$rl
 		);
 
 		$this->assertEquals(
-			[ 'foo', 'ferry', 'bar', 'startup' ],
+			[ 'startup', 'foo', 'ferry', 'bar' ],
 			$rl->getModuleNames(),
 			'getModuleNames'
 		);
 
 		// Disable log from makeModuleResponse via outputErrorAndLog
-		$this->setLogger( 'exception', new Psr\Log\NullLogger() );
+		$this->setLogger( 'exception', new \Psr\Log\NullLogger() );
 
 		$modules = [ 'startup' => $rl->getModule( 'startup' ) ];
 		$response = $rl->makeModuleResponse( $context, $modules );
 		$errors = $rl->getErrors();
 
-		$this->assertRegExp( '/Ferry not found/', $errors[0] );
+		$this->assertRegExp( '/Ferry not found/', $errors[0] ?? '' );
 		$this->assertCount( 1, $errors );
 		$this->assertRegExp(
-			'/isCompatible.*function startUp/s',
+			'/isCompatible.*window\.RLQ/s',
 			$response,
 			'startup response undisrupted (T152266)'
 		);
@@ -799,28 +958,22 @@ mw.example();
 
 	/**
 	 * Integration test for modules sending extra HTTP response headers.
-	 *
-	 * @covers ResourceLoaderModule::getHeaders
-	 * @covers ResourceLoaderModule::buildContent
-	 * @covers ResourceLoader::makeModuleResponse
 	 */
 	public function testMakeModuleResponseExtraHeaders() {
 		$module = $this->getMockBuilder( ResourceLoaderTestModule::class )
-			->setMethods( [ 'getPreloadLinks' ] )->getMock();
+					   ->onlyMethods( [ 'getPreloadLinks', 'getName' ] )->getMock();
 		$module->method( 'getPreloadLinks' )->willReturn( [
-			 'https://example.org/script.js' => [ 'as' => 'script' ],
+			'https://example.org/script.js' => [ 'as' => 'script' ],
 		] );
+		$module->method( 'getName' )->willReturn( __METHOD__ );
 
 		$rl = new EmptyResourceLoader();
-		$rl->register( [
-			'foo' => $module,
-		] );
 		$context = $this->getResourceLoaderContext(
 			[ 'modules' => 'foo', 'only' => 'scripts' ],
 			$rl
 		);
 
-		$modules = [ 'foo' => $rl->getModule( 'foo' ) ];
+		$modules = [ 'foo' => $module ];
 		$response = $rl->makeModuleResponse( $context, $modules );
 		$extraHeaders = TestingAccessWrapper::newFromObject( $rl )->extraHeaders;
 
@@ -833,33 +986,29 @@ mw.example();
 		);
 	}
 
-	/**
-	 * @covers ResourceLoaderModule::getHeaders
-	 * @covers ResourceLoaderModule::buildContent
-	 * @covers ResourceLoader::makeModuleResponse
-	 */
 	public function testMakeModuleResponseExtraHeadersMulti() {
 		$foo = $this->getMockBuilder( ResourceLoaderTestModule::class )
-			->setMethods( [ 'getPreloadLinks' ] )->getMock();
+			->onlyMethods( [ 'getPreloadLinks', 'getName' ] )->getMock();
 		$foo->method( 'getPreloadLinks' )->willReturn( [
-			 'https://example.org/script.js' => [ 'as' => 'script' ],
+			'https://example.org/script.js' => [ 'as' => 'script' ],
 		] );
+		$foo->method( 'getName' )->willReturn( __METHOD__ );
 
 		$bar = $this->getMockBuilder( ResourceLoaderTestModule::class )
-			->setMethods( [ 'getPreloadLinks' ] )->getMock();
+			->onlyMethods( [ 'getPreloadLinks', 'getName' ] )->getMock();
 		$bar->method( 'getPreloadLinks' )->willReturn( [
-			 '/example.png' => [ 'as' => 'image' ],
-			 '/example.jpg' => [ 'as' => 'image' ],
+			'/example.png' => [ 'as' => 'image' ],
+			'/example.jpg' => [ 'as' => 'image' ],
 		] );
+		$bar->method( 'getName' )->willReturn( __METHOD__ );
 
 		$rl = new EmptyResourceLoader();
-		$rl->register( [ 'foo' => $foo, 'bar' => $bar ] );
 		$context = $this->getResourceLoaderContext(
 			[ 'modules' => 'foo|bar', 'only' => 'scripts' ],
 			$rl
 		);
 
-		$modules = [ 'foo' => $rl->getModule( 'foo' ), 'bar' => $rl->getModule( 'bar' ) ];
+		$modules = [ 'foo' => $foo, 'bar' => $bar ];
 		$response = $rl->makeModuleResponse( $context, $modules );
 		$extraHeaders = TestingAccessWrapper::newFromObject( $rl )->extraHeaders;
 		$this->assertEquals(
@@ -872,12 +1021,9 @@ mw.example();
 		);
 	}
 
-	/**
-	 * @covers ResourceLoader::respond
-	 */
-	public function testRespond() {
+	public function testRespondEmpty() {
 		$rl = $this->getMockBuilder( EmptyResourceLoader::class )
-			->setMethods( [
+			->onlyMethods( [
 				'tryRespondNotModified',
 				'sendResponseHeaders',
 				'measureResponseTime',
@@ -891,21 +1037,150 @@ mw.example();
 		$rl->respond( $context );
 	}
 
+	public function testRespondSimple() {
+		$module = new ResourceLoaderTestModule( [ 'script' => 'foo();' ] );
+		$rl = $this->getMockBuilder( EmptyResourceLoader::class )
+			->onlyMethods( [
+				'measureResponseTime',
+				'tryRespondNotModified',
+				'sendResponseHeaders',
+				'makeModuleResponse',
+			] )
+			->getMock();
+		$rl->register( 'test', [
+			'factory' => static function () use ( $module ) {
+				return $module;
+			}
+		] );
+		$context = $this->getResourceLoaderContext(
+			[ 'modules' => 'test', 'only' => null ],
+			$rl
+		);
+
+		$rl->expects( $this->once() )->method( 'makeModuleResponse' )
+			->with( $context, [ 'test' => $module ] )
+			->willReturn( 'implement_foo;' );
+		$this->expectOutputRegex( '/^implement_foo;/' );
+
+		$rl->respond( $context );
+	}
+
+	public function testRespondMissingModule() {
+		$rl = $this->getMockBuilder( EmptyResourceLoader::class )
+			->onlyMethods( [
+				'measureResponseTime',
+				'tryRespondNotModified',
+				'sendResponseHeaders',
+			] )
+			->getMock();
+		$context = $this->getResourceLoaderContext(
+			[ 'modules' => 'unknown', 'only' => null ],
+			$rl
+		);
+
+		$this->expectOutputRegex( '/mw\.loader\.state.*"unknown": "missing"/s' );
+
+		$rl->respond( $context );
+	}
+
 	/**
-	 * @covers ResourceLoader::measureResponseTime
+	 * Refuse requests for private modules.
 	 */
+	public function testRespondErrorPrivate() {
+		$rl = $this->getMockBuilder( EmptyResourceLoader::class )
+			->onlyMethods( [
+				'measureResponseTime',
+				'tryRespondNotModified',
+				'sendResponseHeaders',
+			] )
+			->getMock();
+		$rl->register( [
+			'foo' => [ 'class' => ResourceLoaderTestModule::class ],
+			'bar' => [ 'class' => ResourceLoaderTestModule::class, 'group' => 'private' ],
+		] );
+		$context = $this->getResourceLoaderContext(
+			[ 'modules' => 'foo|bar', 'only' => null ],
+			$rl
+		);
+
+		$this->expectOutputRegex( '/^\/\*.+Cannot build private module/s' );
+		$rl->respond( $context );
+	}
+
+	public function testRespondInternalFailures() {
+		$module = $this->getMockBuilder( ResourceLoaderTestModule::class )
+			->onlyMethods( [ 'getDefinitionSummary', 'enableModuleContentVersion' ] )
+			->getMock();
+		$module->method( 'enableModuleContentVersion' )
+			->willReturn( false );
+		$module->method( 'getDefinitionSummary' )
+			->willThrowException( new Exception( 'Version error' ) );
+		$rl = $this->getMockBuilder( EmptyResourceLoader::class )
+			->onlyMethods( [
+				'measureResponseTime',
+				'preloadModuleInfo',
+				'tryRespondNotModified',
+				'makeModuleResponse',
+				'sendResponseHeaders',
+			] )
+			->getMock();
+		$rl->register( 'test', [
+			'factory' => static function () use ( $module ) {
+				return $module;
+			}
+		] );
+		$context = $this->getResourceLoaderContext(
+			[ 'modules' => 'test', 'debug' => 'false' ],
+			$rl
+		);
+		// Disable logging from outputErrorAndLog
+		$this->setLogger( 'exception', new \Psr\Log\NullLogger() );
+
+		$rl->expects( $this->once() )->method( 'preloadModuleInfo' )
+			->willThrowException( new Exception( 'Preload error' ) );
+		$rl->expects( $this->once() )->method( 'makeModuleResponse' )
+			->with( $context, [ 'test' => $module ] )
+			->willReturn( 'foo;' );
+		// Internal errors should be caught and logged without affecting module output
+		$this->expectOutputRegex( '/^\/\*.+Preload error.+Version error.+\*\/.*foo;/ms' );
+
+		$rl->respond( $context );
+	}
+
 	public function testMeasureResponseTime() {
 		$stats = $this->getMockBuilder( NullStatsdDataFactory::class )
-			->setMethods( [ 'timing' ] )->getMock();
+			->onlyMethods( [ 'timing' ] )->getMock();
 		$this->setService( 'StatsdDataFactory', $stats );
 
 		$stats->expects( $this->once() )->method( 'timing' )
 			->with( 'resourceloader.responseTime', $this->anything() );
 
-		$timing = new Timing();
-		$timing->mark( 'requestShutdown' );
 		$rl = TestingAccessWrapper::newFromObject( new EmptyResourceLoader );
-		$rl->measureResponseTime( $timing );
-		DeferredUpdates::doUpdates();
+		$rl->measureResponseTime();
+	}
+
+	public function testGetUserDefaults() {
+		$this->setService( 'UserOptionsLookup', new StaticUserOptionsLookup(
+			[],
+			[
+				'include' => 1,
+				'exclude' => 1,
+			]
+		) );
+		$ctx = $this->createStub( Context::class );
+		$this->setTemporaryHook( 'ResourceLoaderExcludeUserOptions', function (
+			array &$keysToExclude,
+			Context $context
+		) use ( $ctx ): void {
+			$this->assertSame( $ctx, $context );
+			$keysToExclude[] = 'exclude';
+		}, true );
+
+		$defaults = ResourceLoader::getUserDefaults(
+			$ctx,
+			$this->getServiceContainer()->getHookContainer(),
+			$this->getServiceContainer()->getUserOptionsLookup()
+		);
+		$this->assertSame( [ 'include' => 1 ], $defaults );
 	}
 }

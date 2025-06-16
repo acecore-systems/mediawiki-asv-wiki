@@ -24,53 +24,89 @@
  * @author Rob Church <robchur@gmail.com>
  */
 
+use MediaWiki\Linker\LinksMigration;
+use Wikimedia\Rdbms\ILoadBalancer;
+
 /**
  * A special page that lists unused templates
  *
  * @ingroup SpecialPage
  */
-class UnusedtemplatesPage extends QueryPage {
-	function __construct( $name = 'Unusedtemplates' ) {
-		parent::__construct( $name );
+class SpecialUnusedTemplates extends QueryPage {
+
+	/** @var LinksMigration */
+	private $linksMigration;
+
+	/**
+	 * @param ILoadBalancer $loadBalancer
+	 * @param LinksMigration $linksMigration
+	 */
+	public function __construct(
+		ILoadBalancer $loadBalancer,
+		LinksMigration $linksMigration
+	) {
+		parent::__construct( 'Unusedtemplates' );
+		$this->setDBLoadBalancer( $loadBalancer );
+		$this->linksMigration = $linksMigration;
 	}
 
 	public function isExpensive() {
 		return true;
 	}
 
-	function isSyndicated() {
+	public function isSyndicated() {
 		return false;
 	}
 
-	function sortDescending() {
+	protected function sortDescending() {
 		return false;
+	}
+
+	protected function getOrderFields() {
+		return [ 'title' ];
 	}
 
 	public function getQueryInfo() {
+		$queryInfo = $this->linksMigration->getQueryInfo(
+			'templatelinks',
+			'templatelinks',
+			'LEFT JOIN'
+		);
+		list( $ns, $title ) = $this->linksMigration->getTitleFields( 'templatelinks' );
+		$joinConds = [];
+		$templatelinksJoin = [
+			'LEFT JOIN', [ "$title = page_title",
+				"$ns = page_namespace" ] ];
+		if ( in_array( 'linktarget', $queryInfo['tables'] ) ) {
+			$joinConds['linktarget'] = $templatelinksJoin;
+		} else {
+			$joinConds['templatelinks'] = $templatelinksJoin;
+		}
 		return [
-			'tables' => [ 'page', 'templatelinks' ],
+			'tables' => array_merge( $queryInfo['tables'], [ 'page' ] ),
 			'fields' => [
 				'namespace' => 'page_namespace',
 				'title' => 'page_title',
-				'value' => 'page_title'
 			],
 			'conds' => [
 				'page_namespace' => NS_TEMPLATE,
 				'tl_from IS NULL',
 				'page_is_redirect' => 0
 			],
-			'join_conds' => [ 'templatelinks' => [
-				'LEFT JOIN', [ 'tl_title = page_title',
-					'tl_namespace = page_namespace' ] ] ]
+			'join_conds' => array_merge( $joinConds, $queryInfo['joins'] )
 		];
+	}
+
+	public function preprocessResults( $db, $res ) {
+		$this->executeLBFromResultWrapper( $res );
 	}
 
 	/**
 	 * @param Skin $skin
-	 * @param object $result Result row
+	 * @param stdClass $result Result row
 	 * @return string
 	 */
-	function formatResult( $skin, $result ) {
+	public function formatResult( $skin, $result ) {
 		$linkRenderer = $this->getLinkRenderer();
 		$title = Title::makeTitle( NS_TEMPLATE, $result->title );
 		$pageLink = $linkRenderer->makeKnownLink(
@@ -87,7 +123,7 @@ class UnusedtemplatesPage extends QueryPage {
 		return $this->getLanguage()->specialList( $pageLink, $wlhLink );
 	}
 
-	function getPageHeader() {
+	protected function getPageHeader() {
 		return $this->msg( 'unusedtemplatestext' )->parseAsBlock();
 	}
 

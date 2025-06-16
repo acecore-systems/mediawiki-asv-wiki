@@ -21,29 +21,37 @@
  * @ingroup SpecialPage
  */
 
+use MediaWiki\MainConfigNames;
+use Wikimedia\Rdbms\ILoadBalancer;
+
 /**
  * A special page that lists unused images
  *
  * @ingroup SpecialPage
  */
-class UnusedimagesPage extends ImageQueryPage {
-	function __construct( $name = 'Unusedimages' ) {
-		parent::__construct( $name );
+class SpecialUnusedImages extends ImageQueryPage {
+
+	/**
+	 * @param ILoadBalancer $loadBalancer
+	 */
+	public function __construct( ILoadBalancer $loadBalancer ) {
+		parent::__construct( 'Unusedimages' );
+		$this->setDBLoadBalancer( $loadBalancer );
 	}
 
-	function isExpensive() {
+	public function isExpensive() {
 		return true;
 	}
 
-	function sortDescending() {
+	protected function sortDescending() {
 		return false;
 	}
 
-	function isSyndicated() {
+	public function isSyndicated() {
 		return false;
 	}
 
-	function getQueryInfo() {
+	public function getQueryInfo() {
 		$retval = [
 			'tables' => [ 'image', 'imagelinks' ],
 			'fields' => [
@@ -55,7 +63,7 @@ class UnusedimagesPage extends ImageQueryPage {
 			'join_conds' => [ 'imagelinks' => [ 'LEFT JOIN', 'il_to = img_name' ] ]
 		];
 
-		if ( $this->getConfig()->get( 'CountCategorizedImagesAsUsed' ) ) {
+		if ( $this->getConfig()->get( MainConfigNames::CountCategorizedImagesAsUsed ) ) {
 			// Order is significant
 			$retval['tables'] = [ 'image', 'page', 'categorylinks',
 				'imagelinks' ];
@@ -71,11 +79,16 @@ class UnusedimagesPage extends ImageQueryPage {
 		return $retval;
 	}
 
-	function usesTimestamps() {
+	public function usesTimestamps() {
 		return true;
 	}
 
-	function getPageHeader() {
+	protected function getPageHeader() {
+		if ( $this->getConfig()->get( MainConfigNames::CountCategorizedImagesAsUsed ) ) {
+			return $this->msg(
+				'unusedimagestext-categorizedimgisused'
+			)->parseAsBlock();
+		}
 		return $this->msg( 'unusedimagestext' )->parseAsBlock();
 	}
 

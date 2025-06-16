@@ -25,25 +25,56 @@
  * @ingroup SpecialPage
  */
 
+use MediaWiki\Cache\LinkBatchFactory;
+use MediaWiki\User\UserGroupManager;
+use Wikimedia\Rdbms\ILoadBalancer;
+
 /**
  * @ingroup SpecialPage
  */
 class SpecialListUsers extends IncludableSpecialPage {
 
-	public function __construct() {
+	/** @var LinkBatchFactory */
+	private $linkBatchFactory;
+
+	/** @var ILoadBalancer */
+	private $loadBalancer;
+
+	/** @var UserGroupManager */
+	private $userGroupManager;
+
+	/**
+	 * @param LinkBatchFactory $linkBatchFactory
+	 * @param ILoadBalancer $loadBalancer
+	 * @param UserGroupManager $userGroupManager
+	 */
+	public function __construct(
+		LinkBatchFactory $linkBatchFactory,
+		ILoadBalancer $loadBalancer,
+		UserGroupManager $userGroupManager
+	) {
 		parent::__construct( 'Listusers' );
+		$this->linkBatchFactory = $linkBatchFactory;
+		$this->loadBalancer = $loadBalancer;
+		$this->userGroupManager = $userGroupManager;
 	}
 
 	/**
-	 * Show the special page
-	 *
-	 * @param string $par (optional) A group to list users from
+	 * @param string|null $par A group to list users from
 	 */
 	public function execute( $par ) {
 		$this->setHeaders();
 		$this->outputHeader();
 
-		$up = new UsersPager( $this->getContext(), $par, $this->including() );
+		$up = new UsersPager(
+			$this->getContext(),
+			$this->getHookContainer(),
+			$this->linkBatchFactory,
+			$this->loadBalancer,
+			$this->userGroupManager,
+			$par,
+			$this->including()
+		);
 
 		# getBody() first to check, if empty
 		$usersbody = $up->getBody();
@@ -61,7 +92,9 @@ class SpecialListUsers extends IncludableSpecialPage {
 			$s .= $this->msg( 'listusers-noresult' )->parseAsBlock();
 		}
 
-		$this->getOutput()->addHTML( $s );
+		$out = $this->getOutput();
+		$out->addHTML( $s );
+		$out->addModuleStyles( 'mediawiki.interface.helpers.styles' );
 	}
 
 	/**
@@ -70,32 +103,10 @@ class SpecialListUsers extends IncludableSpecialPage {
 	 * @return string[] subpages
 	 */
 	public function getSubpagesForPrefixSearch() {
-		return User::getAllGroups();
+		return $this->userGroupManager->listAllGroups();
 	}
 
 	protected function getGroupName() {
 		return 'users';
-	}
-}
-
-/**
- * Redirect page: Special:ListAdmins --> Special:ListUsers/sysop.
- *
- * @ingroup SpecialPage
- */
-class SpecialListAdmins extends SpecialRedirectToSpecial {
-	function __construct() {
-		parent::__construct( 'Listadmins', 'Listusers', 'sysop' );
-	}
-}
-
-/**
- * Redirect page: Special:ListBots --> Special:ListUsers/bot.
- *
- * @ingroup SpecialPage
- */
-class SpecialListBots extends SpecialRedirectToSpecial {
-	function __construct() {
-		parent::__construct( 'Listbots', 'Listusers', 'bot' );
 	}
 }

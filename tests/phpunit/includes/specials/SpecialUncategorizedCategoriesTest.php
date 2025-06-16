@@ -1,17 +1,24 @@
 <?php
+
 /**
- * Tests for Special:Uncategorizedcategories
+ * Tests for Special:UncategorizedCategories
  */
-class UncategorizedCategoriesPageTest extends MediaWikiTestCase {
+class SpecialUncategorizedCategoriesTest extends MediaWikiIntegrationTestCase {
 	/**
 	 * @dataProvider provideTestGetQueryInfoData
-	 * @covers UncategorizedCategoriesPage::getQueryInfo
+	 * @covers SpecialUncategorizedCategories::getQueryInfo
 	 */
 	public function testGetQueryInfo( $msgContent, $expected ) {
 		$msg = new RawMessage( $msgContent );
-		$mockContext = $this->getMockBuilder( RequestContext::class )->getMock();
+		$mockContext = $this->createMock( RequestContext::class );
 		$mockContext->method( 'msg' )->willReturn( $msg );
-		$special = new UncategorizedCategoriesPage();
+		$services = $this->getServiceContainer();
+		$special = new SpecialUncategorizedCategories(
+			$services->getNamespaceInfo(),
+			$services->getDBLoadBalancer(),
+			$services->getLinkBatchFactory(),
+			$services->getLanguageConverterFactory()
+		);
 		$special->setContext( $mockContext );
 		$this->assertEquals( [
 			'tables' => [
@@ -21,7 +28,6 @@ class UncategorizedCategoriesPageTest extends MediaWikiTestCase {
 			'fields' => [
 				'namespace' => 'page_namespace',
 				'title' => 'page_title',
-				'value' => 'page_title',
 			],
 			'conds' => [
 				0 => 'cl_from IS NULL',
