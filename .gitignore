@@ -24,8 +24,8 @@
 /composer.lock
 
 # 設定ファイル（セキュリティ目的で除外）
-LocalSettings.php
-LocalSettings.php.*
+/LocalSettings.php
+/LocalSettings.php.*
 private_settings.php
 secret.php
 
