@@ -24,37 +24,25 @@
  * @author Ævar Arnfjörð Bjarmason <avarab@gmail.com>
  */
 
-use MediaWiki\MediaWikiServices;
-use Wikimedia\Rdbms\ILoadBalancer;
-
 /**
  * A special page that lists most used images
  *
  * @ingroup SpecialPage
  */
 class MostimagesPage extends ImageQueryPage {
-
-	/**
-	 * @param ILoadBalancer|string $loadBalancer
-	 */
-	public function __construct( $loadBalancer ) {
-		parent::__construct( is_string( $loadBalancer ) ? $loadBalancer : 'Mostimages' );
-		// This class is extended and therefor fallback to global state - T265307
-		if ( !$loadBalancer instanceof ILoadBalancer ) {
-			$loadBalancer = MediaWikiServices::getInstance()->getDBLoadBalancer();
-		}
-		$this->setDBLoadBalancer( $loadBalancer );
+	function __construct( $name = 'Mostimages' ) {
+		parent::__construct( $name );
 	}
 
-	public function isExpensive() {
+	function isExpensive() {
 		return true;
 	}
 
-	public function isSyndicated() {
+	function isSyndicated() {
 		return false;
 	}
 
-	public function getQueryInfo() {
+	function getQueryInfo() {
 		return [
 			'tables' => [ 'imagelinks' ],
 			'fields' => [
@@ -69,7 +57,7 @@ class MostimagesPage extends ImageQueryPage {
 		];
 	}
 
-	protected function getCellHtml( $row ) {
+	function getCellHtml( $row ) {
 		return $this->msg( 'nimagelinks' )->numParams( $row->value )->escaped() . '<br />';
 	}
 

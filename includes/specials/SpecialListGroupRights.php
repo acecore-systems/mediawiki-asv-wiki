@@ -21,11 +21,6 @@
  * @ingroup SpecialPage
  */
 
-use MediaWiki\Languages\LanguageConverterFactory;
-use MediaWiki\MainConfigNames;
-use MediaWiki\Permissions\GroupPermissionsLookup;
-use MediaWiki\User\UserGroupManager;
-
 /**
  * This special page lists all defined user groups and the associated rights.
  * See also @ref $wgGroupPermissions.
@@ -34,36 +29,8 @@ use MediaWiki\User\UserGroupManager;
  * @author Petr Kadlec <mormegil@centrum.cz>
  */
 class SpecialListGroupRights extends SpecialPage {
-
-	/** @var NamespaceInfo */
-	private $nsInfo;
-
-	/** @var UserGroupManager */
-	private $userGroupManager;
-
-	/** @var ILanguageConverter */
-	private $languageConverter;
-
-	/** @var GroupPermissionsLookup */
-	private $groupPermissionsLookup;
-
-	/**
-	 * @param NamespaceInfo $nsInfo
-	 * @param UserGroupManager $userGroupManager
-	 * @param LanguageConverterFactory $languageConverterFactory
-	 * @param GroupPermissionsLookup $groupPermissionsLookup
-	 */
-	public function __construct(
-		NamespaceInfo $nsInfo,
-		UserGroupManager $userGroupManager,
-		LanguageConverterFactory $languageConverterFactory,
-		GroupPermissionsLookup $groupPermissionsLookup
-	) {
+	public function __construct() {
 		parent::__construct( 'Listgrouprights' );
-		$this->nsInfo = $nsInfo;
-		$this->userGroupManager = $userGroupManager;
-		$this->languageConverter = $languageConverterFactory->getLanguageConverter( $this->getContentLanguage() );
-		$this->groupPermissionsLookup = $groupPermissionsLookup;
 	}
 
 	/**
@@ -76,7 +43,6 @@ class SpecialListGroupRights extends SpecialPage {
 
 		$out = $this->getOutput();
 		$out->addModuleStyles( 'mediawiki.special' );
-		$this->addHelpLink( 'Help:User_rights_and_groups' );
 
 		$out->wrapWikiMsg( "<div class=\"mw-listgrouprights-key\">\n$1\n</div>", 'listgrouprights-key' );
 
@@ -89,29 +55,36 @@ class SpecialListGroupRights extends SpecialPage {
 		);
 
 		$config = $this->getConfig();
-		$addGroups = $config->get( MainConfigNames::AddGroups );
-		$removeGroups = $config->get( MainConfigNames::RemoveGroups );
-		$groupsAddToSelf = $config->get( MainConfigNames::GroupsAddToSelf );
-		$groupsRemoveFromSelf = $config->get( MainConfigNames::GroupsRemoveFromSelf );
-		$allGroups = array_merge(
-			$this->userGroupManager->listAllGroups(),
-			$this->userGroupManager->listAllImplicitGroups()
-		);
+		$groupPermissions = $config->get( 'GroupPermissions' );
+		$revokePermissions = $config->get( 'RevokePermissions' );
+		$addGroups = $config->get( 'AddGroups' );
+		$removeGroups = $config->get( 'RemoveGroups' );
+		$groupsAddToSelf = $config->get( 'GroupsAddToSelf' );
+		$groupsRemoveFromSelf = $config->get( 'GroupsRemoveFromSelf' );
+		$allGroups = array_unique( array_merge(
+			array_keys( $groupPermissions ),
+			array_keys( $revokePermissions ),
+			array_keys( $addGroups ),
+			array_keys( $removeGroups ),
+			array_keys( $groupsAddToSelf ),
+			array_keys( $groupsRemoveFromSelf )
+		) );
 		asort( $allGroups );
 
 		$linkRenderer = $this->getLinkRenderer();
-		$lang = $this->getLanguage();
 
 		foreach ( $allGroups as $group ) {
-			$permissions = $this->groupPermissionsLookup->getGrantedPermissions( $group );
+			$permissions = isset( $groupPermissions[$group] )
+				? $groupPermissions[$group]
+				: [];
 			$groupname = ( $group == '*' ) // Replace * with a more descriptive groupname
 				? 'all'
 				: $group;
 
-			$groupnameLocalized = $lang->getGroupName( $groupname );
+			$groupnameLocalized = UserGroupMembership::getGroupName( $groupname );
 
 			$grouppageLocalizedTitle = UserGroupMembership::getGroupPage( $groupname )
-				?: Title::makeTitleSafe( NS_PROJECT, $groupname );
+				?: Title::newFromText( MWNamespace::getCanonicalName( NS_PROJECT ) . ':' . $groupname );
 
 			if ( $group == '*' || !$grouppageLocalizedTitle ) {
 				// Do not make a link for the generic * group or group with invalid group page
@@ -129,7 +102,7 @@ class SpecialListGroupRights extends SpecialPage {
 					SpecialPage::getTitleFor( 'Listusers' ),
 					$this->msg( 'listgrouprights-members' )->text()
 				);
-			} elseif ( !in_array( $group, $config->get( MainConfigNames::ImplicitGroups ) ) ) {
+			} elseif ( !in_array( $group, $config->get( 'ImplicitGroups' ) ) ) {
 				$grouplink = '<br />' . $linkRenderer->makeKnownLink(
 					SpecialPage::getTitleFor( 'Listusers' ),
 					$this->msg( 'listgrouprights-members' )->text(),
@@ -141,11 +114,13 @@ class SpecialListGroupRights extends SpecialPage {
 				$grouplink = '';
 			}
 
-			$revoke = $this->groupPermissionsLookup->getRevokedPermissions( $group );
-			$addgroups = $addGroups[$group] ?? [];
-			$removegroups = $removeGroups[$group] ?? [];
-			$addgroupsSelf = $groupsAddToSelf[$group] ?? [];
-			$removegroupsSelf = $groupsRemoveFromSelf[$group] ?? [];
+			$revoke = isset( $revokePermissions[$group] ) ? $revokePermissions[$group] : [];
+			$addgroups = isset( $addGroups[$group] ) ? $addGroups[$group] : [];
+			$removegroups = isset( $removeGroups[$group] ) ? $removeGroups[$group] : [];
+			$addgroupsSelf = isset( $groupsAddToSelf[$group] ) ? $groupsAddToSelf[$group] : [];
+			$removegroupsSelf = isset( $groupsRemoveFromSelf[$group] )
+				? $groupsRemoveFromSelf[$group]
+				: [];
 
 			$id = $group == '*' ? false : Sanitizer::escapeIdForAttribute( $group );
 			$out->addHTML( Html::rawElement( 'tr', [ 'id' => $id ], "
@@ -162,8 +137,9 @@ class SpecialListGroupRights extends SpecialPage {
 	}
 
 	private function outputNamespaceProtectionInfo() {
+		global $wgContLang;
 		$out = $this->getOutput();
-		$namespaceProtection = $this->getConfig()->get( MainConfigNames::NamespaceProtection );
+		$namespaceProtection = $this->getConfig()->get( 'NamespaceProtection' );
 
 		if ( count( $namespaceProtection ) == 0 ) {
 			return;
@@ -189,16 +165,15 @@ class SpecialListGroupRights extends SpecialPage {
 		);
 		$linkRenderer = $this->getLinkRenderer();
 		ksort( $namespaceProtection );
-		$validNamespaces = $this->nsInfo->getValidNamespaces();
 		foreach ( $namespaceProtection as $namespace => $rights ) {
-			if ( !in_array( $namespace, $validNamespaces ) ) {
+			if ( !in_array( $namespace, MWNamespace::getValidNamespaces() ) ) {
 				continue;
 			}
 
 			if ( $namespace == NS_MAIN ) {
 				$namespaceText = $this->msg( 'blanknamespace' )->text();
 			} else {
-				$namespaceText = $this->languageConverter->convertNamespace( $namespace );
+				$namespaceText = $wgContLang->convertNamespace( $namespace );
 			}
 
 			$out->addHTML(
@@ -246,8 +221,8 @@ class SpecialListGroupRights extends SpecialPage {
 	/**
 	 * Create a user-readable list of permissions from the given array.
 	 *
-	 * @param string[] $permissions Array of granted permissions
-	 * @param string[] $revoke Array of revoked permissions
+	 * @param array $permissions Array of permission => bool (from $wgGroupPermissions items)
+	 * @param array $revoke Array of permission => bool (from $wgRevokePermissions items)
 	 * @param array $add Array of groups this group is allowed to add or true
 	 * @param array $remove Array of groups this group is allowed to remove or true
 	 * @param array $addSelf Array of groups this group is allowed to add to self or true
@@ -256,26 +231,28 @@ class SpecialListGroupRights extends SpecialPage {
 	 */
 	private function formatPermissions( $permissions, $revoke, $add, $remove, $addSelf, $removeSelf ) {
 		$r = [];
-		foreach ( $permissions as $permission ) {
+		foreach ( $permissions as $permission => $granted ) {
 			// show as granted only if it isn't revoked to prevent duplicate display of permissions
-			if ( !isset( $revoke[$permission] ) || !$revoke[$permission] ) {
+			if ( $granted && ( !isset( $revoke[$permission] ) || !$revoke[$permission] ) ) {
 				$r[] = $this->msg( 'listgrouprights-right-display',
 					User::getRightDescription( $permission ),
 					'<span class="mw-listgrouprights-right-name">' . $permission . '</span>'
 				)->parse();
 			}
 		}
-		foreach ( $revoke as $permission ) {
-			$r[] = $this->msg( 'listgrouprights-right-revoked',
-				User::getRightDescription( $permission ),
-				'<span class="mw-listgrouprights-right-name">' . $permission . '</span>'
-			)->parse();
+		foreach ( $revoke as $permission => $revoked ) {
+			if ( $revoked ) {
+				$r[] = $this->msg( 'listgrouprights-right-revoked',
+					User::getRightDescription( $permission ),
+					'<span class="mw-listgrouprights-right-name">' . $permission . '</span>'
+				)->parse();
+			}
 		}
 
 		sort( $r );
 
 		$lang = $this->getLanguage();
-		$allGroups = $this->userGroupManager->listAllGroups();
+		$allGroups = User::getAllGroups();
 
 		$changeGroups = [
 			'addgroup' => $add,
@@ -285,7 +262,6 @@ class SpecialListGroupRights extends SpecialPage {
 		];
 
 		foreach ( $changeGroups as $messageKey => $changeGroup ) {
-			// @phan-suppress-next-line PhanTypeComparisonFromArray
 			if ( $changeGroup === true ) {
 				// For grep: listgrouprights-addgroup-all, listgrouprights-removegroup-all,
 				// listgrouprights-addgroup-self-all, listgrouprights-removegroup-self-all

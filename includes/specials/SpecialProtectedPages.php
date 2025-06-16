@@ -21,12 +21,6 @@
  * @ingroup SpecialPage
  */
 
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\CommentFormatter\RowCommentFormatter;
-use MediaWiki\MainConfigNames;
-use MediaWiki\Permissions\RestrictionStore;
-use Wikimedia\Rdbms\ILoadBalancer;
-
 /**
  * A special page that lists protected pages
  *
@@ -36,54 +30,14 @@ class SpecialProtectedpages extends SpecialPage {
 	protected $IdLevel = 'level';
 	protected $IdType = 'type';
 
-	/** @var LinkBatchFactory */
-	private $linkBatchFactory;
-
-	/** @var ILoadBalancer */
-	private $loadBalancer;
-
-	/** @var CommentStore */
-	private $commentStore;
-
-	/** @var UserCache */
-	private $userCache;
-
-	/** @var RowCommentFormatter */
-	private $rowCommentFormatter;
-
-	/** @var RestrictionStore */
-	private $restrictionStore;
-
-	/**
-	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param ILoadBalancer $loadBalancer
-	 * @param CommentStore $commentStore
-	 * @param UserCache $userCache
-	 * @param RowCommentFormatter $rowCommentFormatter
-	 * @param RestrictionStore $restrictionStore
-	 */
-	public function __construct(
-		LinkBatchFactory $linkBatchFactory,
-		ILoadBalancer $loadBalancer,
-		CommentStore $commentStore,
-		UserCache $userCache,
-		RowCommentFormatter $rowCommentFormatter,
-		RestrictionStore $restrictionStore
-	) {
+	public function __construct() {
 		parent::__construct( 'Protectedpages' );
-		$this->linkBatchFactory = $linkBatchFactory;
-		$this->loadBalancer = $loadBalancer;
-		$this->commentStore = $commentStore;
-		$this->userCache = $userCache;
-		$this->rowCommentFormatter = $rowCommentFormatter;
-		$this->restrictionStore = $restrictionStore;
 	}
 
 	public function execute( $par ) {
 		$this->setHeaders();
 		$this->outputHeader();
 		$this->getOutput()->addModuleStyles( 'mediawiki.special' );
-		$this->addHelpLink( 'Help:Protected_pages' );
 
 		$request = $this->getRequest();
 		$type = $request->getVal( $this->IdType );
@@ -91,20 +45,12 @@ class SpecialProtectedpages extends SpecialPage {
 		$sizetype = $request->getVal( 'size-mode' );
 		$size = $request->getIntOrNull( 'size' );
 		$ns = $request->getIntOrNull( 'namespace' );
-
-		$filters = $request->getArray( 'wpfilters', [] );
-		$indefOnly = in_array( 'indefonly', $filters );
-		$cascadeOnly = in_array( 'cascadeonly', $filters );
-		$noRedirect = in_array( 'noredirect', $filters );
+		$indefOnly = $request->getBool( 'indefonly' ) ? 1 : 0;
+		$cascadeOnly = $request->getBool( 'cascadeonly' ) ? 1 : 0;
+		$noRedirect = $request->getBool( 'noredirect' ) ? 1 : 0;
 
 		$pager = new ProtectedPagesPager(
-			$this->getContext(),
-			$this->commentStore,
-			$this->linkBatchFactory,
-			$this->getLinkRenderer(),
-			$this->loadBalancer,
-			$this->rowCommentFormatter,
-			$this->userCache,
+			$this,
 			[],
 			$type,
 			$level,
@@ -113,7 +59,8 @@ class SpecialProtectedpages extends SpecialPage {
 			$size,
 			$indefOnly,
 			$cascadeOnly,
-			$noRedirect
+			$noRedirect,
+			$this->getLinkRenderer()
 		);
 
 		$this->getOutput()->addHTML( $this->showOptions(
@@ -122,7 +69,9 @@ class SpecialProtectedpages extends SpecialPage {
 			$level,
 			$sizetype,
 			$size,
-			$filters
+			$indefOnly,
+			$cascadeOnly,
+			$noRedirect
 		) );
 
 		if ( $pager->getNumRows() ) {
@@ -138,12 +87,13 @@ class SpecialProtectedpages extends SpecialPage {
 	 * @param string $level Restriction level
 	 * @param string $sizetype "min" or "max"
 	 * @param int $size
-	 * @param array $filters Filters set for the pager: indefOnly,
-	 *   cascadeOnly, noRedirect
+	 * @param bool $indefOnly Only indefinite protection
+	 * @param bool $cascadeOnly Only cascading protection
+	 * @param bool $noRedirect Don't show redirects
 	 * @return string Input form
 	 */
-	protected function showOptions( $namespace, $type, $level, $sizetype,
-		$size, $filters
+	protected function showOptions( $namespace, $type = 'edit', $level, $sizetype,
+		$size, $indefOnly, $cascadeOnly, $noRedirect
 	) {
 		$formDescriptor = [
 			'namespace' => [
@@ -156,26 +106,34 @@ class SpecialProtectedpages extends SpecialPage {
 			],
 			'typemenu' => $this->getTypeMenu( $type ),
 			'levelmenu' => $this->getLevelMenu( $level ),
-			'filters' => [
-				'class' => HTMLMultiSelectField::class,
-				'label' => $this->msg( 'protectedpages-filters' )->text(),
-				'flatlist' => true,
-				'options-messages' => [
-					'protectedpages-indef' => 'indefonly',
-					'protectedpages-cascade' => 'cascadeonly',
-					'protectedpages-noredirect' => 'noredirect',
-				],
-				'default' => $filters,
+			'expirycheck' => [
+				'type' => 'check',
+				'label' => $this->msg( 'protectedpages-indef' )->text(),
+				'name' => 'indefonly',
+				'id' => 'indefonly',
+			],
+			'cascadecheck' => [
+				'type' => 'check',
+				'label' => $this->msg( 'protectedpages-cascade' )->text(),
+				'name' => 'cascadeonly',
+				'id' => 'cascadeonly',
+			],
+			'redirectcheck' => [
+				'type' => 'check',
+				'label' => $this->msg( 'protectedpages-noredirect' )->text(),
+				'name' => 'noredirect',
+				'id' => 'noredirect',
 			],
 			'sizelimit' => [
 				'class' => HTMLSizeFilterField::class,
 				'name' => 'size',
 			]
 		];
-		$htmlForm = HTMLForm::factory( 'ooui', $formDescriptor, $this->getContext() )
+		$htmlForm = new HTMLForm( $formDescriptor, $this->getContext() );
+		$htmlForm
 			->setMethod( 'get' )
 			->setWrapperLegendMsg( 'protectedpages' )
-			->setSubmitTextMsg( 'protectedpages-submit' );
+			->setSubmitText( $this->msg( 'protectedpages-submit' )->text() );
 
 		return $htmlForm->prepareForm()->getHTML( false );
 	}
@@ -190,7 +148,7 @@ class SpecialProtectedpages extends SpecialPage {
 		$options = [];
 
 		// First pass to load the log names
-		foreach ( $this->restrictionStore->listAllRestrictionTypes( true ) as $type ) {
+		foreach ( Title::getFilteredRestrictionTypes( true ) as $type ) {
 			// Messages: restriction-edit, restriction-move, restriction-create, restriction-upload
 			$text = $this->msg( "restriction-$type" )->text();
 			$m[$text] = $type;
@@ -221,7 +179,7 @@ class SpecialProtectedpages extends SpecialPage {
 		$options = [];
 
 		// First pass to load the log names
-		foreach ( $this->getConfig()->get( MainConfigNames::RestrictionLevels ) as $type ) {
+		foreach ( $this->getConfig()->get( 'RestrictionLevels' ) as $type ) {
 			// Messages used can be 'restriction-level-sysop' and 'restriction-level-autoconfirmed'
 			if ( $type != '' && $type != '*' ) {
 				$text = $this->msg( "restriction-level-$type" )->text();

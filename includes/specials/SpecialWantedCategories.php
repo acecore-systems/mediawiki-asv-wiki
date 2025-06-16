@@ -23,38 +23,19 @@
  * @ingroup SpecialPage
  */
 
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Languages\LanguageConverterFactory;
-use Wikimedia\Rdbms\ILoadBalancer;
-
 /**
  * A querypage to list the most wanted categories - implements Special:Wantedcategories
  *
  * @ingroup SpecialPage
  */
-class SpecialWantedCategories extends WantedQueryPage {
+class WantedCategoriesPage extends WantedQueryPage {
 	private $currentCategoryCounts;
 
-	/** @var ILanguageConverter */
-	private $languageConverter;
-
-	/**
-	 * @param ILoadBalancer $loadBalancer
-	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param LanguageConverterFactory $languageConverterFactory
-	 */
-	public function __construct(
-		ILoadBalancer $loadBalancer,
-		LinkBatchFactory $linkBatchFactory,
-		LanguageConverterFactory $languageConverterFactory
-	) {
-		parent::__construct( 'Wantedcategories' );
-		$this->setDBLoadBalancer( $loadBalancer );
-		$this->setLinkBatchFactory( $linkBatchFactory );
-		$this->languageConverter = $languageConverterFactory->getLanguageConverter( $this->getContentLanguage() );
+	function __construct( $name = 'Wantedcategories' ) {
+		parent::__construct( $name );
 	}
 
-	public function getQueryInfo() {
+	function getQueryInfo() {
 		return [
 			'tables' => [ 'categorylinks', 'page' ],
 			'fields' => [
@@ -70,7 +51,7 @@ class SpecialWantedCategories extends WantedQueryPage {
 		];
 	}
 
-	public function preprocessResults( $db, $res ) {
+	function preprocessResults( $db, $res ) {
 		parent::preprocessResults( $db, $res );
 
 		$this->currentCategoryCounts = [];
@@ -103,13 +84,14 @@ class SpecialWantedCategories extends WantedQueryPage {
 
 	/**
 	 * @param Skin $skin
-	 * @param stdClass $result Result row
+	 * @param object $result Result row
 	 * @return string
 	 */
-	public function formatResult( $skin, $result ) {
-		$nt = Title::makeTitle( $result->namespace, $result->title );
+	function formatResult( $skin, $result ) {
+		global $wgContLang;
 
-		$text = new HtmlArmor( $this->languageConverter->convertHtml( $nt->getText() ) );
+		$nt = Title::makeTitle( $result->namespace, $result->title );
+		$text = $wgContLang->convert( $nt->getText() );
 
 		if ( !$this->isCached() ) {
 			// We can assume the freshest data
@@ -121,7 +103,9 @@ class SpecialWantedCategories extends WantedQueryPage {
 		} else {
 			$plink = $this->getLinkRenderer()->makeLink( $nt, $text );
 
-			$currentValue = $this->currentCategoryCounts[$result->title] ?? 0;
+			$currentValue = isset( $this->currentCategoryCounts[$result->title] )
+				? $this->currentCategoryCounts[$result->title]
+				: 0;
 			$cachedValue = intval( $result->value ); // T76910
 
 			// If the category has been created or emptied since the list was refreshed, strike it

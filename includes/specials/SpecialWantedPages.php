@@ -21,10 +21,6 @@
  * @ingroup SpecialPage
  */
 
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\MainConfigNames;
-use Wikimedia\Rdbms\ILoadBalancer;
-
 /**
  * A special page that lists most linked pages that does not exist
  *
@@ -32,24 +28,15 @@ use Wikimedia\Rdbms\ILoadBalancer;
  */
 class WantedPagesPage extends WantedQueryPage {
 
-	/**
-	 * @param ILoadBalancer $loadBalancer
-	 * @param LinkBatchFactory $linkBatchFactory
-	 */
-	public function __construct(
-		ILoadBalancer $loadBalancer,
-		LinkBatchFactory $linkBatchFactory
-	) {
-		parent::__construct( 'Wantedpages' );
-		$this->setDBLoadBalancer( $loadBalancer );
-		$this->setLinkBatchFactory( $linkBatchFactory );
+	function __construct( $name = 'Wantedpages' ) {
+		parent::__construct( $name );
 	}
 
-	public function isIncludable() {
+	function isIncludable() {
 		return true;
 	}
 
-	public function execute( $par ) {
+	function execute( $par ) {
 		$inc = $this->including();
 
 		if ( $inc ) {
@@ -61,9 +48,9 @@ class WantedPagesPage extends WantedQueryPage {
 		parent::execute( $par );
 	}
 
-	public function getQueryInfo() {
-		$dbr = $this->getDBLoadBalancer()->getConnectionRef( ILoadBalancer::DB_REPLICA );
-		$count = $this->getConfig()->get( MainConfigNames::WantedPagesThreshold ) - 1;
+	function getQueryInfo() {
+		$dbr = wfGetDB( DB_REPLICA );
+		$count = $this->getConfig()->get( 'WantedPagesThreshold' ) - 1;
 		$query = [
 			'tables' => [
 				'pagelinks',
@@ -98,7 +85,9 @@ class WantedPagesPage extends WantedQueryPage {
 			]
 		];
 		// Replacement for the WantedPages::getSQL hook
-		$this->getHookRunner()->onWantedPages__getQueryInfo( $this, $query );
+		// Avoid PHP 7.1 warning from passing $this by reference
+		$wantedPages = $this;
+		Hooks::run( 'WantedPages::getQueryInfo', [ &$wantedPages, &$query ] );
 
 		return $query;
 	}

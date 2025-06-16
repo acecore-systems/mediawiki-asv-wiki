@@ -26,56 +26,32 @@
  * @author Danny B.
  */
 
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Linker\LinksMigration;
-use Wikimedia\Rdbms\ILoadBalancer;
-
 /**
  * A querypage to list the most wanted templates
  *
  * @ingroup SpecialPage
  */
-class SpecialWantedTemplates extends WantedQueryPage {
-
-	/** @var LinksMigration */
-	private $linksMigration;
-
-	/**
-	 * @param ILoadBalancer $loadBalancer
-	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param LinksMigration $linksMigration
-	 */
-	public function __construct(
-		ILoadBalancer $loadBalancer,
-		LinkBatchFactory $linkBatchFactory,
-		LinksMigration $linksMigration
-	) {
-		parent::__construct( 'Wantedtemplates' );
-		$this->setDBLoadBalancer( $loadBalancer );
-		$this->setLinkBatchFactory( $linkBatchFactory );
-		$this->linksMigration = $linksMigration;
+class WantedTemplatesPage extends WantedQueryPage {
+	function __construct( $name = 'Wantedtemplates' ) {
+		parent::__construct( $name );
 	}
 
-	public function getQueryInfo() {
-		$queryInfo = $this->linksMigration->getQueryInfo( 'templatelinks' );
-		list( $ns, $title ) = $this->linksMigration->getTitleFields( 'templatelinks' );
+	function getQueryInfo() {
 		return [
-			'tables' => array_merge( $queryInfo['tables'], [ 'page' ] ),
+			'tables' => [ 'templatelinks', 'page' ],
 			'fields' => [
-				'namespace' => $ns,
-				'title' => $title,
+				'namespace' => 'tl_namespace',
+				'title' => 'tl_title',
 				'value' => 'COUNT(*)'
 			],
 			'conds' => [
 				'page_title IS NULL',
-				$ns => NS_TEMPLATE
+				'tl_namespace' => NS_TEMPLATE
 			],
-			'options' => [ 'GROUP BY' => [ $ns, $title ] ],
-			'join_conds' => array_merge(
-				[ 'page' => [ 'LEFT JOIN',
-					[ "page_namespace = $ns", "page_title = $title" ] ] ],
-				$queryInfo['joins']
-			)
+			'options' => [ 'GROUP BY' => [ 'tl_namespace', 'tl_title' ] ],
+			'join_conds' => [ 'page' => [ 'LEFT JOIN',
+				[ 'page_namespace = tl_namespace',
+					'page_title = tl_title' ] ] ]
 		];
 	}
 

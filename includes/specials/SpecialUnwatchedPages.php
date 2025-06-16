@@ -24,46 +24,25 @@
  * @author Ævar Arnfjörð Bjarmason <avarab@gmail.com>
  */
 
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Languages\LanguageConverterFactory;
-use Wikimedia\Rdbms\IDatabase;
-use Wikimedia\Rdbms\ILoadBalancer;
 use Wikimedia\Rdbms\IResultWrapper;
+use Wikimedia\Rdbms\IDatabase;
 
 /**
- * A special page that displays a list of pages that are not on anyone's watchlist.
+ * A special page that displays a list of pages that are not on anyones watchlist.
  *
  * @ingroup SpecialPage
  */
-class SpecialUnwatchedPages extends QueryPage {
+class UnwatchedpagesPage extends QueryPage {
 
-	/** @var LinkBatchFactory */
-	private $linkBatchFactory;
-
-	/** @var ILanguageConverter */
-	private $languageConverter;
-
-	/**
-	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param ILoadBalancer $loadBalancer
-	 * @param LanguageConverterFactory $languageConverterFactory
-	 */
-	public function __construct(
-		LinkBatchFactory $linkBatchFactory,
-		ILoadBalancer $loadBalancer,
-		LanguageConverterFactory $languageConverterFactory
-	) {
-		parent::__construct( 'Unwatchedpages', 'unwatchedpages' );
-		$this->linkBatchFactory = $linkBatchFactory;
-		$this->setDBLoadBalancer( $loadBalancer );
-		$this->languageConverter = $languageConverterFactory->getLanguageConverter( $this->getContentLanguage() );
+	function __construct( $name = 'Unwatchedpages' ) {
+		parent::__construct( $name, 'unwatchedpages' );
 	}
 
 	public function isExpensive() {
 		return true;
 	}
 
-	public function isSyndicated() {
+	function isSyndicated() {
 		return false;
 	}
 
@@ -78,7 +57,7 @@ class SpecialUnwatchedPages extends QueryPage {
 			return;
 		}
 
-		$batch = $this->linkBatchFactory->newLinkBatch();
+		$batch = new LinkBatch();
 		foreach ( $res as $row ) {
 			$batch->add( $row->namespace, $row->title );
 		}
@@ -88,7 +67,7 @@ class SpecialUnwatchedPages extends QueryPage {
 	}
 
 	public function getQueryInfo() {
-		$dbr = $this->getDBLoadBalancer()->getConnectionRef( ILoadBalancer::DB_REPLICA );
+		$dbr = wfGetDB( DB_REPLICA );
 		return [
 			'tables' => [ 'page', 'watchlist' ],
 			'fields' => [
@@ -107,11 +86,11 @@ class SpecialUnwatchedPages extends QueryPage {
 		];
 	}
 
-	protected function sortDescending() {
+	function sortDescending() {
 		return false;
 	}
 
-	protected function getOrderFields() {
+	function getOrderFields() {
 		return [ 'page_namespace', 'page_title' ];
 	}
 
@@ -122,26 +101,27 @@ class SpecialUnwatchedPages extends QueryPage {
 	public function execute( $par ) {
 		parent::execute( $par );
 		$this->getOutput()->addModules( 'mediawiki.special.unwatchedPages' );
-		$this->addHelpLink( 'Help:Watchlist' );
 	}
 
 	/**
 	 * @param Skin $skin
-	 * @param stdClass $result Result row
+	 * @param object $result Result row
 	 * @return string
 	 */
-	public function formatResult( $skin, $result ) {
+	function formatResult( $skin, $result ) {
+		global $wgContLang;
+
 		$nt = Title::makeTitleSafe( $result->namespace, $result->title );
 		if ( !$nt ) {
 			return Html::element( 'span', [ 'class' => 'mw-invalidtitle' ],
 				Linker::getInvalidTitleDescription( $this->getContext(), $result->namespace, $result->title ) );
 		}
 
-		$text = $this->languageConverter->convertHtml( $nt->getPrefixedText() );
+		$text = $wgContLang->convert( $nt->getPrefixedText() );
 
 		$linkRenderer = $this->getLinkRenderer();
 
-		$plink = $linkRenderer->makeKnownLink( $nt, new HtmlArmor( $text ) );
+		$plink = $linkRenderer->makeKnownLink( $nt, $text );
 		$wlink = $linkRenderer->makeKnownLink(
 			$nt,
 			$this->msg( 'watch' )->text(),

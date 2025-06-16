@@ -1,10 +1,7 @@
 <?php
 
-namespace MediaWiki\Extension\ConfirmEdit\Auth;
-
 use MediaWiki\Auth\AuthenticationRequest;
 use MediaWiki\Auth\AuthManager;
-use MediaWiki\Extension\ConfirmEdit\Hooks;
 
 /**
  * Generic captcha authentication request class. A captcha consist some data stored in the session
@@ -15,35 +12,22 @@ class CaptchaAuthenticationRequest extends AuthenticationRequest {
 	public $captchaId;
 
 	/** @var array Information about the captcha (e.g. question text; solution). Exact semantics
-	 *    differ between types.
-	 */
+	 *    differ between types. */
 	public $captchaData;
 
 	/** @var string Captcha solution submitted by the user. */
 	public $captchaWord;
 
-	/**
-	 * @param string $id
-	 * @param array $data
-	 */
 	public function __construct( $id, $data ) {
 		$this->captchaId = $id;
 		$this->captchaData = $data;
 	}
 
-	/** @inheritDoc */
-	public function getUniqueId() {
-		return 'CaptchaAuthenticationRequest';
-	}
-
-	/**
-	 * @inheritDoc
-	 */
 	public function loadFromSubmission( array $data ) {
 		$success = parent::loadFromSubmission( $data );
 		if ( $success ) {
 			// captchaId and captchaWord was set from the submission but captchaData was not.
-			$captcha = Hooks::getInstance();
+			$captcha = ConfirmEditHooks::getInstance();
 			$this->captchaData = $captcha->retrieveCaptcha( $this->captchaId );
 			if ( !$this->captchaData ) {
 				return false;
@@ -52,14 +36,10 @@ class CaptchaAuthenticationRequest extends AuthenticationRequest {
 		return $success;
 	}
 
-	/**
-	 * @inheritDoc
-	 */
 	public function getFieldInfo() {
-		$captcha = Hooks::getInstance();
+		$captcha = ConfirmEditHooks::getInstance();
 
-		// doesn't actually exist but *Captcha::getMessage will handle that
-		$action = 'generic';
+		$action = 'generic'; // doesn't actually exist but *Captcha::getMessage will handle that
 		switch ( $this->action ) {
 			case AuthManager::ACTION_LOGIN:
 				$action = 'badlogin';
@@ -92,19 +72,13 @@ class CaptchaAuthenticationRequest extends AuthenticationRequest {
 		return $fields;
 	}
 
-	/**
-	 * @inheritDoc
-	 */
 	public function getMetadata() {
-		return ( Hooks::getInstance() )->describeCaptchaType();
+		$captcha = ConfirmEditHooks::getInstance();
+		return $captcha->describeCaptchaType();
 	}
 
-	/**
-	 * @param array $data
-	 * @return CaptchaAuthenticationRequest
-	 */
 	public static function __set_state( $data ) {
-		$ret = new static( '', [] );
+		$ret = new static( null, null );
 		foreach ( $data as $k => $v ) {
 			$ret->$k = $v;
 		}

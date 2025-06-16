@@ -20,17 +20,15 @@
  * @file
  */
 
-use MediaWiki\MainConfigNames;
-
 /**
  * @group GlobalFunctions
  * @covers ::wfParseUrl
  */
-class WfParseUrlTest extends MediaWikiIntegrationTestCase {
-	protected function setUp(): void {
+class WfParseUrlTest extends MediaWikiTestCase {
+	protected function setUp() {
 		parent::setUp();
 
-		$this->overrideConfigValue( MainConfigNames::UrlProtocols, [
+		$this->setMwGlobals( 'wgUrlProtocols', [
 			'//',
 			'http://',
 			'https://',
@@ -40,13 +38,120 @@ class WfParseUrlTest extends MediaWikiIntegrationTestCase {
 	}
 
 	/**
-	 * Same tests as the UrlUtils method
-	 * @dataProvider UrlUtilsProviders::provideParse
+	 * @dataProvider provideURLs
 	 */
 	public function testWfParseUrl( $url, $parts ) {
 		$this->assertEquals(
 			$parts,
 			wfParseUrl( $url )
 		);
+	}
+
+	/**
+	 * Provider of URLs for testing wfParseUrl()
+	 *
+	 * @return array
+	 */
+	public static function provideURLs() {
+		return [
+			[
+				'//example.org',
+				[
+					'scheme' => '',
+					'delimiter' => '//',
+					'host' => 'example.org',
+				]
+			],
+			[
+				'http://example.org',
+				[
+					'scheme' => 'http',
+					'delimiter' => '://',
+					'host' => 'example.org',
+				]
+			],
+			[
+				'https://example.org',
+				[
+					'scheme' => 'https',
+					'delimiter' => '://',
+					'host' => 'example.org',
+				]
+			],
+			[
+				'http://id:key@example.org:123/path?foo=bar#baz',
+				[
+					'scheme' => 'http',
+					'delimiter' => '://',
+					'user' => 'id',
+					'pass' => 'key',
+					'host' => 'example.org',
+					'port' => 123,
+					'path' => '/path',
+					'query' => 'foo=bar',
+					'fragment' => 'baz',
+				]
+			],
+			[
+				'file://example.org/etc/php.ini',
+				[
+					'scheme' => 'file',
+					'delimiter' => '://',
+					'host' => 'example.org',
+					'path' => '/etc/php.ini',
+				]
+			],
+			[
+				'file:///etc/php.ini',
+				[
+					'scheme' => 'file',
+					'delimiter' => '://',
+					'host' => '',
+					'path' => '/etc/php.ini',
+				]
+			],
+			[
+				'file:///c:/',
+				[
+					'scheme' => 'file',
+					'delimiter' => '://',
+					'host' => '',
+					'path' => '/c:/',
+				]
+			],
+			[
+				'mailto:id@example.org',
+				[
+					'scheme' => 'mailto',
+					'delimiter' => ':',
+					'host' => 'id@example.org',
+					'path' => '',
+				]
+			],
+			[
+				'mailto:id@example.org?subject=Foo',
+				[
+					'scheme' => 'mailto',
+					'delimiter' => ':',
+					'host' => 'id@example.org',
+					'path' => '',
+					'query' => 'subject=Foo',
+				]
+			],
+			[
+				'mailto:?subject=Foo',
+				[
+					'scheme' => 'mailto',
+					'delimiter' => ':',
+					'host' => '',
+					'path' => '',
+					'query' => 'subject=Foo',
+				]
+			],
+			[
+				'invalid://test/',
+				false
+			],
+		];
 	}
 }

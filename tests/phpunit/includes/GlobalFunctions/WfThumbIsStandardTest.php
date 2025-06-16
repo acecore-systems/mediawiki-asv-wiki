@@ -1,23 +1,22 @@
 <?php
 
-use MediaWiki\MainConfigNames;
-use Psr\Log\NullLogger;
+use MediaWiki\MediaWikiServices;
 
 /**
  * @group GlobalFunctions
  * @covers ::wfThumbIsStandard
  */
-class WfThumbIsStandardTest extends MediaWikiIntegrationTestCase {
+class WfThumbIsStandardTest extends MediaWikiTestCase {
 
-	protected function setUp(): void {
+	protected function setUp() {
 		parent::setUp();
 
-		$this->overrideConfigValues( [
-			MainConfigNames::ThumbLimits => [
+		$this->setMwGlobals( [
+			'wgThumbLimits' => [
 				100,
 				401
 			],
-			MainConfigNames::ImageLimits => [
+			'wgImageLimits' => [
 				[ 300, 225 ],
 				[ 800, 600 ],
 			],
@@ -95,11 +94,8 @@ class WfThumbIsStandardTest extends MediaWikiIntegrationTestCase {
 	 * @dataProvider provideThumbParams
 	 */
 	public function testIsStandard( $message, $expected, $params ) {
-		$handlers = $this->getServiceContainer()->getMainConfig()->get( 'ParserTestMediaHandlers' );
-		$this->setService(
-			'MediaHandlerFactory',
-			new MediaHandlerFactory( new NullLogger(), $handlers )
-		);
+		$handlers = MediaWikiServices::getInstance()->getMainConfig()->get( 'ParserTestMediaHandlers' );
+		$this->setService( 'MediaHandlerFactory', new MediaHandlerFactory( $handlers ) );
 		$this->assertSame(
 			$expected,
 			wfThumbIsStandard( new FakeDimensionFile( [ 2000, 1800 ], 'image/jpeg' ), $params ),

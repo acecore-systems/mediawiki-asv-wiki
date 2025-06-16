@@ -21,65 +21,38 @@
  * @ingroup SpecialPage
  */
 
-use MediaWiki\Cache\LinkBatchFactory;
-use MediaWiki\Languages\LanguageConverterFactory;
-use Wikimedia\Rdbms\ILoadBalancer;
-
 /**
  * A special page looking for page without any category.
  *
  * @ingroup SpecialPage
  * @todo FIXME: Make $requestedNamespace selectable, unify all subclasses into one
  */
-class SpecialUncategorizedPages extends PageQueryPage {
-	/** @var int|false */
+class UncategorizedPagesPage extends PageQueryPage {
 	protected $requestedNamespace = false;
 
-	/** @var NamespaceInfo */
-	private $namespaceInfo;
-
-	/**
-	 * @param NamespaceInfo $namespaceInfo
-	 * @param ILoadBalancer $loadBalancer
-	 * @param LinkBatchFactory $linkBatchFactory
-	 * @param LanguageConverterFactory $languageConverterFactory
-	 */
-	public function __construct(
-		NamespaceInfo $namespaceInfo,
-		ILoadBalancer $loadBalancer,
-		LinkBatchFactory $linkBatchFactory,
-		LanguageConverterFactory $languageConverterFactory
-	) {
-		parent::__construct( 'Uncategorizedpages' );
-		$this->namespaceInfo = $namespaceInfo;
-		$this->setDBLoadBalancer( $loadBalancer );
-		$this->setLinkBatchFactory( $linkBatchFactory );
-		$this->setLanguageConverter( $languageConverterFactory->getLanguageConverter( $this->getContentLanguage() ) );
+	function __construct( $name = 'Uncategorizedpages' ) {
+		parent::__construct( $name );
 	}
 
-	protected function sortDescending() {
+	function sortDescending() {
 		return false;
 	}
 
-	public function isExpensive() {
+	function isExpensive() {
 		return true;
 	}
 
-	public function isSyndicated() {
+	function isSyndicated() {
 		return false;
 	}
 
-	public function execute( $par ) {
-		$this->addHelpLink( 'Help:Categories' );
-		parent::execute( $par );
-	}
-
-	public function getQueryInfo() {
+	function getQueryInfo() {
 		return [
 			'tables' => [ 'page', 'categorylinks' ],
 			'fields' => [
 				'namespace' => 'page_namespace',
 				'title' => 'page_title',
+				'value' => 'page_title'
 			],
 			// default for page_namespace is all content namespaces (if requestedNamespace is false)
 			// otherwise, page_namespace is requestedNamespace
@@ -87,7 +60,7 @@ class SpecialUncategorizedPages extends PageQueryPage {
 				'cl_from IS NULL',
 				'page_namespace' => $this->requestedNamespace !== false
 						? $this->requestedNamespace
-						: $this->namespaceInfo->getContentNamespaces(),
+						: MWNamespace::getContentNamespaces(),
 				'page_is_redirect' => 0
 			],
 			'join_conds' => [
@@ -96,12 +69,10 @@ class SpecialUncategorizedPages extends PageQueryPage {
 		];
 	}
 
-	protected function getOrderFields() {
+	function getOrderFields() {
 		// For some crazy reason ordering by a constant
 		// causes a filesort
-		if ( $this->requestedNamespace === false &&
-			count( $this->namespaceInfo->getContentNamespaces() ) > 1
-		) {
+		if ( $this->requestedNamespace === false && count( MWNamespace::getContentNamespaces() ) > 1 ) {
 			return [ 'page_namespace', 'page_title' ];
 		}
 
