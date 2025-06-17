@@ -19,6 +19,7 @@
 /cache/
 /tmp/
 /thumbs/
+/vender/
 
 # Composer依存（利用時）
 /composer.lock
