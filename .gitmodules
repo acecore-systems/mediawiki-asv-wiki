@@ -138,3 +138,7 @@
 	path = extensions/WikiMarkdown
 	url = https://github.com/kuenzign/WikiMarkdown.git
 	branch = main
+[submodule "extensions/mediawiki-extensions-CSS"]
+	path = extensions/mediawiki-extensions-CSS
+	url = https://github.com/wikimedia/mediawiki-extensions-CSS
+	branch = REL1_39
