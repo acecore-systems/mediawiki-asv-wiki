@@ -134,3 +134,7 @@
 	path = vendor
 	url = https://gerrit.wikimedia.org/r/mediawiki/vendor
 	branch = REL1_39
+[submodule "extensions/WikiMarkdown"]
+	path = extensions/WikiMarkdown
+	url = https://github.com/kuenzign/WikiMarkdown.git
+	branch = main
